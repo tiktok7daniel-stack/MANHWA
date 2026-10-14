@@ -29,14 +29,15 @@ import java.text.NumberFormat
 
 @Composable
 internal fun ColumnScope.ReadingModePage(viewModel: ReaderSettingsViewModel) {
-    HeadingItem(MR.strings.pref_category_for_this_series)
-    val manga by viewModel.mangaFlow.collectAsState()
-
     // TachiyomiAT
     CheckboxItem(
         label = stringResource(ATMR.strings.pref_show_translations),
-        pref = screenModel.preferences.showTranslations,
+        pref = viewModel.preferences.showTranslations,
     )
+
+    HeadingItem(MR.strings.pref_category_for_this_series)
+    val manga by viewModel.mangaFlow.collectAsState()
+
     val readingMode = remember(manga) { ReadingMode.fromPreference(manga?.readingMode?.toInt()) }
     SettingsChipRow(MR.strings.pref_category_reading_mode) {
         ReadingMode.entries.map {
