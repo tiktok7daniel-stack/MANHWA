@@ -26,6 +26,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.glass
 import eu.kanade.translation.translator.AiTranslator
+import eu.kanade.translation.recognizer.TextRecognizerLanguage
+import eu.kanade.translation.translator.aiPart
+import eu.kanade.translation.translator.GoogleTranslator
 import eu.kanade.translation.translator.TextTranslatorLanguage
 import eu.kanade.translation.translator.TextTranslators
 import kotlinx.coroutines.CancellationException
@@ -121,21 +124,28 @@ fun DescriptionTranslator(description: String?, modifier: Modifier = Modifier) {
     }
 }
 
-/** Returns the translation, or null when no AI engine is set up. */
+/** Translates with the AI when possible; if it is not set up, busy or failing, Google Translate does it. */
 private suspend fun translate(prefs: TranslationPreferences, text: String): String? = withContext(Dispatchers.IO) {
     val engine = TextTranslators.fromPref(prefs.translationEngine())
-    val keyMissing = prefs.translationEngineApiKey().get().isBlank() && engine != TextTranslators.OPENAI
-    if (!engine.isAi || keyMissing) return@withContext null
-    val target = TextTranslatorLanguage.fromPref(prefs.translateToLanguage()).label
-    val ai = engine.build(prefs) as AiTranslator
+    val built = engine.build(prefs)
+    val ai = built.aiPart
+    val target = TextTranslatorLanguage.fromPref(prefs.translateToLanguage())
+    val google = GoogleTranslator(TextRecognizerLanguage.ENGLISH, target)
+    if (ai == null) {
+        built.close()
+        return@withContext google.translateText(text).ifBlank { null }
+    }
     try {
         val json = ai.askJson(
-            "Translate this comic synopsis into natural $target. Keep names consistent. " +
+            "Translate this comic synopsis into natural ${target.label}. Keep names consistent. " +
                 "Reply with ONLY this JSON: {\"translation\": \"...\"}",
             text,
         )
-        (json["translation"] as? JsonPrimitive)?.contentOrNull
+        (json["translation"] as? JsonPrimitive)?.contentOrNull ?: google.translateText(text)
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        google.translateText(text).ifBlank { throw e }
     } finally {
-        ai.close()
+        built.close()
     }
 }

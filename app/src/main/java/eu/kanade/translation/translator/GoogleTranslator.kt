@@ -19,12 +19,24 @@ class GoogleTranslator(
     val okHttpClient = OkHttpClient()
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
-        pages.mapValues { (_, v) ->
-            v.blocks.map { b ->
-                b.translation = translateText(toLang.code, b.text)
-            }
+        // A few bubbles at a time, so a page comes back in about a second
+        val gate = kotlinx.coroutines.sync.Semaphore(4)
+        kotlinx.coroutines.coroutineScope {
+            pages.values.flatMap { it.blocks }.map { block ->
+                kotlinx.coroutines.async {
+                    gate.acquire()
+                    try {
+                        block.translation = translateText(toLang.code, block.text.replace('\n', ' ')).ifBlank { block.text }
+                    } finally {
+                        gate.release()
+                    }
+                }
+            }.forEach { it.await() }
         }
     }
+
+    /** Translates one text; used as the fast draft of the hybrid engine and as the last fallback. */
+    suspend fun translateText(text: String): String = translateText(toLang.code, text)
 
     private suspend fun translateText(lang: String, text: String): String {
         val access = getTranslateUrl(lang, text)
@@ -34,8 +46,14 @@ class GoogleTranslator(
         val body = response.body
         val string = body.string()
         try {
-            val jSONArray = JSONArray(string).getJSONArray(0).getJSONArray(0)
-            return jSONArray.getString(0)
+            // Long texts come back split into sentences: join all of them, not only the first
+            val segments = JSONArray(string).getJSONArray(0)
+            return buildString {
+                for (i in 0 until segments.length()) {
+                    val segment = segments.optJSONArray(i) ?: continue
+                    if (!segment.isNull(0)) append(segment.optString(0))
+                }
+            }
         } catch (e: Exception) {
             logcat { "Image Translation Error : $e" }
         }

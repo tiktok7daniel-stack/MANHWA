@@ -16,7 +16,7 @@ class TranslationPreferences(
     fun translateToLanguage() = preferenceStore.getString("translate_language_to", "ARABIC")
     fun translationFont() = preferenceStore.getInt("translation_font", 0)
 
-    fun translationEngine() = preferenceStore.getInt("translation_engine", 0)
+    fun translationEngine() = preferenceStore.getInt("translation_engine", 6)
     fun translationEngineModel() = preferenceStore.getString("translation_engine_model_v2", "")
     fun translationEngineApiKey() = preferenceStore.getString("translation_engine_api_key", "")
     fun translationEngineTemperature() = preferenceStore.getString("translation_engine_temperature", "0.4")

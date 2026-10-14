@@ -22,6 +22,7 @@ import eu.kanade.translation.glossary.GlossaryStore
 import eu.kanade.translation.live.PageOcr
 import eu.kanade.translation.data.TranslationProvider
 import eu.kanade.translation.translator.AiTranslator
+import eu.kanade.translation.translator.aiPart
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.model.Translation
 import eu.kanade.translation.model.TranslationBlock
@@ -239,7 +240,7 @@ class ChapterTranslator(
 
             val pages = mutableMapOf<String, PageTranslation>()
             // Vision engines also get the page images, so they can read what the OCR missed
-            val vision = textTranslator is AiTranslator && translationPreferences.translationVision().get()
+            val vision = textTranslator.aiPart != null && translationPreferences.translationVision().get()
             val images = mutableMapOf<String, PageImage>()
             val tmpFile = translationMangaDir.createFile("tmp")!!
             val streams = getChapterPages(chapterPath)
@@ -266,14 +267,14 @@ class ChapterTranslator(
             tmpFile.delete()
             withContext(Dispatchers.IO) {
                 // The series glossary keeps names consistent; new names found are added to it
-                (textTranslator as? AiTranslator)?.apply {
+                textTranslator.aiPart?.apply {
                     glossary = glossaryStore.asMap(translation.manga.id)
                     learnTerms = true
                     discoveredTerms.clear()
                 }
                 // Translate the text in blocks , this mutates the original blocks
                 textTranslator.translate(pages, images)
-                (textTranslator as? AiTranslator)?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms) }
+                textTranslator.aiPart?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms) }
                 // Bubbles added by the vision model still need their erase colour
                 images.forEach { (name, image) -> pages[name]?.let { PageImageProcessor.sampleColorsFromTiles(it, image) } }
                 pages.entries.removeAll { it.value.blocks.isEmpty() }

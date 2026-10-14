@@ -77,6 +77,9 @@ class AiTranslator(
     /** The series glossary (source term -> translation) every translation must follow. */
     var glossary: Map<String, String> = emptyMap()
 
+    /** Hybrid mode: blocks already hold a fast machine draft the model should improve, not ignore. */
+    var useDrafts: Boolean = false
+
     /** When set, the model also reports new names and terms, collected in [discoveredTerms]. */
     var learnTerms: Boolean = false
 
@@ -124,7 +127,13 @@ class AiTranslator(
     ) {
         if (batch.isEmpty()) return
         val input = buildJsonObject {
-            batch.forEach { name -> putJsonArray(name) { pages[name]!!.blocks.forEach { add(it.text) } } }
+            batch.forEach { name ->
+                putJsonArray(name) {
+                    pages[name]!!.blocks.forEach {
+                        add(if (useDrafts && it.translation.isNotBlank()) "${it.text} $DRAFT_MARK ${it.translation}" else it.text)
+                    }
+                }
+            }
         }
         val output = withRetry { parse(request(systemPrompt(vision = false), listOf(Part.Text(userPrompt(input, context))))) }
         collectTerms(output)
@@ -214,6 +223,7 @@ class AiTranslator(
         addJsonObject {
             put("id", id)
             put("ocr", block.text)
+            if (useDrafts && block.translation.isNotBlank()) put("draft", block.translation)
             if (tile != null && page.imgWidth > 0) {
                 put("slice", tileIndex)
                 putJsonArray("box_2d") {
@@ -332,6 +342,13 @@ class AiTranslator(
         appendLine("6. Replace watermarks, scanlation credits, site names and URLs with exactly \"$WATERMARK\".")
         if (toLang == TextTranslatorLanguage.ARABIC) {
             appendLine("7. Use clear Modern Standard Arabic suited to comics, with Arabic punctuation (، ؟ !).")
+        }
+        if (useDrafts) {
+            appendLine()
+            appendLine("Each bubble comes with a fast machine translation (after \"$DRAFT_MARK\" or in \"draft\"). It is often literal,")
+            appendLine("wrong about gender, tone and names. Read the whole page first, understand who speaks to whom and the")
+            appendLine("scene, then write the final translation: fix meaning and context, gender agreement (he/she, verb forms),")
+            appendLine("register and the glossary. Never output the marker or the source text.")
         }
         if (glossary.isNotEmpty()) {
             appendLine()
@@ -561,10 +578,27 @@ class AiTranslator(
         return true
     }
 
+    /** Busy or overloaded model (503 / 429 / 5xx): try the next lighter model right away. */
+    private fun switchToFallback(e: Exception): Boolean {
+        if (e !is ApiException) return false
+        val busy = e.code == 429 || e.code in 500..504 ||
+            e.message.orEmpty().let { it.contains("overloaded", true) || it.contains("high demand", true) || it.contains("UNAVAILABLE") }
+        if (!busy) return false
+        val chain = FALLBACK_MODELS[provider].orEmpty()
+        val next = chain.firstOrNull { it != model && it !in triedFallbacks } ?: return false
+        triedFallbacks += model
+        logcat(LogPriority.WARN) { "Model $model is busy (${e.code}), trying $next" }
+        model = next
+        return true
+    }
+
+    private val triedFallbacks = mutableSetOf<String>()
+
     private suspend fun <T> withRetry(block: suspend () -> T): T {
-        var wait = 2_000L
+        var wait = 1_000L
         var replaced = 0
-        repeat(MAX_ATTEMPTS - 1) { attempt ->
+        triedFallbacks.clear()
+        repeat(MAX_ATTEMPTS + 2) { attempt ->
             try {
                 return block()
             } catch (e: Exception) {
@@ -572,6 +606,7 @@ class AiTranslator(
                     replaced++
                     return@repeat
                 }
+                if (switchToFallback(e)) return@repeat
                 if (e is ApiException && e.code in 400..499 && e.code != 408 && e.code != 429) throw e
                 logcat(LogPriority.WARN, e) { "AI translation attempt ${attempt + 1} failed, retrying" }
                 delay(wait)
@@ -597,6 +632,11 @@ class AiTranslator(
     }
 
     private companion object {
+        const val DRAFT_MARK = "|||"
+        val FALLBACK_MODELS = mapOf(
+            Provider.GEMINI to listOf("gemini-flash-latest", "gemini-flash-lite-latest"),
+            Provider.OPENROUTER to listOf("openrouter/auto"),
+        )
         const val TERMS_KEY = "_terms"
         const val MAX_GLOSSARY = 200
         const val WATERMARK = "RTMTH"

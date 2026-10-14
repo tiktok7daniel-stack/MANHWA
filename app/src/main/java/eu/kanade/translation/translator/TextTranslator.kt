@@ -23,6 +23,9 @@ enum class TextTranslators(val label: String, val needsApiKey: Boolean = false) 
     OPENROUTER("OpenRouter (any model)", needsApiKey = true),
     OPENAI("OpenAI-compatible (custom URL)", needsApiKey = true),
     CLAUDE("Claude AI", needsApiKey = true),
+
+    /** Google draft + AI correction with page context. Works with Google alone when no key is set. */
+    HYBRID("Hybrid Turbo (Google + AI context)"),
     ;
 
     val isAi: Boolean get() = this in AI_ENGINES
@@ -51,11 +54,27 @@ enum class TextTranslators(val label: String, val needsApiKey: Boolean = false) 
             OPENROUTER -> ai(AiTranslator.Provider.OPENROUTER)
             OPENAI -> ai(AiTranslator.Provider.OPENAI_COMPATIBLE)
             CLAUDE -> ai(AiTranslator.Provider.CLAUDE)
+            HYBRID -> HybridTranslator(
+                fromLang,
+                toLang,
+                GoogleTranslator(fromLang, toLang),
+                // The AI pass uses the provider of the saved key: Claude keys start with sk-ant, OpenRouter with sk-or
+                pref.translationEngineApiKey().get().trim().takeIf { it.isNotEmpty() }?.let { key ->
+                    ai(
+                        when {
+                            key.startsWith("sk-ant") -> AiTranslator.Provider.CLAUDE
+                            key.startsWith("sk-or") -> AiTranslator.Provider.OPENROUTER
+                            key.startsWith("sk-") -> AiTranslator.Provider.OPENAI_COMPATIBLE
+                            else -> AiTranslator.Provider.GEMINI
+                        },
+                    )
+                },
+            )
         }
     }
 
     companion object {
-        private val AI_ENGINES = setOf(GEMINI, OPENROUTER, OPENAI, CLAUDE)
+        private val AI_ENGINES = setOf(GEMINI, OPENROUTER, OPENAI, CLAUDE, HYBRID)
 
         fun fromPref(pref: Preference<Int>): TextTranslators {
             var translator = entries.getOrNull(pref.get())

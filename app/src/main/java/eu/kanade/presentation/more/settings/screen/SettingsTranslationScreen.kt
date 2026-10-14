@@ -87,7 +87,7 @@ object SettingsTranslationScreen : SearchableSettings {
                     preference = prefs.translationEngineApiKey(),
                     title = stringResource(ATMR.strings.pref_engine_api_key),
                     subtitle = stringResource(ATMR.strings.pref_sub_engine_api_key),
-                    visible = engine.needsApiKey,
+                    visible = engine.needsApiKey || engine == TextTranslators.HYBRID,
                 ),
                 Preference.PreferenceItem.EditTextPreference(
                     preference = prefs.translationEngineModel(),

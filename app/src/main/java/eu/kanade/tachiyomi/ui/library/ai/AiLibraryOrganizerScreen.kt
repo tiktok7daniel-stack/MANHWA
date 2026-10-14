@@ -56,6 +56,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.translation.search.AiChatScreen
 import eu.kanade.translation.translator.AiTranslator
+import eu.kanade.translation.translator.aiPart
 import eu.kanade.translation.translator.TextTranslators
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -129,7 +130,7 @@ class AiLibraryOrganizerViewModel(
                     "${m.id}|${m.title}|${m.genre.orEmpty().take(6).joinToString(",")}|$status|read ${item.readCount}/${item.totalChapters}"
                 }
                 val language = Locale.getDefault().getDisplayLanguage(Locale.ENGLISH)
-                val ai = engine.build(translationPreferences) as AiTranslator
+                val ai = engine.build(translationPreferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
                 val reply = try {
                     ai.askJson(
                         system = """

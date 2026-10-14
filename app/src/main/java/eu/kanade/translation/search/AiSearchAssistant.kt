@@ -1,6 +1,7 @@
 package eu.kanade.translation.search
 
 import eu.kanade.translation.translator.AiTranslator
+import eu.kanade.translation.translator.aiPart
 import eu.kanade.translation.translator.TextTranslators
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -20,7 +21,7 @@ class AiSearchAssistant(private val preferences: TranslationPreferences) {
         if (!engine.isAi || preferences.translationEngineApiKey().get().isBlank() && engine != TextTranslators.OPENAI) {
             throw NotConfiguredException()
         }
-        val ai = engine.build(preferences) as AiTranslator
+        val ai = engine.build(preferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
         try {
             val reply = ai.askJson(SYSTEM, request.trim())
             return (reply["queries"] as? JsonArray).orEmpty()

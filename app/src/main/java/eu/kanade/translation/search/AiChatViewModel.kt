@@ -29,6 +29,7 @@ import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.translation.translator.AiTranslator
+import eu.kanade.translation.translator.aiPart
 import eu.kanade.translation.translator.TextTranslators
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -172,7 +173,7 @@ class AiChatViewModel(
         val keyMissing = translationPreferences.translationEngineApiKey().get().isBlank() &&
             engine != TextTranslators.OPENAI
         if (!engine.isAi || keyMissing) throw AiSearchAssistant.NotConfiguredException()
-        return engine.build(translationPreferences) as AiTranslator
+        return engine.build(translationPreferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
     }
 
     /** Looks on the web for the sites that publish the series, when the reader's sources don't have it. */
@@ -200,7 +201,7 @@ class AiChatViewModel(
         val keyMissing = translationPreferences.translationEngineApiKey().get().isBlank() &&
             engine != TextTranslators.OPENAI
         if (!engine.isAi || keyMissing) throw AiSearchAssistant.NotConfiguredException()
-        val ai = engine.build(translationPreferences) as AiTranslator
+        val ai = engine.build(translationPreferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
         try {
             val prompt = buildString {
                 if (history.isNotEmpty()) {

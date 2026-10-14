@@ -17,6 +17,8 @@ import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.recognizer.TextRecognizer
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
 import eu.kanade.translation.translator.AiTranslator
+import eu.kanade.translation.translator.HybridTranslator
+import eu.kanade.translation.translator.aiPart
 import eu.kanade.translation.translator.TextTranslator
 import eu.kanade.translation.translator.TextTranslatorLanguage
 import eu.kanade.translation.translator.TextTranslators
@@ -274,7 +276,7 @@ class LiveTranslator(
                 result = PageOcr.toPageTranslation(blocks, decoded.bitmap.width, decoded.bitmap.height)
                     .rescaled(1f / decoded.scale)
                 PageImageProcessor.sampleColors(result, decoded)
-                if (engine is AiTranslator && preferences.translationVision().get()) {
+                if (engine.aiPart != null && preferences.translationVision().get()) {
                     images[KEY] = PageImageProcessor.tiles(decoded)
                 }
             } finally {
@@ -284,15 +286,22 @@ class LiveTranslator(
 
             // 2. Translate, following the series glossary and adding the new names it finds
             val id = mangaId()
-            (engine as? AiTranslator)?.apply {
+            engine.aiPart?.apply {
                 glossary = id?.let(glossaryStore::asMap).orEmpty()
                 learnTerms = id != null
                 discoveredTerms.clear()
             }
             val map = mutableMapOf(KEY to result)
+            // Hybrid: the Google draft shows on the page right away, the AI version replaces it a moment later
+            (engine as? HybridTranslator)?.onDraft = { drafts ->
+                drafts[KEY]?.takeIf { it.blocks.isNotEmpty() }?.let { draft ->
+                    val copy = draft.copy(blocks = draft.blocks.map { it.copy() }.toMutableList())
+                    scope.launch(Dispatchers.Main) { if (page.translation == null) page.translation = copy }
+                }
+            }
             engine.translate(map, images)
             images[KEY]?.let { PageImageProcessor.sampleColorsFromTiles(result, it) }
-            if (id != null) (engine as? AiTranslator)?.let { glossaryStore.merge(id, it.discoveredTerms) }
+            if (id != null) engine.aiPart?.let { glossaryStore.merge(id, it.discoveredTerms) }
 
             // 3. Apply edited glossary terms the model may have ignored
             if (id != null) {

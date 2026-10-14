@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.translation.search.AiSearchAssistant
 import eu.kanade.translation.translator.AiTranslator
+import eu.kanade.translation.translator.aiPart
 import eu.kanade.translation.translator.TextTranslators
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -109,7 +110,7 @@ class HomeIntelligence(
                 "- ${item.manga.title} [${item.manga.genre.orEmpty().take(5).joinToString()}] read ${item.readCount}/${item.totalChapters}"
             }
         val language = Locale.getDefault().getDisplayLanguage(Locale.ENGLISH)
-        val ai = TextTranslators.fromPref(translationPreferences.translationEngine()).build(translationPreferences) as AiTranslator
+        val ai = TextTranslators.fromPref(translationPreferences.translationEngine()).build(translationPreferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
         val reply = try {
             ai.askJson(
                 system = """
