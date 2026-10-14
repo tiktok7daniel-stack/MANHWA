@@ -1,5 +1,8 @@
 package eu.kanade.translation.data
 import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.util.storage.DiskUtil
@@ -11,12 +14,12 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@Inject
+@SingleIn(AppScope::class)
 class TranslationProvider(
     private val context: Context,
-    private val storageManager: StorageManager = Injekt.get(),
+    private val storageManager: StorageManager,
 ) {
 
     private val translationDir: UniFile?

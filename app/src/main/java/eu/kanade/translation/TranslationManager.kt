@@ -1,6 +1,9 @@
 package eu.kanade.translation
 
 import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.translation.data.TranslationProvider
@@ -20,16 +23,16 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.translation.TranslationPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
+@Inject
+@SingleIn(AppScope::class)
 class TranslationManager(
     private val context: Context,
-    private val provider: TranslationProvider = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val translationPreferences: TranslationPreferences = Injekt.get(),
+    private val provider: TranslationProvider,
+    private val sourceManager: SourceManager,
+    private val translationPreferences: TranslationPreferences,
+    private val translator: ChapterTranslator,
 ) {
-    private val translator = ChapterTranslator(context, provider)
 
     val isRunning: Boolean
         get() = translator.isRunning

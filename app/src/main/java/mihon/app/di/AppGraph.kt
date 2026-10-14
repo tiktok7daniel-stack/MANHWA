@@ -40,6 +40,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.setting.track.BaseOAuthLoginActivity
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.CrashLogUtil
+import eu.kanade.translation.TranslationManager
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
@@ -56,6 +57,7 @@ import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StoragePreferences
 import tachiyomi.domain.track.interactor.UpsertTrack
+import tachiyomi.domain.translation.TranslationPreferences
 
 @DependencyGraph(
     scope = AppScope::class,
@@ -93,6 +95,8 @@ interface AppGraph : ViewModelGraph {
     val privacyPreferences: PrivacyPreferences
     val securityPreferences: SecurityPreferences
     val downloadPreferences: DownloadPreferences
+    val translationPreferences: TranslationPreferences
+    val translationManager: TranslationManager
 
     val crashLogUtil: CrashLogUtil
 

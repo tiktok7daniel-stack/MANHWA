@@ -1,6 +1,9 @@
 package eu.kanade.translation
 
 import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.hippo.unifile.UniFile
@@ -46,17 +49,17 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.translation.TranslationPreferences
 import tachiyomi.i18n.at.ATMR
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import java.io.InputStream
 import kotlin.math.abs
 
+@Inject
+@SingleIn(AppScope::class)
 class ChapterTranslator(
     private val context: Context,
     private val provider: TranslationProvider,
-    private val downloadProvider: DownloadProvider = Injekt.get(),
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val translationPreferences: TranslationPreferences = Injekt.get(),
+    private val downloadProvider: DownloadProvider,
+    private val sourceManager: SourceManager,
+    private val translationPreferences: TranslationPreferences,
 ) {
 
     private val _queueState = MutableStateFlow<List<Translation>>(emptyList())

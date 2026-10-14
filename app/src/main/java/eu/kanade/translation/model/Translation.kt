@@ -10,8 +10,6 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 data class Translation(
     val source: HttpSource,
@@ -42,9 +40,9 @@ data class Translation(
     companion object {
         suspend fun fromChapterId(
             chapterId: Long,
-            getChapter: GetChapter = Injekt.get(),
-            getManga: GetManga = Injekt.get(),
-            sourceManager: SourceManager = Injekt.get(),
+            getChapter: GetChapter,
+            getManga: GetManga,
+            sourceManager: SourceManager,
         ): Translation? {
             val chapter = getChapter.await(chapterId) ?: return null
             val manga = getManga.await(chapter.mangaId) ?: return null
