@@ -1,5 +1,9 @@
 package eu.kanade.presentation.library.components
 
+import tachiyomi.i18n.at.ATMR
+import mihon.icons.materialsymbols.rounded.AutoAwesome
+import eu.kanade.translation.search.AiChatScreen
+import cafe.adriel.voyager.navigator.LocalNavigator
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.LocalContentColor
@@ -94,8 +98,16 @@ private fun LibraryRegularToolbar(
         onChangeSearchQuery = onSearchQueryChange,
         actions = {
             val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
+            val navigator = LocalNavigator.current
             AppBarActions(
                 listOf(
+                    // Danghwa AI: find any series in every source
+                    AppBar.Action(
+                        title = stringResource(ATMR.strings.ai_chat_title),
+                        icon = MaterialSymbols.Rounded.AutoAwesome,
+                        iconTint = MaterialTheme.colorScheme.primary,
+                        onClick = { navigator?.push(AiChatScreen()) },
+                    ),
                     AppBar.Action(
                         title = stringResource(MR.strings.action_filter),
                         icon = MaterialSymbols.Rounded.FilterList,

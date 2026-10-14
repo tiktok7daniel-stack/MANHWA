@@ -32,4 +32,18 @@
     <string name="ai_search_hint">Describe the story or type any title, then tap AI search to find it in every source</string>
     <string name="ai_search_not_configured">Set up an AI engine and key in Settings → Translations to use AI search</string>
     <string name="ai_search_failed">AI search failed: %s</string>
+    <string name="ai_chat_title" translatable="false">Danghwa AI</string>
+    <string name="ai_chat_subtitle">Finds any series in all your sources</string>
+    <string name="ai_chat_hint">Ask about a manhwa, a title, or a story…</string>
+    <string name="ai_chat_welcome">Tell me what you are looking for: a title in any language, a half-remembered name, or the story. I will find it in your sources and tell you which one has the latest chapter.</string>
+    <string name="ai_chat_thinking">Understanding your request…</string>
+    <string name="ai_chat_searching">Searching all your sources…</string>
+    <string name="ai_chat_checking">Comparing chapters between sources…</string>
+    <string name="ai_chat_best">Latest translation</string>
+    <string name="ai_chat_chapter">Ch. %s</string>
+    <string name="ai_chat_chapters">%d chapters</string>
+    <string name="ai_chat_none">Not found in your installed sources. Try another title or install more extensions.</string>
+    <string name="ai_chat_suggestion_1">Revenge manhwa with a genius MC</string>
+    <string name="ai_chat_suggestion_2">Solo Leveling</string>
+    <string name="ai_chat_suggestion_3">Romance like True Beauty</string>
 </resources>
