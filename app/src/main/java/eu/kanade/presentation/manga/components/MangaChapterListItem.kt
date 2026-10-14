@@ -60,6 +60,7 @@ fun MangaChapterListItem(
     // TachiyomiAT
     translationStateProvider: () -> Translation.State,
     downloadProgressProvider: () -> Int,
+    downloadErrorProvider: () -> String? = { null },
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     onLongClick: () -> Unit,
@@ -190,6 +191,7 @@ fun MangaChapterListItem(
                 downloadStateProvider = downloadStateProvider,
                 downloadProgressProvider = downloadProgressProvider,
                 onClick = { onDownloadClick?.invoke(it) },
+                errorMessageProvider = downloadErrorProvider,
             )
         }
     }

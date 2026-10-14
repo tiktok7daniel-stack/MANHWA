@@ -216,6 +216,7 @@ class DownloadNotifier(
      * @param mangaId the id of the entry that the error occurred on
      */
     fun onError(error: String? = null, chapter: String? = null, mangaTitle: String? = null, mangaId: Long? = null) {
+        DownloadErrorLog.record(mangaId, chapter, error ?: context.stringResource(MR.strings.download_notifier_unknown_error))
         // Create notification
         context.notify(
             Notifications.ID_DOWNLOAD_CHAPTER_ERROR,

@@ -1,5 +1,7 @@
 package eu.kanade.presentation.manga.components
 
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -55,6 +57,7 @@ fun ChapterDownloadIndicator(
     downloadProgressProvider: () -> Int,
     onClick: (ChapterDownloadAction) -> Unit,
     modifier: Modifier = Modifier,
+    errorMessageProvider: () -> String? = { null },
 ) {
     when (val downloadState = downloadStateProvider()) {
         Download.State.NOT_DOWNLOADED -> NotDownloadedIndicator(
@@ -77,6 +80,7 @@ fun ChapterDownloadIndicator(
         Download.State.ERROR -> ErrorIndicator(
             enabled = enabled,
             modifier = modifier,
+            errorMessageProvider = errorMessageProvider,
             onClick = onClick,
         )
     }
@@ -228,8 +232,32 @@ private fun DownloadedIndicator(
 private fun ErrorIndicator(
     enabled: Boolean,
     modifier: Modifier = Modifier,
+    errorMessageProvider: () -> String? = { null },
     onClick: (ChapterDownloadAction) -> Unit,
 ) {
+    var showError by remember { mutableStateOf(false) }
+    if (showError) {
+        AlertDialog(
+            onDismissRequest = { showError = false },
+            title = { Text(text = stringResource(MR.strings.chapter_error)) },
+            text = {
+                Text(
+                    text = errorMessageProvider() ?: stringResource(MR.strings.download_notifier_unknown_error),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showError = false
+                        onClick(ChapterDownloadAction.START)
+                    },
+                ) { Text(text = stringResource(MR.strings.action_retry)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showError = false }) { Text(text = stringResource(MR.strings.action_close)) }
+            },
+        )
+    }
     Box(
         modifier = modifier
             .size(IconButtonTokens.StateLayerSize)
@@ -237,7 +265,7 @@ private fun ErrorIndicator(
                 enabled = enabled,
                 hapticFeedback = LocalHapticFeedback.current,
                 onLongClick = { onClick(ChapterDownloadAction.START) },
-                onClick = { onClick(ChapterDownloadAction.START) },
+                onClick = { showError = true },
             ),
         contentAlignment = Alignment.Center,
     ) {
