@@ -12,26 +12,46 @@ interface TextTranslator : Closeable {
     suspend fun translate(pages: MutableMap<String, PageTranslation>)
 }
 
-enum class TextTranslators(val label: String) {
-    MLKIT("MlKit (On Device)"),
+enum class TextTranslators(val label: String, val needsApiKey: Boolean = false) {
+    MLKIT("ML Kit (on device, offline)"),
     GOOGLE("Google Translate"),
-    GEMINI("Gemini AI [API KEY]"),
-    OPENROUTER("OpenRouter [API KEY]");
+    GEMINI("Gemini AI", needsApiKey = true),
+    OPENROUTER("OpenRouter (any model)", needsApiKey = true),
+    OPENAI("OpenAI-compatible (custom URL)", needsApiKey = true),
+    CLAUDE("Claude AI", needsApiKey = true),
+    ;
 
-    fun build(pref: TranslationPreferences, fromLang: TextRecognizerLanguage = TextRecognizerLanguage.fromPref(pref.translateFromLanguage()), toLang: TextTranslatorLanguage = TextTranslatorLanguage.fromPref(pref.translateToLanguage())): TextTranslator{
-        val maxOutputTokens=pref.translationEngineMaxOutputTokens().get().toIntOrNull()?:8914
-        val temperature=pref.translationEngineTemperature().get().toFloatOrNull()?:1.0f
-        val modelName=pref.translationEngineModel().get()
-        val apiKey=pref.translationEngineApiKey().get()
-        return when(this){
+    val isAi: Boolean get() = this in AI_ENGINES
+
+    fun build(
+        pref: TranslationPreferences,
+        fromLang: TextRecognizerLanguage = TextRecognizerLanguage.fromPref(pref.translateFromLanguage()),
+        toLang: TextTranslatorLanguage = TextTranslatorLanguage.fromPref(pref.translateToLanguage()),
+    ): TextTranslator {
+        fun ai(provider: AiTranslator.Provider) = AiTranslator(
+            fromLang = fromLang,
+            toLang = toLang,
+            provider = provider,
+            apiKey = pref.translationEngineApiKey().get().trim(),
+            model = pref.translationEngineModel().get().trim(),
+            baseUrl = pref.translationEngineBaseUrl().get().trim(),
+            maxOutputTokens = pref.translationEngineMaxOutputTokens().get().toIntOrNull() ?: 16000,
+            temperature = pref.translationEngineTemperature().get().toFloatOrNull() ?: 0.4f,
+            instructions = pref.translationInstructions().get(),
+        )
+        return when (this) {
             MLKIT -> MLKitTranslator(fromLang, toLang)
-            GOOGLE ->GoogleTranslator(fromLang, toLang)
-            GEMINI -> GeminiTranslator(fromLang, toLang,apiKey,modelName,maxOutputTokens,temperature)
-            OPENROUTER -> OpenRouterTranslator(fromLang, toLang,apiKey,modelName,maxOutputTokens,temperature)
+            GOOGLE -> GoogleTranslator(fromLang, toLang)
+            GEMINI -> ai(AiTranslator.Provider.GEMINI)
+            OPENROUTER -> ai(AiTranslator.Provider.OPENROUTER)
+            OPENAI -> ai(AiTranslator.Provider.OPENAI_COMPATIBLE)
+            CLAUDE -> ai(AiTranslator.Provider.CLAUDE)
         }
     }
 
     companion object {
+        private val AI_ENGINES = setOf(GEMINI, OPENROUTER, OPENAI, CLAUDE)
+
         fun fromPref(pref: Preference<Int>): TextTranslators {
             var translator = entries.getOrNull(pref.get())
             if (translator == null) {

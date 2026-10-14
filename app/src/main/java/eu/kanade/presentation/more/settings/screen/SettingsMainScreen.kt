@@ -42,6 +42,8 @@ import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Palette
 import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.Security
+import mihon.icons.materialsymbols.rounded.Translate
+import tachiyomi.i18n.at.ATMR
 import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.rounded.Sync
 import tachiyomi.i18n.MR
@@ -194,6 +196,12 @@ object SettingsMainScreen : Screen() {
             subtitleRes = MR.strings.pref_downloads_summary,
             icon = MaterialSymbols.Rounded.Download,
             screen = SettingsDownloadScreen,
+        ),
+        Item(
+            titleRes = ATMR.strings.pref_category_translations,
+            subtitleRes = ATMR.strings.pref_translation_summary,
+            icon = MaterialSymbols.Rounded.Translate,
+            screen = SettingsTranslationScreen,
         ),
         Item(
             titleRes = MR.strings.pref_category_tracking,

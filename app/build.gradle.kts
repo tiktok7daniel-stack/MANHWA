@@ -35,7 +35,7 @@ android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
-        applicationId = "app.mihon"
+        applicationId = "app.danghwa"
 
         versionCode = 38
         versionName = "0.21.2"
@@ -213,7 +213,6 @@ dependencies {
     implementation(libs.mlkit.text.recognition.japanese)
     implementation(libs.mlkit.text.recognition.korean)
     implementation(libs.mlkit.text.translate)
-    implementation(libs.google.generativeai)
 
     implementation(projects.icons.customMaterialSymbols)
     implementation(projects.icons.materialSymbols)
