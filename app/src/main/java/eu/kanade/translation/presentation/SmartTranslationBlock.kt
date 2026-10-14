@@ -1,5 +1,7 @@
 package eu.kanade.translation.presentation
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
@@ -38,11 +40,15 @@ fun SmartTranslationBlock(
     val width = ((block.width + padX) * scaleFactor).pxToDp()
     val height = ((block.height + padY) * scaleFactor).pxToDp()
     val isVertical = block.angle > 85
+    // Cover the original lettering with the bubble's own colour so the translation reads like typeset text
+    val background = if (block.bgColor != 0) Color(block.bgColor) else Color.White
+    val textColor = Color(block.textColor)
     Box(
         modifier = modifier
             .wrapContentSize(Alignment.CenterStart, true)
             .offset(xPx.pxToDp(), yPx.pxToDp())
-            .requiredSize(width, height),
+            .requiredSize(width, height)
+            .background(background, RoundedCornerShape(percent = 25)),
     ) {
         val density = LocalDensity.current
         val fontSize = remember { mutableStateOf(16.sp) }
@@ -62,7 +68,7 @@ fun SmartTranslationBlock(
                         text = block.translation,
                         fontSize = mid.sp,
                         fontFamily = fontFamily,
-                        color = Color.Black,
+                        color = textColor,
                         overflow = TextOverflow.Visible,
                         textAlign = TextAlign.Center,
                         maxLines = Int.MAX_VALUE,
@@ -89,7 +95,7 @@ fun SmartTranslationBlock(
                     text = block.translation,
                     fontSize = fontSize.value,
                     fontFamily = fontFamily,
-                    color = Color.Black,
+                    color = textColor,
                     softWrap = true,
                     overflow = TextOverflow.Visible,
                     textAlign = TextAlign.Center,
@@ -102,8 +108,8 @@ fun SmartTranslationBlock(
                 )
             }[0].measure(constraints)
 
-            layout(textPlaceable.width, textPlaceable.height) {
-                textPlaceable.place(0, 0)
+            layout(maxWidthPx, maxHeightPx) {
+                textPlaceable.place(0, ((maxHeightPx - textPlaceable.height) / 2).coerceAtLeast(0))
             }
         }
     }

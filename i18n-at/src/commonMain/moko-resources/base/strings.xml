@@ -26,4 +26,6 @@
     <string name="pref_translation_instructions_summary">Names and terms to keep, tone, honorifics… e.g. \"Lin Feng = لين فنغ; keep -sama\"</string>
     <string name="pref_engine_info_ai">AI engines read the whole chapter with context, keep names consistent and fix OCR errors. Your key is stored only on this device.</string>
     <string name="pref_engine_info_offline">ML Kit works offline and Google Translate needs no key, but both translate bubble by bubble without context.</string>
+    <string name="pref_translation_vision">AI sees the page (best quality)</string>
+    <string name="pref_translation_vision_summary">Sends page images with the OCR draft: fixes misread text, finds missed bubbles and translates with the scene in mind. Uses more tokens; the model must support images.</string>
 </resources>

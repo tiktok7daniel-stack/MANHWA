@@ -24,5 +24,7 @@ data class TranslationBlock(
     var symHeight: Float,
     var symWidth: Float,
     val angle: Float,
-
+    // Bubble background sampled from the page (ARGB, 0 = unknown) and a readable text colour on top of it
+    var bgColor: Int = 0,
+    var textColor: Int = 0xFF000000.toInt(),
 )

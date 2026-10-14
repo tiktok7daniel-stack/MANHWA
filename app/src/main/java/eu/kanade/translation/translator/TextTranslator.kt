@@ -1,5 +1,6 @@
 package eu.kanade.translation.translator
 
+import eu.kanade.translation.data.PageImage
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
 import tachiyomi.core.common.preference.Preference
@@ -10,6 +11,9 @@ interface TextTranslator : Closeable {
     val fromLang: TextRecognizerLanguage
     val toLang: TextTranslatorLanguage
     suspend fun translate(pages: MutableMap<String, PageTranslation>)
+
+    /** Engines that can look at the page override this; the others only use the OCR text. */
+    suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) = translate(pages)
 }
 
 enum class TextTranslators(val label: String, val needsApiKey: Boolean = false) {

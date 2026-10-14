@@ -11,7 +11,10 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.translation.data.PageImage
+import eu.kanade.translation.data.PageImageProcessor
 import eu.kanade.translation.data.TranslationProvider
+import eu.kanade.translation.translator.AiTranslator
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.model.Translation
 import eu.kanade.translation.model.TranslationBlock
@@ -223,6 +226,9 @@ class ChapterTranslator(
             )!!
 
             val pages = mutableMapOf<String, PageTranslation>()
+            // Vision engines also get the page images, so they can read what the OCR missed
+            val vision = textTranslator is AiTranslator && translationPreferences.translationVision().get()
+            val images = mutableMapOf<String, PageImage>()
             val tmpFile = translationMangaDir.createFile("tmp")!!
             val streams = getChapterPages(chapterPath)
             /**
@@ -237,13 +243,21 @@ class ChapterTranslator(
                     val result = textRecognizer.recognize(image)
                     val blocks = result.textBlocks.filter { it.boundingBox != null && it.text.length > 1 }
                     val pageTranslation = convertToPageTranslation(blocks, image.width, image.height)
-                    if (pageTranslation.blocks.isNotEmpty()) pages[fileName] = pageTranslation
+                    PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! }?.let { decoded ->
+                        PageImageProcessor.sampleColors(pageTranslation, decoded)
+                        if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
+                        decoded.bitmap.recycle()
+                    }
+                    if (pageTranslation.blocks.isNotEmpty() || fileName in images) pages[fileName] = pageTranslation
                 }
             }
             tmpFile.delete()
             withContext(Dispatchers.IO) {
                 // Translate the text in blocks , this mutates the original blocks
-                textTranslator.translate(pages)
+                textTranslator.translate(pages, images)
+                // Bubbles added by the vision model still need their erase colour
+                images.forEach { (name, image) -> pages[name]?.let { PageImageProcessor.sampleColorsFromTiles(it, image) } }
+                pages.entries.removeAll { it.value.blocks.isEmpty() }
             }
             // Serialize the Map and save to translations json file
             Json.encodeToStream(pages, translationMangaDir.createFile(saveFile)!!.openOutputStream())

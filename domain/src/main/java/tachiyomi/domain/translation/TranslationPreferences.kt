@@ -23,4 +23,5 @@ class TranslationPreferences(
     fun translationEngineMaxOutputTokens() = preferenceStore.getString("translation_engine_output_tokens", "16000")
     fun translationEngineBaseUrl() = preferenceStore.getString("translation_engine_base_url", "")
     fun translationInstructions() = preferenceStore.getString("translation_instructions", "")
+    fun translationVision() = preferenceStore.getBoolean("translation_vision", true)
 }
