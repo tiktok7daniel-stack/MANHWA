@@ -61,7 +61,7 @@ class AppController(
 
     private val pingClient = OkHttpClient.Builder().callTimeout(6, TimeUnit.SECONDS).build()
 
-    private fun installedSources(): List<Source> {
+    private suspend fun installedSources(): List<Source> {
         val disabled = sourcePreferences.disabledSources.get()
         return sourceManager.getAll().filter { !it.isLocal() && it !is StubSource && "${it.id}" !in disabled }
     }
@@ -163,7 +163,7 @@ class AppController(
             "fresh_chapters" -> {
                 if (fresh.isStale() || fresh.state.value.items.isEmpty()) fresh.refresh()
                 val items = fresh.state.value.items
-                val filter = action.str("source")?.let(::findSource)
+                val filter = action.str("source")?.let { findSource(it) }
                 val list = items.filter { filter == null || it.sourceId == filter.id }.take(12)
                 Outcome(say(type, "${list.size}"), fresh = list)
             }
@@ -175,7 +175,7 @@ class AppController(
         }
     }
 
-    private fun findSource(name: String): Source? {
+    private suspend fun findSource(name: String): Source? {
         val wanted = normalize(name)
         val all = installedSources()
         return all.firstOrNull { normalize(it.name) == wanted }

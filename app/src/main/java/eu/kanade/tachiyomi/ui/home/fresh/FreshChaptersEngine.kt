@@ -102,10 +102,10 @@ class FreshChaptersEngine(
     fun isStale(): Boolean = System.currentTimeMillis() - _state.value.updatedAt > STALE_MS
 
     /** Sources the feed follows: the reader's home sources, in their order. */
-    fun sources(): List<Source> {
+    suspend fun sources(): List<Source> {
         val ids = sourcePreferences.homeSources.get()
         val order = sourcePreferences.homeSourcesOrder.get().split(',').withIndex().associate { (i, v) -> v to i }
-        return ids.mapNotNull { id -> id.toLongOrNull()?.let(sourceManager::get) }
+        return ids.mapNotNull { id -> id.toLongOrNull()?.let { sourceManager.get(it) } }
             .sortedBy { order["${it.id}"] ?: Int.MAX_VALUE }
             .take(MAX_SOURCES)
     }
