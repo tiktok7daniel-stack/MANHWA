@@ -252,6 +252,10 @@ class AiTranslator(
         return result
     }
 
+    /** One-off JSON question to the configured model, used by features other than translation (e.g. AI search). */
+    suspend fun askJson(system: String, prompt: String): JsonObject =
+        withRetry { parse(request(system, listOf(Part.Text(prompt)))) }
+
     /** Splits pages into ordered batches small enough to come back in a single response. */
     private fun batches(pages: Map<String, PageTranslation>): List<List<String>> {
         val result = mutableListOf<MutableList<String>>()

@@ -101,9 +101,11 @@ object HomeScreen : Screen() {
                 NavigationSuiteScaffold(
                     navigationSuiteType = navigationSuiteType,
                     state = navigationSuiteState,
+                    // Smoked-glass bar: translucent dark surface over the black background
                     navigationSuiteColors = NavigationSuiteDefaults.colors(
                         navigationRailContainerColor = MaterialTheme.colorScheme
                             .surfaceColorAtElevation(3.dp),
+                        navigationBarContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f),
                     ),
                     navigationItemVerticalArrangement = Arrangement.Center,
                     navigationItems = {

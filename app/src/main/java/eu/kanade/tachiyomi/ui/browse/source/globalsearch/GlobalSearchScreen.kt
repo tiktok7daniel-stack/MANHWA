@@ -30,6 +30,7 @@ class GlobalSearchScreen(
                 create(initialQuery = searchQuery, initialExtensionFilter = extensionFilter)
             }
         val state by viewModel.state.collectAsState()
+        val aiState by viewModel.aiState.collectAsState()
         var showSingleLoadingScreen by remember {
             mutableStateOf(searchQuery.isNotEmpty() && !extensionFilter.isNullOrEmpty() && state.total == 1)
         }
@@ -58,6 +59,9 @@ class GlobalSearchScreen(
                 navigateUp = navigator::pop,
                 onChangeSearchQuery = viewModel::updateSearchQuery,
                 onSearch = { viewModel.search() },
+                aiState = aiState,
+                onAiSearch = viewModel::aiSearch,
+                onAiSuggestion = viewModel::searchSuggestion,
                 getManga = { viewModel.getManga(it) },
                 onChangeSearchFilter = viewModel::setSourceFilter,
                 onToggleResults = viewModel::toggleFilterResults,

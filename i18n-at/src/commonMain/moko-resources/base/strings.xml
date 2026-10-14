@@ -28,4 +28,8 @@
     <string name="pref_engine_info_offline">ML Kit works offline and Google Translate needs no key, but both translate bubble by bubble without context.</string>
     <string name="pref_translation_vision">AI sees the page (best quality)</string>
     <string name="pref_translation_vision_summary">Sends page images with the OCR draft: fixes misread text, finds missed bubbles and translates with the scene in mind. Uses more tokens; the model must support images.</string>
+    <string name="ai_search">AI search</string>
+    <string name="ai_search_hint">Describe the story or type any title, then tap AI search to find it in every source</string>
+    <string name="ai_search_not_configured">Set up an AI engine and key in Settings → Translations to use AI search</string>
+    <string name="ai_search_failed">AI search failed: %s</string>
 </resources>

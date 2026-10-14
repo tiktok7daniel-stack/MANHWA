@@ -1,5 +1,9 @@
 package eu.kanade.presentation.browse
 
+import eu.kanade.tachiyomi.ui.browse.source.globalsearch.AiSearchState
+import eu.kanade.presentation.browse.components.AiSearchBar
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -30,6 +34,9 @@ fun GlobalSearchScreen(
     onClickSource: (Source) -> Unit,
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
+    aiState: AiSearchState = AiSearchState.Idle,
+    onAiSearch: (() -> Unit)? = null,
+    onAiSuggestion: (String) -> Unit = {},
 ) {
     Scaffold(
         topBar = { scrollBehavior ->
@@ -49,14 +56,19 @@ fun GlobalSearchScreen(
             )
         },
     ) { paddingValues ->
-        GlobalSearchContent(
-            items = state.filteredItems,
-            contentPadding = paddingValues,
-            getManga = getManga,
-            onClickSource = onClickSource,
-            onClickItem = onClickItem,
-            onLongClickItem = onLongClickItem,
-        )
+        Column(modifier = Modifier.padding(top = paddingValues.calculateTopPadding())) {
+            if (onAiSearch != null) {
+                AiSearchBar(state = aiState, onAiSearch = onAiSearch, onSuggestion = onAiSuggestion)
+            }
+            GlobalSearchContent(
+                items = state.filteredItems,
+                contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding()),
+                getManga = getManga,
+                onClickSource = onClickSource,
+                onClickItem = onClickItem,
+                onLongClickItem = onLongClickItem,
+            )
+        }
     }
 }
 
