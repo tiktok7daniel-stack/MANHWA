@@ -302,7 +302,7 @@ class ReaderViewModel(
 
     private var incognitoMode: Boolean = false
     /** On-the-fly translation of the chapter being read (MANHWA). */
-    val liveTranslation = liveTranslator.session(viewModelScope) { state.value.manga?.id }
+    val liveTranslation = liveTranslator.session(viewModelScope, { state.value.manga?.id }, { state.value.source?.lang })
 
     private val downloadAheadAmount = downloadPreferences.autoDownloadWhileReading.get()
 

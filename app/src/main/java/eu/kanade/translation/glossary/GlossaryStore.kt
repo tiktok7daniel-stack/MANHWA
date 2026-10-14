@@ -4,7 +4,10 @@ import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
@@ -26,6 +29,12 @@ class GlossaryStore(private val context: Context) {
 
     @Serializable
     data class Entry(val source: String, val translation: String, val edited: Boolean = false)
+
+    /** A term whose translation the reader changed: shown translations are updated right away. */
+    data class Edit(val mangaId: Long, val source: String, val oldTranslation: String, val newTranslation: String)
+
+    private val _edits = MutableSharedFlow<Edit>(extraBufferCapacity = 16)
+    val edits: SharedFlow<Edit> = _edits.asSharedFlow()
 
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
     private val cache = ConcurrentHashMap<Long, MutableStateFlow<List<Entry>>>()
@@ -51,6 +60,10 @@ class GlossaryStore(private val context: Context) {
 
     fun put(mangaId: Long, source: String, translation: String) {
         if (source.isBlank()) return
+        val old = get(mangaId).firstOrNull { it.source.equals(source, ignoreCase = true) }?.translation
+        if (!old.isNullOrBlank() && old != translation.trim() && translation.isNotBlank()) {
+            _edits.tryEmit(Edit(mangaId, source.trim(), old, translation.trim()))
+        }
         update(mangaId) { list ->
             list.filterNot { it.source.equals(source, ignoreCase = true) } + Entry(source.trim(), translation.trim(), edited = true)
         }

@@ -291,6 +291,7 @@ class ReaderActivity : BaseActivity() {
                 menuVisible = state.menuVisible,
                 onEnable = viewModel.liveTranslation::setEnabled,
                 onPause = viewModel.liveTranslation::togglePause,
+                onRetry = viewModel.liveTranslation::retry,
                 onGlossary = { showGlossary = true },
                 modifier = Modifier
                     .align(Alignment.TopCenter)

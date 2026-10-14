@@ -1,6 +1,6 @@
 package eu.kanade.translation.live
 
-import android.graphics.BitmapFactory
+import android.util.LruCache
 import com.google.mlkit.vision.common.InputImage
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -23,23 +23,29 @@ import eu.kanade.translation.translator.TextTranslators
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.translation.TranslationPreferences
 import java.io.ByteArrayInputStream
 
 /**
- * On-the-fly translation in the reader: the page on screen is translated first, then the next pages one
- * after another in the background, so nobody waits for a whole chapter. Results appear on the pages as
- * soon as each one is done.
+ * On-the-fly translation in the reader.
+ *
+ * A queue worker translates the page on screen first, then the following pages one after another while the
+ * reader keeps reading. Each result is written to [ReaderPage.translation], which the page views observe, so
+ * the translated bubbles appear on the page as soon as that page is done. Results are kept in a cache for the
+ * whole app session, so scrolling back or reopening the chapter never translates a page twice.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -49,100 +55,152 @@ class LiveTranslator(
     private val glossaryStore: GlossaryStore,
 ) {
 
+    enum class Phase { OFF, IDLE, WORKING, PAUSED, DONE, ERROR }
+
     data class Status(
-        val enabled: Boolean = false,
-        val paused: Boolean = false,
-        /** 1-based number of the page being translated now, null when idle. */
-        val working: Int? = null,
-        val done: Int = 0,
+        val phase: Phase = Phase.OFF,
+        /** 1-based number of the page being translated now. */
+        val workingPage: Int? = null,
+        /** 1-based number of the page on screen. */
+        val focusPage: Int = 0,
+        /** Whether the page on screen is already translated. */
+        val focusReady: Boolean = false,
+        val translated: Int = 0,
         val total: Int = 0,
         val error: String? = null,
     ) {
-        val complete: Boolean get() = total > 0 && done >= total
+        val enabled: Boolean get() = phase != Phase.OFF
     }
 
-    fun session(scope: CoroutineScope, mangaId: () -> Long?): Session = Session(scope, mangaId)
+    /** Translated pages of this app session, keyed by chapter id and page index. */
+    private val cache = LruCache<String, PageTranslation>(CACHE_PAGES)
 
-    inner class Session(private val scope: CoroutineScope, private val mangaId: () -> Long?) {
+    private fun key(page: ReaderPage) = "${page.chapter.chapter.id}:${page.index}"
 
-        private val _status = MutableStateFlow(Status(enabled = preferences.liveTranslation().get()))
+    fun session(scope: CoroutineScope, mangaId: () -> Long?, sourceLang: () -> String?): Session =
+        Session(scope, mangaId, sourceLang)
+
+    inner class Session(
+        private val scope: CoroutineScope,
+        private val mangaId: () -> Long?,
+        private val sourceLang: () -> String?,
+    ) {
+
+        private val _status = MutableStateFlow(Status(phase = if (preferences.liveTranslation().get()) Phase.IDLE else Phase.OFF))
         val status: StateFlow<Status> = _status.asStateFlow()
 
         @Volatile private var pages: List<ReaderPage> = emptyList()
 
         @Volatile private var focus = 0
-        private val attempted = HashSet<ReaderPage>()
+
+        @Volatile private var paused = false
+        private val failed = HashSet<ReaderPage>()
+        private val wake = Channel<Unit>(Channel.CONFLATED)
         private var recognizer: TextRecognizer? = null
         private var translator: TextTranslator? = null
 
         init {
             scope.launch(Dispatchers.IO) {
                 try {
-                    loop()
+                    work()
                 } finally {
                     recognizer?.close()
                     translator?.close()
                 }
             }
+            // A glossary edit updates the bubbles already on screen at once, without asking the AI again
+            glossaryStore.edits
+                .onEach { edit -> if (edit.mangaId == mangaId()) applyGlossaryEdit(edit) }
+                .launchIn(scope)
         }
 
+        /** Called for every page the reader shows; the page on screen always goes first in the queue. */
         fun focus(page: ReaderPage) {
             if (page is InsertPage) return
             val chapterPages = page.chapter.pages ?: return
             if (chapterPages !== pages) {
-                synchronized(attempted) { attempted.clear() }
+                synchronized(failed) { failed.clear() }
                 pages = chapterPages
+                restoreFromCache(chapterPages)
             }
             focus = page.index
-            refreshCounts()
+            publish()
+            wake.trySend(Unit)
         }
 
         fun setEnabled(enabled: Boolean) {
             preferences.liveTranslation().set(enabled)
-            _status.update { it.copy(enabled = enabled, paused = false, error = null) }
+            paused = false
+            synchronized(failed) { failed.clear() }
+            publish(error = null)
+            wake.trySend(Unit)
         }
 
-        fun togglePause() = _status.update { it.copy(paused = !it.paused) }
+        fun togglePause() {
+            paused = !paused
+            publish()
+            wake.trySend(Unit)
+        }
 
-        /** Clears this chapter's live results and translates again, e.g. after the glossary changed. */
-        fun retranslate() {
-            synchronized(attempted) { attempted.clear() }
-            pages.forEach { it.translation = null }
+        /** Tries the pages that failed again (after a network or API problem). */
+        fun retry() {
+            synchronized(failed) { failed.clear() }
             translator?.close()
             translator = null
-            _status.update { it.copy(enabled = true, paused = false, error = null) }
-            preferences.liveTranslation().set(true)
-            refreshCounts()
+            paused = false
+            publish(error = null)
+            wake.trySend(Unit)
         }
 
-        private suspend fun loop() {
+        /** Forgets this chapter's live results and translates again, e.g. after many glossary changes. */
+        fun retranslate() {
+            synchronized(failed) { failed.clear() }
+            pages.forEach { page ->
+                cache.remove(key(page))
+                page.translation = null
+            }
+            translator?.close()
+            translator = null
+            preferences.liveTranslation().set(true)
+            paused = false
+            publish(error = null)
+            wake.trySend(Unit)
+        }
+
+        private suspend fun work() {
             while (scope.isActive) {
-                val state = _status.value
-                if (!state.enabled || state.paused || !readerPreferences.showTranslations.get()) {
-                    delay(IDLE_MS)
-                    continue
-                }
-                val next = pick()
+                val next = if (canWork()) pick() else null
                 if (next == null) {
-                    _status.update { it.copy(working = null) }
-                    delay(IDLE_MS)
+                    publish(working = null)
+                    // Sleep until something changes; wake up now and then for pages that finished loading
+                    withTimeoutOrNull(POLL_MS) { wake.receive() }
                     continue
                 }
-                _status.update { it.copy(working = next.number, error = null) }
+                publish(working = next.number)
                 try {
-                    translate(next)
+                    val result = translate(next)
+                    if (result != null) {
+                        cache.put(key(next), result)
+                        withContext(Dispatchers.Main) { next.translation = result }
+                    } else {
+                        // Nothing to translate on this page (art only): don't try it again
+                        synchronized(failed) { failed += next }
+                    }
+                    publish(error = null)
                 } catch (e: Throwable) {
                     if (e is CancellationException) throw e
-                    logcat(LogPriority.ERROR, e)
-                    _status.update { it.copy(error = e.message ?: e.javaClass.simpleName) }
-                } finally {
-                    synchronized(attempted) { attempted += next }
-                    refreshCounts()
+                    logcat(LogPriority.ERROR, e) { "Live translation failed on page ${next.number}" }
+                    synchronized(failed) { failed += next }
+                    publish(error = e.message?.take(160) ?: e.javaClass.simpleName)
                 }
             }
         }
 
-        /** The page on screen first, then the following ones that are loaded and not translated yet. */
+        private fun canWork(): Boolean =
+            preferences.liveTranslation().get() && !paused && readerPreferences.showTranslations.get() &&
+                _status.value.error == null
+
+        /** The page on screen first, then the next pages that are loaded and not translated yet. */
         private fun pick(): ReaderPage? {
             val list = pages
             if (list.isEmpty()) return null
@@ -150,14 +208,29 @@ class LiveTranslator(
             val end = (start + LOOKAHEAD).coerceAtMost(list.lastIndex)
             return (start..end).asSequence().map { list[it] }.firstOrNull { page ->
                 page.translation == null &&
-                    synchronized(attempted) { page !in attempted } &&
+                    synchronized(failed) { page !in failed } &&
                     page.status == Page.State.Ready &&
                     page.stream != null
             }
         }
 
-        private suspend fun translate(page: ReaderPage) {
-            val from = TextRecognizerLanguage.fromPref(preferences.translateFromLanguage())
+        private fun restoreFromCache(list: List<ReaderPage>) {
+            list.forEach { page ->
+                if (page.translation == null) cache.get(key(page))?.let { page.translation = it }
+            }
+        }
+
+        /** The OCR language: from the source's language when it is clear, otherwise the setting. */
+        private fun ocrLanguage(): TextRecognizerLanguage = when (sourceLang()?.lowercase()?.substringBefore('-')) {
+            "ko" -> TextRecognizerLanguage.KOREAN
+            "ja" -> TextRecognizerLanguage.JAPANESE
+            "zh" -> TextRecognizerLanguage.CHINESE
+            null, "", "all", "other" -> TextRecognizerLanguage.fromPref(preferences.translateFromLanguage())
+            else -> TextRecognizerLanguage.ENGLISH
+        }
+
+        private suspend fun translate(page: ReaderPage): PageTranslation? {
+            val from = ocrLanguage()
             val to = TextTranslatorLanguage.fromPref(preferences.translateToLanguage())
             val ocr = recognizer?.takeIf { it.language == from } ?: TextRecognizer(from).also {
                 recognizer?.close()
@@ -168,48 +241,100 @@ class LiveTranslator(
                     translator?.close()
                     translator = it
                 }
+
+            // 1. Read the page and find the bubbles
             val bytes = page.stream!!().use { it.readBytes() }
-            val decoded = PageImageProcessor.decode { ByteArrayInputStream(bytes) } ?: return
+            val decoded = PageImageProcessor.decode { ByteArrayInputStream(bytes) } ?: return null
             val result: PageTranslation
             val images = mutableMapOf<String, PageImage>()
             try {
                 val text = ocr.recognize(InputImage.fromBitmap(decoded.bitmap, 0))
                 val blocks = text.textBlocks.filter { it.boundingBox != null && it.text.length > 1 }
-                // OCR ran on the downscaled bitmap; scale boxes back to the real page size
-                val scaled = PageOcr.toPageTranslation(blocks, decoded.bitmap.width, decoded.bitmap.height)
-                result = scaled.rescaled(1f / decoded.scale)
+                // OCR ran on the downscaled bitmap; boxes go back to the real page size
+                result = PageOcr.toPageTranslation(blocks, decoded.bitmap.width, decoded.bitmap.height)
+                    .rescaled(1f / decoded.scale)
                 PageImageProcessor.sampleColors(result, decoded)
-                val vision = engine is AiTranslator && preferences.translationVision().get()
-                if (vision) images[KEY] = PageImageProcessor.tiles(decoded)
+                if (engine is AiTranslator && preferences.translationVision().get()) {
+                    images[KEY] = PageImageProcessor.tiles(decoded)
+                }
             } finally {
                 decoded.bitmap.recycle()
             }
-            if (result.blocks.isEmpty() && images.isEmpty()) return
-            val map = mutableMapOf(KEY to result)
+            if (result.blocks.isEmpty() && images.isEmpty()) return null
+
+            // 2. Translate, following the series glossary and adding the new names it finds
             val id = mangaId()
             (engine as? AiTranslator)?.apply {
                 glossary = id?.let(glossaryStore::asMap).orEmpty()
                 learnTerms = id != null
                 discoveredTerms.clear()
             }
+            val map = mutableMapOf(KEY to result)
             engine.translate(map, images)
             images[KEY]?.let { PageImageProcessor.sampleColorsFromTiles(result, it) }
             if (id != null) (engine as? AiTranslator)?.let { glossaryStore.merge(id, it.discoveredTerms) }
-            if (result.blocks.isNotEmpty()) {
-                withContext(Dispatchers.Main) { page.translation = result }
+
+            // 3. Apply edited glossary terms the model may have ignored
+            if (id != null) {
+                glossaryStore.get(id).filter { it.edited }.forEach { entry ->
+                    result.blocks.forEach { block ->
+                        if (block.text.contains(entry.source, ignoreCase = true) && !block.translation.contains(entry.translation)) {
+                            block.translation = block.translation.replace(entry.source, entry.translation, ignoreCase = true)
+                        }
+                    }
+                }
+            }
+            return result.takeIf { it.blocks.isNotEmpty() }
+        }
+
+        private suspend fun applyGlossaryEdit(edit: GlossaryStore.Edit) {
+            val changed = pages.mapNotNull { page ->
+                val current = page.translation ?: return@mapNotNull null
+                if (current.blocks.none { it.translation.contains(edit.oldTranslation) }) return@mapNotNull null
+                val updated = current.copy(
+                    blocks = current.blocks.map {
+                        it.copy(translation = it.translation.replace(edit.oldTranslation, edit.newTranslation))
+                    }.toMutableList(),
+                )
+                page to updated
+            }
+            if (changed.isEmpty()) return
+            withContext(Dispatchers.Main) {
+                changed.forEach { (page, updated) ->
+                    cache.put(key(page), updated)
+                    page.translation = updated
+                }
             }
         }
 
-        private fun refreshCounts() {
+        private fun publish(working: Int? = _status.value.workingPage, error: String? = _status.value.error) {
             val list = pages
-            val done = list.count { it.translation != null || synchronized(attempted) { it in attempted } }
-            _status.update { it.copy(done = done, total = list.size) }
+            val translated = list.count { it.translation != null }
+            val focusPage = list.getOrNull(focus)
+            val phase = when {
+                !preferences.liveTranslation().get() -> Phase.OFF
+                error != null -> Phase.ERROR
+                paused -> Phase.PAUSED
+                working != null -> Phase.WORKING
+                list.isNotEmpty() && translated + synchronized(failed) { failed.size } >= list.size -> Phase.DONE
+                else -> Phase.IDLE
+            }
+            _status.value = Status(
+                phase = phase,
+                workingPage = working,
+                focusPage = focus + 1,
+                focusReady = focusPage?.translation != null,
+                translated = translated,
+                total = list.size,
+                error = error,
+            )
         }
     }
 
     private companion object {
         const val KEY = "page"
-        const val LOOKAHEAD = 6
-        const val IDLE_MS = 400L
+        const val LOOKAHEAD = 8
+        const val POLL_MS = 600L
+        const val CACHE_PAGES = 400
     }
 }

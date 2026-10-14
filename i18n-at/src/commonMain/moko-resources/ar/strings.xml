@@ -138,8 +138,8 @@
     <string name="live_off">الترجمة الفورية متوقفة</string>
     <string name="live_paused">متوقفة مؤقتاً • %1$d/%2$d</string>
     <string name="live_done">✓ الفصل مترجم</string>
-    <string name="live_working">يترجم الصفحة %1$d • %2$d/%3$d</string>
-    <string name="live_error">مشكلة في الترجمة، يكمّل بالصفحات الجاية</string>
+    <string name="live_working">جاري ترجمة صفحة %1$d من %2$d…</string>
+    <string name="live_error">تعذّرت الترجمة</string>
     <string name="live_ready">الترجمة الفورية • %1$d/%2$d</string>
     <string name="autoscroll">التمرير التلقائي</string>
     <string name="glossary_title">قاموس الأسماء</string>
@@ -150,4 +150,7 @@
     <string name="glossary_apply">أعد ترجمة الفصل الحالي</string>
     <string name="glossary_empty">فاضي حالياً. الذكاء الاصطناعي يضيف الشخصيات والمهارات والأماكن وهو يترجم، وتقدر تضيف بنفسك.</string>
     <string name="glossary_button">قاموس الأسماء (%d)</string>
+    <string name="live_page_ready">✓ الصفحة %d جاهزة</string>
+    <string name="live_background">يجهّز الصفحة %1$d في الخلفية • %2$d/%3$d جاهزة</string>
+    <string name="live_waiting">ينتظر تحميل الصفحة %d…</string>
 </resources>

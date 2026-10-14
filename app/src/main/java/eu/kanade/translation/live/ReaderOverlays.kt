@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -80,8 +81,10 @@ import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * Floating glass pill showing live translation progress with a pulsing red dot.
- * Expanded while the reader menu is open, so it can be switched on or off and open the glossary.
+ * Floating glass pill bound to the live translator's real state: a pulsing red dot and "Translating page 3
+ * of 15" while working, "page ready" with the background progress once the page on screen is done, and a
+ * clear message with a retry button when a request fails. With the reader menu open it can pause, switch
+ * live translation on or off and open the glossary.
  */
 @Composable
 fun LiveTranslationPill(
@@ -89,24 +92,31 @@ fun LiveTranslationPill(
     menuVisible: Boolean,
     onEnable: (Boolean) -> Unit,
     onPause: () -> Unit,
+    onRetry: () -> Unit,
     onGlossary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val phase = status.phase
     var justFinished by remember { mutableStateOf(false) }
-    LaunchedEffect(status.complete) {
-        if (status.complete && status.enabled) {
+    LaunchedEffect(phase) {
+        if (phase == LiveTranslator.Phase.DONE) {
             justFinished = true
-            delay(2_500)
+            delay(3_000)
             justFinished = false
         }
     }
-    val working = status.enabled && !status.paused && status.working != null
-    val visible = menuVisible || (status.enabled && (working || justFinished || status.paused || status.error != null))
+    val working = phase == LiveTranslator.Phase.WORKING
+    val visible = menuVisible || when (phase) {
+        LiveTranslator.Phase.OFF -> false
+        LiveTranslator.Phase.DONE -> justFinished
+        LiveTranslator.Phase.IDLE -> status.total > 0 && !status.focusReady
+        else -> true
+    }
     val pulse by rememberInfiniteTransition(label = "live").animateFloat(
-        initialValue = 0.4f,
+        initialValue = 0.35f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse),
         label = "pulse",
     )
     AnimatedVisibility(
@@ -115,52 +125,113 @@ fun LiveTranslationPill(
         exit = fadeOut() + shrinkHorizontally(),
         modifier = modifier,
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .glass(RoundedCornerShape(50), accent = status.enabled, alpha = 0.78f)
+                .neonGlow(RoundedCornerShape(22.dp), colors.primary, if (working) 0.25f * pulse else 0.08f, 10.dp)
+                .glass(RoundedCornerShape(22.dp), accent = status.enabled, alpha = 0.82f)
                 .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                Modifier
-                    .size(10.dp)
-                    .graphicsLayer { alpha = if (working) pulse else 1f }
-                    .neonGlow(CircleShape, colors.primary, if (working) 0.5f * pulse else 0.15f, 6.dp)
-                    .background(
-                        when {
-                            !status.enabled -> Color.White.copy(alpha = 0.4f)
-                            status.error != null -> Color(0xFFFFB020)
-                            else -> colors.primary
-                        },
-                        CircleShape,
-                    ),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                when {
-                    !status.enabled -> stringResource(ATMR.strings.live_off)
-                    status.paused -> stringResource(ATMR.strings.live_paused, status.done, status.total)
-                    status.complete -> stringResource(ATMR.strings.live_done)
-                    working -> stringResource(ATMR.strings.live_working, status.working ?: 0, status.done, status.total)
-                    status.error != null -> stringResource(ATMR.strings.live_error)
-                    else -> stringResource(ATMR.strings.live_ready, status.done, status.total)
-                },
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-            )
-            if (working) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .graphicsLayer { alpha = if (working) pulse else 1f }
+                        .neonGlow(CircleShape, colors.primary, if (working) 0.5f * pulse else 0.15f, 6.dp)
+                        .background(
+                            when (phase) {
+                                LiveTranslator.Phase.OFF, LiveTranslator.Phase.PAUSED -> Color.White.copy(alpha = 0.45f)
+                                LiveTranslator.Phase.ERROR -> Color(0xFFFFB020)
+                                LiveTranslator.Phase.DONE -> Color(0xFF3DDC97)
+                                else -> colors.primary
+                            },
+                            CircleShape,
+                        ),
+                )
                 Spacer(Modifier.width(8.dp))
-                CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 1.5.dp, color = colors.primary)
-            }
-            if (menuVisible) {
-                Spacer(Modifier.width(6.dp))
-                if (status.enabled) {
-                    SmallOrb(if (status.paused) MaterialSymbols.RoundedFilled.PlayArrow else MaterialSymbols.RoundedFilled.Pause, onPause)
+                Column(modifier = Modifier.widthIn(max = 250.dp)) {
+                    Text(
+                        when (phase) {
+                            LiveTranslator.Phase.OFF -> stringResource(ATMR.strings.live_off)
+                            LiveTranslator.Phase.PAUSED -> stringResource(ATMR.strings.live_paused, status.translated, status.total)
+                            LiveTranslator.Phase.DONE -> stringResource(ATMR.strings.live_done)
+                            LiveTranslator.Phase.ERROR -> stringResource(ATMR.strings.live_error)
+                            LiveTranslator.Phase.WORKING ->
+                                if (status.focusReady) {
+                                    stringResource(ATMR.strings.live_page_ready, status.focusPage)
+                                } else {
+                                    stringResource(ATMR.strings.live_working, status.workingPage ?: status.focusPage, status.total)
+                                }
+                            LiveTranslator.Phase.IDLE ->
+                                if (status.focusReady || status.total == 0) {
+                                    stringResource(ATMR.strings.live_ready, status.translated, status.total)
+                                } else {
+                                    stringResource(ATMR.strings.live_waiting, status.focusPage)
+                                }
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val detail = when {
+                        phase == LiveTranslator.Phase.ERROR -> status.error
+                        working && status.focusReady ->
+                            stringResource(ATMR.strings.live_background, status.workingPage ?: 0, status.translated, status.total)
+                        else -> null
+                    }
+                    if (detail != null) {
+                        Text(
+                            detail,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.65f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
-                SmallOrb(MaterialSymbols.AutoMirroredRounded.Label, onGlossary)
-                SmallOrb(MaterialSymbols.Rounded.Translate, active = status.enabled) { onEnable(!status.enabled) }
+                if (working) {
+                    Spacer(Modifier.width(8.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 1.5.dp, color = colors.primary)
+                }
+                if (phase == LiveTranslator.Phase.ERROR) {
+                    Spacer(Modifier.width(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(ManhwaKit.accentBrush())
+                            .clickable(onClick = onRetry)
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(MaterialSymbols.Rounded.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            stringResource(ATMR.strings.recs_retry),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                        )
+                    }
+                }
+                if (menuVisible) {
+                    Spacer(Modifier.width(6.dp))
+                    if (status.enabled && phase != LiveTranslator.Phase.ERROR) {
+                        SmallOrb(
+                            if (phase == LiveTranslator.Phase.PAUSED) MaterialSymbols.RoundedFilled.PlayArrow else MaterialSymbols.RoundedFilled.Pause,
+                            onPause,
+                        )
+                    }
+                    SmallOrb(MaterialSymbols.AutoMirroredRounded.Label, onGlossary)
+                    SmallOrb(MaterialSymbols.Rounded.Translate, active = status.enabled) { onEnable(!status.enabled) }
+                }
+            }
+            if (status.total > 0 && status.enabled && phase != LiveTranslator.Phase.DONE) {
+                Spacer(Modifier.height(6.dp))
+                ManhwaKit.GlowBar(
+                    status.translated.toFloat() / status.total,
+                    Modifier.padding(end = 6.dp).width(220.dp),
+                )
             }
         }
     }

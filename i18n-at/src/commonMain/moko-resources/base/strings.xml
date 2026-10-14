@@ -198,8 +198,8 @@
     <string name="live_off">Live translation off</string>
     <string name="live_paused">Paused • %1$d/%2$d</string>
     <string name="live_done">✓ Chapter translated</string>
-    <string name="live_working">Translating page %1$d • %2$d/%3$d</string>
-    <string name="live_error">Translation problem, retrying next pages</string>
+    <string name="live_working">Translating page %1$d of %2$d…</string>
+    <string name="live_error">Translation failed</string>
     <string name="live_ready">Live translation • %1$d/%2$d</string>
     <string name="autoscroll">Auto scroll</string>
     <string name="glossary_title">Names glossary</string>
@@ -210,4 +210,7 @@
     <string name="glossary_apply">Re-translate this chapter</string>
     <string name="glossary_empty">Empty for now. The AI adds characters, skills and places while translating, and you can add your own.</string>
     <string name="glossary_button">Names glossary (%d)</string>
+    <string name="live_page_ready">✓ Page %d ready</string>
+    <string name="live_background">Preparing page %1$d in the background • %2$d/%3$d ready</string>
+    <string name="live_waiting">Waiting for page %d to load…</string>
 </resources>
