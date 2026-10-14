@@ -1,5 +1,6 @@
 package eu.kanade.presentation.more.settings.screen
 
+import eu.kanade.presentation.components.glass
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
@@ -128,23 +129,11 @@ object SettingsMainScreen : Screen() {
                         key = { _, item -> item.hashCode() },
                     ) { index, item ->
                         val selected = indexSelected == index
-                        var modifier: Modifier = Modifier
-                        var contentColor = LocalContentColor.current
-                        if (twoPane) {
-                            modifier = Modifier
-                                .padding(horizontal = 8.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .then(
-                                    if (selected) {
-                                        Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
-                                    } else {
-                                        Modifier
-                                    },
-                                )
-                            if (selected) {
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        }
+                        // MANHWA: every entry is a glass card, the open one gets the crimson rim
+                        val modifier: Modifier = Modifier
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .glass(RoundedCornerShape(20.dp), accent = selected)
+                        val contentColor = LocalContentColor.current
                         CompositionLocalProvider(LocalContentColor provides contentColor) {
                             TextPreferenceWidget(
                                 modifier = modifier,

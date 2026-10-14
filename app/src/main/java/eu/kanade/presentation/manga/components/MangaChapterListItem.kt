@@ -1,5 +1,8 @@
 package eu.kanade.presentation.manga.components
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import eu.kanade.presentation.components.glass
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -89,7 +92,11 @@ fun MangaChapterListItem(
     )
 
     SwipeableActionsBox(
-        modifier = Modifier.clipToBounds(),
+        // MANHWA: each chapter is a glass row
+        modifier = Modifier
+            .padding(horizontal = 10.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clipToBounds(),
         startActions = listOfNotNull(start),
         endActions = listOfNotNull(end),
         swipeThreshold = swipeActionThreshold,
@@ -97,6 +104,7 @@ fun MangaChapterListItem(
     ) {
         Row(
             modifier = modifier
+                .glass(RoundedCornerShape(16.dp), accent = selected, alpha = 0.4f)
                 .selectedBackground(selected)
                 .combinedClickable(
                     onClick = onClick,

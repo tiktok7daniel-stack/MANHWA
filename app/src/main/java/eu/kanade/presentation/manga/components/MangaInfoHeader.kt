@@ -1,5 +1,7 @@
 package eu.kanade.presentation.manga.components
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import eu.kanade.presentation.components.glass
 import eu.kanade.translation.search.DescriptionTranslator
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
@@ -734,7 +736,8 @@ private fun RowScope.MangaActionButton(
 ) {
     TextButton(
         onClick = onClick,
-        modifier = Modifier.weight(1f),
+        // MANHWA: glass action buttons
+        modifier = Modifier.weight(1f).padding(horizontal = 4.dp).glass(RoundedCornerShape(18.dp)),
         onLongClick = onLongClick,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

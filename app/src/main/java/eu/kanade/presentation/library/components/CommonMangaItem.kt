@@ -1,5 +1,7 @@
 package eu.kanade.presentation.library.components
 
+import eu.kanade.presentation.components.glass
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -27,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -42,7 +43,6 @@ import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.selectedBackground
 import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 
 object CommonMangaItemDefaults {
@@ -241,7 +241,9 @@ private fun MangaGridCover(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(MangaCover.Book.ratio),
+            .aspectRatio(MangaCover.Book.ratio)
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp)),
     ) {
         cover()
         content?.invoke(this)
@@ -296,34 +298,25 @@ private fun GridItemSelectable(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    // MANHWA: each title sits on a glass card; a crimson rim marks the selection
+    val shape = RoundedCornerShape(18.dp)
     Box(
         modifier = modifier
-            .clip(MaterialTheme.shapes.small)
+            .glass(shape, accent = isSelected, alpha = if (isSelected) 0.7f else 0.45f)
+            .then(if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .selectedOutline(isSelected = isSelected, color = MaterialTheme.colorScheme.secondary)
-            .padding(4.dp),
+            .padding(5.dp),
     ) {
-        val contentColor = if (isSelected) {
-            MaterialTheme.colorScheme.onSecondary
-        } else {
-            LocalContentColor.current
-        }
+        val contentColor = LocalContentColor.current
         CompositionLocalProvider(LocalContentColor provides contentColor) {
             content()
         }
     }
 }
 
-/**
- * @see GridItemSelectable
- */
-private fun Modifier.selectedOutline(
-    isSelected: Boolean,
-    color: Color,
-) = drawBehind { if (isSelected) drawRect(color = color) }
 
 /**
  * Layout of list item.
@@ -341,8 +334,9 @@ fun MangaListItem(
 ) {
     Row(
         modifier = Modifier
-            .selectedBackground(isSelected)
-            .height(56.dp)
+            .padding(horizontal = 10.dp, vertical = 3.dp)
+            .glass(RoundedCornerShape(16.dp), accent = isSelected, alpha = if (isSelected) 0.7f else 0.4f)
+            .height(60.dp)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,

@@ -1,5 +1,9 @@
 package eu.kanade.presentation.more.settings
 
+import eu.kanade.presentation.components.glass
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -60,11 +64,27 @@ fun PreferenceScreen(
                             )
                         }
                     }
-                    items(preference.preferenceItems) { item ->
-                        PreferenceItem(
-                            item = item,
-                            highlightKey = highlightKey,
+                    // MANHWA: the items of a group form one glass panel
+                    val visibleItems = preference.preferenceItems.filter { it.visible }
+                    items(visibleItems) { item ->
+                        val first = item === visibleItems.first()
+                        val last = item === visibleItems.last()
+                        val shape = RoundedCornerShape(
+                            topStart = if (first) 22.dp else 4.dp,
+                            topEnd = if (first) 22.dp else 4.dp,
+                            bottomStart = if (last) 22.dp else 4.dp,
+                            bottomEnd = if (last) 22.dp else 4.dp,
                         )
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 1.dp)
+                                .glass(shape),
+                        ) {
+                            PreferenceItem(
+                                item = item,
+                                highlightKey = highlightKey,
+                            )
+                        }
                     }
                     item {
                         if (i < items.lastIndex) {
