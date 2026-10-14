@@ -45,6 +45,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -214,6 +215,7 @@ class MainActivity : BaseActivity() {
             val context = LocalContext.current
 
             var incognito by remember { mutableStateOf(false) }
+            var showIntro by rememberSaveable { mutableStateOf(isLaunch) }
             val downloadOnly by preferences.downloadedOnly.collectAsState()
             val indexing by downloadCache.isInitializing.collectAsState()
 
@@ -287,6 +289,11 @@ class MainActivity : BaseActivity() {
                                     .alpha(0.8f)
                                     .background(MaterialTheme.colorScheme.surfaceContainer),
                             )
+                        }
+
+                        // MANHWA LEGENDS opening, on cold start only
+                        if (showIntro) {
+                            ManhwaIntro(onFinished = { showIntro = false })
                         }
                     }
                 }

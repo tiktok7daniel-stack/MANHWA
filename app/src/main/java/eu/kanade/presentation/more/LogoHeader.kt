@@ -23,13 +23,13 @@ fun LogoHeader(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_mihon),
+        // MANHWA LEGENDS logo instead of the Mihon mark
+        androidx.compose.foundation.Image(
+            painter = painterResource(R.drawable.ic_launcher_foreground),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
                 .padding(iconPadding)
-                .size(64.dp),
+                .size(120.dp),
         )
 
         HorizontalDivider()
