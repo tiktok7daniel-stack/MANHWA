@@ -167,7 +167,8 @@ class WebtoonPageHolder(
                     }
                     Page.State.Ready -> {
                         setImage()
-                        addTranslationsView() // TachiyomiAT
+                        // TachiyomiAT: also picks up translations that arrive while the page is shown
+                        page.translationFlow.collectLatest { addTranslationsView() }
                     }
                     is Page.State.Error -> setError(state.error)
                 }
@@ -285,7 +286,11 @@ class WebtoonPageHolder(
 
     // TachiyomiAT
     private fun addTranslationsView() {
-        val translation = page?.translation ?: return
+        val translation = page?.translation ?: run {
+            frame.removeView(translationsView)
+            translationsView = null
+            return
+        }
         frame.removeView(translationsView)
         translationsView = WebtoonTranslationsView(frame.context, translation = translation, font = font).also {
             if (!showTranslations) it.hide()

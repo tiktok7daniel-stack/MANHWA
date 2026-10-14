@@ -193,4 +193,21 @@
     <string name="src_count_chapters">%d chapters</string>
     <string name="wrapped_night">🌙 You are a night reader</string>
     <string name="wrapped_day">☀️ You read in daylight</string>
+    <string name="pref_live_translation">Translate while reading</string>
+    <string name="pref_live_translation_summary">Chapters without a saved translation are translated page by page as you read, starting with the page on screen.</string>
+    <string name="live_off">Live translation off</string>
+    <string name="live_paused">Paused • %1$d/%2$d</string>
+    <string name="live_done">✓ Chapter translated</string>
+    <string name="live_working">Translating page %1$d • %2$d/%3$d</string>
+    <string name="live_error">Translation problem, retrying next pages</string>
+    <string name="live_ready">Live translation • %1$d/%2$d</string>
+    <string name="autoscroll">Auto scroll</string>
+    <string name="glossary_title">Names glossary</string>
+    <string name="glossary_count">%d names and terms</string>
+    <string name="glossary_search">Search names…</string>
+    <string name="glossary_source">Original</string>
+    <string name="glossary_translation">Translation</string>
+    <string name="glossary_apply">Re-translate this chapter</string>
+    <string name="glossary_empty">Empty for now. The AI adds characters, skills and places while translating, and you can add your own.</string>
+    <string name="glossary_button">Names glossary (%d)</string>
 </resources>

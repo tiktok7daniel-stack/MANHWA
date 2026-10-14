@@ -41,6 +41,7 @@ import eu.kanade.tachiyomi.ui.setting.track.BaseOAuthLoginActivity
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.translation.TranslationManager
+import eu.kanade.translation.glossary.GlossaryStore
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
@@ -97,6 +98,7 @@ interface AppGraph : ViewModelGraph {
     val downloadPreferences: DownloadPreferences
     val translationPreferences: TranslationPreferences
     val translationManager: TranslationManager
+    val glossaryStore: GlossaryStore
 
     val crashLogUtil: CrashLogUtil
 

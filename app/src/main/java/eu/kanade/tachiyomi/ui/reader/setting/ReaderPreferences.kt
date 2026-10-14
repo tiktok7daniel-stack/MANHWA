@@ -42,6 +42,9 @@ class ReaderPreferences(
     // TachiyomiAT
     val showTranslations: Preference<Boolean> = preferenceStore.getBoolean("show_translations", true)
 
+    /** Auto-scroll speed, 1 (slow) to 10 (fast). */
+    val autoScrollSpeed: Preference<Int> = preferenceStore.getInt("manhwa_auto_scroll_speed", 4)
+
     val verticalNavigator: Preference<Set<ReadingMode>> = preferenceStore.getEnumSet(
         "pref_vertical_navigator",
         emptySet(),

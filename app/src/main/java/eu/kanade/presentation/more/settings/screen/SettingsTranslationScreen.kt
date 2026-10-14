@@ -105,6 +105,11 @@ object SettingsTranslationScreen : SearchableSettings {
                     visible = engine == TextTranslators.OPENAI,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.liveTranslation(),
+                    title = stringResource(ATMR.strings.pref_live_translation),
+                    subtitle = stringResource(ATMR.strings.pref_live_translation_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.translationVision(),
                     title = stringResource(ATMR.strings.pref_translation_vision),
                     subtitle = stringResource(ATMR.strings.pref_translation_vision_summary),

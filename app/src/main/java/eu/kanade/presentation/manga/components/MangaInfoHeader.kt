@@ -253,6 +253,7 @@ fun MangaActionRow(
 fun ExpandableMangaDescription(
     defaultExpandState: Boolean,
     description: String?,
+    mangaId: Long? = null,
     tagsProvider: () -> List<String>?,
     notes: String,
     onTagSearch: (String) -> Unit,
@@ -282,6 +283,13 @@ fun ExpandableMangaDescription(
             description = description,
             modifier = Modifier.padding(horizontal = 16.dp).padding(top = 10.dp),
         )
+        // MANHWA: names and terms the translator keeps consistent for this series
+        if (mangaId != null) {
+            eu.kanade.translation.glossary.GlossaryButton(
+                mangaId = mangaId,
+                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
+            )
+        }
         val tags = tagsProvider()
         if (!tags.isNullOrEmpty()) {
             Box(

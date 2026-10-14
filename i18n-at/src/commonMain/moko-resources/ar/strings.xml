@@ -133,4 +133,21 @@
     <string name="src_count_chapters">%d فصل</string>
     <string name="wrapped_night">🌙 أنت قارئ ليلي</string>
     <string name="wrapped_day">☀️ أنت قارئ نهاري</string>
+    <string name="pref_live_translation">الترجمة الفورية أثناء القراءة</string>
+    <string name="pref_live_translation_summary">الفصول اللي ما لها ترجمة محفوظة تنترجم صفحة صفحة وأنت تقرأ، تبدأ بالصفحة اللي قدامك.</string>
+    <string name="live_off">الترجمة الفورية متوقفة</string>
+    <string name="live_paused">متوقفة مؤقتاً • %1$d/%2$d</string>
+    <string name="live_done">✓ الفصل مترجم</string>
+    <string name="live_working">يترجم الصفحة %1$d • %2$d/%3$d</string>
+    <string name="live_error">مشكلة في الترجمة، يكمّل بالصفحات الجاية</string>
+    <string name="live_ready">الترجمة الفورية • %1$d/%2$d</string>
+    <string name="autoscroll">التمرير التلقائي</string>
+    <string name="glossary_title">قاموس الأسماء</string>
+    <string name="glossary_count">%d اسم ومصطلح</string>
+    <string name="glossary_search">ابحث في الأسماء…</string>
+    <string name="glossary_source">الأصل</string>
+    <string name="glossary_translation">الترجمة</string>
+    <string name="glossary_apply">أعد ترجمة الفصل الحالي</string>
+    <string name="glossary_empty">فاضي حالياً. الذكاء الاصطناعي يضيف الشخصيات والمهارات والأماكن وهو يترجم، وتقدر تضيف بنفسك.</string>
+    <string name="glossary_button">قاموس الأسماء (%d)</string>
 </resources>

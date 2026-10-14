@@ -21,6 +21,16 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import eu.kanade.translation.live.AutoScrollControl
+import eu.kanade.translation.live.GlossarySheet
+import eu.kanade.translation.live.LiveTranslationPill
+import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
+import mihon.app.di.appGraph
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -272,6 +282,43 @@ class ReaderActivity : BaseActivity() {
             }
 
             ContentOverlay(state = state)
+
+            // MANHWA: live translation pill, auto-scroll and glossary
+            val live by viewModel.liveTranslation.status.collectAsState()
+            var showGlossary by remember { mutableStateOf(false) }
+            LiveTranslationPill(
+                status = live,
+                menuVisible = state.menuVisible,
+                onEnable = viewModel.liveTranslation::setEnabled,
+                onPause = viewModel.liveTranslation::togglePause,
+                onGlossary = { showGlossary = true },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = if (state.menuVisible) 64.dp else 8.dp),
+            )
+            val autoScrollSpeed by readerPreferences.autoScrollSpeed.collectAsState()
+            AutoScrollControl(
+                webtoon = state.viewer is WebtoonViewer,
+                speed = autoScrollSpeed,
+                onSpeed = readerPreferences.autoScrollSpeed::set,
+                onScrollBy = { dy -> (viewModel.state.value.viewer as? WebtoonViewer)?.recycler?.scrollBy(0, dy) },
+                onNextPage = { (viewModel.state.value.viewer as? PagerViewer)?.moveToNext() },
+                paused = state.menuVisible,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(end = 14.dp, bottom = if (state.menuVisible) 150.dp else 40.dp),
+            )
+            val mangaId = state.manga?.id
+            if (showGlossary && mangaId != null) {
+                GlossarySheet(
+                    mangaId = mangaId,
+                    store = remember { appGraph.glossaryStore },
+                    onDismiss = { showGlossary = false },
+                    onRetranslate = viewModel.liveTranslation::retranslate,
+                )
+            }
 
             AppBars(state = state)
         }

@@ -18,6 +18,8 @@ import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.translation.data.PageImage
 import eu.kanade.translation.data.PageImageProcessor
+import eu.kanade.translation.glossary.GlossaryStore
+import eu.kanade.translation.live.PageOcr
 import eu.kanade.translation.data.TranslationProvider
 import eu.kanade.translation.translator.AiTranslator
 import eu.kanade.translation.model.PageTranslation
@@ -68,6 +70,7 @@ class ChapterTranslator(
     private val downloadProvider: DownloadProvider,
     private val sourceManager: SourceManager,
     private val translationPreferences: TranslationPreferences,
+    private val glossaryStore: GlossaryStore,
 ) {
 
     private val _queueState = MutableStateFlow<List<Translation>>(emptyList())
@@ -247,7 +250,7 @@ class ChapterTranslator(
                     val image = InputImage.fromFilePath(context, tmpFile.uri)
                     val result = textRecognizer.recognize(image)
                     val blocks = result.textBlocks.filter { it.boundingBox != null && it.text.length > 1 }
-                    val pageTranslation = convertToPageTranslation(blocks, image.width, image.height)
+                    val pageTranslation = PageOcr.toPageTranslation(blocks, image.width, image.height)
                     PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! }?.let { decoded ->
                         PageImageProcessor.sampleColors(pageTranslation, decoded)
                         if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
@@ -258,8 +261,15 @@ class ChapterTranslator(
             }
             tmpFile.delete()
             withContext(Dispatchers.IO) {
+                // The series glossary keeps names consistent; new names found are added to it
+                (textTranslator as? AiTranslator)?.apply {
+                    glossary = glossaryStore.asMap(translation.manga.id)
+                    learnTerms = true
+                    discoveredTerms.clear()
+                }
                 // Translate the text in blocks , this mutates the original blocks
                 textTranslator.translate(pages, images)
+                (textTranslator as? AiTranslator)?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms) }
                 // Bubbles added by the vision model still need their erase colour
                 images.forEach { (name, image) -> pages[name]?.let { PageImageProcessor.sampleColorsFromTiles(it, image) } }
                 pages.entries.removeAll { it.value.blocks.isEmpty() }
@@ -281,81 +291,6 @@ class ChapterTranslator(
             translation.status = Translation.State.ERROR
             logcat(LogPriority.ERROR, error)
         }
-    }
-
-    private fun convertToPageTranslation(blocks: List<Text.TextBlock>, width: Int, height: Int): PageTranslation {
-        val translation = PageTranslation(imgWidth = width.toFloat(), imgHeight = height.toFloat())
-        for (block in blocks) {
-            val bounds = block.boundingBox!!
-            val symBounds = block.lines.first().elements.first().symbols.first().boundingBox!!
-            translation.blocks.add(
-                TranslationBlock(
-                    text = block.text,
-                    width = bounds.width().toFloat(),
-                    height = bounds.height().toFloat(),
-                    symWidth = symBounds.width().toFloat(),
-                    symHeight = symBounds.height().toFloat(),
-                    angle = block.lines.first().angle,
-                    x = bounds.left.toFloat(),
-                    y = bounds.top.toFloat(),
-                ),
-            )
-        }
-        // Smart merge overlapping text blocks
-        translation.blocks = smartMergeBlocks(translation.blocks, 50, 30, 30)
-
-        return translation
-    }
-
-    private fun smartMergeBlocks(
-        blocks: List<TranslationBlock>,
-        widthThreshold: Int,
-        xThreshold: Int,
-        yThreshold: Int,
-    ): MutableList<TranslationBlock> {
-        if (blocks.isEmpty()) return mutableListOf()
-
-        val merged = mutableListOf<TranslationBlock>()
-        var current = blocks[0]
-        for (i in 1 until blocks.size) {
-            val next = blocks[i]
-            if (shouldMergeTextBlock(current, next, widthThreshold, xThreshold, yThreshold)) {
-                current = mergeTextBlock(current, next)
-            } else {
-                merged.add(current)
-                current = next
-            }
-        }
-        merged.add(current)
-        return merged
-    }
-
-    private fun shouldMergeTextBlock(
-        a: TranslationBlock,
-        b: TranslationBlock,
-        widthThreshold: Int,
-        xThreshold: Int,
-        yThreshold: Int,
-    ): Boolean {
-        val isWidthSimilar = (b.width < a.width) || (abs(a.width - b.width) < widthThreshold)
-        val isXClose = abs(a.x - b.x) < xThreshold
-        val isYClose = (b.y - (a.y + a.height)) < yThreshold
-        return isWidthSimilar && isXClose && isYClose
-    }
-
-    private fun mergeTextBlock(a: TranslationBlock, b: TranslationBlock): TranslationBlock {
-        val newX = kotlin.math.min(a.x, b.x)
-        val newY = a.y
-        val newWidth = kotlin.math.max(a.x + a.width, b.x + b.width) - newX
-        val newHeight = kotlin.math.max(a.y + a.height, b.y + b.height) - newY
-        return TranslationBlock(
-            a.text + " " + b.text,
-            a.translation + " " + b.translation,
-            newWidth,
-            newHeight,
-            newX, newY, a.symHeight,
-            a.symWidth, a.angle,
-        )
     }
 
     private fun getChapterPages(chapterPath: UniFile): List<Pair<String, () -> InputStream>> {

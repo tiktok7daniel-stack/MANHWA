@@ -57,6 +57,7 @@ import eu.kanade.tachiyomi.util.storage.cacheImageDir
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import kotlinx.coroutines.CancellationException
 import eu.kanade.translation.TranslationManager
+import eu.kanade.translation.live.LiveTranslator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -112,6 +113,7 @@ class ReaderViewModel(
     private val downloadManager: DownloadManager,
     private val downloadProvider: DownloadProvider,
     private val translationManager: TranslationManager,
+    liveTranslator: LiveTranslator,
     private val imageSaver: ImageSaver,
     val readerPreferences: ReaderPreferences,
     private val basePreferences: BasePreferences,
@@ -299,6 +301,9 @@ class ReaderViewModel(
     }
 
     private var incognitoMode: Boolean = false
+    /** On-the-fly translation of the chapter being read (MANHWA). */
+    val liveTranslation = liveTranslator.session(viewModelScope) { state.value.manga?.id }
+
     private val downloadAheadAmount = downloadPreferences.autoDownloadWhileReading.get()
 
     init {
@@ -546,6 +551,7 @@ class ReaderViewModel(
         if (page is InsertPage) {
             return
         }
+        liveTranslation.focus(page)
 
         val selectedChapter = page.chapter
         val pages = selectedChapter.pages ?: return

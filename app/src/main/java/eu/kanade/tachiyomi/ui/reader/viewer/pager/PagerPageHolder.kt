@@ -128,7 +128,8 @@ class PagerPageHolder(
                     }
                     Page.State.Ready -> {
                         setImage()
-                        addTranslationsView() // TachiyomiAT
+                        // TachiyomiAT: also picks up translations that arrive while the page is shown
+                        page.translationFlow.collectLatest { addTranslationsView() }
                     }
                     is Page.State.Error -> setError(state.error)
                 }
@@ -308,12 +309,17 @@ class PagerPageHolder(
 
     // TachiyomiAT
     private fun addTranslationsView() {
-        val translation = page.translation ?: return
+        val translation = page.translation ?: run {
+            removeView(translationsView)
+            translationsView = null
+            return
+        }
         removeView(translationsView)
         translationsView = PagerTranslationsView(context, translation = translation, font = font).also {
             if (!showTranslations) it.hide()
             addView(it, MATCH_PARENT, MATCH_PARENT)
         }
+        updateTranslationCoords()
     }
 
     // TachiyomiAT

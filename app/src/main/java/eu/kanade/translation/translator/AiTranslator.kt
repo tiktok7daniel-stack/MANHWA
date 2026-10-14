@@ -72,6 +72,25 @@ class AiTranslator(
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    /** The series glossary (source term -> translation) every translation must follow. */
+    var glossary: Map<String, String> = emptyMap()
+
+    /** When set, the model also reports new names and terms, collected in [discoveredTerms]. */
+    var learnTerms: Boolean = false
+
+    /** New names and terms the model found, to be saved to the series glossary. */
+    val discoveredTerms = LinkedHashMap<String, String>()
+
+    private fun collectTerms(output: JsonObject) {
+        if (!learnTerms) return
+        (output[TERMS_KEY] as? JsonObject)?.forEach { (source, value) ->
+            val translation = (value as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+            if (source.isNotBlank() && translation.isNotBlank() && glossary.keys.none { it.equals(source, ignoreCase = true) }) {
+                discoveredTerms[source.trim()] = translation
+            }
+        }
+    }
+
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
         val context = ArrayDeque<String>()
         for (batch in batches(pages)) translateTextBatch(batch, pages, context)
@@ -106,6 +125,7 @@ class AiTranslator(
             batch.forEach { name -> putJsonArray(name) { pages[name]!!.blocks.forEach { add(it.text) } } }
         }
         val output = withRetry { parse(request(systemPrompt(vision = false), listOf(Part.Text(userPrompt(input, context))))) }
+        collectTerms(output)
         for (name in batch) {
             val page = pages[name]!!
             val translated = (output[name] as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull }
@@ -146,6 +166,7 @@ class AiTranslator(
             }
         }
         val output = withRetry { parse(request(systemPrompt(vision = true), parts)) }
+        collectTerms(output)
         for (name in batch) {
             val page = pages[name]!!
             val result = output[name] as? JsonObject
@@ -300,7 +321,7 @@ class AiTranslator(
             appendLine("values are the OCR'd speech bubbles of that page in reading order.")
             appendLine()
             appendLine("Rules:")
-            appendLine("1. Reply with ONLY a JSON object with exactly the same keys, and the same number of strings per key in the same order.")
+            appendLine("1. Reply with ONLY a JSON object with exactly the same page keys (plus \"$TERMS_KEY\" when asked), and the same number of strings per key in the same order.")
         }
         appendLine("2. Write natural, fluent $target the way a skilled human localizer would: keep each character's voice, tone and emotion, adapt idioms, and keep lines short enough to fit a speech bubble.")
         appendLine("3. OCR text can be noisy or split mid-sentence: use the neighbouring bubbles to recover the intended meaning and silently fix obvious OCR mistakes.")
@@ -309,6 +330,17 @@ class AiTranslator(
         appendLine("6. Replace watermarks, scanlation credits, site names and URLs with exactly \"$WATERMARK\".")
         if (toLang == TextTranslatorLanguage.ARABIC) {
             appendLine("7. Use clear Modern Standard Arabic suited to comics, with Arabic punctuation (، ؟ !).")
+        }
+        if (glossary.isNotEmpty()) {
+            appendLine()
+            appendLine("Series glossary. Always translate these exactly like this:")
+            glossary.entries.take(MAX_GLOSSARY).forEach { (source, translation) -> appendLine("- $source => $translation") }
+        }
+        if (learnTerms) {
+            appendLine()
+            appendLine("Also add a top-level key \"$TERMS_KEY\" (next to the page keys) with up to 12 NEW proper nouns and terms")
+            appendLine("from these pages that are not in the glossary: character names, skills, ranks, titles, sects, places,")
+            appendLine("items. Format: {\"$TERMS_KEY\": {\"<source term as written>\": \"<your translation>\"}}. Use {} if none.")
         }
         if (instructions.isNotBlank()) {
             appendLine()
@@ -517,6 +549,8 @@ class AiTranslator(
     class ApiException(val code: Int, body: String) : IOException("HTTP $code: $body")
 
     private companion object {
+        const val TERMS_KEY = "_terms"
+        const val MAX_GLOSSARY = 200
         const val WATERMARK = "RTMTH"
         const val BATCH_LINES = 120
         const val CONTEXT_LINES = 25
