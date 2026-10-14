@@ -398,7 +398,7 @@ class AiTranslator(
                 },
                 buildMap {
                     if (apiKey.isNotBlank()) put("Authorization", "Bearer $apiKey")
-                    if (provider == Provider.OPENROUTER) put("X-Title", "Danghwa")
+                    if (provider == Provider.OPENROUTER) put("X-Title", "MANHWA")
                 },
             )
             // Current Claude models reject sampling parameters, so temperature is not sent.

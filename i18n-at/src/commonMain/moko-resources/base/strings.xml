@@ -32,7 +32,7 @@
     <string name="ai_search_hint">Describe the story or type any title, then tap AI search to find it in every source</string>
     <string name="ai_search_not_configured">Set up an AI engine and key in Settings → Translations to use AI search</string>
     <string name="ai_search_failed">AI search failed: %s</string>
-    <string name="ai_chat_title" translatable="false">Danghwa AI</string>
+    <string name="ai_chat_title" translatable="false">MANHWA AI</string>
     <string name="ai_chat_subtitle">Finds any series in all your sources</string>
     <string name="ai_chat_hint">Ask about a manhwa, a title, or a story…</string>
     <string name="ai_chat_welcome">Tell me what you are looking for: a title in any language, a half-remembered name, or the story. I will find it in your sources and tell you which one has the latest chapter.</string>

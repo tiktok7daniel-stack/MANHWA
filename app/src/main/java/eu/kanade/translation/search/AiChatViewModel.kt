@@ -37,7 +37,7 @@ import tachiyomi.domain.translation.TranslationPreferences
 import tachiyomi.source.local.isLocal
 
 /**
- * Danghwa AI: a chat that understands what series the reader means, searches every enabled source for it,
+ * MANHWA AI: a chat that understands what series the reader means, searches every enabled source for it,
  * opens each match's chapter list and ranks the sources by how far their translation has got.
  */
 @Inject
@@ -211,7 +211,7 @@ class AiChatViewModel(
         private const val SOURCE_TIMEOUT_MS = 25_000L
 
         private val SYSTEM = """
-            You are Danghwa AI, an expert on manga, manhwa, manhua and webtoons: titles in every language,
+            You are MANHWA AI, an expert on manga, manhwa, manhua and webtoons: titles in every language,
             authors, plots, genres, status and what readers usually mean by nicknames or vague descriptions.
             The reader may ask in any language; always reply in the reader's language.
             Reply with ONLY this JSON:

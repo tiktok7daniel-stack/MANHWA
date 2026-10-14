@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Danghwa</string>
+    <string name="app_name" translatable="false">MANHWA</string>
 
     <!-- Generic strings -->
     <string name="on">On</string>
@@ -239,7 +239,7 @@
     <string name="theme_midnightdusk">Midnight Dusk</string>
     <string name="theme_monochrome">Monochrome</string>
     <string name="theme_nord">Nord</string>
-    <string name="theme_danghwa" translatable="false">Danghwa Glass</string>
+    <string name="theme_danghwa" translatable="false">MANHWA Glass</string>
     <string name="theme_strawberrydaiquiri">Strawberry Daiquiri</string>
     <string name="theme_tako">Tako</string>
     <string name="theme_tealturquoise">Teal &amp; Turquoise</string>
