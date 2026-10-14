@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -60,12 +59,12 @@ class TranslationManager(
         return queueState.value.find { it.chapter.id == chapterId }
     }
 
-    fun translateChapter(manga: Manga, chapters: Chapter) {
+    suspend fun translateChapter(manga: Manga, chapters: Chapter) {
         translator.queueChapter(manga, chapters)
         startTranslation()
     }
 
-    fun getChapterTranslationStatus(
+    suspend fun getChapterTranslationStatus(
         chapterId: Long,
         chapterName: String,
         scanlator: String?,
@@ -78,7 +77,7 @@ class TranslationManager(
         return Translation.State.NOT_TRANSLATED
     }
 
-    fun isChapterTranslated(
+    suspend fun isChapterTranslated(
         chapterName: String,
         chapterScanlator: String?,
         mangaTitle: String,

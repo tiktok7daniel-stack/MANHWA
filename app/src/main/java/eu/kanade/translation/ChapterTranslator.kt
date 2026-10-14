@@ -39,7 +39,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import logcat.LogPriority
 import mihon.core.archive.archiveReader
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
@@ -175,7 +174,7 @@ class ChapterTranslator(
         translationJob = null
     }
 
-    fun queueChapter(manga: Manga, chapter: Chapter) {
+    suspend fun queueChapter(manga: Manga, chapter: Chapter) {
         val source = sourceManager.get(manga.source) as? HttpSource ?: return
         if (provider.findTranslationFile(chapter.name, chapter.scanlator, manga.title, source) != null) return
         if (queueState.value.any { it.chapter.id == chapter.id }) return
@@ -215,6 +214,7 @@ class ChapterTranslator(
             val chapterPath = downloadProvider.findChapterDir(
                 translation.chapter.name,
                 translation.chapter.scanlator,
+                translation.chapter.url,
                 translation.manga.title,
                 translation.source,
             )!!
