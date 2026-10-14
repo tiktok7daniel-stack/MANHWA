@@ -254,10 +254,9 @@ class ChapterTranslator(
                     streamFn().use { tmpFile.openOutputStream().use { out -> it.copyTo(out) } }
                     val decoded = PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! } ?: continue
                     val pageTranslation = try {
-                        // OCR in strips on the decoded page, then the whole bubble around every text
+                        // OCR in strips on the decoded page, then the colour behind every line
                         PageOcr.recognize(textRecognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
-                            PageImageProcessor.sampleColors(it, decoded)
-                            PageImageProcessor.layoutBubbles(it, decoded)
+                            PageImageProcessor.prepare(it, decoded)
                             if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
                         }
                     } finally {
@@ -277,22 +276,20 @@ class ChapterTranslator(
                 // Translate the text in blocks , this mutates the original blocks
                 textTranslator.translate(pages, images)
                 textTranslator.aiPart?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms) }
-                // Bubbles added by the vision model: snapped onto the real bubble of the page
+                // Bubbles added by the vision model: placed on their real letters, or dropped
                 for ((name, page) in pages) {
                     if (page.blocks.none { it.needsSnap }) continue
                     val open = streams.firstOrNull { it.first == name }?.second ?: continue
                     val bytes = runCatching { open().use { it.readBytes() } }.getOrNull() ?: continue
                     PageImageProcessor.decode { java.io.ByteArrayInputStream(bytes) }?.let { decoded ->
                         try {
-                            PageImageProcessor.layoutBubbles(page, decoded)
-                            PageImageProcessor.sampleColors(page, decoded)
+                            PageImageProcessor.prepare(page, decoded)
                         } finally {
                             decoded.bitmap.recycle()
                         }
                     }
                 }
-                // Bubbles added by the vision model still need their erase colour
-                images.forEach { (name, image) -> pages[name]?.let { PageImageProcessor.sampleColorsFromTiles(it, image) } }
+                pages.values.forEach(PageOcr::finish)
                 pages.entries.removeAll { it.value.blocks.isEmpty() }
             }
             // Serialize the Map and save to translations json file

@@ -17,6 +17,13 @@ data class PageTranslation(
     }
 }
 
+/** One line of original text on the page, and the background colour right behind its letters (ARGB, 0 = unknown). */
+@Serializable
+data class LineBox(val x: Float, val y: Float, val w: Float, val h: Float, val bg: Int = 0) {
+    val right: Float get() = x + w
+    val bottom: Float get() = y + h
+}
+
 @Serializable
 data class TranslationBlock(
     var text: String,
@@ -45,8 +52,13 @@ data class TranslationBlock(
     var userDy: Float = 0f,
     var userScale: Float = 1f,
     var userFont: Float = 1f,
+    // Every original line of text (page pixels) with the colour behind its letters: each one is erased on its own
+    var lines: List<LineBox> = emptyList(),
 ) {
     val hasBubble: Boolean get() = bubbleW > 0f && bubbleH > 0f
+
+    /** The original lines, or the whole box for translations saved before lines were kept. */
+    val lineBoxes: List<LineBox> get() = lines.ifEmpty { listOf(LineBox(x, y, width, height, bgColor)) }
 
     val edited: Boolean get() = userDx != 0f || userDy != 0f || userScale != 1f || userFont != 1f
 

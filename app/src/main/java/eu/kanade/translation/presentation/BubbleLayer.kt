@@ -33,7 +33,6 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.luminance
@@ -56,6 +55,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import eu.kanade.translation.data.PageImageProcessor
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.model.TranslationBlock
 import eu.kanade.translation.style.BubbleKind
@@ -70,12 +70,11 @@ import kotlin.math.roundToInt
 /**
  * MANHWA typesetter for one page.
  *
- * Each translation is laid out inside the real speech bubble found from the page pixels (not the tight OCR
- * box): the largest size whose lines fit both width and height without cutting a word, with balanced
- * lines, evened out against the page median. Nothing is ever clipped: when the text does not fit, the area
- * grows to the whole bubble and the text gets smaller. A closed bubble is cleaned entirely in its own
- * colour, text over art gets a soft box, and sound effects are only outlined. Layouts are computed once in
- * page pixels and drawn at the current zoom. In edit mode the reader can move, resize and re-size the text.
+ * Every original line is cleaned on its own (its box +10 px left/right, +6 px top/bottom) in the colour right
+ * behind its letters, so no letter is left and the drawing around is never covered. The translation is drawn
+ * horizontally at the centre of the cleaned lines, at the largest size whose lines fit without cutting a word,
+ * and it may only grow a little into free space that no other bubble uses. Layouts are computed once in page
+ * pixels and drawn at the current zoom. In edit mode the reader can move, resize and re-size the text.
  */
 @Composable
 fun BubbleLayer(translation: PageTranslation, zoom: Float) {
@@ -215,53 +214,36 @@ private fun EditChip(label: String, onClick: () -> Unit) {
     )
 }
 
-private enum class Erase { BUBBLE, BOX, NONE }
+/** One patch of the page to clean, in page pixels, with the colour behind the letters there. */
+private class Patch(val rect: Rect, val color: Color, val radius: Float)
 
 /** One bubble ready to draw, in page pixels. */
 private class Placed(
     val block: TranslationBlock,
     val area: Rect,
-    val bubble: Rect?,
-    val round: Boolean,
-    val cover: Rect,
-    val erase: Erase,
+    val patches: List<Patch>,
     val layout: TextLayoutResult,
-    val bg: Color,
     val fg: Color,
     val outlineColor: Color,
     val stroke: Float,
-    val angle: Float,
 )
 
 private fun DrawScope.drawPlaced(p: Placed, dx: Float, dy: Float, ds: Float, editing: Boolean, selected: Boolean, zoom: Float) {
-    // Cleaning stays on the original bubble; only the text follows the reader's move
-    when (p.erase) {
-        Erase.BUBBLE -> {
-            val b = p.bubble!!
-            val inset = b.deflate(min(b.width, b.height) * 0.05f)
-            if (p.round) drawOval(p.bg, inset.topLeft, inset.size) else drawRoundRect(p.bg, inset.topLeft, inset.size, CornerRadius(inset.minDimension * 0.08f))
-            drawRoundRect(p.bg, p.cover.topLeft, p.cover.size, CornerRadius(p.cover.minDimension * 0.3f))
-        }
-        Erase.BOX -> {
-            val c = p.cover
-            val feather = c.minDimension * 0.08f
-            val r = CornerRadius(c.minDimension * 0.3f)
-            drawRoundRect(p.bg.copy(alpha = p.bg.alpha * 0.5f), Offset(c.left - feather, c.top - feather), Size(c.width + feather * 2, c.height + feather * 2), r)
-            drawRoundRect(p.bg, c.topLeft, c.size, r)
-        }
-        Erase.NONE -> Unit
+    // Every original line is cleaned on its own, in the colour right behind its letters; the drawing around
+    // the text is never touched. Cleaning stays on the original lines; only the text follows the reader's move.
+    p.patches.forEach { patch ->
+        drawRoundRect(patch.color, patch.rect.topLeft, patch.rect.size, CornerRadius(patch.radius))
     }
     val area = p.area
     val center = area.center + Offset(dx, dy)
     translate(center.x, center.y) {
         scale(ds, pivot = Offset.Zero) {
-            rotate(p.angle, pivot = Offset.Zero) {
-                val topLeft = Offset(-p.layout.size.width / 2f, -p.layout.size.height / 2f)
-                if (p.stroke > 0f) {
-                    drawText(p.layout, color = p.outlineColor, topLeft = topLeft, drawStyle = Stroke(width = p.stroke, join = StrokeJoin.Round))
-                }
-                drawText(p.layout, color = p.fg, topLeft = topLeft)
+            // Always horizontal: tilted text runs into the next bubble
+            val topLeft = Offset(-p.layout.size.width / 2f, -p.layout.size.height / 2f)
+            if (p.stroke > 0f) {
+                drawText(p.layout, color = p.outlineColor, topLeft = topLeft, drawStyle = Stroke(width = p.stroke, join = StrokeJoin.Round))
             }
+            drawText(p.layout, color = p.fg, topLeft = topLeft)
             if (editing) {
                 val half = Size(area.width, area.height)
                 val frame = if (selected) Color(0xFFFF2E63) else Color(0xCCFF6B8B)
@@ -290,24 +272,42 @@ private class Typesetter(
     // Page pixels: 1 sp = 1 px
     private val unit = Density(1f, 1f)
 
-    private class Plan(val block: TranslationBlock, val kind: BubbleKind, val area: Rect, val full: Rect, val style: TextStyle, val fit: Float)
+    private class Plan(
+        val block: TranslationBlock,
+        val kind: BubbleKind,
+        val area: Rect,
+        val room: Rect,
+        val patches: List<Patch>,
+        val style: TextStyle,
+        val fit: Float,
+    )
 
     fun layout(page: PageTranslation): List<Placed?> {
         val minPx = page.imgWidth * minSize / 400f
-        val plans = page.blocks.map { block ->
-            if (block.translation.isBlank()) return@map null
+        val pageRect = Rect(0f, 0f, page.imgWidth.coerceAtLeast(1f), page.imgHeight.coerceAtLeast(1f))
+        // The cleaned area of every bubble: the text of one bubble never goes over another one
+        val cleaned = page.blocks.map { block -> union(lineRects(block)) }
+        val plans = page.blocks.mapIndexed { index, block ->
+            if (block.translation.isBlank()) return@mapIndexed null
             val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
-            if (kind == BubbleKind.SFX && skipSfx) return@map null
+            if (kind == BubbleKind.SFX && skipSfx) return@mapIndexed null
             val style = styleFor(kind)
-            var area = edited(block, baseArea(block, kind))
-            val full = edited(block, fullArea(block, kind))
+            val patches = if (kind == BubbleKind.SFX) emptyList() else patches(block)
+            val base = cleaned[index].intersect(pageRect)
+            // A little more room when the translation is longer, stopping at the neighbours
+            val others = cleaned.filterIndexed { i, _ -> i != index }
+            val room = roomAround(base, others).intersect(pageRect)
+            var area = edited(block, base)
             var fit = fit(block.translation, style, area)
-            // Too small for this bubble's middle: use the whole bubble before going smaller
-            if (fit < minPx && full.width * full.height > area.width * area.height) {
-                area = full
-                fit = fit(block.translation, style, area)
+            if (fit < minPx && room.width * room.height > base.width * base.height) {
+                val wider = edited(block, room)
+                val widerFit = fit(block.translation, style, wider)
+                if (widerFit > fit) {
+                    area = wider
+                    fit = widerFit
+                }
             }
-            Plan(block, kind, area, full, style, fit)
+            Plan(block, kind, area, edited(block, room), patches, style, fit)
         }
         val fits = plans.mapNotNull { it?.fit }.filter { it > 0f }.sorted()
         val median = fits.getOrNull(fits.size / 2) ?: 0f
@@ -317,29 +317,20 @@ private class Typesetter(
             // Bubbles of a page look alike: big ones come down towards the median (never above their fit)
             var size = if (median > 0f) min(plan.fit, median * 1.35f) else plan.fit
             size *= sizeScale
-            if (sizeScale > 1f) size = min(size, fit(block.translation, plan.style, plan.full))
+            if (sizeScale > 1f) size = min(size, fit(block.translation, plan.style, plan.room))
             size *= block.userFont
             size = size.coerceAtLeast(4f)
-            val layout = balanced(block.translation, plan.style.copy(fontSize = size.sp), plan.area)
+            val area = if (size > plan.fit) plan.room else plan.area
+            val layout = balanced(block.translation, plan.style.copy(fontSize = size.sp), area)
             val bg = Color(block.bgColor.takeIf { it != 0 } ?: 0xFFFFFFFF.toInt()).copy(alpha = 1f)
             val fg = Color(block.textColor)
-            val bubble = if (block.hasBubble) Rect(block.bubbleX, block.bubbleY, block.bubbleX + block.bubbleW, block.bubbleY + block.bubbleH) else null
-            val erase = when {
-                plan.kind == BubbleKind.SFX && bubble == null -> Erase.NONE
-                bubble != null -> Erase.BUBBLE
-                else -> Erase.BOX
-            }
-            val cover = textCover(block).let { c -> bubble?.let { c.intersect(it.deflate(min(it.width, it.height) * 0.05f)) } ?: c }
-            val strong = erase != Erase.BUBBLE
             val stroke = when {
-                erase == Erase.NONE -> size * 0.18f
-                outline && strong -> size * 0.12f
-                outline -> size * 0.06f
+                plan.kind == BubbleKind.SFX -> size * 0.18f
+                outline -> size * 0.08f
                 else -> 0f
             }
-            val outlineColor = if (fg.luminance() > 0.5f) Color.Black.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.92f)
-            val angle = if (block.angle > 85 || block.angle < -85 || kotlin.math.abs(block.angle) < 3) 0f else block.angle
-            Placed(block, plan.area, bubble, block.bubbleRound, cover, erase, layout, bg, fg, outlineColor, stroke, angle)
+            val outlineColor = if (fg.luminance() > 0.5f) Color.Black.copy(alpha = 0.75f) else bg.copy(alpha = 0.95f)
+            Placed(block, area, plan.patches, layout, fg, outlineColor, stroke)
         }
     }
 
@@ -351,27 +342,54 @@ private class Typesetter(
         lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
     )
 
-    /** The middle of the bubble where text reads well, or the padded text box when there is no bubble. */
-    private fun baseArea(block: TranslationBlock, kind: BubbleKind): Rect {
-        if (block.hasBubble) {
-            val (fw, fh) = if (block.bubbleRound) 0.76f to 0.68f else 0.9f to 0.84f
-            val cx = block.bubbleX + block.bubbleW / 2
-            val cy = block.bubbleY + block.bubbleH / 2
-            val area = Rect(cx - block.bubbleW * fw / 2, cy - block.bubbleH * fh / 2, cx + block.bubbleW * fw / 2, cy + block.bubbleH * fh / 2)
-            // Never smaller than the original text
-            return Rect(min(area.left, block.x), min(area.top, block.y), max(area.right, block.x + block.width), max(area.bottom, block.y + block.height))
-                .intersect(Rect(block.bubbleX, block.bubbleY, block.bubbleX + block.bubbleW, block.bubbleY + block.bubbleH))
-        }
-        val cover = textCover(block)
-        return if (kind == BubbleKind.SFX) cover.inflate(cover.minDimension * 0.15f) else cover
+    /** Each original line with its erase margin (+10 px left/right, +6 px top/bottom at least). */
+    private fun lineRects(block: TranslationBlock): List<Rect> = block.lineBoxes.map { line ->
+        val px = PageImageProcessor.padX(line.h)
+        val py = PageImageProcessor.padY(line.h)
+        Rect(line.x - px, line.y - py, line.right + px, line.bottom + py)
     }
 
-    private fun fullArea(block: TranslationBlock, kind: BubbleKind): Rect {
-        if (!block.hasBubble) return baseArea(block, kind).let { it.inflate(it.minDimension * 0.15f) }
-        val (fw, fh) = if (block.bubbleRound) 0.86f to 0.8f else 0.96f to 0.92f
-        val cx = block.bubbleX + block.bubbleW / 2
-        val cy = block.bubbleY + block.bubbleH / 2
-        return Rect(cx - block.bubbleW * fw / 2, cy - block.bubbleH * fh / 2, cx + block.bubbleW * fw / 2, cy + block.bubbleH * fh / 2)
+    /** The patches that clean a block: one per line, plus the thin gap between two lines of the same column. */
+    private fun patches(block: TranslationBlock): List<Patch> {
+        val fallback = block.bgColor.takeIf { it != 0 } ?: 0xFFFFFFFF.toInt()
+        val lines = block.lineBoxes.sortedBy { it.y }
+        val out = mutableListOf<Patch>()
+        lines.forEachIndexed { i, line ->
+            val px = PageImageProcessor.padX(line.h)
+            val py = PageImageProcessor.padY(line.h)
+            val color = Color(line.bg.takeIf { it != 0 } ?: fallback).copy(alpha = 1f)
+            out += Patch(Rect(line.x - px, line.y - py, line.right + px, line.bottom + py), color, line.h * 0.3f)
+            val next = lines.getOrNull(i + 1) ?: return@forEachIndexed
+            val gapTop = line.bottom + py
+            val gapBottom = next.y - PageImageProcessor.padY(next.h)
+            val left = max(line.x, next.x) - px
+            val right = min(line.right, next.right) + px
+            if (gapBottom > gapTop && gapBottom - gapTop < min(line.h, next.h) * 1.2f && right > left) {
+                out += Patch(Rect(left, gapTop - 1f, right, gapBottom + 1f), color, 0f)
+            }
+        }
+        return out
+    }
+
+    private fun union(rects: List<Rect>): Rect = rects.reduce { a, b ->
+        Rect(min(a.left, b.left), min(a.top, b.top), max(a.right, b.right), max(a.bottom, b.bottom))
+    }
+
+    /** [base] grown by a margin, each side stopping where another bubble's cleaned area starts. */
+    private fun roomAround(base: Rect, others: List<Rect>): Rect {
+        var left = base.left - base.width * 0.15f
+        var right = base.right + base.width * 0.15f
+        var top = base.top - base.height * 0.25f
+        var bottom = base.bottom + base.height * 0.25f
+        for (o in others) {
+            val overlapsY = o.top < bottom && o.bottom > top
+            val overlapsX = o.left < right && o.right > left
+            if (overlapsY && o.right <= base.left) left = max(left, o.right)
+            if (overlapsY && o.left >= base.right) right = min(right, o.left)
+            if (overlapsX && o.bottom <= base.top) top = max(top, o.bottom)
+            if (overlapsX && o.top >= base.bottom) bottom = min(bottom, o.top)
+        }
+        return Rect(min(left, base.left), min(top, base.top), max(right, base.right), max(bottom, base.bottom))
     }
 
     /** The reader's move and resize of this bubble. */
@@ -383,15 +401,9 @@ private class Typesetter(
         return Rect(c.x - w / 2, c.y - h / 2, c.x + w / 2, c.y + h / 2)
     }
 
-    /** The original lines with a margin, where every letter must be hidden. */
-    private fun textCover(block: TranslationBlock): Rect {
-        val padX = max(block.symWidth * 0.8f, 5f)
-        val padY = max(block.symHeight * 0.45f, 4f)
-        return Rect(block.x - padX, block.y - padY, block.x + block.width + padX, block.y + block.height + padY)
-    }
-
     /** Largest size (page px) whose lines fit [area] without breaking a word. */
     private fun fit(text: String, style: TextStyle, area: Rect): Float {
+        if (area.width <= 1f || area.height <= 1f) return 3f
         val maxW = area.width.toInt().coerceAtLeast(1)
         val maxH = area.height
         // Widest word at 100 px: no size may make it wider than the area

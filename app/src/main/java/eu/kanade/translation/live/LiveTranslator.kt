@@ -289,9 +289,7 @@ class LiveTranslator(
             try {
                 // OCR ran on the downscaled bitmap (in strips for tall pages); boxes go back to the real page size
                 result = PageOcr.recognize(ocr, decoded.bitmap).rescaled(1f / decoded.scale)
-                PageImageProcessor.sampleColors(result, decoded)
-                // The whole bubble around each text, and one block per bubble
-                PageImageProcessor.layoutBubbles(result, decoded)
+                PageImageProcessor.prepare(result, decoded)
                 if (engine.aiPart != null && preferences.translationVision().get()) {
                     images[KEY] = PageImageProcessor.tiles(decoded)
                 }
@@ -317,17 +315,17 @@ class LiveTranslator(
             }
             engine.translate(map, images)
             if (result.blocks.any { it.needsSnap }) {
-                // Bubbles added by the vision model: put them on the real bubble of the page
+                // Bubbles added by the vision model: placed on their real letters, or dropped
                 PageImageProcessor.decode { ByteArrayInputStream(bytes) }?.let { again ->
                     try {
-                        PageImageProcessor.layoutBubbles(result, again)
-                        PageImageProcessor.sampleColors(result, again)
+                        PageImageProcessor.prepare(result, again)
                     } finally {
                         again.bitmap.recycle()
                     }
                 }
             }
-            images[KEY]?.let { PageImageProcessor.sampleColorsFromTiles(result, it) }
+            // One translation per place: duplicates and empty pieces merged, nothing drawn twice
+            PageOcr.finish(result)
             editStore.restore(result, "l${page.chapter.chapter.id}", "${page.index}")
             if (id != null) engine.aiPart?.let { glossaryStore.merge(id, it.discoveredTerms) }
 

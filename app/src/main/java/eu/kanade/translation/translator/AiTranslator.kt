@@ -201,8 +201,12 @@ class AiTranslator(
                         block.translation = block.text
                         kept += block
                     }
-                    // Returned empty: the model judged it not to be real text
-                    translation.isNullOrBlank() -> Unit
+                    // Returned empty: noise, or a piece the model joined into the bubble next to it. Kept
+                    // without a translation so its lines are still erased with that bubble (PageOcr.finish)
+                    translation.isNullOrBlank() -> {
+                        block.translation = ""
+                        kept += block
+                    }
                     else -> {
                         bubble.string("text")?.takeIf { it.isNotBlank() }?.let { block.text = it }
                         block.translation = translation
@@ -215,7 +219,7 @@ class AiTranslator(
             (result["missed"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.forEach { missed ->
                 missedBlock(missed, page, tiles)?.let { kept += it }
             }
-            kept.forEach { context.remember(it.translation) }
+            kept.filter { it.translation.isNotBlank() }.forEach { context.remember(it.translation) }
             page.blocks = kept.filterNot { it.translation.contains(WATERMARK) }.toMutableList()
         }
     }
