@@ -1,5 +1,10 @@
 package eu.kanade.translation
 
+import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.notification.NotificationReceiver
+import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.util.system.notify
+import tachiyomi.core.common.i18n.stringResource
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -262,6 +267,16 @@ class ChapterTranslator(
             // Serialize the Map and save to translations json file
             Json.encodeToStream(pages, translationMangaDir.createFile(saveFile)!!.openOutputStream())
             translation.status = Translation.State.TRANSLATED
+            context.notify(
+                Notifications.ID_NEW_CHAPTERS - 1000 - (translation.chapter.id % 1000).toInt(),
+                Notifications.CHANNEL_NEW_CHAPTERS,
+            ) {
+                setSmallIcon(R.drawable.ic_translate)
+                setContentTitle(translation.manga.title)
+                setContentText(context.stringResource(ATMR.strings.notification_translated, translation.chapter.name))
+                setAutoCancel(true)
+                setContentIntent(NotificationReceiver.openChapterPendingActivity(context, translation.manga, translation.chapter))
+            }
         } catch (error: Throwable) {
             translation.status = Translation.State.ERROR
             logcat(LogPriority.ERROR, error)

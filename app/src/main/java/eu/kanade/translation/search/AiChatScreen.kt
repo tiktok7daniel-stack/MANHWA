@@ -59,6 +59,7 @@ import mihon.icons.materialsymbols.automirroredrounded.ArrowBack
 import mihon.icons.materialsymbols.automirroredrounded.Send
 import mihon.icons.materialsymbols.rounded.AutoAwesome
 import tachiyomi.domain.manga.model.asMangaCover
+import tachiyomi.domain.updates.model.UpdatesWithRelations
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -98,7 +99,7 @@ class AiChatScreen : Screen() {
                             is AiChatViewModel.Message.User -> UserBubble(message.text)
                             is AiChatViewModel.Message.Assistant -> AssistantBubble(
                                 message = message,
-                                onOpen = { navigator.push(MangaScreen(it.id, true)) },
+                                onOpen = { navigator.push(MangaScreen(it, true)) },
                             )
                         }
                     }
@@ -156,6 +157,8 @@ class AiChatScreen : Screen() {
                         stringResource(ATMR.strings.ai_chat_suggestion_1),
                         stringResource(ATMR.strings.ai_chat_suggestion_2),
                         stringResource(ATMR.strings.ai_chat_suggestion_3),
+                        stringResource(ATMR.strings.ai_chat_suggestion_4),
+                        stringResource(ATMR.strings.ai_chat_suggestion_5),
                     ).forEach { suggestion ->
                         Text(
                             text = suggestion,
@@ -189,7 +192,7 @@ class AiChatScreen : Screen() {
     }
 
     @Composable
-    private fun AssistantBubble(message: AiChatViewModel.Message.Assistant, onOpen: (tachiyomi.domain.manga.model.Manga) -> Unit) {
+    private fun AssistantBubble(message: AiChatViewModel.Message.Assistant, onOpen: (Long) -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -233,7 +236,18 @@ class AiChatScreen : Screen() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            message.hits.forEachIndexed { index, hit -> HitCard(hit, best = index == 0, onClick = { onOpen(hit.manga) }) }
+            message.hits.forEachIndexed { index, hit -> HitCard(hit, best = index == 0, onClick = { onOpen(hit.manga.id) }) }
+            message.done.forEach { line ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(20.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("✓", color = Color.White, style = MaterialTheme.typography.labelSmall) }
+                    Spacer(Modifier.width(10.dp))
+                    Text(line, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            message.updates.forEach { update -> UpdateRow(update, onClick = { onOpen(update.mangaId) }) }
         }
     }
 
@@ -286,6 +300,39 @@ class AiChatScreen : Screen() {
                     )
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun UpdateRow(update: UpdatesWithRelations, onClick: () -> Unit) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glass(RoundedCornerShape(14.dp), alpha = 0.35f)
+                .clickable(onClick = onClick)
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MangaCover.Square(
+                data = update.coverData,
+                modifier = Modifier.width(40.dp),
+                shape = RoundedCornerShape(8.dp),
+            )
+            Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
+                Text(update.mangaTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    update.chapterName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                DateUtils.getRelativeTimeSpanString(update.dateFetch.toEpochMilliseconds()).toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 

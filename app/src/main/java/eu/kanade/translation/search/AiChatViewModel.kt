@@ -1,5 +1,23 @@
 package eu.kanade.translation.search
 
+import android.content.Context
+import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
+import eu.kanade.domain.manga.interactor.UpdateManga
+import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.source.model.SChapter
+import eu.kanade.translation.TranslationManager
+import kotlinx.serialization.json.JsonObject
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.domain.category.interactor.CreateCategoryWithName
+import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.interactor.SetMangaCategories
+import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.updates.interactor.GetUpdates
+import tachiyomi.domain.updates.model.UpdatesWithRelations
+import tachiyomi.i18n.at.ATMR
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.AppScope
@@ -48,6 +66,16 @@ class AiChatViewModel(
     private val sourceManager: SourceManager,
     private val sourcePreferences: SourcePreferences,
     private val networkToLocalManga: NetworkToLocalManga,
+    private val context: Context,
+    private val updateManga: UpdateManga,
+    private val getCategories: GetCategories,
+    private val createCategoryWithName: CreateCategoryWithName,
+    private val setMangaCategories: SetMangaCategories,
+    private val syncChaptersWithSource: SyncChaptersWithSource,
+    private val getChaptersByMangaId: GetChaptersByMangaId,
+    private val downloadManager: DownloadManager,
+    private val translationManager: TranslationManager,
+    private val getUpdates: GetUpdates,
 ) : ViewModel() {
 
     /** One source that has the series, with how far it is translated there. */
@@ -58,6 +86,8 @@ class AiChatViewModel(
         val latestChapter: Float?,
         val chapterCount: Int,
         val lastUpload: Long,
+        val source: Source,
+        val rawChapters: List<SChapter>,
     )
 
     sealed interface Message {
@@ -68,6 +98,8 @@ class AiChatViewModel(
             val hits: List<SourceHit> = emptyList(),
             val error: String? = null,
             val searched: Boolean = false,
+            val done: List<String> = emptyList(),
+            val updates: List<UpdatesWithRelations> = emptyList(),
         ) : Message
     }
 
@@ -88,11 +120,16 @@ class AiChatViewModel(
         _messages.update { it + Message.User(request) + Message.Assistant(status = Status.THINKING) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val (reply, queries) = understand(request)
+                val (reply, queries, actions) = understand(request)
                 updateAssistant { it.copy(text = reply, status = if (queries.isEmpty()) null else Status.SEARCHING) }
+                var hits = emptyList<SourceHit>()
                 if (queries.isNotEmpty()) {
-                    val hits = findInSources(queries) { updateAssistant { a -> a.copy(status = it) } }
+                    hits = findInSources(queries) { updateAssistant { a -> a.copy(status = it) } }
                     updateAssistant { it.copy(status = null, hits = hits, searched = true) }
+                }
+                if (actions.isNotEmpty()) {
+                    val (done, updates) = runActions(actions, hits.firstOrNull())
+                    updateAssistant { it.copy(status = null, done = done, updates = updates) }
                 }
                 remember("Reader: $request", "Assistant: $reply")
             } catch (e: Exception) {
@@ -120,7 +157,7 @@ class AiChatViewModel(
     }
 
     /** Asks the AI what the reader means: a short answer in their language plus titles to search for. */
-    private suspend fun understand(request: String): Pair<String, List<String>> {
+    private suspend fun understand(request: String): Triple<String, List<String>, List<JsonObject>> {
         val engine = TextTranslators.fromPref(translationPreferences.translationEngine())
         val keyMissing = translationPreferences.translationEngineApiKey().get().isBlank() &&
             engine != TextTranslators.OPENAI
@@ -142,7 +179,8 @@ class AiChatViewModel(
                 .filter { it.isNotEmpty() }
                 .distinct()
                 .take(4)
-            return reply to queries
+            val actions = (json["actions"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+            return Triple(reply, queries, actions)
         } finally {
             ai.close()
         }
@@ -199,8 +237,88 @@ class AiChatViewModel(
             latestChapter = chapters.maxOfOrNull { it.chapter_number }?.takeIf { it >= 0 },
             chapterCount = chapters.size,
             lastUpload = chapters.maxOfOrNull { it.date_upload } ?: 0L,
+            source = source,
+            rawChapters = chapters,
         )
     }
+
+    /** Carries out what the reader asked for, on the best match when the action is about a series. */
+    private suspend fun runActions(
+        actions: List<JsonObject>,
+        best: SourceHit?,
+    ): Pair<List<String>, List<UpdatesWithRelations>> {
+        val done = mutableListOf<String>()
+        var updates = emptyList<UpdatesWithRelations>()
+        for (action in actions) {
+            try {
+                when (action.str("type")) {
+                    "create_category" -> action.str("name")?.let { name ->
+                        ensureCategory(name)
+                        done += context.stringResource(ATMR.strings.ai_done_category, name)
+                    }
+                    "add_to_library" -> {
+                        val hit = best ?: continue
+                        syncChapters(hit)
+                        updateManga.awaitUpdateFavorite(hit.manga.id, true)
+                        val category = action.str("category")
+                        if (category != null) {
+                            setMangaCategories.await(hit.manga.id, listOf(ensureCategory(category).id))
+                            done += context.stringResource(ATMR.strings.ai_done_library_category, hit.manga.title, category)
+                        } else {
+                            done += context.stringResource(ATMR.strings.ai_done_library, hit.manga.title)
+                        }
+                    }
+                    "download", "translate" -> {
+                        val hit = best ?: continue
+                        val translate = action.str("type") == "translate"
+                        syncChapters(hit)
+                        val from = action.num("from") ?: 0.0
+                        val to = action.num("to") ?: Double.MAX_VALUE
+                        val chapters = getChaptersByMangaId.await(hit.manga.id)
+                            .filter { it.chapterNumber in from..to }
+                            .sortedBy { it.chapterNumber }
+                            .take(MAX_CHAPTERS)
+                        val (downloaded, missing) = chapters.partition {
+                            downloadManager.isChapterDownloaded(it.name, it.scanlator, it.url, hit.manga.title, hit.manga.source)
+                        }
+                        if (translate) {
+                            downloaded.forEach { translationManager.translateChapter(hit.manga, it) }
+                            missing.forEach { translationManager.translateAfterDownload += it.id }
+                        }
+                        if (missing.isNotEmpty()) downloadManager.downloadChapters(hit.manga, missing)
+                        done += context.stringResource(
+                            if (translate) ATMR.strings.ai_done_translate else ATMR.strings.ai_done_download,
+                            chapters.size,
+                            hit.manga.title,
+                        )
+                    }
+                    "new_chapters" -> {
+                        val days = (action.num("days") ?: 7.0).toLong().coerceIn(1, 60)
+                        updates = getUpdates.await(read = false, after = Clock.System.now() - days.days).take(40)
+                        done += context.stringResource(ATMR.strings.ai_done_updates, updates.size, days)
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                logcat(LogPriority.ERROR, e)
+                done += context.stringResource(ATMR.strings.ai_search_failed, e.message.orEmpty())
+            }
+        }
+        return done to updates
+    }
+
+    private suspend fun syncChapters(hit: SourceHit) {
+        if (hit.rawChapters.isNotEmpty()) syncChaptersWithSource.await(hit.rawChapters, hit.manga, hit.source)
+    }
+
+    private suspend fun ensureCategory(name: String): Category {
+        getCategories.await().firstOrNull { it.name.equals(name, ignoreCase = true) }?.let { return it }
+        createCategoryWithName.await(name)
+        return getCategories.await().first { it.name.equals(name, ignoreCase = true) }
+    }
+
+    private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+    private fun JsonObject.num(key: String): Double? = (this[key] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()
 
     private fun normalize(title: String): String =
         title.lowercase().filter { it.isLetterOrDigit() }
@@ -209,19 +327,28 @@ class AiChatViewModel(
         const val NOT_CONFIGURED = "not_configured"
         private const val PARALLEL_SOURCES = 6
         private const val SOURCE_TIMEOUT_MS = 25_000L
+        private const val MAX_CHAPTERS = 200
 
         private val SYSTEM = """
             You are MANHWA AI, an expert on manga, manhwa, manhua and webtoons: titles in every language,
             authors, plots, genres, status and what readers usually mean by nicknames or vague descriptions.
             The reader may ask in any language; always reply in the reader's language.
             Reply with ONLY this JSON:
-            {"reply": "...", "queries": ["...", "..."]}
+            {"reply": "...", "queries": ["...", "..."], "actions": []}
             - "reply": 1 to 3 short sentences. Name the series you think they mean (with its other titles if useful)
               and one line about it. If you are unsure, say so briefly and give the likeliest candidates.
               If they ask for recommendations, recommend and explain in one line each.
             - "queries": up to 4 search strings to look the series up on manga sites, best first: the most common
               English or romanized title, the official English title, the native title. For recommendations, the
               title of the top pick. Use [] if the message is not about finding a series.
+            - "actions": what the reader asks the app to do, carried out on the series you found (the app picks
+              the source with the latest chapter). Use only these objects:
+              {"type": "add_to_library", "category": "<name or omit>"}  add it to the library, optionally in a category
+              {"type": "create_category", "name": "<name>"}
+              {"type": "download", "from": <first chapter number>, "to": <last chapter number>}
+              {"type": "translate", "from": <n>, "to": <n>}  download (if needed) and translate those chapters
+              {"type": "new_chapters", "days": <n>}  show new unread chapters of the library
+              Omit "from" to start at the first chapter. Use [] when nothing should be done.
             Do not invent chapter counts or sources; the app checks those itself.
         """.trimIndent()
     }

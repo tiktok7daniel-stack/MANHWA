@@ -46,4 +46,13 @@
     <string name="ai_chat_suggestion_1">Revenge manhwa with a genius MC</string>
     <string name="ai_chat_suggestion_2">Solo Leveling</string>
     <string name="ai_chat_suggestion_3">Romance like True Beauty</string>
+    <string name="notification_translated">Translated: %s — tap to read</string>
+    <string name="ai_done_category">Category “%s” is ready</string>
+    <string name="ai_done_library">Added %s to your library</string>
+    <string name="ai_done_library_category">Added %1$s to your library in “%2$s”</string>
+    <string name="ai_done_download">Downloading %1$d chapters of %2$s</string>
+    <string name="ai_done_translate">Translating %1$d chapters of %2$s (downloading the missing ones first)</string>
+    <string name="ai_done_updates">%1$d new unread chapters in the last %2$d days</string>
+    <string name="ai_chat_suggestion_4">Add Solo Leveling to my library in Action and translate chapters 1–10</string>
+    <string name="ai_chat_suggestion_5">What new chapters came out this week?</string>
 </resources>

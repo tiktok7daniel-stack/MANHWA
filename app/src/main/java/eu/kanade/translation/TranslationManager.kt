@@ -1,5 +1,6 @@
 package eu.kanade.translation
 
+import java.util.concurrent.ConcurrentHashMap
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -33,6 +34,9 @@ class TranslationManager(
     private val translationPreferences: TranslationPreferences,
     private val translator: ChapterTranslator,
 ) {
+
+    /** Chapters to translate as soon as their download finishes (asked for by MANHWA AI). */
+    val translateAfterDownload: MutableSet<Long> = ConcurrentHashMap.newKeySet()
 
     val isRunning: Boolean
         get() = translator.isRunning

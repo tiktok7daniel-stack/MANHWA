@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.data.download
 
+import eu.kanade.translation.TranslationManager
+import tachiyomi.domain.translation.TranslationPreferences
 import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.AppScope
@@ -89,6 +91,8 @@ class Downloader(
     private val getTracks: GetTracks,
     private val store: DownloadStore,
     private val notifier: DownloadNotifier,
+    private val translationManager: TranslationManager,
+    private val translationPreferences: TranslationPreferences,
 ) {
     /**
      * Queue where active downloads are kept.
@@ -323,6 +327,11 @@ class Downloader(
             // Remove successful download from queue
             if (download.status == Download.State.DOWNLOADED) {
                 removeFromQueue(download)
+                // MANHWA: translate right after downloading when asked to
+                val requested = translationManager.translateAfterDownload.remove(download.chapter.id)
+                if (requested || translationPreferences.autoTranslateAfterDownload().get()) {
+                    scope.launch { translationManager.translateChapter(download.manga, download.chapter) }
+                }
             }
             stopIfFinished(owner)
         } catch (e: Throwable) {
