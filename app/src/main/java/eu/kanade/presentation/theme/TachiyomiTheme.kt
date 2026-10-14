@@ -25,7 +25,11 @@ import eu.kanade.presentation.theme.colorscheme.TidalWaveColorScheme
 import eu.kanade.presentation.theme.colorscheme.TokyoNightColorScheme
 import eu.kanade.presentation.theme.colorscheme.YinYangColorScheme
 import eu.kanade.presentation.theme.colorscheme.YotsubaColorScheme
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import mihon.app.di.appGraph
+import tachiyomi.presentation.core.util.collectAsState
 
 @Composable
 fun TachiyomiTheme(
@@ -35,9 +39,11 @@ fun TachiyomiTheme(
 ) {
     val context = LocalContext.current
     val uiPreferences = remember { context.appGraph.uiPreferences }
+    val accent by uiPreferences.manhwaAccent.collectAsState()
     BaseTachiyomiTheme(
         appTheme = appTheme ?: uiPreferences.appTheme.get(),
         isAmoled = amoled ?: uiPreferences.themeDarkAmoled.get(),
+        accent = accent,
         content = content,
     )
 }
@@ -53,18 +59,19 @@ fun TachiyomiPreviewTheme(
 private fun BaseTachiyomiTheme(
     appTheme: AppTheme,
     isAmoled: Boolean,
+    accent: Int? = null,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
     MaterialExpressiveTheme(
-        colorScheme = remember(appTheme, isDark, isAmoled) {
+        colorScheme = remember(appTheme, isDark, isAmoled, accent) {
             getThemeColorScheme(
                 context = context,
                 appTheme = appTheme,
                 isDark = isDark,
                 isAmoled = isAmoled,
-            )
+            ).let { if (appTheme == AppTheme.DANGHWA && accent != null) it.withAccent(Color(accent), isDark) else it }
         },
         content = content,
     )
@@ -86,6 +93,24 @@ private fun getThemeColorScheme(
         isAmoled = isAmoled,
         overrideDarkSurfaceContainers = appTheme != AppTheme.MONET,
     )
+}
+
+/** Re-tints the MANHWA Glass scheme with the accent the reader picked in the side menu. */
+private fun ColorScheme.withAccent(accent: Color, isDark: Boolean): ColorScheme {
+    val deep = lerp(accent, Color.Black, 0.55f)
+    val deeper = lerp(accent, Color.Black, 0.72f)
+    return if (isDark) {
+        copy(
+            primary = accent,
+            primaryContainer = deep,
+            secondary = lerp(accent, Color.White, 0.15f),
+            secondaryContainer = deeper,
+            inversePrimary = deep,
+            surfaceTint = accent,
+        )
+    } else {
+        copy(primary = deep, secondary = deep, inversePrimary = accent, surfaceTint = deep)
+    }
 }
 
 private val colorSchemes: Map<AppTheme, BaseColorScheme> = mapOf(

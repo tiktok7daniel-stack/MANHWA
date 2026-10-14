@@ -29,6 +29,9 @@ class UiPreferences(
 
     val themeDarkAmoled: Preference<Boolean> = preferenceStore.getBoolean("pref_theme_dark_amoled_key", true)
 
+    /** MANHWA accent color, applied on top of the MANHWA Glass theme. */
+    val manhwaAccent: Preference<Int> = preferenceStore.getInt("manhwa_accent", 0xFFFF3B4E.toInt())
+
     val relativeTime: Preference<Boolean> = preferenceStore.getBoolean("relative_time_v2", true)
 
     val dateFormat: Preference<String> = preferenceStore.getString("app_date_format", "")

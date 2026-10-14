@@ -1,5 +1,14 @@
 package eu.kanade.tachiyomi.ui.home
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.graphicsLayer
+
 import eu.kanade.tachiyomi.ui.home.discover.DiscoverTab
 import eu.kanade.translation.search.AiChatScreen
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -264,52 +273,63 @@ object HomeScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         val scope = rememberCoroutineScope()
         val colors = MaterialTheme.colorScheme
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-                .glass(RoundedCornerShape(30.dp), accent = true, alpha = 0.8f)
-                .padding(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            TABS.forEachIndexed { index, tab ->
-                if (index == 2) AiCenterButton(onClick = { navigator.push(AiChatScreen()) })
-                val selected = tabNavigator.current::class == tab::class
-                val badge = tabBadge(tab)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(54.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .then(
-                            if (selected) {
-                                Modifier.background(Brush.verticalGradient(listOf(colors.primary, Color(0xFF8E0F1F))))
-                            } else {
-                                Modifier
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glass(RoundedCornerShape(28.dp), accent = true, alpha = 0.85f)
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TABS.forEachIndexed { index, tab ->
+                    if (index == 2) AiCenterButton(onClick = { navigator.push(AiChatScreen()) })
+                    val selected = tabNavigator.current::class == tab::class
+                    val badge = tabBadge(tab)
+                    val tint by animateColorAsState(
+                        if (selected) colors.primary else colors.onSurfaceVariant.copy(alpha = 0.8f),
+                        label = "tab",
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(58.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .clickable {
+                                if (!selected) tabNavigator.current = tab else scope.launch { tab.onReselect(navigator) }
                             },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // Glowing line over the selected tab
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .width(if (selected) 22.dp else 0.dp)
+                                .height(3.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(Brush.horizontalGradient(listOf(colors.primary.copy(alpha = 0.4f), colors.primary, colors.primary.copy(alpha = 0.4f)))),
                         )
-                        .clickable {
-                            if (!selected) tabNavigator.current = tab else scope.launch { tab.onReselect(navigator) }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        BadgedBox(badge = { badge?.invoke() }) {
-                            Icon(
-                                painter = tab.options.icon!!,
-                                contentDescription = tab.options.title,
-                                tint = if (selected) Color.White else colors.onSurfaceVariant,
-                            )
-                        }
-                        if (selected) {
-                            Text(
-                                text = tab.options.title,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                BadgedBox(badge = { badge?.invoke() }) {
+                                    Icon(
+                                        painter = tab.options.icon!!,
+                                        contentDescription = tab.options.title,
+                                        tint = tint,
+                                    )
+                                }
+                                Text(
+                                    text = tab.options.title,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = tint,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
@@ -317,16 +337,35 @@ object HomeScreen : Screen() {
         }
     }
 
-    /** MANHWA AI, raised in the middle of the bar. */
+    /** MANHWA AI orb in the middle of the bar, with a slow pulsing halo. */
     @Composable
     private fun RowScope.AiCenterButton(onClick: () -> Unit) {
-        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+        val colors = MaterialTheme.colorScheme
+        val halo by rememberInfiniteTransition(label = "orb").animateFloat(
+            initialValue = 0.85f,
+            targetValue = 1.15f,
+            animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse),
+            label = "halo",
+        )
+        Box(modifier = Modifier.weight(1f).height(58.dp), contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
-                    .border(2.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                    .size(56.dp)
+                    .graphicsLayer {
+                        scaleX = halo
+                        scaleY = halo
+                    }
                     .background(
-                        Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, Color(0xFF7A0A2E))),
+                        Brush.radialGradient(listOf(colors.primary.copy(alpha = 0.55f), Color.Transparent)),
+                        CircleShape,
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .border(1.5.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                    .background(
+                        Brush.linearGradient(listOf(colors.primary, Color(0xFF9B5CFF))),
                         CircleShape,
                     )
                     .clip(CircleShape)

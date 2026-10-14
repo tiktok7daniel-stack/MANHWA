@@ -67,7 +67,7 @@ import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /** Glass chat where Danghwa AI finds a series in every source and ranks them by latest chapter. */
-class AiChatScreen : Screen() {
+class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
 
     @Composable
     override fun Content() {
@@ -85,6 +85,10 @@ class AiChatScreen : Screen() {
         val send = { text: String ->
             viewModel.send(text)
             input = ""
+        }
+
+        LaunchedEffect(initialPrompt) {
+            if (!initialPrompt.isNullOrBlank() && messages.isEmpty()) viewModel.send(initialPrompt)
         }
 
         GlassBackdrop {
