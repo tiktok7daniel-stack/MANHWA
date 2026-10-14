@@ -122,7 +122,6 @@ import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
-import eu.kanade.tachiyomi.ui.updates.UpdatesTab
 import eu.kanade.translation.search.AiChatScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -215,7 +214,7 @@ data object DiscoverTab : Tab {
                             closeDrawerThen { tabNavigator.current = LibraryTab }
                         },
                         MenuEntry(MaterialSymbols.Rounded.Notifications, stringResource(ATMR.strings.home_updates)) {
-                            closeDrawerThen { tabNavigator.current = UpdatesTab }
+                            closeDrawerThen { navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen()) }
                         },
                         MenuEntry(MaterialSymbols.Rounded.Schedule, stringResource(ATMR.strings.home_history)) {
                             closeDrawerThen { tabNavigator.current = HistoryTab }
@@ -280,7 +279,7 @@ data object DiscoverTab : Tab {
                                         tabNavigator.current = LibraryTab
                                     },
                                     QuickAction(MaterialSymbols.RoundedFilled.Bolt, stringResource(ATMR.strings.home_updates), Color(0xFFFFB020)) {
-                                        tabNavigator.current = UpdatesTab
+                                        navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen())
                                     },
                                     QuickAction(MaterialSymbols.Rounded.Schedule, stringResource(ATMR.strings.home_history), Color(0xFF4FC3F7)) {
                                         tabNavigator.current = HistoryTab
@@ -378,29 +377,15 @@ data object DiscoverTab : Tab {
                             }
                         }
 
-                        // 4. New chapters of the library
-                        if (state.newInLibrary.isNotEmpty()) {
+                        // 4. New chapters of every series on the home sources (and of the library)
+                        if (state.fresh.isNotEmpty() || state.newInLibrary.isNotEmpty() || state.freshRunning) {
                             item(key = "new") {
-                                Section(
-                                    title = stringResource(ATMR.strings.home_new_chapters),
-                                    subtitle = stringResource(ATMR.strings.home_fresh),
-                                    onSeeAll = { tabNavigator.current = UpdatesTab },
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(horizontal = 16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                                    ) {
-                                        state.newInLibrary.take(5).forEach { update ->
-                                            ChapterRow(
-                                                cover = update.coverData,
-                                                title = update.mangaTitle,
-                                                chapter = update.chapterName,
-                                                whenText = relative(update.dateFetch.toEpochMilliseconds()),
-                                                onClick = { openReader(update.mangaId, update.chapterId) },
-                                            )
-                                        }
-                                    }
-                                }
+                                FreshSection(
+                                    state = state,
+                                    onSeeAll = { navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen()) },
+                                    onOpenFresh = { viewModel.openFresh(it, openReader) { id -> navigator.push(MangaScreen(id, true)) } },
+                                    onOpenUpdate = { update -> openReader(update.mangaId, update.chapterId) },
+                                )
                             }
                         }
 
@@ -533,7 +518,7 @@ data object DiscoverTab : Tab {
                     newCount = state.newInLibrary.size,
                     onMenu = { scope.launch { drawerState.open() } },
                     onSearch = { navigator.push(GlobalSearchScreen("")) },
-                    onBell = { tabNavigator.current = UpdatesTab },
+                    onBell = { navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen()) },
                 )
             }
         }
@@ -1680,6 +1665,71 @@ data object DiscoverTab : Tab {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 8.dp, start = 2.dp),
             )
+        }
+    }
+
+    /** "Fresh off the press": new chapters from every home source, with a tab for each source and the library. */
+    @Composable
+    private fun FreshSection(
+        state: DiscoverViewModel.State,
+        onSeeAll: () -> Unit,
+        onOpenFresh: (eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine.Item) -> Unit,
+        onOpenUpdate: (tachiyomi.domain.updates.model.UpdatesWithRelations) -> Unit,
+    ) {
+        var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(if (state.fresh.isEmpty()) "lib" else "all") }
+        val names = state.availableSources.associate { it.id to it.name }
+        val sourceIds = state.fresh.map { it.sourceId }.distinct()
+        Section(
+            title = stringResource(ATMR.strings.home_new_chapters),
+            subtitle = stringResource(ATMR.strings.home_fresh),
+            onSeeAll = onSeeAll,
+        ) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 12.dp),
+            ) {
+                item { Chip(stringResource(ATMR.strings.fresh_all), tab == "all") { tab = "all" } }
+                item { Chip(stringResource(ATMR.strings.fresh_library, state.newInLibrary.size), tab == "lib") { tab = "lib" } }
+                items(sourceIds) { id -> Chip(names[id] ?: "$id", tab == "$id") { tab = "$id" } }
+            }
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (tab == "lib") {
+                    if (state.newInLibrary.isEmpty()) {
+                        Text(stringResource(ATMR.strings.fresh_empty), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                    }
+                    state.newInLibrary.take(6).forEach { update ->
+                        ChapterRow(
+                            cover = update.coverData,
+                            title = update.mangaTitle,
+                            chapter = update.chapterName,
+                            whenText = relative(update.dateFetch.toEpochMilliseconds()),
+                            onClick = { onOpenUpdate(update) },
+                        )
+                    }
+                } else {
+                    val list = state.fresh.filter { tab == "all" || "${it.sourceId}" == tab }
+                    if (list.isEmpty()) {
+                        Text(
+                            stringResource(if (state.freshRunning) ATMR.strings.fresh_checking else ATMR.strings.fresh_empty),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                        )
+                    }
+                    list.take(8).forEach { item ->
+                        ChapterRow(
+                            cover = tachiyomi.domain.manga.model.MangaCover(item.mangaId, item.sourceId, false, item.thumbnail, null),
+                            title = item.title,
+                            chapter = item.chapterName,
+                            whenText = relative(item.sortTime) + " • " + (names[item.sourceId] ?: ""),
+                            onClick = { onOpenFresh(item) },
+                        )
+                    }
+                }
+            }
         }
     }
 

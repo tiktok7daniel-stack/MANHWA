@@ -77,6 +77,7 @@ class AiChatViewModel(
     private val downloadManager: DownloadManager,
     private val translationManager: TranslationManager,
     private val getUpdates: GetUpdates,
+    private val controller: AppController,
 ) : ViewModel() {
 
     /** One source that has the series, with how far it is translated there. */
@@ -103,6 +104,10 @@ class AiChatViewModel(
             val updates: List<UpdatesWithRelations> = emptyList(),
             val sites: List<WebSite> = emptyList(),
             val webSummary: String? = null,
+            /** A screen of the app to open, from the AI's "open_screen". */
+            val screen: String? = null,
+            /** Newest chapters of the home sources, from "fresh_chapters". */
+            val fresh: List<eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine.Item> = emptyList(),
         ) : Message
     }
 
@@ -141,7 +146,7 @@ class AiChatViewModel(
                 }
                 if (actions.isNotEmpty()) {
                     val (done, updates) = runActions(actions, hits.firstOrNull())
-                    updateAssistant { it.copy(status = null, done = done, updates = updates) }
+                    updateAssistant { it.copy(status = null, done = it.done + done, updates = updates) }
                 }
                 remember("Reader: $request", "Assistant: $reply")
             } catch (e: Exception) {
@@ -203,7 +208,9 @@ class AiChatViewModel(
         if (!engine.isAi || keyMissing) throw AiSearchAssistant.NotConfiguredException()
         val ai = engine.build(translationPreferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
         try {
+            val state = runCatching { controller.snapshot() }.getOrDefault("")
             val prompt = buildString {
+                if (state.isNotEmpty()) appendLine(state).appendLine()
                 if (history.isNotEmpty()) {
                     appendLine("Conversation so far:")
                     history.forEach { appendLine(it) }
@@ -294,6 +301,30 @@ class AiChatViewModel(
         var updates = emptyList<UpdatesWithRelations>()
         for (action in actions) {
             try {
+                // Actions on the app itself: sources, extensions, settings, screens, library, global feed
+                val outcome = controller.execute(action, ::say)
+                if (outcome != null) {
+                    outcome.done?.let { done += it }
+                    if (outcome.screen != null) updateAssistant { it.copy(screen = outcome.screen) }
+                    if (outcome.fresh.isNotEmpty()) updateAssistant { it.copy(fresh = outcome.fresh) }
+                    if (outcome.library.isNotEmpty()) {
+                        val local = outcome.library.map { (item, source) ->
+                            val chapters = runCatching { getChaptersByMangaId.await(item.manga.id) }.getOrDefault(emptyList())
+                            SourceHit(
+                                manga = item.manga,
+                                sourceName = source.name,
+                                sourceLang = source.lang,
+                                latestChapter = chapters.maxOfOrNull { it.chapterNumber }?.toFloat()?.takeIf { it >= 0 },
+                                chapterCount = chapters.size,
+                                lastUpload = chapters.maxOfOrNull { it.dateUpload?.toEpochMilliseconds() ?: 0L } ?: 0L,
+                                source = source,
+                                rawChapters = emptyList(),
+                            )
+                        }
+                        updateAssistant { it.copy(hits = (local + it.hits).distinctBy { h -> h.manga.id }) }
+                    }
+                    continue
+                }
                 when (action.str("type")) {
                     "create_category" -> action.str("name")?.let { name ->
                         ensureCategory(name)
@@ -350,6 +381,20 @@ class AiChatViewModel(
         return done to updates
     }
 
+    private fun say(key: String, arg: String): String = when (key) {
+        "home_add_source" -> context.stringResource(ATMR.strings.ai_act_home_add, arg)
+        "home_remove_source" -> context.stringResource(ATMR.strings.ai_act_home_remove, arg)
+        "pin_source" -> context.stringResource(ATMR.strings.ai_act_pin, arg)
+        "fast_sources" -> context.stringResource(ATMR.strings.ai_act_fast, arg)
+        "install_extension" -> context.stringResource(ATMR.strings.ai_act_install, arg)
+        "enable_language" -> context.stringResource(ATMR.strings.ai_act_language, arg)
+        "auto_on" -> context.stringResource(ATMR.strings.ai_act_auto_on)
+        "auto_off" -> context.stringResource(ATMR.strings.ai_act_auto_off)
+        "set_target_language" -> context.stringResource(ATMR.strings.ai_act_target, arg)
+        "fresh_chapters" -> context.stringResource(ATMR.strings.ai_act_fresh, arg)
+        else -> context.stringResource(ATMR.strings.ai_act_not_found, arg)
+    }
+
     private suspend fun syncChapters(hit: SourceHit) {
         if (hit.rawChapters.isNotEmpty()) syncChaptersWithSource.await(hit.rawChapters, hit.manga, hit.source)
     }
@@ -401,7 +446,13 @@ class AiChatViewModel(
               {"type": "translate", "from": <n>, "to": <n>}  download (if needed) and translate those chapters
               {"type": "new_chapters", "days": <n>}  show new unread chapters of the library
               {"type": "web_search"}  also look on the web for the sites that publish it
+              Actions on the app itself (use names exactly as listed in APP STATE):
+${AppController.ACTIONS.prependIndent("              ")}
               Omit "from" to start at the first chapter. Use [] when nothing should be done.
+            You control the whole app: when the reader asks to add, remove or speed up sources, install an
+            extension, change a setting or open a screen, do it with the actions above and confirm in "reply".
+            When they ask about series they have, answer from the library in APP STATE and add "open_library"
+            with their ids (no "queries" needed for a series already in the library).
             Do not invent chapter counts or sources; the app checks those itself.
         """.trimIndent()
     }

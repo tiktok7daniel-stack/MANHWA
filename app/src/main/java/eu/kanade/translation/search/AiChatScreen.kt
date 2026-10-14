@@ -5,6 +5,7 @@ import androidx.core.net.toUri
 import android.content.Intent
 import android.text.format.DateUtils
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -107,6 +108,16 @@ class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
                             is AiChatViewModel.Message.Assistant -> AssistantBubble(
                                 message = message,
                                 onOpen = { navigator.push(MangaScreen(it, true)) },
+                                onScreen = { key ->
+                                    when (key) {
+                                        "sources_hub" -> navigator.push(eu.kanade.tachiyomi.ui.home.hub.SourceHubScreen())
+                                        "fresh" -> navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen())
+                                        "organizer" -> navigator.push(eu.kanade.tachiyomi.ui.library.ai.AiLibraryOrganizerScreen())
+                                        "smart_download" -> navigator.push(eu.kanade.tachiyomi.ui.home.smart.SmartDownloadScreen())
+                                        "downloads" -> navigator.push(eu.kanade.tachiyomi.ui.download.DownloadQueueScreen)
+                                        "wrapped" -> navigator.push(eu.kanade.tachiyomi.ui.home.wrapped.WrappedScreen())
+                                    }
+                                },
                             )
                         }
                     }
@@ -199,7 +210,7 @@ class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
     }
 
     @Composable
-    private fun AssistantBubble(message: AiChatViewModel.Message.Assistant, onOpen: (Long) -> Unit) {
+    private fun AssistantBubble(message: AiChatViewModel.Message.Assistant, onOpen: (Long) -> Unit, onScreen: (String) -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -256,6 +267,33 @@ class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
                 }
             }
             message.updates.forEach { update -> UpdateRow(update, onClick = { onOpen(update.mangaId) }) }
+            message.fresh.forEach { item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glass(RoundedCornerShape(14.dp), alpha = 0.35f)
+                        .clickable { onOpen(item.mangaId) }
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item.chapterName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+                    }
+                }
+            }
+            message.screen?.let { key ->
+                Text(
+                    stringResource(ATMR.strings.ai_open_screen),
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable { onScreen(key) }
+                        .padding(horizontal = 16.dp, vertical = 9.dp),
+                )
+            }
             message.webSummary?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
             if (message.sites.isNotEmpty()) {
                 val context = LocalContext.current

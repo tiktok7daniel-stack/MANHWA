@@ -191,4 +191,21 @@
     <string name="orb_edit_hint">اسحب الفقاعة لتحريكها، قرّب بإصبعين لتكبيرها، و A− / A+ لحجم الخط</string>
     <string name="orb_done">تم</string>
     <string name="style_skip_sfx">عدم ترجمة المؤثرات الصوتية</string>
+    <string name="fresh_all">كل المصادر</string>
+    <string name="fresh_library">مكتبتي (%1$d)</string>
+    <string name="fresh_empty">مفيش فصول جديدة لسه</string>
+    <string name="fresh_checking">بنفحص كل المصادر عن فصول جديدة…</string>
+    <string name="fresh_subtitle">من كل مصادر الشاشة الرئيسية، في مكتبتك أو لا</string>
+    <string name="ai_act_home_add">تمت إضافة %1$s للشاشة الرئيسية</string>
+    <string name="ai_act_home_remove">تمت إزالة %1$s من الشاشة الرئيسية</string>
+    <string name="ai_act_pin">تم تثبيت %1$s</string>
+    <string name="ai_act_fast">الشاشة الرئيسية فيها دلوقتي أسرع المصادر: %1$s</string>
+    <string name="ai_act_install">جاري تثبيت %1$s وهيظهر في الرئيسية</string>
+    <string name="ai_act_language">تم تفعيل مصادر لغة %1$s</string>
+    <string name="ai_act_auto_on">الترجمة التلقائية اشتغلت</string>
+    <string name="ai_act_auto_off">الترجمة التلقائية اتقفلت</string>
+    <string name="ai_act_target">الترجمة بقت لـ %1$s</string>
+    <string name="ai_act_fresh">%1$s فصل جديد من مصادرك</string>
+    <string name="ai_act_not_found">ما لقيتش %1$s</string>
+    <string name="ai_open_screen">افتح</string>
 </resources>

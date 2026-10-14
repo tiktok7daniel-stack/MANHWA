@@ -65,6 +65,8 @@ class DiscoverViewModel(
     private val intelligence: HomeIntelligence,
     private val getFavorites: GetFavorites,
     private val getChaptersByMangaId: GetChaptersByMangaId,
+    private val fresh: eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine,
+    context: android.content.Context,
     getUpdates: GetUpdates,
     getHistory: GetHistory,
     getCategories: GetCategories,
@@ -96,6 +98,9 @@ class DiscoverViewModel(
         val availableSources: List<Source> = emptyList(),
         val feeds: List<SourceFeed> = emptyList(),
         val newInLibrary: List<UpdatesWithRelations> = emptyList(),
+        /** Newest chapters of every series on the home sources, in the library or not. */
+        val fresh: List<eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine.Item> = emptyList(),
+        val freshRunning: Boolean = false,
         val continueReading: List<HistoryWithRelations> = emptyList(),
         val categories: List<Category> = emptyList(),
         val sourceFilter: Long? = null,
@@ -164,6 +169,12 @@ class DiscoverViewModel(
 
     init {
         setUpBuiltinStore()
+        // Global chapter sync: hourly in the background, and now when the data is old
+        eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine.schedule(context)
+        fresh.state
+            .onEach { snap -> _state.update { it.copy(fresh = snap.items, freshRunning = snap.running) } }
+            .launchIn(viewModelScope)
+        if (fresh.isStale()) viewModelScope.launch(Dispatchers.IO) { fresh.refresh() }
         // Sources and the reader's choices are watched, so a newly installed extension shows up at once.
         combine(
             sourceManager.sources,
@@ -240,6 +251,7 @@ class DiscoverViewModel(
 
     fun refresh() {
         load(refreshing = true)
+        viewModelScope.launch(Dispatchers.IO) { fresh.refresh() }
         viewModelScope.launch(Dispatchers.IO) { loadLibraryCount() }
     }
 
@@ -323,6 +335,7 @@ class DiscoverViewModel(
             )
         }
         if (added.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) { fresh.refresh() }
         viewModelScope.launch(Dispatchers.IO) {
             val gate = Semaphore(PARALLEL_SOURCES)
             coroutineScope { added.map { source -> async { gate.withPermit { loadFeed(source) } } }.awaitAll() }
@@ -372,6 +385,16 @@ class DiscoverViewModel(
     }
 
     /** Opens the newer chapter from the other source: saves its chapters, then hands back what to read. */
+    /** Opens a chapter of the global feed in the reader, or the series when the chapter can't be found. */
+    fun openFresh(item: eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine.Item, open: (Long, Long) -> Unit, fallback: (Long) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val ids = fresh.open(item)
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                if (ids != null) open(ids.first, ids.second) else fallback(item.mangaId)
+            }
+        }
+    }
+
     fun openAlert(alert: HomeIntelligence.SourceAlert, open: (Long, Long) -> Unit, fallback: (Long) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val ids = runCatching { intelligence.openAlert(alert) }.getOrNull()

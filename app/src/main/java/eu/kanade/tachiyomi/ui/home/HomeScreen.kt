@@ -116,7 +116,7 @@ object HomeScreen : Screen() {
     private val TABS = listOf(
         DiscoverTab,
         LibraryTab,
-        UpdatesTab,
+        // Updates live on the home screen now ("New chapters for you" and its full list)
         BrowseTab,
         MoreTab,
     )
@@ -212,7 +212,7 @@ object HomeScreen : Screen() {
                     openTabEvent.receiveAsFlow().collectLatest {
                         tabNavigator.current = when (it) {
                             is Tab.Library -> LibraryTab
-                            Tab.Updates -> UpdatesTab
+                            Tab.Updates -> DiscoverTab
                             Tab.History -> HistoryTab
                             is Tab.Browse -> {
                                 if (it.toExtensions) {
@@ -225,6 +225,9 @@ object HomeScreen : Screen() {
 
                         if (it is Tab.Library && it.mangaIdToOpen != null) {
                             navigator.push(MangaScreen(it.mangaIdToOpen))
+                        }
+                        if (it == Tab.Updates) {
+                            navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen())
                         }
                         if (it is Tab.More && it.toDownloads) {
                             navigator.push(DownloadQueueScreen)
@@ -396,7 +399,7 @@ object HomeScreen : Screen() {
         val count by produceState(initialValue = 0, tab) {
             val graph = context.appGraph
             when (tab) {
-                is UpdatesTab -> {
+                is UpdatesTab, is DiscoverTab -> {
                     combine(
                         graph.libraryPreferences.newShowUpdatesCount.changes(),
                         graph.libraryPreferences.newUpdatesCount.changes(),
@@ -418,7 +421,7 @@ object HomeScreen : Screen() {
         return {
             Badge {
                 val desc = when (tab) {
-                    is UpdatesTab -> pluralStringResource(
+                    is UpdatesTab, is DiscoverTab -> pluralStringResource(
                         MR.plurals.notification_chapters_generic,
                         count = count,
                         count,

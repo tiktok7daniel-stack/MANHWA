@@ -251,4 +251,21 @@
     <string name="orb_edit_hint">Drag a bubble to move it, pinch to resize, A− / A+ for text size</string>
     <string name="orb_done">Done</string>
     <string name="style_skip_sfx">Leave sound effects untranslated</string>
+    <string name="fresh_all">All sources</string>
+    <string name="fresh_library">My library (%1$d)</string>
+    <string name="fresh_empty">No new chapters yet</string>
+    <string name="fresh_checking">Checking every source for new chapters…</string>
+    <string name="fresh_subtitle">From every source on your home screen, in your library or not</string>
+    <string name="ai_act_home_add">Added %1$s to the home screen</string>
+    <string name="ai_act_home_remove">Removed %1$s from the home screen</string>
+    <string name="ai_act_pin">Pinned %1$s</string>
+    <string name="ai_act_fast">Home screen now has the fastest sources: %1$s</string>
+    <string name="ai_act_install">Installing %1$s, it will show on the home screen</string>
+    <string name="ai_act_language">Turned on sources in %1$s</string>
+    <string name="ai_act_auto_on">Automatic translation is on</string>
+    <string name="ai_act_auto_off">Automatic translation is off</string>
+    <string name="ai_act_target">Translations are now in %1$s</string>
+    <string name="ai_act_fresh">%1$s new chapters from your sources</string>
+    <string name="ai_act_not_found">Could not find %1$s</string>
+    <string name="ai_open_screen">Open</string>
 </resources>
