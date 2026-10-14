@@ -30,6 +30,8 @@ import logcat.LogPriority
 import mihon.domain.manga.model.toDomainManga
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.model.HistoryWithRelations
@@ -53,10 +55,23 @@ class DiscoverViewModel(
     private val sourceManager: SourceManager,
     private val sourcePreferences: SourcePreferences,
     private val networkToLocalManga: NetworkToLocalManga,
+    private val getFavorites: GetFavorites,
+    private val getChaptersByMangaId: GetChaptersByMangaId,
     getUpdates: GetUpdates,
     getHistory: GetHistory,
     getCategories: GetCategories,
 ) : ViewModel() {
+
+    /** Reading numbers for the home dashboard. */
+    data class Stats(
+        val libraryCount: Int = 0,
+        /** Series read on each of the last 7 days, oldest first. */
+        val week: List<Int> = List(7) { 0 },
+        val weekReadMs: Long = 0,
+    )
+
+    /** How far the reader is in the series at the top of "continue reading". */
+    data class Progress(val mangaId: Long, val read: Int, val total: Int)
 
     data class SourceFeed(
         val source: Source,
@@ -75,6 +90,8 @@ class DiscoverViewModel(
         val categories: List<Category> = emptyList(),
         val sourceFilter: Long? = null,
         val refreshing: Boolean = false,
+        val stats: Stats = Stats(),
+        val progress: Progress? = null,
     ) {
         val needsSetup: Boolean get() = selectedSourceIds.isEmpty()
         val visibleFeeds: List<SourceFeed> get() = feeds.filter { sourceFilter == null || it.source.id == sourceFilter }
@@ -118,8 +135,13 @@ class DiscoverViewModel(
             .launchIn(viewModelScope)
         getHistory.subscribe("")
             .catch { logcat(LogPriority.ERROR, it) }
-            .onEach { list -> _state.update { it.copy(continueReading = list.distinctBy { h -> h.mangaId }.take(15)) } }
+            .onEach { list ->
+                val distinct = list.distinctBy { h -> h.mangaId }
+                _state.update { it.copy(continueReading = distinct.take(15), stats = it.stats.withHistory(list)) }
+                distinct.firstOrNull()?.let { loadProgress(it.mangaId) }
+            }
             .launchIn(viewModelScope)
+        viewModelScope.launch(Dispatchers.IO) { loadLibraryCount() }
         getCategories.subscribe()
             .catch { logcat(LogPriority.ERROR, it) }
             .onEach { list -> _state.update { it.copy(categories = list.filterNot { c -> c.isSystemCategory }) } }
@@ -134,7 +156,40 @@ class DiscoverViewModel(
         _state.update { it.copy(sourceFilter = sourceId) }
     }
 
-    fun refresh() = load(refreshing = true)
+    fun refresh() {
+        load(refreshing = true)
+        viewModelScope.launch(Dispatchers.IO) { loadLibraryCount() }
+    }
+
+    private suspend fun loadLibraryCount() {
+        val count = runCatching { getFavorites.await().size }.getOrNull() ?: return
+        _state.update { it.copy(stats = it.stats.copy(libraryCount = count)) }
+    }
+
+    private fun loadProgress(mangaId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val chapters = runCatching { getChaptersByMangaId.await(mangaId) }.getOrNull() ?: return@launch
+            if (chapters.isEmpty()) return@launch
+            _state.update { it.copy(progress = Progress(mangaId, chapters.count { c -> c.read }, chapters.size)) }
+        }
+    }
+
+    private fun Stats.withHistory(history: List<HistoryWithRelations>): Stats {
+        val dayMs = 86_400_000L
+        val now = System.currentTimeMillis()
+        val startOfToday = now - Math.floorMod(now + java.util.TimeZone.getDefault().getOffset(now), dayMs)
+        val week = IntArray(7)
+        var readMs = 0L
+        history.forEach { h ->
+            val at = h.readAt?.toEpochMilliseconds() ?: return@forEach
+            val daysAgo = if (at >= startOfToday) 0 else ((startOfToday - at) / dayMs + 1).toInt()
+            if (daysAgo in 0..6) {
+                week[6 - daysAgo]++
+                readMs += h.readDuration
+            }
+        }
+        return copy(week = week.toList(), weekReadMs = readMs)
+    }
 
     private fun load(refreshing: Boolean = false) {
         val ids = _state.value.selectedSourceIds

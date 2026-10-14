@@ -54,4 +54,21 @@
     <string name="home_greeting_evening">مساء الخير</string>
     <string name="home_lists_sub">تصنيفاتك</string>
     <string name="home_rail_sub">الأحدث من هذا المصدر</string>
+    <string name="home_dashboard">لوحتك</string>
+    <string name="home_dashboard_sub">إحصائيات قراءتك</string>
+    <string name="home_week">نشاط الأسبوع</string>
+    <string name="home_week_series">قرأت %d عمل</string>
+    <string name="home_time">%1$dس %2$dد</string>
+    <string name="home_in_library">في مكتبتك</string>
+    <string name="home_new_count">فصول جديدة</string>
+    <string name="home_streak">أيام متتالية</string>
+    <string name="home_now_reading">تقرأ الآن</string>
+    <string name="home_progress">%1$d من %2$d فصل</string>
+    <string name="home_toggles">تحكم سريع</string>
+    <string name="home_toggles_sub">اضغط للتفعيل</string>
+    <string name="home_t_autotranslate">ترجمة تلقائية</string>
+    <string name="home_t_show">عرض الترجمة</string>
+    <string name="home_t_incognito">وضع التخفي</string>
+    <string name="home_t_downloaded">المحمّل فقط</string>
+    <string name="home_search_hint">ابحث في كل مصادرك…</string>
 </resources>

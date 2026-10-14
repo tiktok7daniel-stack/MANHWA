@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.ui.home
 
+import eu.kanade.presentation.components.neonGlow
+import androidx.compose.foundation.layout.offset
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -320,6 +323,7 @@ object HomeScreen : Screen() {
                                         painter = tab.options.icon!!,
                                         contentDescription = tab.options.title,
                                         tint = tint,
+                                        modifier = Modifier.neonGlow(CircleShape, colors.primary, if (selected) 0.22f else 0f, 10.dp),
                                     )
                                 }
                                 Text(
@@ -347,10 +351,13 @@ object HomeScreen : Screen() {
             animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse),
             label = "halo",
         )
-        Box(modifier = Modifier.weight(1f).height(58.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier.weight(1f).height(58.dp).offset(y = (-16).dp),
+            contentAlignment = Alignment.Center,
+        ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(70.dp)
                     .graphicsLayer {
                         scaleX = halo
                         scaleY = halo
@@ -362,7 +369,8 @@ object HomeScreen : Screen() {
             )
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(58.dp)
+                    .neonGlow(CircleShape, colors.primary, 0.35f, 14.dp)
                     .border(1.5.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                     .background(
                         Brush.linearGradient(listOf(colors.primary, Color(0xFF9B5CFF))),

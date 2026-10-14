@@ -1,6 +1,13 @@
 package eu.kanade.tachiyomi.ui.home.discover
 
 import android.text.format.DateUtils
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.unit.Dp
+import eu.kanade.presentation.components.neonGlow
+import mihon.icons.materialsymbols.rounded.Info
+import mihon.icons.materialsymbols.rounded.Translate
+import mihon.icons.materialsymbols.roundedfilled.Visibility
+import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -268,6 +275,14 @@ data object DiscoverTab : Tab {
                             )
                         }
 
+                        // Dashboard
+                        item(key = "dashboard") {
+                            Dashboard(stats = state.stats, newCount = state.newInLibrary.size)
+                        }
+
+                        // Quick toggles
+                        item(key = "toggles") { QuickToggles() }
+
                         // 3. Continue reading
                         if (state.continueReading.isNotEmpty()) {
                             item(key = "continue") {
@@ -277,13 +292,15 @@ data object DiscoverTab : Tab {
                                     onSeeAll = { tabNavigator.current = HistoryTab },
                                 ) {
                                     val first = state.continueReading.first()
-                                    FeaturedContinue(
+                                    NowReadingCard(
                                         cover = first.coverData,
                                         title = first.title,
                                         chapter = formatChapter(first.chapterNumber),
                                         whenText = first.readAt?.let { relative(it.toEpochMilliseconds()) },
+                                        progress = state.progress?.takeIf { it.mangaId == first.mangaId },
                                         onContinue = { openReader(first.mangaId, first.chapterId) },
                                         onDetails = { navigator.push(MangaScreen(first.mangaId)) },
+                                        onAsk = { askAi(first.title) },
                                     )
                                     val rest = state.continueReading.drop(1)
                                     if (rest.isNotEmpty()) {
@@ -482,10 +499,10 @@ data object DiscoverTab : Tab {
     @Composable
     private fun Header(solid: Boolean, newCount: Int, onMenu: () -> Unit, onSearch: () -> Unit, onBell: () -> Unit) {
         val colors = MaterialTheme.colorScheme
-        val bg by animateColorAsState(if (solid) Color(0xF2070709) else Color.Transparent, label = "header")
+        val bg by animateColorAsState(if (solid) Color(0xF2050506) else Color.Transparent, label = "header")
         Column(modifier = Modifier.fillMaxWidth().background(bg)) {
             Row(
-                modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 HeaderButton(MaterialSymbols.Rounded.Menu, onMenu)
@@ -494,7 +511,7 @@ data object DiscoverTab : Tab {
                     Text(
                         "MANHWA",
                         style = MaterialTheme.typography.titleLarge.copy(
-                            shadow = Shadow(colors.primary.copy(alpha = 0.7f), blurRadius = 24f),
+                            shadow = Shadow(colors.primary, blurRadius = 28f),
                         ),
                         fontWeight = FontWeight.Black,
                         color = colors.primary,
@@ -512,8 +529,6 @@ data object DiscoverTab : Tab {
                         color = Color.White.copy(alpha = 0.6f),
                     )
                 }
-                HeaderButton(MaterialSymbols.Rounded.Search, onSearch)
-                Spacer(Modifier.width(8.dp))
                 Box {
                     HeaderButton(MaterialSymbols.Rounded.Notifications, onBell)
                     if (newCount > 0) {
@@ -525,17 +540,51 @@ data object DiscoverTab : Tab {
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .offset(x = 4.dp, y = (-4).dp)
+                                .neonGlow(CircleShape, colors.primary, 0.35f, 6.dp)
                                 .background(colors.primary, CircleShape)
                                 .padding(horizontal = 6.dp, vertical = 1.dp),
                         )
                     }
                 }
             }
+            // Glass search bar with a glowing search icon
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 14.dp)
+                    .padding(bottom = 10.dp, top = 2.dp)
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .glass(RoundedCornerShape(18.dp), accent = true, alpha = 0.5f)
+                    .clickable(onClick = onSearch)
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    MaterialSymbols.Rounded.Search,
+                    contentDescription = null,
+                    tint = colors.primary,
+                    modifier = Modifier.size(22.dp).neonGlow(CircleShape, colors.primary, 0.25f, 8.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    stringResource(ATMR.strings.home_search_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.55f),
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                )
+                Icon(
+                    MaterialSymbols.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    tint = colors.primary.copy(alpha = 0.8f),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
             if (solid) {
                 Box(
                     Modifier.fillMaxWidth().height(1.dp).background(
                         Brush.horizontalGradient(
-                            listOf(Color.Transparent, colors.primary.copy(alpha = 0.6f), Color.Transparent),
+                            listOf(Color.Transparent, colors.primary.copy(alpha = 0.7f), Color.Transparent),
                         ),
                     ),
                 )
@@ -984,76 +1033,362 @@ data object DiscoverTab : Tab {
     }
 
     @Composable
-    private fun FeaturedContinue(
+    private fun NowReadingCard(
         cover: Any,
         title: String,
         chapter: String,
         whenText: String?,
+        progress: DiscoverViewModel.Progress?,
         onContinue: () -> Unit,
         onDetails: () -> Unit,
+        onAsk: () -> Unit,
     ) {
         val colors = MaterialTheme.colorScheme
-        val shape = RoundedCornerShape(24.dp)
+        val shape = RoundedCornerShape(28.dp)
+        val fraction = progress?.let { if (it.total > 0) it.read.toFloat() / it.total else 0f } ?: 0f
+        val animated by animateFloatAsState(fraction, animationSpec = tween(900), label = "progress")
         Box(
             modifier = Modifier
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth()
-                .height(200.dp)
+                .neonGlow(shape, colors.primary, 0.22f, 14.dp)
                 .clip(shape)
-                .border(
-                    1.dp,
-                    Brush.linearGradient(listOf(Color.White.copy(alpha = 0.2f), colors.primary.copy(alpha = 0.7f))),
-                    shape,
-                )
-                .clickable(onClick = onContinue),
+                .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.35f), colors.primary, Color.White.copy(alpha = 0.05f))), shape),
         ) {
-            Cover(cover, Modifier.fillMaxSize().blur(24.dp).graphicsLayer { alpha = 0.55f })
+            Cover(cover, Modifier.matchParentSize().blur(30.dp).graphicsLayer { alpha = 0.6f })
             Box(
-                Modifier.fillMaxSize().background(
-                    Brush.horizontalGradient(listOf(Ink.copy(alpha = 0.55f), Ink.copy(alpha = 0.92f))),
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(listOf(Ink.copy(alpha = 0.55f), Ink.copy(alpha = 0.9f))),
                 ),
             )
-            Row(modifier = Modifier.fillMaxSize()) {
-                Cover(cover, Modifier.width(134.dp).fillMaxHeight())
-                Column(
-                    modifier = Modifier.weight(1f).fillMaxHeight().padding(16.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column {
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.linearGradient(0f to Color.White.copy(alpha = 0.10f), 0.4f to Color.Transparent),
+                ),
+            )
+            Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Cover(
+                        cover,
+                        Modifier
+                            .size(92.dp)
+                            .neonGlow(RoundedCornerShape(20.dp), colors.primary, 0.3f, 10.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .border(1.dp, colors.primary.copy(alpha = 0.8f), RoundedCornerShape(20.dp)),
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(ATMR.strings.home_now_reading),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.primary,
+                        )
                         Text(
                             title,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Black,
                             color = Color.White,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(Modifier.height(6.dp))
                         Text(
-                            stringResource(ATMR.strings.home_chapter, chapter),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Black,
-                            color = colors.primary,
+                            listOfNotNull(stringResource(ATMR.strings.home_chapter, chapter), whenText).joinToString(" • "),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.6f),
+                            maxLines = 1,
                         )
-                        if (whenText != null) {
-                            Text(
-                                whenText,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.55f),
-                            )
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AccentButton(
-                            stringResource(ATMR.strings.home_continue_btn),
-                            MaterialSymbols.RoundedFilled.PlayArrow,
-                            Modifier.weight(1.3f),
-                            onContinue,
-                        )
-                        GhostButton(stringResource(ATMR.strings.home_details), null, Modifier.weight(1f), onDetails)
                     }
                 }
+                Spacer(Modifier.height(16.dp))
+                // Glowing progress bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.1f)),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(animated.coerceIn(0.02f, 1f))
+                            .height(6.dp)
+                            .background(
+                                Brush.horizontalGradient(listOf(lerp(colors.primary, Color.Black, 0.3f), colors.primary, Color.White)),
+                                RoundedCornerShape(50),
+                            ),
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Row {
+                    Text(
+                        progress?.let { stringResource(ATMR.strings.home_progress, it.read, it.total) } ?: "",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        "${(fraction * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.primary,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                // Player controls
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RoundControl(MaterialSymbols.Rounded.Info, 48.dp, false, onDetails)
+                    RoundControl(MaterialSymbols.RoundedFilled.PlayArrow, 70.dp, true, onContinue)
+                    RoundControl(MaterialSymbols.Rounded.AutoAwesome, 48.dp, false, onAsk)
+                }
             }
+        }
+    }
+
+    @Composable
+    private fun RoundControl(icon: ImageVector, size: Dp, primary: Boolean, onClick: () -> Unit) {
+        val colors = MaterialTheme.colorScheme
+        Box(
+            modifier = Modifier
+                .size(size)
+                .then(
+                    if (primary) {
+                        Modifier
+                            .neonGlow(CircleShape, colors.primary, 0.4f, 16.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(colors.primary, lerp(colors.primary, Color.Black, 0.45f))))
+                            .border(1.5.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                    } else {
+                        Modifier.glass(CircleShape, alpha = 0.4f)
+                    },
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (primary) Color.White else colors.primary,
+                modifier = Modifier.size(if (primary) 36.dp else 22.dp),
+            )
+        }
+    }
+
+    @Composable
+    private fun Dashboard(stats: DiscoverViewModel.Stats, newCount: Int) {
+        val colors = MaterialTheme.colorScheme
+        val total = stats.week.sum()
+        val streak = stats.week.reversed().takeWhile { it > 0 }.size
+        Section(
+            title = stringResource(ATMR.strings.home_dashboard),
+            subtitle = stringResource(ATMR.strings.home_dashboard_sub),
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
+                    .glass(RoundedCornerShape(26.dp), accent = true, alpha = 0.45f)
+                    .padding(18.dp),
+            ) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(ATMR.strings.home_week),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White.copy(alpha = 0.6f),
+                        )
+                        Text(
+                            stringResource(ATMR.strings.home_week_series, total),
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                shadow = Shadow(colors.primary.copy(alpha = 0.6f), blurRadius = 20f),
+                            ),
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                        )
+                    }
+                    val minutes = stats.weekReadMs / 60_000
+                    Text(
+                        stringResource(ATMR.strings.home_time, (minutes / 60).toInt(), (minutes % 60).toInt()),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = colors.primary,
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                WeekChart(stats.week)
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                StatTile(MaterialSymbols.Rounded.LocalLibrary, "${stats.libraryCount}", stringResource(ATMR.strings.home_in_library), Modifier.weight(1f))
+                StatTile(MaterialSymbols.RoundedFilled.Bolt, "$newCount", stringResource(ATMR.strings.home_new_count), Modifier.weight(1f))
+                StatTile(MaterialSymbols.RoundedFilled.Whatshot, "$streak", stringResource(ATMR.strings.home_streak), Modifier.weight(1f))
+            }
+        }
+    }
+
+    @Composable
+    private fun WeekChart(week: List<Int>) {
+        val colors = MaterialTheme.colorScheme
+        val max = (week.maxOrNull() ?: 0).coerceAtLeast(1)
+        val today = java.time.LocalDate.now()
+        val locale = java.util.Locale.getDefault()
+        Row(
+            modifier = Modifier.fillMaxWidth().height(120.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            week.forEachIndexed { index, value ->
+                val isToday = index == week.lastIndex
+                val target = 0.06f + 0.94f * value / max
+                val height by animateFloatAsState(target, animationSpec = tween(800), label = "bar")
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Bottom,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.BottomCenter,
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth(0.62f)
+                                .fillMaxHeight(height)
+                                .then(
+                                    if (value > 0) Modifier.neonGlow(RoundedCornerShape(8.dp), colors.primary, if (isToday) 0.35f else 0.18f, 8.dp) else Modifier,
+                                )
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (value > 0) {
+                                        Brush.verticalGradient(listOf(if (isToday) Color.White else colors.primary, lerp(colors.primary, Color.Black, 0.55f)))
+                                    } else {
+                                        Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.04f)))
+                                    },
+                                ),
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        today.minusDays((week.lastIndex - index).toLong()).dayOfWeek
+                            .getDisplayName(java.time.format.TextStyle.NARROW, locale),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (isToday) FontWeight.Black else FontWeight.Normal,
+                        color = if (isToday) colors.primary else Color.White.copy(alpha = 0.5f),
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun StatTile(icon: ImageVector, value: String, label: String, modifier: Modifier) {
+        val colors = MaterialTheme.colorScheme
+        Column(
+            modifier = modifier
+                .glass(RoundedCornerShape(22.dp), alpha = 0.45f)
+                .padding(14.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .neonGlow(RoundedCornerShape(11.dp), colors.primary, 0.25f, 8.dp)
+                    .background(colors.primary.copy(alpha = 0.18f), RoundedCornerShape(11.dp)),
+                contentAlignment = Alignment.Center,
+            ) { Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(19.dp)) }
+            Spacer(Modifier.height(10.dp))
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = Color.White)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.55f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+
+    @Composable
+    private fun QuickToggles() {
+        val context = LocalContext.current
+        val graph = remember { context.appGraph }
+        val autoTranslate = remember { graph.translationPreferences.autoTranslateAfterDownload() }
+        val showTranslations = remember { graph.readerPreferences.showTranslations }
+        val incognito = remember { graph.basePreferences.incognitoMode }
+        val downloadedOnly = remember { graph.basePreferences.downloadedOnly }
+        val autoOn by autoTranslate.collectPrefAsState()
+        val showOn by showTranslations.collectPrefAsState()
+        val incognitoOn by incognito.collectPrefAsState()
+        val downloadedOn by downloadedOnly.collectPrefAsState()
+        Section(
+            title = stringResource(ATMR.strings.home_toggles),
+            subtitle = stringResource(ATMR.strings.home_toggles_sub),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                ToggleOrb(MaterialSymbols.Rounded.Translate, stringResource(ATMR.strings.home_t_autotranslate), autoOn) {
+                    autoTranslate.set(!autoOn)
+                }
+                ToggleOrb(MaterialSymbols.RoundedFilled.Visibility, stringResource(ATMR.strings.home_t_show), showOn) {
+                    showTranslations.set(!showOn)
+                }
+                ToggleOrb(MaterialSymbols.RoundedFilled.VisibilityOff, stringResource(ATMR.strings.home_t_incognito), incognitoOn) {
+                    incognito.set(!incognitoOn)
+                }
+                ToggleOrb(MaterialSymbols.Rounded.Download, stringResource(ATMR.strings.home_t_downloaded), downloadedOn) {
+                    downloadedOnly.set(!downloadedOn)
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun ToggleOrb(icon: ImageVector, label: String, on: Boolean, onClick: () -> Unit) {
+        val colors = MaterialTheme.colorScheme
+        val glow by animateFloatAsState(if (on) 0.45f else 0f, animationSpec = tween(400), label = "orb")
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(78.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .neonGlow(CircleShape, colors.primary, glow, 18.dp)
+                    .then(
+                        if (on) {
+                            Modifier
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(lerp(colors.primary, Color.White, 0.2f), colors.primary, lerp(colors.primary, Color.Black, 0.5f)),
+                                    ),
+                                )
+                                .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
+                        } else {
+                            Modifier.glass(CircleShape, alpha = 0.4f)
+                        },
+                    )
+                    .clickable(onClick = onClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = label, tint = if (on) Color.White else Color.White.copy(alpha = 0.6f), modifier = Modifier.size(26.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                color = if (on) colors.primary else Color.White.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+            )
         }
     }
 

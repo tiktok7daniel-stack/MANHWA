@@ -114,4 +114,21 @@
     <string name="home_greeting_evening">Good evening</string>
     <string name="home_lists_sub">Your categories</string>
     <string name="home_rail_sub">Latest from this source</string>
+    <string name="home_dashboard">Your dashboard</string>
+    <string name="home_dashboard_sub">Reading stats</string>
+    <string name="home_week">This week</string>
+    <string name="home_week_series">%d series read</string>
+    <string name="home_time">%1$dh %2$dm</string>
+    <string name="home_in_library">In library</string>
+    <string name="home_new_count">New chapters</string>
+    <string name="home_streak">Day streak</string>
+    <string name="home_now_reading">Now reading</string>
+    <string name="home_progress">%1$d of %2$d chapters</string>
+    <string name="home_toggles">Quick controls</string>
+    <string name="home_toggles_sub">Tap to switch</string>
+    <string name="home_t_autotranslate">Auto translate</string>
+    <string name="home_t_show">Show translation</string>
+    <string name="home_t_incognito">Incognito</string>
+    <string name="home_t_downloaded">Downloaded only</string>
+    <string name="home_search_hint">Search all your sources…</string>
 </resources>
