@@ -153,4 +153,8 @@
     <string name="live_page_ready">✓ الصفحة %d جاهزة</string>
     <string name="live_background">يجهّز الصفحة %1$d في الخلفية • %2$d/%3$d جاهزة</string>
     <string name="live_waiting">ينتظر تحميل الصفحة %d…</string>
+    <string name="more_reading">وضع القراءة</string>
+    <string name="more_library">مكتبتك</string>
+    <string name="more_app">التطبيق</string>
+    <string name="more_tagline">اقرأ. ترجم. اكتشف.</string>
 </resources>
