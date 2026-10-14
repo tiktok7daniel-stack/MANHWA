@@ -59,7 +59,8 @@ open class ReaderPageImageView @JvmOverloads constructor(
     private val isWebtoon: Boolean = false,
 ) : FrameLayout(context, attrs, defStyleAttrs, defStyleRes) {
 
-    private var pageView: View? = null
+    // TachiyomiAT: needed for text block placement
+    var pageView: View? = null
 
     private var stripRequest: Disposable? = null
 
@@ -68,6 +69,9 @@ open class ReaderPageImageView @JvmOverloads constructor(
     var onImageLoaded: (() -> Unit)? = null
     var onImageLoadError: ((Throwable?) -> Unit)? = null
     var onScaleChanged: ((newScale: Float) -> Unit)? = null
+
+    // TachiyomiAT
+    var onCenterChanged: ((newCenter: PointF) -> Unit)? = null
     var onViewClicked: (() -> Unit)? = null
 
     /**
@@ -89,6 +93,12 @@ open class ReaderPageImageView @JvmOverloads constructor(
     @CallSuper
     open fun onScaleChanged(newScale: Float) {
         onScaleChanged?.invoke(newScale)
+    }
+
+    // TachiyomiAT
+    @CallSuper
+    open fun onCenterChanged(newCenter: PointF?) {
+        if (newCenter != null) onCenterChanged?.invoke(newCenter)
     }
 
     @CallSuper
@@ -252,7 +262,8 @@ open class ReaderPageImageView @JvmOverloads constructor(
                     }
 
                     override fun onCenterChanged(newCenter: PointF?, origin: Int) {
-                        // Not used
+                        // TachiyomiAT
+                        this@ReaderPageImageView.onCenterChanged(newCenter)
                     }
                 },
             )

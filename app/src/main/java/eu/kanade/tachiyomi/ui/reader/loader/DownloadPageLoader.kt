@@ -9,6 +9,8 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
+import eu.kanade.translation.TranslationManager
+import eu.kanade.translation.model.PageTranslation
 import mihon.core.archive.archiveReader
 import tachiyomi.domain.manga.model.Manga
 import uy.kohesive.injekt.injectLazy
@@ -22,6 +24,7 @@ internal class DownloadPageLoader(
     private val source: Source,
     private val downloadManager: DownloadManager,
     private val downloadProvider: DownloadProvider,
+    private val translationManager: TranslationManager,
 ) : PageLoader() {
 
     private val context: Context by injectLazy()
@@ -39,10 +42,16 @@ internal class DownloadPageLoader(
             manga.title,
             source,
         )
+        val translations = translationManager.getChapterTranslation(
+            dbChapter.name,
+            dbChapter.scanlator,
+            manga.title,
+            source,
+        )
         return if (chapterPath?.isFile == true) {
-            getPagesFromArchive(chapterPath)
+            getPagesFromArchive(chapterPath, translations)
         } else {
-            getPagesFromDirectory()
+            getPagesFromDirectory(translations)
         }
     }
 
@@ -51,17 +60,21 @@ internal class DownloadPageLoader(
         archivePageLoader?.recycle()
     }
 
-    private suspend fun getPagesFromArchive(file: UniFile): List<ReaderPage> {
-        val loader = ArchivePageLoader(file.archiveReader(context)).also { archivePageLoader = it }
+    private suspend fun getPagesFromArchive(
+        file: UniFile,
+        translations: Map<String, PageTranslation>,
+    ): List<ReaderPage> {
+        val loader = ArchivePageLoader(file.archiveReader(context), translations).also { archivePageLoader = it }
         return loader.getPages()
     }
 
-    private suspend fun getPagesFromDirectory(): List<ReaderPage> {
-        val pages = downloadManager.buildPageList(source, manga, chapter.chapter)
-        return pages.map { page ->
+    private suspend fun getPagesFromDirectory(translations: Map<String, PageTranslation>): List<ReaderPage> {
+        val pages = downloadManager.buildPageListWithNames(source, manga, chapter.chapter)
+        return pages.map { (fileName, page) ->
             ReaderPage(page.index, page.url, page.imageUrl) {
                 context.contentResolver.openInputStream(page.uri ?: Uri.EMPTY)!!
             }.apply {
+                translation = translations[fileName]
                 status = Page.State.Ready
             }
         }

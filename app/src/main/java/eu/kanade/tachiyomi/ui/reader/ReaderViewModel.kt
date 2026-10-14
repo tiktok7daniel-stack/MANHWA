@@ -56,6 +56,7 @@ import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.cacheImageDir
 import eu.kanade.tachiyomi.util.system.activeNetworkState
 import kotlinx.coroutines.CancellationException
+import eu.kanade.translation.TranslationManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -110,6 +111,7 @@ class ReaderViewModel(
     private val sourceManager: SourceManager,
     private val downloadManager: DownloadManager,
     private val downloadProvider: DownloadProvider,
+    private val translationManager: TranslationManager,
     private val imageSaver: ImageSaver,
     val readerPreferences: ReaderPreferences,
     private val basePreferences: BasePreferences,
@@ -357,6 +359,7 @@ class ReaderViewModel(
                     context,
                     downloadManager,
                     downloadProvider,
+                    translationManager,
                     chapterCache,
                     appScope,
                     ::canLoadAhead,

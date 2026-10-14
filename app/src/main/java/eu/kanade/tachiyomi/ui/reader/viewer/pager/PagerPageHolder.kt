@@ -2,9 +2,12 @@ package eu.kanade.tachiyomi.ui.reader.viewer.pager
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.PointF
 import android.view.LayoutInflater
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.view.isVisible
 import eu.kanade.presentation.util.formattedMessage
+import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
@@ -13,10 +16,15 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.widget.ViewPagerAdapter
+import eu.kanade.translation.data.TranslationFont
+import eu.kanade.translation.presentation.PagerTranslationsView
+import mihon.app.di.appGraph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
@@ -37,6 +45,12 @@ class PagerPageHolder(
     val viewer: PagerViewer,
     val page: ReaderPage,
 ) : ReaderPageImageView(readerThemedContext), ViewPagerAdapter.PositionableView {
+
+    // TachiyomiAT
+    private val readerPreferences = readerThemedContext.appGraph.readerPreferences
+    private val font = TranslationFont.fromPref(readerThemedContext.appGraph.translationPreferences.translationFont())
+    private var showTranslations = true
+    private var translationsView: PagerTranslationsView? = null
 
     /**
      * Item that identifies this view. Needed by the adapter to not recreate views.
@@ -63,6 +77,12 @@ class PagerPageHolder(
 
     init {
         loadJob = scope.launch { loadPageAndProcessStatus() }
+        // TachiyomiAT
+        showTranslations = readerPreferences.showTranslations.get()
+        readerPreferences.showTranslations.changes().onEach {
+            showTranslations = it
+            if (it) translationsView?.show() else translationsView?.hide()
+        }.launchIn(scope)
     }
 
     /**
@@ -106,7 +126,10 @@ class PagerPageHolder(
                             progressIndicator?.setProgress(value)
                         }
                     }
-                    Page.State.Ready -> setImage()
+                    Page.State.Ready -> {
+                        setImage()
+                        addTranslationsView() // TachiyomiAT
+                    }
                     is Page.State.Error -> setError(state.error)
                 }
             }
@@ -249,11 +272,15 @@ class PagerPageHolder(
     private fun setError(error: Throwable?) {
         progressIndicator?.hide()
         showErrorLayout(error)
+        translationsView?.hide() // TachiyomiAT
     }
 
     override fun onImageLoaded() {
         super.onImageLoaded()
         progressIndicator?.hide()
+        // TachiyomiAT
+        updateTranslationCoords()
+        if (showTranslations) translationsView?.show()
     }
 
     /**
@@ -270,6 +297,31 @@ class PagerPageHolder(
     override fun onScaleChanged(newScale: Float) {
         super.onScaleChanged(newScale)
         viewer.activity.hideMenu()
+        updateTranslationCoords() // TachiyomiAT
+    }
+
+    // TachiyomiAT
+    override fun onCenterChanged(newCenter: PointF?) {
+        super.onCenterChanged(newCenter)
+        updateTranslationCoords()
+    }
+
+    // TachiyomiAT
+    private fun addTranslationsView() {
+        val translation = page.translation ?: return
+        removeView(translationsView)
+        translationsView = PagerTranslationsView(context, translation = translation, font = font).also {
+            if (!showTranslations) it.hide()
+            addView(it, MATCH_PARENT, MATCH_PARENT)
+        }
+    }
+
+    // TachiyomiAT
+    private fun updateTranslationCoords() {
+        if (page.translation == null) return
+        val view = pageView as? SubsamplingScaleImageView ?: return
+        view.sourceToViewCoord(0f, 0f)?.let { translationsView?.viewTLState?.value = it }
+        translationsView?.scaleState?.value = view.scale
     }
 
     private fun showErrorLayout(error: Throwable?): ReaderErrorBinding {

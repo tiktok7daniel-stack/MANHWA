@@ -39,6 +39,9 @@ class ReaderPreferences(
 
     val showPageNumber: Preference<Boolean> = preferenceStore.getBoolean("pref_show_page_number_key", true)
 
+    // TachiyomiAT
+    val showTranslations: Preference<Boolean> = preferenceStore.getBoolean("show_translations", true)
+
     val verticalNavigator: Preference<Set<ReadingMode>> = preferenceStore.getEnumSet(
         "pref_vertical_navigator",
         emptySet(),
