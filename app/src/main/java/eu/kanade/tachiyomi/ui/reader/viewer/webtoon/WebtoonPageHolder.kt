@@ -15,6 +15,8 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.translation.data.TranslationFont
 import eu.kanade.translation.presentation.WebtoonTranslationsView
+import eu.kanade.translation.render.PageTranslationDisplay
+import eu.kanade.translation.render.ScanlationRenderer
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import mihon.app.di.appGraph
@@ -166,9 +168,12 @@ class WebtoonPageHolder(
                         }
                     }
                     Page.State.Ready -> {
-                        setImage()
-                        // TachiyomiAT: also picks up translations that arrive while the page is shown
-                        page.translationFlow.collectLatest { addTranslationsView() }
+                        // TachiyomiAT: the translation is cleaned and drawn into the page itself, so it can
+                        // never drift from its bubble; drawn again when it, its switches or its style change
+                        PageTranslationDisplay.of(frame.context, page.translationFlow).collectLatest { display ->
+                            setImage(display)
+                            if (display.overlay) addTranslationsView() else removeTranslationsView()
+                        }
                     }
                     is Page.State.Error -> setError(state.error)
                 }
@@ -206,7 +211,7 @@ class WebtoonPageHolder(
     /**
      * Called when the page is ready.
      */
-    private suspend fun setImage() {
+    private suspend fun setImage(display: PageTranslationDisplay) {
         progressIndicator.setProgress(0)
 
         val streamFn = page?.stream ?: return
@@ -215,7 +220,11 @@ class WebtoonPageHolder(
             val buffer = withContext(Dispatchers.IO) { streamFn().use { Buffer().readFrom(it) } }
             // Splitting and merging decode the image, which is CPU work
             val (source, isAnimated) = withContext(Dispatchers.Default) {
-                val source = process(buffer)
+                val animated = ImageUtil.isAnimatedAndSupported(buffer)
+                val translated = display.translation
+                    ?.takeIf { display.baked && !animated }
+                    ?.let { ScanlationRenderer.bake(frame.context, buffer, it) }
+                val source = process(translated ?: buffer)
                 val isAnimated = ImageUtil.isAnimatedAndSupported(source)
                 Pair(source, isAnimated)
             }
@@ -226,7 +235,8 @@ class WebtoonPageHolder(
                     ReaderPageImageView.Config(
                         zoomDuration = viewer.config.doubleTapAnimDuration,
                         minimumScaleType = SubsamplingScaleImageView.SCALE_TYPE_FIT_WIDTH,
-                        cropBorders = viewer.config.imageCropBorders,
+                        // Edit mode draws the bubbles on top of the page: it must be the page as it is
+                        cropBorders = viewer.config.imageCropBorders && !display.overlay,
                     ),
                 )
                 removeErrorLayout()
@@ -282,6 +292,12 @@ class WebtoonPageHolder(
         removeErrorLayout()
         // TachiyomiAT
         if (showTranslations) translationsView?.show()
+    }
+
+    // TachiyomiAT
+    private fun removeTranslationsView() {
+        frame.removeView(translationsView)
+        translationsView = null
     }
 
     // TachiyomiAT

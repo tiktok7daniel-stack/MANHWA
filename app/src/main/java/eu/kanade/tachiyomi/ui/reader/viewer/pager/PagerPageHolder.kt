@@ -18,6 +18,8 @@ import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.widget.ViewPagerAdapter
 import eu.kanade.translation.data.TranslationFont
 import eu.kanade.translation.presentation.PagerTranslationsView
+import eu.kanade.translation.render.PageTranslationDisplay
+import eu.kanade.translation.render.ScanlationRenderer
 import mihon.app.di.appGraph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -127,9 +129,14 @@ class PagerPageHolder(
                         }
                     }
                     Page.State.Ready -> {
-                        setImage()
-                        // TachiyomiAT: also picks up translations that arrive while the page is shown
-                        page.translationFlow.collectLatest { addTranslationsView() }
+                        // TachiyomiAT: the translation is cleaned and drawn into the page itself, so it can
+                        // never drift from its bubble; drawn again when it, its switches or its style change.
+                        // The second half of a split page is drawn from its whole page.
+                        val source = (page as? InsertPage)?.parent ?: page
+                        PageTranslationDisplay.of(context, source.translationFlow).collectLatest { display ->
+                            setImage(display)
+                            if (display.overlay) addTranslationsView() else removeTranslationsView()
+                        }
                     }
                     is Page.State.Error -> setError(state.error)
                 }
@@ -167,7 +174,7 @@ class PagerPageHolder(
     /**
      * Called when the page is ready.
      */
-    private suspend fun setImage() {
+    private suspend fun setImage(display: PageTranslationDisplay) {
         progressIndicator?.setProgress(0)
 
         val streamFn = page.stream ?: return
@@ -176,7 +183,11 @@ class PagerPageHolder(
             val buffer = withContext(Dispatchers.IO) { streamFn().use { Buffer().readFrom(it) } }
             // Splitting, merging and sampling the background decode the image, which is CPU work
             val (source, isAnimated, background) = withContext(Dispatchers.Default) {
-                val source = process(item, buffer)
+                val animated = ImageUtil.isAnimatedAndSupported(buffer)
+                val translated = display.translation
+                    ?.takeIf { display.baked && !animated }
+                    ?.let { ScanlationRenderer.bake(context, buffer, it) }
+                val source = process(item, translated ?: buffer)
                 val isAnimated = ImageUtil.isAnimatedAndSupported(source)
                 val background = if (!isAnimated && viewer.config.automaticBackground) {
                     ImageUtil.chooseBackground(context, source.peek().inputStream())
@@ -192,7 +203,8 @@ class PagerPageHolder(
                     Config(
                         zoomDuration = viewer.config.doubleTapAnimDuration,
                         minimumScaleType = viewer.config.imageScaleType,
-                        cropBorders = viewer.config.imageCropBorders,
+                        // Edit mode draws the bubbles on top of the page: it must be the page as it is
+                        cropBorders = viewer.config.imageCropBorders && !display.overlay,
                         zoomStartPosition = viewer.config.imageZoomType,
                         landscapeZoom = viewer.config.landscapeZoom,
                     ),
@@ -312,6 +324,12 @@ class PagerPageHolder(
     override fun onCenterChanged(newCenter: PointF?) {
         super.onCenterChanged(newCenter)
         updateTranslationCoords()
+    }
+
+    // TachiyomiAT
+    private fun removeTranslationsView() {
+        removeView(translationsView)
+        translationsView = null
     }
 
     // TachiyomiAT

@@ -36,6 +36,10 @@ class TranslationEditStore(private val context: Context) {
         _editing.value = on
     }
 
+    /** Goes up every time an adjustment is saved, so pages are drawn again with it. */
+    private val _revision = MutableStateFlow(0)
+    val revision: StateFlow<Int> = _revision.asStateFlow()
+
     private val json = Json { ignoreUnknownKeys = true }
     private val chapters = ConcurrentHashMap<String, MutableMap<String, List<BlockEdit>>>()
 
@@ -75,5 +79,6 @@ class TranslationEditStore(private val context: Context) {
         if (edits.isEmpty()) map.remove(pageKey) else map[pageKey] = edits
         runCatching { file(chapter).writeText(json.encodeToString(map.toMap())) }
             .onFailure { logcat(LogPriority.ERROR, it) }
+        _revision.value++
     }
 }

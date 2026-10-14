@@ -86,6 +86,39 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
         COMIC -> Families.comic
     }
 
+    /**
+     * The same choice as [family], as a font resource and weight for drawing straight on a page bitmap
+     * (weight 0 = a static font with no weight axis).
+     */
+    fun androidFont(kind: BubbleKind, latinOnly: Boolean = false): Pair<Int, Int> = when (this) {
+        AUTO -> if (latinOnly) {
+            if (kind == BubbleKind.SHOUT || kind == BubbleKind.SFX) MANGA_MASTER.androidFont(kind) else ANIME_ACE.androidFont(kind)
+        } else {
+            when (kind) {
+                BubbleKind.SPEECH -> CAIRO.androidFont(kind)
+                BubbleKind.SHOUT, BubbleKind.SFX -> LALEZAR.androidFont(kind)
+                BubbleKind.THOUGHT -> TAJAWAL.androidFont(kind)
+                BubbleKind.NARRATION -> NOTO_NASKH.androidFont(kind)
+                BubbleKind.SYSTEM -> CHANGA.androidFont(kind)
+            }
+        }
+        SMART -> when {
+            latinOnly -> if (kind == BubbleKind.SHOUT || kind == BubbleKind.SFX) MANGA_MASTER.androidFont(kind) else ANIME_ACE.androidFont(kind)
+            kind == BubbleKind.SHOUT || kind == BubbleKind.SFX -> LALEZAR.androidFont(kind)
+            else -> CAIRO.androidFont(kind)
+        }
+        CAIRO -> R.font.ar_cairo to 700
+        LALEZAR -> R.font.ar_lalezar to 0
+        CHANGA -> R.font.ar_changa to 600
+        TAJAWAL -> (if (kind == BubbleKind.THOUGHT) R.font.ar_tajawal_light else R.font.ar_tajawal_bold) to 0
+        NOTO_NASKH -> R.font.ar_noto_naskh to 600
+        MARHEY -> R.font.ar_marhey to 600
+        REEM_KUFI -> R.font.ar_reem_kufi to 600
+        ANIME_ACE -> R.font.animeace to 0
+        MANGA_MASTER -> R.font.manga_master_bb to 0
+        COMIC -> R.font.comic_book to 0
+    }
+
     private object Families {
         fun variable(res: Int, weight: Int) = FontFamily(
             Font(res, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight))),
