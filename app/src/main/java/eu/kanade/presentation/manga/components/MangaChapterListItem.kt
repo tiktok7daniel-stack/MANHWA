@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.translation.model.Translation
 import me.saket.swipe.SwipeableActionsBox
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.BookmarkAdd
@@ -56,12 +57,16 @@ fun MangaChapterListItem(
     selected: Boolean,
     downloadIndicatorEnabled: Boolean,
     downloadStateProvider: () -> Download.State,
+    // TachiyomiAT
+    translationStateProvider: () -> Translation.State,
     downloadProgressProvider: () -> Int,
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     onLongClick: () -> Unit,
     onClick: () -> Unit,
     onDownloadClick: ((ChapterDownloadAction) -> Unit)?,
+    // TachiyomiAT
+    onTranslationClick: ((ChapterTranslationAction) -> Unit)?,
     onChapterSwipe: (LibraryPreferences.ChapterSwipeAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -170,7 +175,15 @@ fun MangaChapterListItem(
                     }
                 }
             }
-
+            // TachiyomiAT
+            if (downloadStateProvider() == Download.State.DOWNLOADED) {
+                ChapterTranslationIndicator(
+                    enabled = true,
+                    modifier = Modifier.padding(start = 4.dp),
+                    translationStateProvider = translationStateProvider,
+                    onClick = { onTranslationClick?.invoke(it) },
+                )
+            }
             ChapterDownloadIndicator(
                 enabled = downloadIndicatorEnabled,
                 modifier = Modifier.padding(start = 4.dp),

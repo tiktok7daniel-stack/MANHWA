@@ -161,6 +161,15 @@ class TranslationManager(
         }
     }
 
+    /** Translation file names that exist for [manga], so many chapters can be checked with one directory listing. */
+    fun getTranslatedFileNames(manga: Manga, source: Source): Set<String> {
+        return provider.findMangaDir(manga.title, source)?.listFiles().orEmpty().mapNotNullTo(HashSet()) { it.name }
+    }
+
+    fun getTranslationFileName(chapter: Chapter): String {
+        return provider.getTranslationFileName(chapter.name, chapter.scanlator)
+    }
+
     fun statusFlow(): Flow<Translation> = queueState
         .flatMapLatest { translations ->
             translations
