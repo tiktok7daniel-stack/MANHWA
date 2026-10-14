@@ -1,5 +1,13 @@
 package eu.kanade.tachiyomi.ui.home
 
+import eu.kanade.tachiyomi.ui.home.discover.DiscoverTab
+import eu.kanade.translation.search.AiChatScreen
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.AutoAwesome
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -46,6 +54,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -91,9 +100,9 @@ object HomeScreen : Screen() {
     private const val TabNavigatorKey = "HomeTabs"
 
     private val TABS = listOf(
+        DiscoverTab,
         LibraryTab,
         UpdatesTab,
-        HistoryTab,
         BrowseTab,
         MoreTab,
     )
@@ -102,7 +111,7 @@ object HomeScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         TabNavigator(
-            tab = LibraryTab,
+            tab = DiscoverTab,
             key = TabNavigatorKey,
         ) { tabNavigator ->
             // Provide usable navigator to content screen
@@ -176,7 +185,7 @@ object HomeScreen : Screen() {
 
             val goToLibraryTab = { tabNavigator.current = LibraryTab }
 
-            BackHandler(enabled = tabNavigator.current != LibraryTab, onBack = goToLibraryTab)
+            BackHandler(enabled = tabNavigator.current != DiscoverTab, onBack = { tabNavigator.current = DiscoverTab })
 
             LaunchedEffect(Unit) {
                 launch {
@@ -264,7 +273,8 @@ object HomeScreen : Screen() {
                 .padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TABS.fastForEach { tab ->
+            TABS.forEachIndexed { index, tab ->
+                if (index == 2) AiCenterButton(onClick = { navigator.push(AiChatScreen()) })
                 val selected = tabNavigator.current::class == tab::class
                 val badge = tabBadge(tab)
                 Box(
@@ -303,6 +313,27 @@ object HomeScreen : Screen() {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /** MANHWA AI, raised in the middle of the bar. */
+    @Composable
+    private fun RowScope.AiCenterButton(onClick: () -> Unit) {
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .border(2.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                    .background(
+                        Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, Color(0xFF7A0A2E))),
+                        CircleShape,
+                    )
+                    .clip(CircleShape)
+                    .clickable(onClick = onClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = "MANHWA AI", tint = Color.White)
             }
         }
     }

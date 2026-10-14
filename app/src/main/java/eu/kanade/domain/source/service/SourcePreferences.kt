@@ -34,6 +34,9 @@ class SourcePreferences(
 
     val disabledSources: Preference<Set<String>> = preferenceStore.getStringSet("hidden_catalogues", emptySet())
 
+    // MANHWA: sources whose content is gathered on the home screen
+    val homeSources: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_home_sources", emptySet())
+
     val incognitoExtensions: Preference<Set<String>> = preferenceStore.getStringSet("incognito_extensions", emptySet())
 
     val pinnedSources: Preference<Set<String>> = preferenceStore.getStringSet("pinned_catalogues", emptySet())

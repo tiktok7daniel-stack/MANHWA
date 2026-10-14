@@ -55,4 +55,22 @@
     <string name="ai_done_updates">%1$d new unread chapters in the last %2$d days</string>
     <string name="ai_chat_suggestion_4">Add Solo Leveling to my library in Action and translate chapters 1–10</string>
     <string name="ai_chat_suggestion_5">What new chapters came out this week?</string>
+    <string name="home_tab">Home</string>
+    <string name="home_setup_title">Choose your sources</string>
+    <string name="home_setup_body">Pick 4 or more sources. Their newest and most popular series will show up here, without opening each source.</string>
+    <string name="home_my_sources">My sources</string>
+    <string name="home_selected_count">%d selected</string>
+    <string name="home_done">Done</string>
+    <string name="home_new_in_library">New in your library</string>
+    <string name="home_new_badge">NEW</string>
+    <string name="home_continue">Continue reading</string>
+    <string name="home_latest">Latest from your sources</string>
+    <string name="home_popular">Most popular</string>
+    <string name="home_my_lists">My lists</string>
+    <string name="home_all">All</string>
+    <string name="home_see_all">See all</string>
+    <string name="home_read">Read</string>
+    <string name="home_source_failed">%s could not be loaded</string>
+    <string name="home_ai_card">Ask MANHWA AI about any series</string>
+    <string name="home_chapter">Chapter %s</string>
 </resources>
