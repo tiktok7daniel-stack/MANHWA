@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState as collectFlowAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -89,7 +90,7 @@ fun BubbleLayer(translation: PageTranslation, zoom: Float) {
     val lineSpacing by prefs.translationLineSpacing().collectAsState()
     val skipSfx by prefs.translationSkipSfx().collectAsState()
     val target by prefs.translateToLanguage().collectAsState()
-    val editing by editStore.editing.collectAsState()
+    val editing by editStore.editing.collectFlowAsState()
     val typeface = TranslationTypeface.entries.getOrNull(typefaceIndex) ?: TranslationTypeface.SMART
     val latinOnly = remember(target) {
         val lang = TextTranslatorLanguage.entries.firstOrNull { it.name.equals(target, true) }
