@@ -1,5 +1,32 @@
 package eu.kanade.tachiyomi.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.BadgedBox
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import eu.kanade.presentation.components.glass
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
@@ -87,9 +114,11 @@ object HomeScreen : Screen() {
                     NavigationSuiteType.NavigationBar
                 }
                 val navigationSuiteState = rememberNavigationSuiteScaffoldState()
+                var showBar by remember { mutableStateOf(true) }
                 LaunchedEffect(navigationSuiteState, tabletUi) {
                     if (tabletUi) navigationSuiteState.show()
                     showBottomNavEvent.receiveAsFlow().collectLatest { show ->
+                        showBar = show
                         if (tabletUi || show) {
                             navigationSuiteState.show()
                         } else {
@@ -98,20 +127,7 @@ object HomeScreen : Screen() {
                     }
                 }
 
-                NavigationSuiteScaffold(
-                    navigationSuiteType = navigationSuiteType,
-                    state = navigationSuiteState,
-                    // Smoked-glass bar: translucent dark surface over the black background
-                    navigationSuiteColors = NavigationSuiteDefaults.colors(
-                        navigationRailContainerColor = MaterialTheme.colorScheme
-                            .surfaceColorAtElevation(3.dp),
-                        navigationBarContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f),
-                    ),
-                    navigationItemVerticalArrangement = Arrangement.Center,
-                    navigationItems = {
-                        TABS.fastForEach { NavigationSuiteItem(it, navigationSuiteType) }
-                    },
-                ) {
+                val tabContent: @Composable () -> Unit = {
                     AnimatedContent(
                         targetState = tabNavigator.current,
                         transitionSpec = {
@@ -125,6 +141,35 @@ object HomeScreen : Screen() {
                         tabNavigator.saveableState(key = "currentTab", it) {
                             it.Content()
                         }
+                    }
+                }
+                if (tabletUi) {
+                    NavigationSuiteScaffold(
+                        navigationSuiteType = navigationSuiteType,
+                        state = navigationSuiteState,
+                        navigationSuiteColors = NavigationSuiteDefaults.colors(
+                            navigationRailContainerColor = MaterialTheme.colorScheme
+                                .surfaceColorAtElevation(3.dp),
+                        ),
+                        navigationItemVerticalArrangement = Arrangement.Center,
+                        navigationItems = {
+                            TABS.fastForEach { NavigationSuiteItem(it, navigationSuiteType) }
+                        },
+                        content = tabContent,
+                    )
+                } else {
+                    // MANHWA: floating glass navigation bar
+                    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .then(if (showBar) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier),
+                        ) { tabContent() }
+                        AnimatedVisibility(
+                            visible = showBar,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
+                        ) { GlassNavigationBar() }
                     }
                 }
             }
@@ -202,6 +247,64 @@ object HomeScreen : Screen() {
             },
             badge = tabBadge(tab),
         )
+    }
+
+    @Composable
+    private fun GlassNavigationBar() {
+        val tabNavigator = LocalTabNavigator.current
+        val navigator = LocalNavigator.currentOrThrow
+        val scope = rememberCoroutineScope()
+        val colors = MaterialTheme.colorScheme
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 14.dp, vertical = 8.dp)
+                .glass(RoundedCornerShape(30.dp), accent = true, alpha = 0.8f)
+                .padding(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TABS.fastForEach { tab ->
+                val selected = tabNavigator.current::class == tab::class
+                val badge = tabBadge(tab)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .then(
+                            if (selected) {
+                                Modifier.background(Brush.verticalGradient(listOf(colors.primary, Color(0xFF8E0F1F))))
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .clickable {
+                            if (!selected) tabNavigator.current = tab else scope.launch { tab.onReselect(navigator) }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        BadgedBox(badge = { badge?.invoke() }) {
+                            Icon(
+                                painter = tab.options.icon!!,
+                                contentDescription = tab.options.title,
+                                tint = if (selected) Color.White else colors.onSurfaceVariant,
+                            )
+                        }
+                        if (selected) {
+                            Text(
+                                text = tab.options.title,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Composable

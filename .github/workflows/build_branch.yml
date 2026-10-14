@@ -62,8 +62,23 @@ jobs:
           name: build-log-${{ github.sha }}
           path: build.log
 
+      # Prints the name and package read from inside the APK, so it is clear which build it is
+      - name: Verify app name and package
+        run: |
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | tail -1)
+          "$AAPT" dump badging app/build/outputs/apk/debug/app-universal-debug.apk \
+            | grep -E "^package:|^application-label:|^application:" | tee badging.txt
+          {
+            echo "## MANHWA build ${{ github.run_number }}"
+            echo '```'
+            cat badging.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload APKs
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: apk-${{ github.sha }}
-          path: app/build/outputs/apk/debug/*.apk
+          name: MANHWA-build-${{ github.run_number }}
+          path: |
+            app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+            app/build/outputs/apk/debug/app-universal-debug.apk
