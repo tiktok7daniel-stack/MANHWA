@@ -98,8 +98,14 @@ import coil3.compose.AsyncImage
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.GlassBackdrop
 import eu.kanade.presentation.components.glass
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
+import eu.kanade.presentation.more.settings.screen.SettingsTranslationScreen
 import eu.kanade.presentation.util.Tab
+import eu.kanade.tachiyomi.ui.home.hub.SourceHubScreen
+import eu.kanade.tachiyomi.ui.home.smart.SmartDownloadScreen
+import eu.kanade.tachiyomi.ui.home.wrapped.WrappedScreen
+import mihon.icons.materialsymbols.rounded.Public
+import mihon.icons.materialsymbols.rounded.QueryStats
+import mihon.icons.materialsymbols.rounded.Storage
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
@@ -172,7 +178,7 @@ data object DiscoverTab : Tab {
         val accent by uiPreferences.manhwaAccent.collectPrefAsState()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
         val scope = rememberCoroutineScope()
-        var showSources by rememberSaveable { mutableStateOf(false) }
+        val openHub = { navigator.push(SourceHubScreen()) }
         val listState = rememberLazyListState()
         val solidHeader by remember {
             derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 420 }
@@ -214,6 +220,15 @@ data object DiscoverTab : Tab {
                         MenuEntry(MaterialSymbols.Rounded.Download, stringResource(ATMR.strings.home_downloads)) {
                             closeDrawerThen { navigator.push(DownloadQueueScreen) }
                         },
+                        MenuEntry(MaterialSymbols.Rounded.Public, stringResource(ATMR.strings.hub_title)) {
+                            closeDrawerThen { openHub() }
+                        },
+                        MenuEntry(MaterialSymbols.Rounded.Storage, stringResource(ATMR.strings.smart_title)) {
+                            closeDrawerThen { navigator.push(SmartDownloadScreen()) }
+                        },
+                        MenuEntry(MaterialSymbols.Rounded.QueryStats, stringResource(ATMR.strings.wrapped_title)) {
+                            closeDrawerThen { navigator.push(WrappedScreen()) }
+                        },
                         MenuEntry(MaterialSymbols.Rounded.Settings, stringResource(ATMR.strings.home_settings)) {
                             closeDrawerThen { navigator.push(SettingsScreen()) }
                         },
@@ -240,7 +255,7 @@ data object DiscoverTab : Tab {
                             when {
                                 state.needsSetup -> Column {
                                     Spacer(Modifier.statusBarsPadding().height(76.dp))
-                                    SetupCard(onClick = { showSources = true })
+                                    SetupCard(onClick = { openHub() })
                                 }
                                 hero.isNotEmpty() -> CinematicHero(
                                     items = hero,
@@ -265,7 +280,13 @@ data object DiscoverTab : Tab {
                                         tabNavigator.current = HistoryTab
                                     },
                                     QuickAction(MaterialSymbols.Rounded.Explore, stringResource(ATMR.strings.home_my_sources), Color(0xFF3DDC97)) {
-                                        showSources = true
+                                        openHub()
+                                    },
+                                    QuickAction(MaterialSymbols.RoundedFilled.Whatshot, stringResource(ATMR.strings.wrapped_title), Color(0xFFFF4FA3)) {
+                                        navigator.push(WrappedScreen())
+                                    },
+                                    QuickAction(MaterialSymbols.Rounded.Storage, stringResource(ATMR.strings.smart_title), Color(0xFF00D1E0)) {
+                                        navigator.push(SmartDownloadScreen())
                                     },
                                     QuickAction(MaterialSymbols.Rounded.Download, stringResource(ATMR.strings.home_downloads), Color(0xFFB388FF)) {
                                         navigator.push(DownloadQueueScreen)
@@ -281,6 +302,32 @@ data object DiscoverTab : Tab {
 
                         // Quick toggles
                         item(key = "toggles") { QuickToggles() }
+
+                        // Smart alerts: a newer chapter on another source
+                        if (state.alerts.isNotEmpty()) {
+                            item(key = "alerts") {
+                                Section(
+                                    title = stringResource(ATMR.strings.alert_title),
+                                    subtitle = stringResource(ATMR.strings.alert_sub),
+                                    icon = MaterialSymbols.Rounded.Notifications,
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    ) {
+                                        state.alerts.forEach { alert ->
+                                            AlertCard(alert) {
+                                                viewModel.openAlert(
+                                                    alert,
+                                                    open = { mangaId, chapterId -> openReader(mangaId, chapterId) },
+                                                    fallback = { navigator.push(MangaScreen(it, true)) },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         // 3. Continue reading
                         if (state.continueReading.isNotEmpty()) {
@@ -371,6 +418,16 @@ data object DiscoverTab : Tab {
                                         }
                                     }
                                 }
+                            }
+
+                            // AI picks with the reason for each one
+                            item(key = "recs") {
+                                Recommendations(
+                                    state = state,
+                                    onOpen = openManga,
+                                    onRetry = viewModel::refreshRecommendations,
+                                    onSetup = { navigator.push(SettingsTranslationScreen) },
+                                )
                             }
 
                             // 6. All sources: latest / popular grid
@@ -475,36 +532,185 @@ data object DiscoverTab : Tab {
             }
         }
 
-        if (showSources) {
-            HomeSourcesSheet(
-                installed = state.availableSources,
-                selected = state.selectedSourceIds,
-                addable = state.addable,
-                installing = state.installing,
-                bulk = state.bulk,
-                onInstallAll = viewModel::installAll,
-                onToggle = viewModel::toggleSource,
-                onAutoPick = viewModel::autoPick,
-                onInstall = viewModel::install,
-                onRefresh = viewModel::refreshExtensions,
-                onAddStore = {
-                    showSources = false
-                    navigator.push(ExtensionStoresScreen())
-                },
-                onManage = {
-                    showSources = false
-                    BrowseTab.showExtension()
-                    tabNavigator.current = BrowseTab
-                },
-                onDismiss = { showSources = false },
-            )
-        }
     }
 
     private fun Long.isCompleted(): Boolean {
         val status = toInt()
         return status == SManga.COMPLETED || status == SManga.PUBLISHING_FINISHED
     }
+
+    // region Smart alerts & recommendations
+
+    @Composable
+    private fun AlertCard(alert: HomeIntelligence.SourceAlert, onOpen: () -> Unit) {
+        val colors = MaterialTheme.colorScheme
+        val pulse by rememberInfiniteTransition(label = "alert").animateFloat(
+            initialValue = 0.15f,
+            targetValue = 0.4f,
+            animationSpec = infiniteRepeatable(tween(1_200), RepeatMode.Reverse),
+            label = "pulse",
+        )
+        val number = formatChapter(alert.chapterNumber)
+        val message = when (val days = alert.daysAgo) {
+            null, 0 -> stringResource(ATMR.strings.alert_message_today, number, alert.libraryManga.title, alert.source.name)
+            else -> stringResource(ATMR.strings.alert_message_days, number, alert.libraryManga.title, alert.source.name, days)
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .neonGlow(RoundedCornerShape(24.dp), colors.primary, pulse, 12.dp)
+                .glass(RoundedCornerShape(24.dp), accent = true, alpha = 0.5f)
+                .clickable(onClick = onOpen)
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Cover(
+                alert.libraryManga.asMangaCover(),
+                Modifier.width(62.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(14.dp)),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(ATMR.strings.alert_yours, formatChapter(alert.ourNumber)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.55f),
+                )
+                Spacer(Modifier.height(10.dp))
+                AccentButton(
+                    stringResource(ATMR.strings.alert_open, number),
+                    MaterialSymbols.RoundedFilled.PlayArrow,
+                    Modifier.neonGlow(RoundedCornerShape(14.dp), colors.primary, 0.35f, 10.dp),
+                    onOpen,
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun Recommendations(
+        state: DiscoverViewModel.State,
+        onOpen: (Manga) -> Unit,
+        onRetry: () -> Unit,
+        onSetup: () -> Unit,
+    ) {
+        val colors = MaterialTheme.colorScheme
+        Section(
+            title = stringResource(ATMR.strings.recs_title),
+            subtitle = stringResource(ATMR.strings.recs_sub),
+            icon = MaterialSymbols.Rounded.AutoAwesome,
+        ) {
+            when {
+                state.recommendations.isNotEmpty() -> LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(state.recommendations, key = { it.manga.id }) { rec ->
+                        Column(
+                            modifier = Modifier
+                                .width(230.dp)
+                                .glass(RoundedCornerShape(24.dp), alpha = 0.45f)
+                                .clickable { onOpen(rec.manga) }
+                                .padding(10.dp),
+                        ) {
+                            Row {
+                                Cover(
+                                    rec.manga.asMangaCover(),
+                                    Modifier.width(86.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(16.dp)),
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        rec.manga.title,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Spacer(Modifier.height(6.dp))
+                                    SourceBadge(rec.source.name)
+                                    val genres = rec.manga.genre.orEmpty().take(2)
+                                    if (genres.isNotEmpty()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            genres.joinToString(" • "),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White.copy(alpha = 0.6f),
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
+                            if (rec.reason.isNotBlank()) {
+                                Spacer(Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(colors.primary.copy(alpha = 0.14f))
+                                        .border(1.dp, colors.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                                        .padding(10.dp),
+                                ) {
+                                    Icon(
+                                        MaterialSymbols.Rounded.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = colors.primary,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        rec.reason,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                state.recsLoading -> Loading()
+                state.recsProblem == DiscoverViewModel.RecsProblem.NOT_CONFIGURED -> InfoCard(
+                    text = stringResource(ATMR.strings.recs_setup),
+                    button = stringResource(ATMR.strings.recs_setup_btn),
+                    onClick = onSetup,
+                )
+                state.recsProblem == DiscoverViewModel.RecsProblem.FAILED -> InfoCard(
+                    text = stringResource(ATMR.strings.recs_failed),
+                    button = stringResource(ATMR.strings.recs_retry),
+                    onClick = onRetry,
+                )
+                else -> Loading()
+            }
+        }
+    }
+
+    @Composable
+    private fun InfoCard(text: String, button: String, onClick: () -> Unit) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+                .glass(RoundedCornerShape(22.dp), accent = true, alpha = 0.45f)
+                .padding(18.dp),
+        ) {
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+            Spacer(Modifier.height(12.dp))
+            AccentButton(button, MaterialSymbols.Rounded.AutoAwesome, Modifier, onClick)
+        }
+    }
+
+    // endregion
 
     // region Header & side menu
 

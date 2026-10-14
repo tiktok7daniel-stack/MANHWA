@@ -7,16 +7,10 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import mihon.domain.extension.interactor.AddExtensionStore
-import mihon.domain.extension.model.ContentWarning
 import eu.kanade.tachiyomi.extension.ExtensionManager
-import eu.kanade.tachiyomi.extension.model.Extension
-import eu.kanade.tachiyomi.extension.model.InstallStep
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.transformWhile
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.MangasPage
 import kotlinx.coroutines.Dispatchers
@@ -66,13 +60,15 @@ class DiscoverViewModel(
     private val networkToLocalManga: NetworkToLocalManga,
     private val extensionManager: ExtensionManager,
     private val addExtensionStore: AddExtensionStore,
-    private val basePreferences: BasePreferences,
+    private val intelligence: HomeIntelligence,
     private val getFavorites: GetFavorites,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     getUpdates: GetUpdates,
     getHistory: GetHistory,
     getCategories: GetCategories,
 ) : ViewModel() {
+
+    enum class RecsProblem { NOT_CONFIGURED, FAILED }
 
     /** Reading numbers for the home dashboard. */
     data class Stats(
@@ -103,11 +99,11 @@ class DiscoverViewModel(
         val sourceFilter: Long? = null,
         val refreshing: Boolean = false,
         val stats: Stats = Stats(),
-        /** Extensions from the reader's stores that are not installed yet, in enabled languages. */
-        val addable: List<Extension.Available> = emptyList(),
-        val installing: Map<String, InstallStep> = emptyMap(),
-        /** Progress of "install all" as done / total, null when idle. */
-        val bulk: Pair<Int, Int>? = null,
+        val recommendations: List<HomeIntelligence.Recommendation> = emptyList(),
+        val recsLoading: Boolean = false,
+        /** Null when fine, otherwise why recommendations could not be made. */
+        val recsProblem: RecsProblem? = null,
+        val alerts: List<HomeIntelligence.SourceAlert> = emptyList(),
         val progress: Progress? = null,
     ) {
         val needsSetup: Boolean get() = selectedSourceIds.isEmpty()
@@ -190,20 +186,6 @@ class DiscoverViewModel(
                 }
             }
             .launchIn(viewModelScope)
-        combine(
-            extensionManager.availableExtensionsFlow,
-            extensionManager.loadedExtensionsFlow,
-            sourcePreferences.enabledLanguages.changes(),
-        ) { available, installed, languages ->
-            val installedPkgs = installed.map { it.pkgName }.toSet()
-            available
-                .filter { it.pkgName !in installedPkgs && (it.lang in languages || it.lang == "all") }
-                .distinctBy { it.pkgName }
-                .sortedBy { it.name.lowercase() }
-        }
-            .catch { logcat(LogPriority.ERROR, it) }
-            .onEach { list -> _state.update { it.copy(addable = list) } }
-            .launchIn(viewModelScope)
         getUpdates.subscribe(read = false, after = Clock.System.now() - 7.days)
             .catch { logcat(LogPriority.ERROR, it) }
             .onEach { list -> _state.update { it.copy(newInLibrary = list.distinctBy { u -> u.mangaId }.take(20)) } }
@@ -227,37 +209,6 @@ class DiscoverViewModel(
         sourcePreferences.homeSources.set(ids)
     }
 
-    fun toggleSource(id: String) {
-        val current = sourcePreferences.homeSources.get()
-        sourcePreferences.homeSources.set(if (id in current) current - id else current + id)
-    }
-
-    /** Picks the installed sources in the reader's languages, up to [AUTO_PICK]. */
-    fun autoPick() {
-        val ids = _state.value.availableSources
-            .filter { it.lang in sourcePreferences.enabledLanguages.get() }
-            .ifEmpty { _state.value.availableSources }
-            .take(AUTO_PICK)
-            .map { "${it.id}" }
-        if (ids.isNotEmpty()) sourcePreferences.homeSources.set(ids.toSet())
-    }
-
-    fun refreshExtensions() {
-        viewModelScope.launch(Dispatchers.IO) { runCatching { extensionManager.findAvailableExtensions() } }
-    }
-
-    /** Installs an extension and puts its sources on the home screen as soon as they load. */
-    fun install(extension: Extension.Available) {
-        val ids = extension.sources.map { "${it.id}" }
-        sourcePreferences.homeSources.set(sourcePreferences.homeSources.get() + ids)
-        viewModelScope.launch(Dispatchers.IO) {
-            extensionManager.installExtension(extension)
-                .untilDone()
-                .catch { _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to InstallStep.Error)) } }
-                .collect { step -> _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to step)) } }
-        }
-    }
-
     /**
      * First run: adds the built-in extension store and turns on English and Arabic, so every source
      * of the store is listed in My sources without the reader looking for a store link.
@@ -272,36 +223,6 @@ class DiscoverViewModel(
             runCatching { extensionManager.findAvailableExtensions() }
         }
     }
-
-    /** Installs every safe extension in [languages], one after another, without asking for each one. */
-    fun installAll(languages: Set<String>) {
-        if (_state.value.bulk != null) return
-        val queue = _state.value.addable.filter { it.lang in languages && it.contentWarning == ContentWarning.SAFE }
-        if (queue.isEmpty()) return
-        basePreferences.extensionInstaller.set(BasePreferences.ExtensionInstaller.PRIVATE)
-        _state.update { it.copy(bulk = 0 to queue.size) }
-        viewModelScope.launch(Dispatchers.IO) {
-            queue.forEachIndexed { index, extension ->
-                runCatching {
-                    extensionManager.installExtension(extension)
-                        .catch { emit(InstallStep.Error) }
-                        .untilDone()
-                        .collect { step ->
-                            _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to step)) }
-                        }
-                }
-                _state.update { it.copy(bulk = (index + 1) to queue.size) }
-            }
-            _state.update { it.copy(bulk = null) }
-        }
-    }
-
-    /** The installer's step flow never completes on its own; stop at the first final step. */
-    private fun Flow<InstallStep>.untilDone() =
-        transformWhile { step ->
-            emit(step)
-            !step.isCompleted()
-        }
 
     fun setSourceFilter(sourceId: Long?) {
         _state.update { it.copy(sourceFilter = sourceId) }
@@ -368,6 +289,52 @@ class DiscoverViewModel(
                 }.awaitAll()
             }
             _state.update { it.copy(refreshing = false) }
+            loadIntelligence(force = refreshing)
+        }
+    }
+
+    private suspend fun loadIntelligence(force: Boolean) {
+        val sources = _state.value.feeds.filterNot { it.failed }.map { it.source }
+        if (_state.value.recommendations.isEmpty()) {
+            _state.update { it.copy(recommendations = intelligence.cachedRecommendations()) }
+        }
+        if (force || !intelligence.recommendationsAreFresh() || _state.value.recommendations.isEmpty()) {
+            loadRecommendations(sources)
+        }
+        val alerts = runCatching { intelligence.alerts(sources, force) }
+            .onFailure { logcat(LogPriority.ERROR, it) }
+            .getOrNull()
+        if (alerts != null) _state.update { it.copy(alerts = alerts) }
+    }
+
+    private suspend fun loadRecommendations(sources: List<Source>) {
+        if (!intelligence.aiConfigured()) {
+            _state.update { it.copy(recsProblem = RecsProblem.NOT_CONFIGURED) }
+            return
+        }
+        if (sources.isEmpty()) return
+        _state.update { it.copy(recsLoading = true, recsProblem = null) }
+        runCatching { intelligence.recommend(sources) }
+            .onSuccess { list -> _state.update { it.copy(recommendations = list, recsLoading = false) } }
+            .onFailure { e ->
+                logcat(LogPriority.ERROR, e)
+                _state.update { it.copy(recsLoading = false, recsProblem = if (it.recommendations.isEmpty()) RecsProblem.FAILED else null) }
+            }
+    }
+
+    fun refreshRecommendations() {
+        viewModelScope.launch(Dispatchers.IO) {
+            loadRecommendations(_state.value.feeds.filterNot { it.failed }.map { it.source })
+        }
+    }
+
+    /** Opens the newer chapter from the other source: saves its chapters, then hands back what to read. */
+    fun openAlert(alert: HomeIntelligence.SourceAlert, open: (Long, Long) -> Unit, fallback: (Long) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val ids = runCatching { intelligence.openAlert(alert) }.getOrNull()
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                if (ids != null) open(ids.first, ids.second) else fallback(alert.otherManga.id)
+            }
         }
     }
 

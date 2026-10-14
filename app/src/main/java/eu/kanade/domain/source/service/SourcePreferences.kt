@@ -38,6 +38,10 @@ class SourcePreferences(
     /** Whether the built-in MANHWA extension store was already added on first run. */
     val manhwaBuiltinStore: Preference<Boolean> = preferenceStore.getBoolean("manhwa_builtin_store", false)
 
+    /** Last AI recommendations as JSON [{"m": mangaId, "r": reason}], and when they were made. */
+    val manhwaAiRecs: Preference<String> = preferenceStore.getString("manhwa_ai_recs", "")
+    val manhwaAiRecsAt: Preference<Long> = preferenceStore.getLong("manhwa_ai_recs_at", 0L)
+
     val homeSources: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_home_sources", emptySet())
 
     val incognitoExtensions: Preference<Set<String>> = preferenceStore.getStringSet("incognito_extensions", emptySet())
