@@ -103,10 +103,10 @@ class AiChatViewModel(
             val sites: List<WebSite> = emptyList(),
             val webSummary: String? = null,
         ) : Message
+    }
 
     /** A website found on the web that publishes the series. */
     data class WebSite(val name: String, val url: String, val latest: String?)
-    }
 
     enum class Status { THINKING, SEARCHING, CHECKING_CHAPTERS, SEARCHING_WEB }
 
