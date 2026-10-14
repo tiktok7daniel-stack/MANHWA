@@ -181,11 +181,14 @@ object ScanlationRenderer {
             clamp(bounds)
             // Sound effects are part of the drawing: they are only outlined, never erased
             if (kind == BubbleKind.SFX) return Cleaned(block, kind, bounds, dominantOf(bounds)?.first ?: Color.WHITE, false)
-            val results = rects.map { cleanArea(clamp(RectF(it))) }
-            // One more pass over the whole bubble (a little taller): letters joined across two lines, and a
-            // line the OCR did not list, are inside it and are cleaned too
+            val inners = block.lineBoxes.map { line -> RectF(line.x * s, line.y * s, line.right * s, line.bottom * s) }
+            val results = rects.mapIndexed { i, rect -> cleanArea(clamp(RectF(rect)), inners[i]) }
+            // One more pass over the whole bubble (a little taller): letters joined across two lines, glows
+            // and a line the OCR did not list are inside it and are cleaned too
             val lineH = block.lineBoxes.map { it.h }.average().toFloat() * s
-            cleanArea(clamp(RectF(bounds.left, bounds.top - lineH * 0.8f, bounds.right, bounds.bottom + lineH * 0.8f)), boxWhenBusy = false)
+            val textBox = RectF(inners.first()).apply { inners.forEach { union(it) } }
+            val whole = clamp(RectF(bounds.left, bounds.top - lineH * 0.8f, bounds.right, bounds.bottom + lineH * 0.8f))
+            cleanArea(whole, RectF(textBox.left, textBox.top - lineH * 0.8f, textBox.right, textBox.bottom + lineH * 0.8f), boxWhenBusy = false)
             val plain = results.filterNotNull().filter { it.second }
             val bg = plain.groupingBy { it.first }.eachCount().maxByOrNull { it.value }?.key
                 ?: results.filterNotNull().firstOrNull()?.first
@@ -194,11 +197,15 @@ object ScanlationRenderer {
         }
 
         /**
-         * Cleans one area: the background is its most common colour; every group of other pixels that does
-         * not reach the edge of the area is a letter and is painted over. Over a busy drawing (no plain
-         * background) a soft patch of the main colour is used instead. Returns (background, plain).
+         * Cleans one area like a cleaner's brush. The background is read from the ring between [area] and
+         * [inner] (where the letters are not): its main colour, and a smooth model of it (a plane per colour
+         * channel, so gradients stay gradients). Groups of pixels that reach the edge of the area are the
+         * bubble's outline or the drawing: they and their soft edge are protected. Every other pixel (letters,
+         * their glow, faint ghosts) is painted with the background model, feathered at the area's edge.
+         * Over a busy drawing (no plain background) a soft patch of the main colour is used instead.
+         * Returns (background, plain).
          */
-        private fun cleanArea(area: RectF, boxWhenBusy: Boolean = true): Pair<Int, Boolean>? {
+        private fun cleanArea(area: RectF, inner: RectF, boxWhenBusy: Boolean = true): Pair<Int, Boolean>? {
             val l = area.left.roundToInt().coerceIn(0, bitmap.width - 1)
             val t = area.top.roundToInt().coerceIn(0, bitmap.height - 1)
             val r = area.right.roundToInt().coerceIn(0, bitmap.width)
@@ -206,9 +213,22 @@ object ScanlationRenderer {
             val w = r - l
             val h = b - t
             if (w < 3 || h < 3) return null
-            val px = IntArray(w * h)
+            val n = w * h
+            val px = IntArray(n)
             bitmap.getPixels(px, 0, w, l, t, w, h)
-            val (bg, share) = dominant(px) ?: return null
+            val innerL = (inner.left.roundToInt() - l).coerceIn(0, w)
+            val innerR = (inner.right.roundToInt() - l).coerceIn(0, w)
+            val innerT = (inner.top.roundToInt() - t).coerceIn(0, h)
+            val innerB = (inner.bottom.roundToInt() - t).coerceIn(0, h)
+            val inRing = BooleanArray(n) { i ->
+                val x = i % w
+                val y = i / w
+                x < innerL || x >= innerR || y < innerT || y >= innerB
+            }
+            val ring = IntArray(inRing.count { it })
+            var k = 0
+            for (i in 0 until n) if (inRing[i]) ring[k++] = px[i]
+            val (bg, share) = dominant(if (ring.size >= 16) ring else px) ?: return null
             if (share < PLAIN_SHARE) {
                 if (boxWhenBusy) {
                     boxPaint.color = Color.argb(236, Color.red(bg), Color.green(bg), Color.blue(bg))
@@ -217,10 +237,9 @@ object ScanlationRenderer {
                 }
                 return bg to false
             }
-            val n = w * h
+            // Groups of ink: the ones reaching the edge are kept as they are
             val ink = BooleanArray(n) { distance(px[it], bg) > INK }
             val seen = BooleanArray(n)
-            val erase = BooleanArray(n)
             val keep = BooleanArray(n)
             val queue = IntArray(n)
             for (start in 0 until n) {
@@ -240,13 +259,12 @@ object ScanlationRenderer {
                     if (y > 0 && ink[i - w] && !seen[i - w]) { seen[i - w] = true; queue[tail++] = i - w }
                     if (y < h - 1 && ink[i + w] && !seen[i + w]) { seen[i + w] = true; queue[tail++] = i + w }
                 }
-                // A group that reaches the edge is the outline or the drawing: left exactly as it is
-                for (k in 0 until tail) if (touches) keep[queue[k]] = true else erase[queue[k]] = true
+                if (touches) for (q in 0 until tail) keep[queue[q]] = true
             }
-            // The soft edge of each letter goes too (2 px around it), never into what is kept
-            val grown = erase.copyOf()
+            // What is kept, with its soft edge (2 px), is never painted
+            val protect = keep.copyOf()
             for (i in 0 until n) {
-                if (!erase[i]) continue
+                if (!keep[i]) continue
                 val x = i % w
                 val y = i / w
                 for (dy in -GROW..GROW) for (dx in -GROW..GROW) {
@@ -254,27 +272,28 @@ object ScanlationRenderer {
                     val ny = y + dy
                     if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
                     val j = ny * w + nx
-                    if (!keep[j] && distance(px[j], bg) > HALO) grown[j] = true
+                    if (distance(px[j], bg) > HALO) protect[j] = true
                 }
             }
-            // Paint over: along each row, blended between the background on both sides (keeps gradients)
+            // Background model: least-squares plane per channel over the clean ring pixels
+            val model = PlaneModel()
+            for (i in 0 until n) {
+                if (!inRing[i] || protect[i] || distance(px[i], bg) > MODEL_DISTANCE) continue
+                model.add((i % w).toDouble(), (i / w).toDouble(), px[i])
+            }
+            val solved = model.solve(bg)
             var any = false
-            for (y in 0 until h) {
-                var x = 0
-                while (x < w) {
-                    if (!grown[y * w + x]) {
-                        x++
-                        continue
-                    }
-                    val runStart = x
-                    while (x < w && grown[y * w + x]) x++
-                    val left = if (runStart > 0) px[y * w + runStart - 1].takeIf { distance(it, bg) <= INK } ?: bg else bg
-                    val right = if (x < w) px[y * w + x].takeIf { distance(it, bg) <= INK } ?: bg else bg
-                    val len = x - runStart
-                    for (k in 0 until len) {
-                        val f = (k + 1f) / (len + 1f)
-                        px[y * w + runStart + k] = mix(left, right, f)
-                    }
+            for (i in 0 until n) {
+                if (protect[i]) continue
+                val x = i % w
+                val y = i / w
+                val target = solved.at(x.toDouble(), y.toDouble())
+                // Feathered at the area's edge so no seam shows on gradients
+                val edge = min(min(x, y), min(w - 1 - x, h - 1 - y)).toFloat()
+                val f = (edge / FEATHER).coerceIn(0f, 1f)
+                val value = if (f >= 1f) target else mix(px[i], target, f)
+                if (value != px[i]) {
+                    px[i] = value
                     any = true
                 }
             }
@@ -339,7 +358,7 @@ object ScanlationRenderer {
             val b = strip.bottom.roundToInt().coerceIn(t + 1, bitmap.height)
             val px = IntArray((r - l) * (b - t))
             bitmap.getPixels(px, 0, r - l, l, t, r - l, b - t)
-            val dirty = px.count { distance(it, bg) > INK }
+            val dirty = px.count { distance(it, bg) > FREE_DISTANCE }
             return dirty <= px.size * 0.01f
         }
 
@@ -452,6 +471,63 @@ object ScanlationRenderer {
         }
     }
 
+    /** Least-squares plane a + b·x + c·y for each colour channel: a smooth model of a bubble's background. */
+    private class PlaneModel {
+        private var n = 0.0
+        private var sx = 0.0
+        private var sy = 0.0
+        private var sxx = 0.0
+        private var sxy = 0.0
+        private var syy = 0.0
+        private val sv = DoubleArray(3)
+        private val sxv = DoubleArray(3)
+        private val syv = DoubleArray(3)
+
+        fun add(x: Double, y: Double, color: Int) {
+            n++
+            sx += x
+            sy += y
+            sxx += x * x
+            sxy += x * y
+            syy += y * y
+            val c = intArrayOf(Color.red(color), Color.green(color), Color.blue(color))
+            for (k in 0..2) {
+                sv[k] += c[k]
+                sxv[k] += x * c[k]
+                syv[k] += y * c[k]
+            }
+        }
+
+        class Solved(private val coef: Array<DoubleArray>?, private val flat: Int) {
+            fun at(x: Double, y: Double): Int {
+                val c = coef ?: return flat
+                return Color.rgb(
+                    (c[0][0] + c[0][1] * x + c[0][2] * y).roundToInt().coerceIn(0, 255),
+                    (c[1][0] + c[1][1] * x + c[1][2] * y).roundToInt().coerceIn(0, 255),
+                    (c[2][0] + c[2][1] * x + c[2][2] * y).roundToInt().coerceIn(0, 255),
+                )
+            }
+        }
+
+        fun solve(flat: Int): Solved {
+            if (n < 12) return Solved(null, flat)
+            // Normal equations [[n, sx, sy], [sx, sxx, sxy], [sy, sxy, syy]] · [a, b, c] = [sv, sxv, syv]
+            val det = det3(n, sx, sy, sx, sxx, sxy, sy, sxy, syy)
+            if (abs(det) < 1e-6) return Solved(null, flat)
+            val coef = Array(3) { k ->
+                doubleArrayOf(
+                    det3(sv[k], sx, sy, sxv[k], sxx, sxy, syv[k], sxy, syy) / det,
+                    det3(n, sv[k], sy, sx, sxv[k], sxy, sy, syv[k], syy) / det,
+                    det3(n, sx, sv[k], sx, sxx, sxv[k], sy, sxy, syv[k]) / det,
+                )
+            }
+            return Solved(coef, flat)
+        }
+
+        private fun det3(a: Double, b: Double, c: Double, d: Double, e: Double, f: Double, g: Double, h: Double, i: Double) =
+            a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+    }
+
     /** Most common colour (4 bits per channel buckets, averaged) and the share of pixels it has. */
     private fun dominant(px: IntArray): Pair<Int, Float>? {
         if (px.isEmpty()) return null
@@ -483,7 +559,7 @@ object ScanlationRenderer {
         var near = 0
         i = 0
         while (i < px.size) {
-            if (distance(px[i], color) <= INK) near++
+            if (distance(px[i], color) <= SHARE_DISTANCE) near++
             i += step
         }
         return color to near.toFloat() / total
@@ -510,8 +586,12 @@ object ScanlationRenderer {
     private const val JPEG_QUALITY = 92
     private const val PAD = 12f
     private const val PLAIN_SHARE = 0.4f
-    private const val INK = 70
-    private const val HALO = 18
+    private const val INK = 28
+    private const val SHARE_DISTANCE = 70
+    private const val FREE_DISTANCE = 45
+    private const val HALO = 8
+    private const val MODEL_DISTANCE = 40
+    private const val FEATHER = 5f
     private const val GROW = 2
     private const val MIN_TEXT_PX = 6f
     private val RTL_SCRIPTS = setOf("ar", "fa", "ur", "he", "iw")
