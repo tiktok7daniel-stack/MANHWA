@@ -48,13 +48,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Text
@@ -100,6 +98,7 @@ import coil3.compose.AsyncImage
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.GlassBackdrop
 import eu.kanade.presentation.components.glass
+import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.source.Source
@@ -237,7 +236,7 @@ data object DiscoverTab : Tab {
                     ) {
                         // 1. Cinematic hero
                         item(key = "hero") {
-                            val hero = state.popular.take(7)
+                            val hero = state.trending.take(7)
                             when {
                                 state.needsSetup -> Column {
                                     Spacer(Modifier.statusBarsPadding().height(76.dp))
@@ -354,7 +353,7 @@ data object DiscoverTab : Tab {
 
                         if (!state.needsSetup) {
                             // 5. Top 10
-                            val top = state.popular.take(10)
+                            val top = state.trending.take(10)
                             if (top.isNotEmpty()) {
                                 item(key = "top10") {
                                     Section(
@@ -477,12 +476,23 @@ data object DiscoverTab : Tab {
         }
 
         if (showSources) {
-            SourcesSheet(
-                sources = state.availableSources,
+            HomeSourcesSheet(
+                installed = state.availableSources,
                 selected = state.selectedSourceIds,
-                onDone = {
-                    viewModel.setSources(it)
+                addable = state.addable,
+                installing = state.installing,
+                onToggle = viewModel::toggleSource,
+                onAutoPick = viewModel::autoPick,
+                onInstall = viewModel::install,
+                onRefresh = viewModel::refreshExtensions,
+                onAddStore = {
                     showSources = false
+                    navigator.push(ExtensionStoresScreen())
+                },
+                onManage = {
+                    showSources = false
+                    BrowseTab.showExtension()
+                    tabNavigator.current = BrowseTab
                 },
                 onDismiss = { showSources = false },
             )
@@ -1535,7 +1545,7 @@ data object DiscoverTab : Tab {
     ) {
         var popularTab by rememberSaveable { mutableStateOf(false) }
         var shown by rememberSaveable { mutableIntStateOf(6) }
-        val list = if (popularTab) state.popular else state.latest
+        val list = if (popularTab) state.trending else state.latest
         Section(
             title = stringResource(ATMR.strings.home_from_sources),
             subtitle = stringResource(ATMR.strings.home_from_sources_sub),
@@ -2112,65 +2122,6 @@ data object DiscoverTab : Tab {
     }
 
     // endregion
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    private fun SourcesSheet(
-        sources: List<Source>,
-        selected: Set<String>,
-        onDone: (Set<String>) -> Unit,
-        onDismiss: () -> Unit,
-    ) {
-        var picked by remember { mutableStateOf(selected) }
-        ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF0C0A0E)) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        stringResource(ATMR.strings.home_setup_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                    )
-                    Text(
-                        stringResource(ATMR.strings.home_selected_count, picked.size),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-                AccentButton(stringResource(ATMR.strings.home_done), null, Modifier) { onDone(picked) }
-            }
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items(sources, key = { it.id }) { source ->
-                    val id = "${source.id}"
-                    val checked = id in picked
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .glass(RoundedCornerShape(16.dp), accent = checked, alpha = 0.35f)
-                            .clickable { picked = if (checked) picked - id else picked + id }
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(checked = checked, onCheckedChange = null)
-                        Spacer(Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(source.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                source.lang.uppercase(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     private fun relative(millis: Long): String =
         DateUtils.getRelativeTimeSpanString(millis, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()

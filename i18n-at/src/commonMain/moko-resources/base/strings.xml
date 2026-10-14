@@ -131,4 +131,14 @@
     <string name="home_t_incognito">Incognito</string>
     <string name="home_t_downloaded">Downloaded only</string>
     <string name="home_search_hint">Search all your sources…</string>
+    <string name="src_search">Search sources…</string>
+    <string name="src_installed">Installed sources</string>
+    <string name="src_auto_pick">Auto pick</string>
+    <string name="src_none_installed">No sources yet. Add one from the list below with +.</string>
+    <string name="src_add_new">Add new sources</string>
+    <string name="src_no_store_title">Add an extension store first</string>
+    <string name="src_no_store_body">Sources come from extension stores. Add a store link once, then every source it offers shows up here and can be added with +.</string>
+    <string name="src_add_store">Add store</string>
+    <string name="src_count">%d sources</string>
+    <string name="src_manage">Manage all extensions</string>
 </resources>

@@ -71,4 +71,14 @@
     <string name="home_t_incognito">وضع التخفي</string>
     <string name="home_t_downloaded">المحمّل فقط</string>
     <string name="home_search_hint">ابحث في كل مصادرك…</string>
+    <string name="src_search">ابحث عن مصدر…</string>
+    <string name="src_installed">المصادر المثبّتة</string>
+    <string name="src_auto_pick">اختيار تلقائي</string>
+    <string name="src_none_installed">ما في مصادر لسه. أضف مصدر من القائمة تحت بزر +.</string>
+    <string name="src_add_new">أضف مصادر جديدة</string>
+    <string name="src_no_store_title">أضف مستودع إضافات أول مرة</string>
+    <string name="src_no_store_body">المصادر تيجي من مستودعات الإضافات. أضف رابط المستودع مرة واحدة، وبعدها كل مصادره تظهر هنا وتضيفها بزر +.</string>
+    <string name="src_add_store">إضافة مستودع</string>
+    <string name="src_count">%d مصادر</string>
+    <string name="src_manage">إدارة كل الإضافات</string>
 </resources>

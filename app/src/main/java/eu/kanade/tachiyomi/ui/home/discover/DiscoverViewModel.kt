@@ -8,6 +8,10 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.tachiyomi.extension.ExtensionManager
+import eu.kanade.tachiyomi.extension.model.Extension
+import eu.kanade.tachiyomi.extension.model.InstallStep
+import kotlinx.coroutines.flow.combine
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.MangasPage
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +59,7 @@ class DiscoverViewModel(
     private val sourceManager: SourceManager,
     private val sourcePreferences: SourcePreferences,
     private val networkToLocalManga: NetworkToLocalManga,
+    private val extensionManager: ExtensionManager,
     private val getFavorites: GetFavorites,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     getUpdates: GetUpdates,
@@ -91,6 +96,9 @@ class DiscoverViewModel(
         val sourceFilter: Long? = null,
         val refreshing: Boolean = false,
         val stats: Stats = Stats(),
+        /** Extensions from the reader's stores that are not installed yet, in enabled languages. */
+        val addable: List<Extension.Available> = emptyList(),
+        val installing: Map<String, InstallStep> = emptyMap(),
         val progress: Progress? = null,
     ) {
         val needsSetup: Boolean get() = selectedSourceIds.isEmpty()
@@ -99,6 +107,40 @@ class DiscoverViewModel(
         /** Latest titles of every chosen source, interleaved so no single source floods the list. */
         val latest: List<Pair<Manga, Source>> get() = interleave { it.latest }
         val popular: List<Pair<Manga, Source>> get() = interleave { it.popular }
+
+        /**
+         * Popular titles ranked across all chosen sources: a title high on many sources' popular lists
+         * beats one that is only popular on a single source.
+         */
+        val trending: List<Pair<Manga, Source>> get() {
+            val scores = LinkedHashMap<String, Pair<Pair<Manga, Source>, Double>>()
+            visibleFeeds.forEach { feed ->
+                feed.popular.forEachIndexed { index, manga -> add(scores, manga, feed.source, 1.0 / (index + 2)) }
+                feed.latest.forEachIndexed { index, manga -> add(scores, manga, feed.source, 0.3 / (index + 2)) }
+            }
+            return scores.values.sortedByDescending { it.second }.map { it.first }
+        }
+
+        private fun add(
+            scores: LinkedHashMap<String, Pair<Pair<Manga, Source>, Double>>,
+            manga: Manga,
+            source: Source,
+            score: Double,
+        ) {
+            val key = manga.title.lowercase().filter { it.isLetterOrDigit() }.ifEmpty { "${manga.id}" }
+            val current = scores[key]
+            if (current == null) {
+                scores[key] = (manga to source) to score
+            } else {
+                // Keep the entry that has more details to show
+                val best = if (current.first.first.description.isNullOrBlank() && !manga.description.isNullOrBlank()) {
+                    manga to source
+                } else {
+                    current.first
+                }
+                scores[key] = best to (current.second + score + 0.5)
+            }
+        }
 
         private fun interleave(pick: (SourceFeed) -> List<Manga>): List<Pair<Manga, Source>> {
             val lists = visibleFeeds.map { feed -> pick(feed).map { it to feed.source } }
@@ -114,21 +156,44 @@ class DiscoverViewModel(
     private var loadJob: Job? = null
 
     init {
-        viewModelScope.launch(Dispatchers.IO) {
-            val enabledLanguages = sourcePreferences.enabledLanguages.get()
-            val disabled = sourcePreferences.disabledSources.get()
-            val available = sourceManager.getAll()
-                .filter { !it.isLocal() && it.lang in enabledLanguages && "${it.id}" !in disabled }
-                .sortedBy { it.name.lowercase() }
-            _state.update { it.copy(availableSources = available) }
-            sourcePreferences.homeSources.changes()
-                .distinctUntilChanged()
-                .onEach { ids ->
-                    _state.update { it.copy(selectedSourceIds = ids, sourceFilter = null) }
+        // Sources and the reader's choices are watched, so a newly installed extension shows up at once.
+        combine(
+            sourceManager.sources,
+            sourcePreferences.enabledLanguages.changes(),
+            sourcePreferences.disabledSources.changes(),
+        ) { sources, languages, disabled ->
+            sources
+                .filter { !it.isLocal() && it !is tachiyomi.domain.source.model.StubSource && "${it.id}" !in disabled }
+                .sortedWith(compareBy<Source>({ it.lang !in languages }, { it.name.lowercase() }))
+        }
+            .catch { logcat(LogPriority.ERROR, it) }
+            .combine(sourcePreferences.homeSources.changes()) { available, ids -> available to ids }
+            .distinctUntilChanged()
+            .onEach { (available, ids) ->
+                val before = _state.value
+                _state.update { it.copy(availableSources = available, selectedSourceIds = ids) }
+                val loadedIds = before.feeds.map { "${it.source.id}" }.toSet()
+                val nowIds = ids.filter { id -> available.any { "${it.id}" == id } }.toSet()
+                if (loadedIds != nowIds) {
+                    _state.update { it.copy(sourceFilter = null) }
                     load()
                 }
-                .launchIn(this)
+            }
+            .launchIn(viewModelScope)
+        combine(
+            extensionManager.availableExtensionsFlow,
+            extensionManager.loadedExtensionsFlow,
+            sourcePreferences.enabledLanguages.changes(),
+        ) { available, installed, languages ->
+            val installedPkgs = installed.map { it.pkgName }.toSet()
+            available
+                .filter { it.pkgName !in installedPkgs && (it.lang in languages || it.lang == "all") }
+                .distinctBy { it.pkgName }
+                .sortedBy { it.name.lowercase() }
         }
+            .catch { logcat(LogPriority.ERROR, it) }
+            .onEach { list -> _state.update { it.copy(addable = list) } }
+            .launchIn(viewModelScope)
         getUpdates.subscribe(read = false, after = Clock.System.now() - 7.days)
             .catch { logcat(LogPriority.ERROR, it) }
             .onEach { list -> _state.update { it.copy(newInLibrary = list.distinctBy { u -> u.mangaId }.take(20)) } }
@@ -150,6 +215,36 @@ class DiscoverViewModel(
 
     fun setSources(ids: Set<String>) {
         sourcePreferences.homeSources.set(ids)
+    }
+
+    fun toggleSource(id: String) {
+        val current = sourcePreferences.homeSources.get()
+        sourcePreferences.homeSources.set(if (id in current) current - id else current + id)
+    }
+
+    /** Picks the installed sources in the reader's languages, up to [AUTO_PICK]. */
+    fun autoPick() {
+        val ids = _state.value.availableSources
+            .filter { it.lang in sourcePreferences.enabledLanguages.get() }
+            .ifEmpty { _state.value.availableSources }
+            .take(AUTO_PICK)
+            .map { "${it.id}" }
+        if (ids.isNotEmpty()) sourcePreferences.homeSources.set(ids.toSet())
+    }
+
+    fun refreshExtensions() {
+        viewModelScope.launch(Dispatchers.IO) { runCatching { extensionManager.findAvailableExtensions() } }
+    }
+
+    /** Installs an extension and puts its sources on the home screen as soon as they load. */
+    fun install(extension: Extension.Available) {
+        val ids = extension.sources.map { "${it.id}" }
+        sourcePreferences.homeSources.set(sourcePreferences.homeSources.get() + ids)
+        viewModelScope.launch(Dispatchers.IO) {
+            extensionManager.installExtension(extension)
+                .catch { _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to InstallStep.Error)) } }
+                .collect { step -> _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to step)) } }
+        }
     }
 
     fun setSourceFilter(sourceId: Long?) {
@@ -230,5 +325,6 @@ class DiscoverViewModel(
         const val PARALLEL_SOURCES = 4
         const val SOURCE_TIMEOUT_MS = 30_000L
         const val MAX_PER_LIST = 20
+        const val AUTO_PICK = 6
     }
 }
