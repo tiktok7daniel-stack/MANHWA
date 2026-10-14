@@ -1,5 +1,8 @@
 package eu.kanade.translation.search
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
+import android.content.Intent
 import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -211,6 +214,7 @@ class AiChatScreen : Screen() {
                                 AiChatViewModel.Status.THINKING -> ATMR.strings.ai_chat_thinking
                                 AiChatViewModel.Status.SEARCHING -> ATMR.strings.ai_chat_searching
                                 AiChatViewModel.Status.CHECKING_CHAPTERS -> ATMR.strings.ai_chat_checking
+                                AiChatViewModel.Status.SEARCHING_WEB -> ATMR.strings.ai_chat_searching_web
                             },
                         ),
                         style = MaterialTheme.typography.bodySmall,
@@ -248,6 +252,36 @@ class AiChatScreen : Screen() {
                 }
             }
             message.updates.forEach { update -> UpdateRow(update, onClick = { onOpen(update.mangaId) }) }
+            message.webSummary?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            if (message.sites.isNotEmpty()) {
+                val context = LocalContext.current
+                Text(
+                    stringResource(ATMR.strings.ai_chat_web_sites),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                message.sites.forEach { site ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .glass(RoundedCornerShape(14.dp), alpha = 0.35f)
+                            .clickable { context.startActivity(Intent(Intent.ACTION_VIEW, site.url.toUri())) }
+                            .padding(12.dp),
+                    ) {
+                        Text(site.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            site.url,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        site.latest?.let {
+                            Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
         }
     }
 

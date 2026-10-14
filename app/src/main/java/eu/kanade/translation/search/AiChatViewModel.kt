@@ -100,10 +100,15 @@ class AiChatViewModel(
             val searched: Boolean = false,
             val done: List<String> = emptyList(),
             val updates: List<UpdatesWithRelations> = emptyList(),
+            val sites: List<WebSite> = emptyList(),
+            val webSummary: String? = null,
         ) : Message
+
+    /** A website found on the web that publishes the series. */
+    data class WebSite(val name: String, val url: String, val latest: String?)
     }
 
-    enum class Status { THINKING, SEARCHING, CHECKING_CHAPTERS }
+    enum class Status { THINKING, SEARCHING, CHECKING_CHAPTERS, SEARCHING_WEB }
 
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages = _messages.asStateFlow()
@@ -126,6 +131,12 @@ class AiChatViewModel(
                 if (queries.isNotEmpty()) {
                     hits = findInSources(queries) { updateAssistant { a -> a.copy(status = it) } }
                     updateAssistant { it.copy(status = null, hits = hits, searched = true) }
+                }
+                val wantsWeb = actions.any { (it["type"] as? JsonPrimitive)?.contentOrNull == "web_search" }
+                if (queries.isNotEmpty() && (hits.isEmpty() || wantsWeb)) {
+                    updateAssistant { it.copy(status = Status.SEARCHING_WEB) }
+                    val (summary, sites) = searchWeb(request, queries)
+                    updateAssistant { it.copy(status = null, webSummary = summary, sites = sites) }
                 }
                 if (actions.isNotEmpty()) {
                     val (done, updates) = runActions(actions, hits.firstOrNull())
@@ -154,6 +165,33 @@ class AiChatViewModel(
     private fun remember(vararg lines: String) {
         lines.forEach { history.addLast(it.take(600)) }
         while (history.size > 12) history.removeFirst()
+    }
+
+    private fun buildAi(): AiTranslator {
+        val engine = TextTranslators.fromPref(translationPreferences.translationEngine())
+        val keyMissing = translationPreferences.translationEngineApiKey().get().isBlank() &&
+            engine != TextTranslators.OPENAI
+        if (!engine.isAi || keyMissing) throw AiSearchAssistant.NotConfiguredException()
+        return engine.build(translationPreferences) as AiTranslator
+    }
+
+    /** Looks on the web for the sites that publish the series, when the reader's sources don't have it. */
+    private suspend fun searchWeb(request: String, queries: List<String>): Pair<String?, List<WebSite>> {
+        val ai = buildAi()
+        try {
+            if (!ai.canSearchWeb) return context.stringResource(ATMR.strings.ai_web_unavailable) to emptyList()
+            val prompt = "Reader's request: $request\nSeries titles: ${queries.joinToString(" / ")}"
+            val json = ai.askJsonWithWeb(WEB_SYSTEM, prompt)
+            val summary = (json["summary"] as? JsonPrimitive)?.contentOrNull
+            val sites = (json["sites"] as? JsonArray).orEmpty().mapNotNull { element ->
+                val site = element as? JsonObject ?: return@mapNotNull null
+                val url = site.str("url")?.takeIf { it.startsWith("http") } ?: return@mapNotNull null
+                WebSite(name = site.str("name") ?: url, url = url, latest = site.str("latest"))
+            }.take(8)
+            return summary to sites
+        } finally {
+            ai.close()
+        }
     }
 
     /** Asks the AI what the reader means: a short answer in their language plus titles to search for. */
@@ -324,6 +362,14 @@ class AiChatViewModel(
         title.lowercase().filter { it.isLetterOrDigit() }
 
     companion object {
+        private val WEB_SYSTEM = """
+            Search the web to find which websites publish the comic the reader is looking for (official
+            platforms first, e.g. Webtoon, Tapas, Kakao, Naver, then reader sites), and how far each one is.
+            Reply in the reader's language with ONLY this JSON:
+            {"summary": "one or two sentences", "sites": [{"name": "...", "url": "https://...", "latest": "Chapter 120"}]}
+            Only include sites you actually found, with working URLs; use [] if none.
+        """.trimIndent()
+
         const val NOT_CONFIGURED = "not_configured"
         private const val PARALLEL_SOURCES = 6
         private const val SOURCE_TIMEOUT_MS = 25_000L
@@ -348,6 +394,7 @@ class AiChatViewModel(
               {"type": "download", "from": <first chapter number>, "to": <last chapter number>}
               {"type": "translate", "from": <n>, "to": <n>}  download (if needed) and translate those chapters
               {"type": "new_chapters", "days": <n>}  show new unread chapters of the library
+              {"type": "web_search"}  also look on the web for the sites that publish it
               Omit "from" to start at the first chapter. Use [] when nothing should be done.
             Do not invent chapter counts or sources; the app checks those itself.
         """.trimIndent()

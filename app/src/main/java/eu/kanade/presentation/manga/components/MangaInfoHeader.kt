@@ -1,5 +1,6 @@
 package eu.kanade.presentation.manga.components
 
+import eu.kanade.translation.search.DescriptionTranslator
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -273,6 +274,11 @@ fun ExpandableMangaDescription(
                 .padding(top = 8.dp)
                 .padding(horizontal = 16.dp)
                 .clickableNoIndication { onExpanded(!expanded) },
+        )
+        // MANHWA: translate the synopsis with AI
+        DescriptionTranslator(
+            description = description,
+            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 10.dp),
         )
         val tags = tagsProvider()
         if (!tags.isNullOrEmpty()) {

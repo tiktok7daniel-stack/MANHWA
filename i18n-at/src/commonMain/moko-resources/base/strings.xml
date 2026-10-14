@@ -73,4 +73,9 @@
     <string name="home_source_failed">%s could not be loaded</string>
     <string name="home_ai_card">Ask MANHWA AI about any series</string>
     <string name="home_chapter">Chapter %s</string>
+    <string name="ai_web_unavailable">Not in your sources. Web search needs Gemini, Claude or OpenRouter as the AI engine.</string>
+    <string name="ai_chat_searching_web">Not in your sources, searching the web…</string>
+    <string name="ai_chat_web_sites">Found on the web</string>
+    <string name="desc_translate">Translate description</string>
+    <string name="desc_show_original">Show original only</string>
 </resources>

@@ -256,6 +256,13 @@ class AiTranslator(
     suspend fun askJson(system: String, prompt: String): JsonObject =
         withRetry { parse(request(system, listOf(Part.Text(prompt)))) }
 
+    /** Whether this engine can search the web (Gemini, Claude and OpenRouter can). */
+    val canSearchWeb: Boolean get() = provider != Provider.OPENAI_COMPATIBLE
+
+    /** Same as [askJson] but the model may search the web first. */
+    suspend fun askJsonWithWeb(system: String, prompt: String): JsonObject =
+        withRetry { parse(request(system, listOf(Part.Text(prompt)), web = true)) }
+
     /** Splits pages into ordered batches small enough to come back in a single response. */
     private fun batches(pages: Map<String, PageTranslation>): List<List<String>> {
         val result = mutableListOf<MutableList<String>>()
@@ -327,7 +334,7 @@ class AiTranslator(
         }
     }
 
-    private suspend fun request(system: String, parts: List<Part>): String = withContext(Dispatchers.IO) {
+    private suspend fun request(system: String, parts: List<Part>, web: Boolean = false): String = withContext(Dispatchers.IO) {
         val textOnly = parts.all { it is Part.Text }
         val (url, body, headers) = when (provider) {
             Provider.GEMINI -> Triple(
@@ -355,15 +362,17 @@ class AiTranslator(
                     putJsonObject("generationConfig") {
                         put("temperature", temperature)
                         put("maxOutputTokens", maxOutputTokens)
-                        put("responseMimeType", "application/json")
+                        // JSON mode can't be combined with search grounding
+                        if (!web) put("responseMimeType", "application/json")
                     }
+                    if (web) putJsonArray("tools") { addJsonObject { putJsonObject("google_search") {} } }
                 },
                 mapOf("x-goog-api-key" to apiKey),
             )
             Provider.OPENROUTER, Provider.OPENAI_COMPATIBLE -> Triple(
                 "$baseUrl/chat/completions",
                 buildJsonObject {
-                    put("model", model)
+                    put("model", if (web && provider == Provider.OPENROUTER) "$model:online" else model)
                     put("temperature", temperature)
                     put("max_tokens", maxOutputTokens)
                     putJsonArray("messages") {
@@ -409,6 +418,15 @@ class AiTranslator(
                     put("max_tokens", maxOutputTokens)
                     put("system", system)
                     put("fallbacks", "default")
+                    if (web) {
+                        putJsonArray("tools") {
+                            addJsonObject {
+                                put("type", "web_search_20260209")
+                                put("name", "web_search")
+                                put("max_uses", 5)
+                            }
+                        }
+                    }
                     putJsonArray("messages") {
                         addJsonObject {
                             put("role", "user")
