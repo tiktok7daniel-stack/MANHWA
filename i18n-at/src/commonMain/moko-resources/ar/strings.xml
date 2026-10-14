@@ -157,4 +157,7 @@
     <string name="more_library">مكتبتك</string>
     <string name="more_app">التطبيق</string>
     <string name="more_tagline">اقرأ. ترجم. اكتشف.</string>
+    <string name="hub_online">متصل</string>
+    <string name="hub_order">ترتيب الرئيسية</string>
+    <string name="hub_order_sub">استخدم الأسهم لتختار مين يظهر أول</string>
 </resources>

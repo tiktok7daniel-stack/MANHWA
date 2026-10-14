@@ -68,7 +68,16 @@ class SourceHubViewModel(
         val addable: List<Extension.Available> = emptyList(),
         val installing: Map<String, InstallStep> = emptyMap(),
         val bulk: Pair<Int, Int>? = null,
+        val order: List<String> = emptyList(),
     ) {
+        /** Home sources in the reader's order (new ones at the end). */
+        val homeOrdered: List<Source>
+            get() {
+                val onHome = installed.filter { "${it.id}" in home }
+                val position = order.withIndex().associate { (i, id) -> id to i }
+                return onHome.sortedBy { position["${it.id}"] ?: Int.MAX_VALUE }
+            }
+
         val languages: List<String>
             get() = (installed.map { it.lang } + addable.map { it.lang }).distinct()
                 .sortedWith(compareBy({ it !in enabledLanguages }, { it }))
@@ -106,6 +115,9 @@ class SourceHubViewModel(
             .launchIn(viewModelScope)
         sourcePreferences.homeSources.changes()
             .onEach { ids -> _state.update { it.copy(home = ids) } }
+            .launchIn(viewModelScope)
+        sourcePreferences.homeSourcesOrder.changes()
+            .onEach { raw -> _state.update { it.copy(order = raw.split(',').filter(String::isNotBlank)) } }
             .launchIn(viewModelScope)
         sourcePreferences.pinnedSources.changes()
             .onEach { ids -> _state.update { it.copy(pinned = ids) } }
@@ -166,6 +178,16 @@ class SourceHubViewModel(
     }
 
     fun setHome(ids: Set<String>) = sourcePreferences.homeSources.set(ids)
+
+    /** Moves a home source up (-1) or down (+1) in the home screen order. */
+    fun move(id: String, delta: Int) {
+        val ids = _state.value.homeOrdered.map { "${it.id}" }.toMutableList()
+        val from = ids.indexOf(id).takeIf { it >= 0 } ?: return
+        val to = (from + delta).coerceIn(0, ids.lastIndex)
+        if (from == to) return
+        ids.add(to, ids.removeAt(from))
+        sourcePreferences.homeSourcesOrder.set(ids.joinToString(","))
+    }
 
     /** Puts the pinned sources, then the fastest reachable ones in the reader's languages, on the home screen. */
     fun autoPick() {

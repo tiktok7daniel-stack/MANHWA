@@ -42,6 +42,9 @@ class SourcePreferences(
     val manhwaAiRecs: Preference<String> = preferenceStore.getString("manhwa_ai_recs", "")
     val manhwaAiRecsAt: Preference<Long> = preferenceStore.getLong("manhwa_ai_recs_at", 0L)
 
+    /** The reader's order of the home sources, as comma separated ids. */
+    val homeSourcesOrder: Preference<String> = preferenceStore.getString("manhwa_home_sources_order", "")
+
     val homeSources: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_home_sources", emptySet())
 
     val incognitoExtensions: Preference<Set<String>> = preferenceStore.getStringSet("incognito_extensions", emptySet())

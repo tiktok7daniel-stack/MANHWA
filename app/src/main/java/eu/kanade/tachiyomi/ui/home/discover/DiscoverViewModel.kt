@@ -193,6 +193,9 @@ class DiscoverViewModel(
                 }
             }
             .launchIn(viewModelScope)
+        sourcePreferences.homeSourcesOrder.changes()
+            .onEach { _state.update { s -> s.copy(feeds = s.feeds.inHomeOrder { it.source.id }) } }
+            .launchIn(viewModelScope)
         getUpdates.subscribe(read = false, after = Clock.System.now() - 7.days)
             .catch { logcat(LogPriority.ERROR, it) }
             .onEach { list -> _state.update { it.copy(newInLibrary = list.distinctBy { u -> u.mangaId }.take(20)) } }
@@ -270,9 +273,16 @@ class DiscoverViewModel(
         return copy(week = week.toList(), weekReadMs = readMs)
     }
 
+    /** Feeds follow the order the reader set in the source hub. */
+    private fun <T> List<T>.inHomeOrder(id: (T) -> Long): List<T> {
+        val position = sourcePreferences.homeSourcesOrder.get().split(',').withIndex().associate { (i, v) -> v to i }
+        return sortedBy { position["${id(it)}"] ?: Int.MAX_VALUE }
+    }
+
     private fun load(refreshing: Boolean = false) {
         val ids = _state.value.selectedSourceIds
         val sources = ids.mapNotNull { id -> _state.value.availableSources.firstOrNull { "${it.id}" == id } }
+            .inHomeOrder { it.id }
         loadJob?.cancel()
         _state.update { s -> s.copy(feeds = sources.map { SourceFeed(it) }, refreshing = refreshing) }
         loadJob = viewModelScope.launch(Dispatchers.IO) {
@@ -307,7 +317,8 @@ class DiscoverViewModel(
     private fun changeFeeds(added: List<Source>, removed: Set<String>) {
         _state.update { s ->
             s.copy(
-                feeds = s.feeds.filterNot { "${it.source.id}" in removed } + added.map { SourceFeed(it) },
+                feeds = (s.feeds.filterNot { "${it.source.id}" in removed } + added.map { SourceFeed(it) })
+                    .inHomeOrder { it.source.id },
                 sourceFilter = s.sourceFilter?.takeIf { id -> "$id" !in removed },
             )
         }

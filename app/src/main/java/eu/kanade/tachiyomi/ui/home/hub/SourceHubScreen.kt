@@ -64,6 +64,8 @@ import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Keep
+import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
+import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.roundedfilled.Star
 import tachiyomi.i18n.at.ATMR
@@ -81,10 +83,18 @@ class SourceHubScreen : Screen() {
         var query by rememberSaveable { mutableStateOf("") }
         var discover by rememberSaveable { mutableStateOf(false) }
         var language by rememberSaveable { mutableStateOf<String?>(null) }
+        // 0 = all, 1 = online, 2 = offline
+        var health by rememberSaveable { mutableStateOf(0) }
 
         val q = query.trim().lowercase()
         val installed = state.installed.filter {
-            (q.isEmpty() || it.name.lowercase().contains(q)) && (language == null || it.lang == language)
+            (q.isEmpty() || it.name.lowercase().contains(q)) &&
+                (language == null || it.lang == language) &&
+                when (health) {
+                    1 -> (state.health[it.id]?.latencyMs ?: -1) >= 0
+                    2 -> state.health[it.id]?.latencyMs == -1L
+                    else -> true
+                }
         }
         val addable = state.addable.filter {
             (q.isEmpty() || it.name.lowercase().contains(q)) && (language == null || it.lang == language)
@@ -123,6 +133,17 @@ class SourceHubScreen : Screen() {
                         ManhwaKit.Chip(languageName(lang), language == lang) { language = lang }
                     }
                 }
+                if (!discover) {
+                    Spacer(Modifier.height(8.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        item { ManhwaKit.Chip(stringResource(ATMR.strings.home_all), health == 0) { health = 0 } }
+                        item { ManhwaKit.Chip("● " + stringResource(ATMR.strings.hub_online), health == 1) { health = 1 } }
+                        item { ManhwaKit.Chip("○ " + stringResource(ATMR.strings.hub_offline), health == 2) { health = 2 } }
+                    }
+                }
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 120.dp),
@@ -137,6 +158,7 @@ class SourceHubScreen : Screen() {
                             onOpen = { navigator.push(BrowseSourceScreen(it, null)) },
                             onAutoPick = viewModel::autoPick,
                             onClear = { viewModel.setHome(emptySet()) },
+                            onMove = viewModel::move,
                             onDiscover = { discover = true },
                         )
                     } else {
@@ -166,6 +188,7 @@ class SourceHubScreen : Screen() {
         onOpen: (Long) -> Unit,
         onAutoPick: () -> Unit,
         onClear: () -> Unit,
+        onMove: (String, Int) -> Unit,
         onDiscover: () -> Unit,
     ) {
         item(key = "actions") {
@@ -189,6 +212,44 @@ class SourceHubScreen : Screen() {
                 )
             }
             return
+        }
+        val ordered = state.homeOrdered
+        if (ordered.size >= 2) {
+            item(key = "order-title") {
+                ManhwaKit.SectionTitle(stringResource(ATMR.strings.hub_order), stringResource(ATMR.strings.hub_order_sub))
+            }
+            items(ordered.size, key = { "o-${ordered[it].id}" }) { index ->
+                val source = ordered[index]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glass(RoundedCornerShape(18.dp), alpha = 0.4f)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "${index + 1}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.width(26.dp),
+                    )
+                    SourceLogo(source, Modifier.size(34.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        source.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.KeyboardArrowUp, size = 34) { onMove("${source.id}", -1) }
+                    Spacer(Modifier.width(6.dp))
+                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.KeyboardArrowDown, size = 34) { onMove("${source.id}", 1) }
+                }
+            }
         }
         val pinned = sources.filter { "${it.id}" in state.pinned }
         if (pinned.isNotEmpty()) {
