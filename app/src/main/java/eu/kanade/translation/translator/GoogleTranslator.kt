@@ -1,5 +1,10 @@
 package eu.kanade.translation.translator
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
@@ -20,18 +25,15 @@ class GoogleTranslator(
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
         // A few bubbles at a time, so a page comes back in about a second
-        val gate = kotlinx.coroutines.sync.Semaphore(4)
-        kotlinx.coroutines.coroutineScope {
+        val gate = Semaphore(4)
+        coroutineScope {
             pages.values.flatMap { it.blocks }.map { block ->
-                kotlinx.coroutines.async {
-                    gate.acquire()
-                    try {
+                async {
+                    gate.withPermit {
                         block.translation = translateText(toLang.code, block.text.replace('\n', ' ')).ifBlank { block.text }
-                    } finally {
-                        gate.release()
                     }
                 }
-            }.forEach { it.await() }
+            }.awaitAll()
         }
     }
 
