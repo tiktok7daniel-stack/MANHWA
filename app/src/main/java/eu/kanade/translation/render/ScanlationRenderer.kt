@@ -21,6 +21,8 @@ import eu.kanade.translation.style.TranslationTypeface
 import eu.kanade.translation.translator.TextTranslatorLanguage
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okio.Buffer
 import okio.BufferedSource
 import tachiyomi.core.common.util.system.logcat
@@ -79,12 +81,22 @@ object ScanlationRenderer {
     }
 
     /** The page with its translation cleaned and drawn in, or null when there is nothing to draw. */
-    fun bake(context: Context, source: BufferedSource, translation: PageTranslation): BufferedSource? {
+    /**
+     * One page at a time: the webtoon viewer prepares several tall pages at once, and drawing them all
+     * together runs out of memory (which used to leave a page untranslated).
+     */
+    private val gate = Mutex()
+
+    suspend fun bake(context: Context, source: BufferedSource, translation: PageTranslation): BufferedSource? = gate.withLock {
+        bakeNow(context, source, translation)
+    }
+
+    private fun bakeNow(context: Context, source: BufferedSource, translation: PageTranslation): BufferedSource? {
         if (translation.blocks.none { it.translation.isNotBlank() }) return null
         val style = style(context)
         val bytes = source.peek().readByteArray()
         val key = "${bytes.size}|${bytes.contentHashCodeSample()}|${translation.imgWidth}|${translation.blocks.hashCode()}|$style"
-        val out = cache.get(key) ?: runCatching { render(context, bytes, translation, style) }
+        val out = cache.get(key) ?: renderSafely(context, bytes, translation, style)
             .onFailure { logcat(LogPriority.ERROR, it) { "Could not draw the translation into the page" } }
             .getOrNull()
             ?.also { cache.put(key, it) }
@@ -103,18 +115,34 @@ object ScanlationRenderer {
         return h
     }
 
-    private fun render(context: Context, bytes: ByteArray, page: PageTranslation, style: Style): ByteArray? {
+    /** Tries full quality first; on low memory, again at half and then quarter resolution. */
+    private fun renderSafely(context: Context, bytes: ByteArray, page: PageTranslation, style: Style): Result<ByteArray?> {
+        var last: Throwable? = null
+        for (extra in intArrayOf(1, 2, 4)) {
+            try {
+                return Result.success(render(context, bytes, page, style, extra))
+            } catch (e: OutOfMemoryError) {
+                last = e
+                System.gc()
+            } catch (e: Exception) {
+                return Result.failure(e)
+            }
+        }
+        return Result.failure(last ?: IllegalStateException("render failed"))
+    }
+
+    private fun render(context: Context, bytes: ByteArray, page: PageTranslation, style: Style, extraSample: Int): ByteArray? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        var sample = 1
+        var sample = extraSample
         while ((bounds.outWidth / sample).toLong() * (bounds.outHeight / sample) > MAX_PIXELS) sample *= 2
         val pixels = (bounds.outWidth / sample).toLong() * (bounds.outHeight / sample)
         val options = BitmapFactory.Options().apply {
             inMutable = true
             inSampleSize = sample
             // Full colour for normal pages, half the memory for very long webtoon strips
-            inPreferredConfig = if (pixels <= ARGB_PIXELS) Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565
+            inPreferredConfig = if (pixels <= ARGB_PIXELS && extraSample == 1) Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565
         }
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
         try {
@@ -582,7 +610,7 @@ object ScanlationRenderer {
 
     private const val CACHE_BYTES = 48 * 1024 * 1024
     private const val MAX_PIXELS = 30_000_000L
-    private const val ARGB_PIXELS = 14_000_000L
+    private const val ARGB_PIXELS = 10_000_000L
     private const val JPEG_QUALITY = 92
     private const val PAD = 12f
     private const val PLAIN_SHARE = 0.4f
