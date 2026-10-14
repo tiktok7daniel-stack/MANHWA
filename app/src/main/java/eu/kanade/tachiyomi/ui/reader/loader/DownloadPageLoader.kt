@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.translation.TranslationManager
 import eu.kanade.translation.model.PageTranslation
+import mihon.app.di.appGraph
 import mihon.core.archive.archiveReader
 import tachiyomi.domain.manga.model.Manga
 import uy.kohesive.injekt.injectLazy
@@ -48,6 +49,9 @@ internal class DownloadPageLoader(
             manga.title,
             source,
         )
+        // The reader's own bubble adjustments for this chapter
+        val edits = context.appGraph.translationEditStore
+        translations.forEach { (name, page) -> edits.restore(page, "d${dbChapter.id}", name) }
         return if (chapterPath?.isFile == true) {
             getPagesFromArchive(chapterPath, translations)
         } else {

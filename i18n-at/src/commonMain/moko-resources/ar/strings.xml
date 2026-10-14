@@ -181,4 +181,14 @@
     <string name="style_min_size">أصغر حجم</string>
     <string name="style_spacing">تباعد الأسطر</string>
     <string name="style_outline">إطار حول الحروف</string>
+    <string name="orb_title">أدوات MANHWA</string>
+    <string name="orb_translate_now">ترجم هذا الفصل الآن</string>
+    <string name="orb_now_sub">مرة واحدة حتى لو الترجمة التلقائية مقفولة</string>
+    <string name="orb_auto">ترجمة تلقائية أول ما يفتح الفصل</string>
+    <string name="orb_edit">تعديل الفقاعات (تحريك، تكبير، حجم الخط)</string>
+    <string name="orb_style">الخط والحجم (Aa)</string>
+    <string name="orb_glossary">قاموس الأسماء</string>
+    <string name="orb_edit_hint">اسحب الفقاعة لتحريكها، قرّب بإصبعين لتكبيرها، و A− / A+ لحجم الخط</string>
+    <string name="orb_done">تم</string>
+    <string name="style_skip_sfx">عدم ترجمة المؤثرات الصوتية</string>
 </resources>

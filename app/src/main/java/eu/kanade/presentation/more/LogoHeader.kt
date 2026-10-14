@@ -25,11 +25,11 @@ fun LogoHeader(
     ) {
         // MANHWA LEGENDS logo instead of the Mihon mark
         androidx.compose.foundation.Image(
-            painter = painterResource(R.drawable.ic_launcher_foreground),
+            painter = painterResource(R.drawable.manhwa_logo),
             contentDescription = null,
             modifier = Modifier
                 .padding(iconPadding)
-                .size(120.dp),
+                .size(width = 210.dp, height = 102.dp),
         )
 
         HorizontalDivider()

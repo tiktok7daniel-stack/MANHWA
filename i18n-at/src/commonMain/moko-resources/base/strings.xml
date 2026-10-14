@@ -241,4 +241,14 @@
     <string name="style_min_size">Smallest size</string>
     <string name="style_spacing">Line spacing</string>
     <string name="style_outline">Outline around letters</string>
+    <string name="orb_title">MANHWA actions</string>
+    <string name="orb_translate_now">Translate this chapter now</string>
+    <string name="orb_now_sub">Once, even with auto translation off</string>
+    <string name="orb_auto">Translate automatically when a chapter opens</string>
+    <string name="orb_edit">Adjust bubbles (move, resize, text size)</string>
+    <string name="orb_style">Font and size (Aa)</string>
+    <string name="orb_glossary">Names glossary</string>
+    <string name="orb_edit_hint">Drag a bubble to move it, pinch to resize, A− / A+ for text size</string>
+    <string name="orb_done">Done</string>
+    <string name="style_skip_sfx">Leave sound effects untranslated</string>
 </resources>

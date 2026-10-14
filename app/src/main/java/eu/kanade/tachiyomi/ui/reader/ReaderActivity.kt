@@ -42,6 +42,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -284,46 +286,71 @@ class ReaderActivity : BaseActivity() {
 
             ContentOverlay(state = state)
 
-            // MANHWA: live translation pill, auto-scroll and glossary
+            // MANHWA: one side button for translation, auto-scroll, bubble editing, style and glossary
             val live by viewModel.liveTranslation.status.collectAsState()
             var showGlossary by remember { mutableStateOf(false) }
-            LiveTranslationPill(
-                status = live,
-                menuVisible = state.menuVisible,
-                onEnable = viewModel.liveTranslation::setEnabled,
-                onPause = viewModel.liveTranslation::togglePause,
-                onRetry = viewModel.liveTranslation::retry,
-                onGlossary = { showGlossary = true },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = if (state.menuVisible) 64.dp else 8.dp),
-            )
-            // "Aa": typeface, size and outline of translations, plus the live translation switch
             var showStyle by remember { mutableStateOf(false) }
-            androidx.compose.animation.AnimatedVisibility(
-                visible = state.menuVisible,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .statusBarsPadding()
-                    .padding(top = 64.dp, end = 12.dp),
-            ) {
-                eu.kanade.presentation.components.ManhwaKit.GhostButton(
-                    text = "Aa",
-                    icon = mihon.icons.materialsymbols.MaterialSymbols.Rounded.Translate,
-                ) { showStyle = true }
+            var orbOpen by remember { mutableStateOf(false) }
+            var scrolling by rememberSaveable { mutableStateOf(false) }
+            val editStore = remember { appGraph.translationEditStore }
+            val editing by editStore.editing.collectAsState()
+            DisposableEffect(Unit) { onDispose { editStore.setEditing(false) } }
+            val showTranslations by readerPreferences.showTranslations.collectAsState()
+            val autoTranslate by remember { appGraph.translationPreferences.liveTranslation() }.collectAsState()
+            val autoScrollSpeed by readerPreferences.autoScrollSpeed.collectAsState()
+            // Errors still show on top with their retry button
+            if (live.phase == eu.kanade.translation.live.LiveTranslator.Phase.ERROR && !editing) {
+                LiveTranslationPill(
+                    status = live,
+                    menuVisible = false,
+                    onEnable = viewModel.liveTranslation::setEnabled,
+                    onPause = viewModel.liveTranslation::togglePause,
+                    onRetry = viewModel.liveTranslation::retry,
+                    onGlossary = { showGlossary = true },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = if (state.menuVisible) 64.dp else 8.dp),
+                )
+            }
+            if (editing) {
+                eu.kanade.translation.live.BubbleEditBanner(
+                    onDone = { editStore.setEditing(false) },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 8.dp, start = 16.dp, end = 16.dp),
+                )
             }
             if (showStyle) {
                 eu.kanade.translation.style.TranslationStyleSheet(onDismiss = { showStyle = false })
             }
-            val autoScrollSpeed by readerPreferences.autoScrollSpeed.collectAsState()
-            AutoScrollControl(
-                webtoon = state.viewer is WebtoonViewer,
+            eu.kanade.translation.live.AutoScrollRunner(
+                playing = scrolling,
+                paused = state.menuVisible || orbOpen || editing,
                 speed = autoScrollSpeed,
-                onSpeed = readerPreferences.autoScrollSpeed::set,
+                webtoon = state.viewer is WebtoonViewer,
                 onScrollBy = { dy -> (viewModel.state.value.viewer as? WebtoonViewer)?.recycler?.scrollBy(0, dy) },
                 onNextPage = { (viewModel.state.value.viewer as? PagerViewer)?.moveToNext() },
-                paused = state.menuVisible,
+            )
+            eu.kanade.translation.live.ReaderActionOrb(
+                status = live,
+                expanded = orbOpen,
+                onExpanded = { orbOpen = it },
+                showTranslations = showTranslations,
+                onShowTranslations = readerPreferences.showTranslations::set,
+                onTranslateNow = viewModel.liveTranslation::translateNow,
+                onAuto = viewModel.liveTranslation::setEnabled,
+                onRetry = viewModel.liveTranslation::retry,
+                scrolling = scrolling,
+                onScrolling = { scrolling = it },
+                speed = autoScrollSpeed,
+                onSpeed = readerPreferences.autoScrollSpeed::set,
+                editing = editing,
+                onEditing = editStore::setEditing,
+                onStyle = { showStyle = true },
+                onGlossary = { showGlossary = true },
+                autoEnabled = autoTranslate,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .navigationBarsPadding()

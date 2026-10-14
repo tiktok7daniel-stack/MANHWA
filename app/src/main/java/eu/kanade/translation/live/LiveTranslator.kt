@@ -1,7 +1,6 @@
 package eu.kanade.translation.live
 
 import android.util.LruCache
-import com.google.mlkit.vision.common.InputImage
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -55,6 +54,7 @@ class LiveTranslator(
     private val preferences: TranslationPreferences,
     private val readerPreferences: ReaderPreferences,
     private val glossaryStore: GlossaryStore,
+    private val editStore: eu.kanade.translation.edit.TranslationEditStore,
 ) {
 
     enum class Phase { OFF, IDLE, WORKING, PAUSED, DONE, ERROR }
@@ -108,6 +108,11 @@ class LiveTranslator(
 
         @Volatile private var lastError: String? = null
 
+        /** "Translate this chapter now" from the reader: works on this chapter even with auto translation off. */
+        @Volatile private var forced = false
+
+        private fun active() = preferences.liveTranslation().get() || forced
+
         init {
             scope.launch(Dispatchers.IO) {
                 try {
@@ -130,6 +135,7 @@ class LiveTranslator(
             if (chapterPages !== pages) {
                 synchronized(failed) { failed.clear() }
                 pages = chapterPages
+                forced = false
                 restoreFromCache(chapterPages)
             }
             focus = page.index
@@ -149,6 +155,17 @@ class LiveTranslator(
         fun togglePause() {
             paused = !paused
             publish()
+            wake.trySend(Unit)
+        }
+
+        /** Translates the chapter on screen once, without turning automatic translation on. */
+        fun translateNow() {
+            forced = true
+            paused = false
+            synchronized(failed) { failed.clear() }
+            lastError = null
+            if (!readerPreferences.showTranslations.get()) readerPreferences.showTranslations.set(true)
+            publish(error = null)
             wake.trySend(Unit)
         }
 
@@ -213,7 +230,7 @@ class LiveTranslator(
         }
 
         private fun canWork(): Boolean =
-            preferences.liveTranslation().get() && !paused && readerPreferences.showTranslations.get() &&
+            active() && !paused && readerPreferences.showTranslations.get() &&
                 lastError == null
 
         /** The page on screen first, then the next pages that are loaded and not translated yet. */
@@ -270,12 +287,11 @@ class LiveTranslator(
             val result: PageTranslation
             val images = mutableMapOf<String, PageImage>()
             try {
-                val text = ocr.recognize(InputImage.fromBitmap(decoded.bitmap, 0))
-                val blocks = text.textBlocks.filter { it.boundingBox != null && it.text.length > 1 }
-                // OCR ran on the downscaled bitmap; boxes go back to the real page size
-                result = PageOcr.toPageTranslation(blocks, decoded.bitmap.width, decoded.bitmap.height)
-                    .rescaled(1f / decoded.scale)
+                // OCR ran on the downscaled bitmap (in strips for tall pages); boxes go back to the real page size
+                result = PageOcr.recognize(ocr, decoded.bitmap).rescaled(1f / decoded.scale)
                 PageImageProcessor.sampleColors(result, decoded)
+                // The whole bubble around each text, and one block per bubble
+                PageImageProcessor.layoutBubbles(result, decoded)
                 if (engine.aiPart != null && preferences.translationVision().get()) {
                     images[KEY] = PageImageProcessor.tiles(decoded)
                 }
@@ -300,7 +316,19 @@ class LiveTranslator(
                 }
             }
             engine.translate(map, images)
+            if (result.blocks.any { it.needsSnap }) {
+                // Bubbles added by the vision model: put them on the real bubble of the page
+                PageImageProcessor.decode { ByteArrayInputStream(bytes) }?.let { again ->
+                    try {
+                        PageImageProcessor.layoutBubbles(result, again)
+                        PageImageProcessor.sampleColors(result, again)
+                    } finally {
+                        again.bitmap.recycle()
+                    }
+                }
+            }
             images[KEY]?.let { PageImageProcessor.sampleColorsFromTiles(result, it) }
+            editStore.restore(result, "l${page.chapter.chapter.id}", "${page.index}")
             if (id != null) engine.aiPart?.let { glossaryStore.merge(id, it.discoveredTerms) }
 
             // 3. Apply edited glossary terms the model may have ignored
@@ -346,7 +374,7 @@ class LiveTranslator(
             val focusPage = list.getOrNull(focus)
             val focusDone = focusPage != null && (focusPage.translation != null || synchronized(failed) { focusPage in failed })
             val phase = when {
-                !preferences.liveTranslation().get() -> Phase.OFF
+                !active() -> Phase.OFF
                 error != null -> Phase.ERROR
                 paused || !readerPreferences.showTranslations.get() -> Phase.PAUSED
                 working != null -> Phase.WORKING

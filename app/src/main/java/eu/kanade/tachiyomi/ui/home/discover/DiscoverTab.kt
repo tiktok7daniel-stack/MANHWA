@@ -871,12 +871,9 @@ data object DiscoverTab : Tab {
                         contentAlignment = Alignment.Center,
                     ) {
                         Image(
-                            painter = painterResource(R.drawable.ic_launcher_foreground),
+                            painter = painterResource(R.drawable.manhwa_logo),
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize().graphicsLayer {
-                                scaleX = 1.45f
-                                scaleY = 1.45f
-                            },
+                            modifier = Modifier.fillMaxSize().padding(2.dp),
                         )
                     }
                     Spacer(Modifier.width(12.dp))

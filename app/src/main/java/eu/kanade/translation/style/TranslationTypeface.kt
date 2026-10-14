@@ -50,6 +50,7 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
     ANIME_ACE("Anime Ace", false),
     MANGA_MASTER("Manga Master BB", false),
     COMIC("Comic Font", false),
+    SMART("✦ متناسق: Cairo + Lalezar للصراخ / Consistent", true),
     ;
 
     /** The family for a bubble of [kind]; Auto picks a matching style for every kind. */
@@ -67,6 +68,11 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
                 BubbleKind.NARRATION -> NOTO_NASKH.family(kind)
                 BubbleKind.SYSTEM -> CHANGA.family(kind)
             }
+        }
+        SMART -> when {
+            latinOnly -> if (kind == BubbleKind.SHOUT || kind == BubbleKind.SFX) Families.mangaMaster else Families.animeAce
+            kind == BubbleKind.SHOUT || kind == BubbleKind.SFX -> Families.lalezar
+            else -> Families.cairo
         }
         CAIRO -> Families.cairo
         LALEZAR -> Families.lalezar
@@ -99,6 +105,6 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
     }
 
     companion object {
-        fun fromPref(pref: Preference<Int>): TranslationTypeface = entries.getOrNull(pref.get()) ?: AUTO
+        fun fromPref(pref: Preference<Int>): TranslationTypeface = entries.getOrNull(pref.get()) ?: SMART
     }
 }

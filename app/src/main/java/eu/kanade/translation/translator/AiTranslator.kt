@@ -264,7 +264,7 @@ class AiTranslator(
             symWidth = glyph,
             angle = 0f,
             kind = missed.string("kind").orEmpty(),
-        )
+        ).apply { needsSnap = true }
     }
 
     private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull

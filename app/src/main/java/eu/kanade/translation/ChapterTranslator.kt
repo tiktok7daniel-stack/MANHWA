@@ -9,7 +9,6 @@ import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadProvider
@@ -20,6 +19,7 @@ import eu.kanade.translation.data.PageImage
 import eu.kanade.translation.data.PageImageProcessor
 import eu.kanade.translation.glossary.GlossaryStore
 import eu.kanade.translation.live.PageOcr
+import eu.kanade.translation.live.PageOcr.rescaled
 import eu.kanade.translation.data.TranslationProvider
 import eu.kanade.translation.translator.AiTranslator
 import eu.kanade.translation.translator.aiPart
@@ -252,13 +252,15 @@ class ChapterTranslator(
                 for ((fileName, streamFn) in streams) {
                     coroutineContext.ensureActive()
                     streamFn().use { tmpFile.openOutputStream().use { out -> it.copyTo(out) } }
-                    val image = InputImage.fromFilePath(context, tmpFile.uri)
-                    val result = textRecognizer.recognize(image)
-                    val blocks = result.textBlocks.filter { it.boundingBox != null && it.text.length > 1 }
-                    val pageTranslation = PageOcr.toPageTranslation(blocks, image.width, image.height)
-                    PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! }?.let { decoded ->
-                        PageImageProcessor.sampleColors(pageTranslation, decoded)
-                        if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
+                    val decoded = PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! } ?: continue
+                    val pageTranslation = try {
+                        // OCR in strips on the decoded page, then the whole bubble around every text
+                        PageOcr.recognize(textRecognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
+                            PageImageProcessor.sampleColors(it, decoded)
+                            PageImageProcessor.layoutBubbles(it, decoded)
+                            if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
+                        }
+                    } finally {
                         decoded.bitmap.recycle()
                     }
                     if (pageTranslation.blocks.isNotEmpty() || fileName in images) pages[fileName] = pageTranslation
@@ -275,6 +277,20 @@ class ChapterTranslator(
                 // Translate the text in blocks , this mutates the original blocks
                 textTranslator.translate(pages, images)
                 textTranslator.aiPart?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms) }
+                // Bubbles added by the vision model: snapped onto the real bubble of the page
+                for ((name, page) in pages) {
+                    if (page.blocks.none { it.needsSnap }) continue
+                    val open = streams.firstOrNull { it.first == name }?.second ?: continue
+                    val bytes = runCatching { open().use { it.readBytes() } }.getOrNull() ?: continue
+                    PageImageProcessor.decode { java.io.ByteArrayInputStream(bytes) }?.let { decoded ->
+                        try {
+                            PageImageProcessor.layoutBubbles(page, decoded)
+                            PageImageProcessor.sampleColors(page, decoded)
+                        } finally {
+                            decoded.bitmap.recycle()
+                        }
+                    }
+                }
                 // Bubbles added by the vision model still need their erase colour
                 images.forEach { (name, image) -> pages[name]?.let { PageImageProcessor.sampleColorsFromTiles(it, image) } }
                 pages.entries.removeAll { it.value.blocks.isEmpty() }

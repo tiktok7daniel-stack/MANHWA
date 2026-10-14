@@ -67,9 +67,10 @@ fun TranslationStyleSheet(onDismiss: () -> Unit) {
     val minSize by prefs.translationMinSize().collectAsState()
     val spacing by prefs.translationLineSpacing().collectAsState()
     val outline by prefs.translationOutline().collectAsState()
+    val skipSfx by prefs.translationSkipSfx().collectAsState()
     val live by prefs.liveTranslation().collectAsState()
     val show by readerPrefs.showTranslations.collectAsState()
-    val typeface = TranslationTypeface.entries.getOrNull(typefaceIndex) ?: TranslationTypeface.AUTO
+    val typeface = TranslationTypeface.entries.getOrNull(typefaceIndex) ?: TranslationTypeface.SMART
     val colors = MaterialTheme.colorScheme
 
     ModalBottomSheet(
@@ -163,6 +164,7 @@ fun TranslationStyleSheet(onDismiss: () -> Unit) {
                 prefs.translationLineSpacing().set(it)
             }
             SwitchRow(stringResource(ATMR.strings.style_outline), outline) { prefs.translationOutline().set(it) }
+            SwitchRow(stringResource(ATMR.strings.style_skip_sfx), skipSfx) { prefs.translationSkipSfx().set(it) }
             SwitchRow(stringResource(ATMR.strings.pref_live_translation), live) { prefs.liveTranslation().set(it) }
             SwitchRow(stringResource(ATMR.strings.pref_show_translations), show) { readerPrefs.showTranslations.set(it) }
         }

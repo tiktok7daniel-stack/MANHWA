@@ -200,12 +200,9 @@ private fun BrandHeader() {
             contentAlignment = Alignment.Center,
         ) {
             Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
+                painter = painterResource(R.drawable.manhwa_logo),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().graphicsLayer {
-                    scaleX = 1.5f
-                    scaleY = 1.5f
-                },
+                modifier = Modifier.fillMaxSize().padding(2.dp),
             )
         }
         Spacer(Modifier.height(18.dp))

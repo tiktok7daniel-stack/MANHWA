@@ -110,10 +110,10 @@ fun ManhwaIntro(onFinished: () -> Unit, modifier: Modifier = Modifier) {
         )
         // The logo, coming forward with a 3D tilt and a light sweeping over it
         Image(
-            painter = painterResource(R.drawable.ic_launcher_foreground),
+            painter = painterResource(R.drawable.manhwa_logo),
             contentDescription = null,
             modifier = Modifier
-                .size(300.dp)
+                .size(width = 290.dp, height = 140.dp)
                 .graphicsLayer {
                     val p = enter.value
                     val s = (0.62f + 0.38f * p) * (1f + 0.12f * exit.value)

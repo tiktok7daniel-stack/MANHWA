@@ -99,6 +99,7 @@ interface AppGraph : ViewModelGraph {
     val translationPreferences: TranslationPreferences
     val translationManager: TranslationManager
     val glossaryStore: GlossaryStore
+    val translationEditStore: eu.kanade.translation.edit.TranslationEditStore
 
     val crashLogUtil: CrashLogUtil
 
