@@ -1,5 +1,7 @@
 package eu.kanade.domain.track.model
 
+import mihon.core.common.extensions.toEpochMillisOrZero
+import mihon.core.common.extensions.toInstantOrNull
 import tachiyomi.domain.track.model.Track
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
@@ -10,6 +12,7 @@ fun Track.copyPersonalFrom(other: Track): Track {
         status = other.status,
         startDate = other.startDate,
         finishDate = other.finishDate,
+        private = other.private,
     )
 }
 
@@ -24,8 +27,9 @@ fun Track.toDbTrack(): DbTrack = DbTrack.create(trackerId).also {
     it.status = status
     it.score = score
     it.tracking_url = remoteUrl
-    it.started_reading_date = startDate
-    it.finished_reading_date = finishDate
+    it.started_reading_date = startDate.toEpochMillisOrZero()
+    it.finished_reading_date = finishDate.toEpochMillisOrZero()
+    it.private = private
 }
 
 fun DbTrack.toDomainTrack(idRequired: Boolean = true): Track? {
@@ -42,7 +46,8 @@ fun DbTrack.toDomainTrack(idRequired: Boolean = true): Track? {
         status = status,
         score = score,
         remoteUrl = tracking_url,
-        startDate = started_reading_date,
-        finishDate = finished_reading_date,
+        startDate = started_reading_date.toInstantOrNull(),
+        finishDate = finished_reading_date.toInstantOrNull(),
+        private = private,
     )
 }

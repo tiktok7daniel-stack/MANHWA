@@ -1,27 +1,29 @@
 package eu.kanade.tachiyomi.data.updater
 
-import android.content.Context
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.BuildConfig
-import eu.kanade.tachiyomi.util.system.isInstalledFromFDroid
-import tachiyomi.core.common.util.lang.withIOContext
+import eu.kanade.tachiyomi.util.system.isFossBuildType
+import eu.kanade.tachiyomi.util.system.isNightlyBuildType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import tachiyomi.domain.release.interactor.GetApplicationRelease
-import uy.kohesive.injekt.injectLazy
 
-class AppUpdateChecker {
+@Inject
+class AppUpdateChecker(
+    private val getApplicationRelease: GetApplicationRelease,
+) {
 
-    private val getApplicationRelease: GetApplicationRelease by injectLazy()
-
-    suspend fun checkForUpdate(context: Context, forceCheck: Boolean = false): GetApplicationRelease.Result {
+    suspend fun checkForUpdate(forceCheck: Boolean = false): GetApplicationRelease.Result {
         // Disable app update checks for older Android versions that we're going to drop support for
         // if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
         //     return GetApplicationRelease.Result.OsTooOld
         // }
 
-        return withIOContext {
+        return withContext(Dispatchers.IO) {
             val result = getApplicationRelease.await(
                 GetApplicationRelease.Arguments(
-                    BuildConfig.PREVIEW,
-                    context.isInstalledFromFDroid(),
+                    isFossBuildType,
+                    isNightlyBuildType,
                     BuildConfig.COMMIT_COUNT.toInt(),
                     BuildConfig.VERSION_NAME,
                     GITHUB_REPO,
@@ -29,29 +31,21 @@ class AppUpdateChecker {
                 ),
             )
 
-            when (result) {
-                is GetApplicationRelease.Result.NewUpdate -> AppUpdateNotifier(context).promptUpdate(result.release)
-                is GetApplicationRelease.Result.ThirdPartyInstallation -> AppUpdateNotifier(
-                    context,
-                ).promptFdroidUpdate()
-                else -> {}
-            }
-
             result
         }
     }
 }
 
 val GITHUB_REPO: String by lazy {
-    if (BuildConfig.PREVIEW) {
-        "mannu691/TachiyomiAT"
+    if (isNightlyBuildType) {
+        "mihonapp/mihon-preview"
     } else {
-        "mannu691/TachiyomiAT"
+        "mihonapp/mihon"
     }
 }
 
 val RELEASE_TAG: String by lazy {
-    if (BuildConfig.PREVIEW) {
+    if (isNightlyBuildType) {
         "r${BuildConfig.COMMIT_COUNT}"
     } else {
         "v${BuildConfig.VERSION_NAME}"

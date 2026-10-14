@@ -23,23 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.HourglassEmpty
-import androidx.compose.material.icons.filled.PersonOutline
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.outlined.AttachMoney
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Done
-import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -52,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,9 +53,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -77,10 +67,37 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.mikepenz.markdown.model.markdownAnnotator
+import com.mikepenz.markdown.model.markdownAnnotatorConfig
+import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.daysUntil
+import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.AttachMoney
+import mihon.icons.materialsymbols.rounded.Block
+import mihon.icons.materialsymbols.rounded.Check
+import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.DoneAll
+import mihon.icons.materialsymbols.rounded.Favorite
+import mihon.icons.materialsymbols.rounded.HourglassEmpty
+import mihon.icons.materialsymbols.rounded.Person
+import mihon.icons.materialsymbols.rounded.Public
+import mihon.icons.materialsymbols.rounded.Schedule
+import mihon.icons.materialsymbols.rounded.Sync
+import mihon.icons.materialsymbols.roundedfilled.Brush
+import mihon.icons.materialsymbols.roundedfilled.Favorite
+import mihon.icons.materialsymbols.roundedfilled.Pause
+import mihon.icons.materialsymbols.roundedfilled.Warning
+import org.intellij.markdown.MarkdownElementTypes
+import org.intellij.markdown.MarkdownTokenTypes
+import org.intellij.markdown.ast.findChildOfType
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
@@ -90,18 +107,16 @@ import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.clickableNoIndication
 import tachiyomi.presentation.core.util.secondaryItemAlpha
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
-
-private val whitespaceLineRegex = Regex("[\\r\\n]{2,}", setOf(RegexOption.MULTILINE))
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 @Composable
 fun MangaInfoBox(
     isTabletUi: Boolean,
     appBarPadding: Dp,
     manga: Manga,
-    sourceName: String,
+    source: Source,
     isStubSource: Boolean,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
@@ -138,7 +153,7 @@ fun MangaInfoBox(
                 MangaAndSourceTitlesSmall(
                     appBarPadding = appBarPadding,
                     manga = manga,
-                    sourceName = sourceName,
+                    source = source,
                     isStubSource = isStubSource,
                     onCoverClick = onCoverClick,
                     doSearch = doSearch,
@@ -147,7 +162,7 @@ fun MangaInfoBox(
                 MangaAndSourceTitlesLarge(
                     appBarPadding = appBarPadding,
                     manga = manga,
-                    sourceName = sourceName,
+                    source = source,
                     isStubSource = isStubSource,
                     onCoverClick = onCoverClick,
                     doSearch = doSearch,
@@ -176,8 +191,8 @@ fun MangaActionRow(
     // TODO: show something better when using custom interval
     val nextUpdateDays = remember(nextUpdate) {
         return@remember if (nextUpdate != null) {
-            val now = Instant.now()
-            now.until(nextUpdate, ChronoUnit.DAYS).toInt().coerceAtLeast(0)
+            val now = Clock.System.now()
+            now.daysUntil(nextUpdate, TimeZone.currentSystemDefault()).coerceAtLeast(0)
         } else {
             null
         }
@@ -190,7 +205,7 @@ fun MangaActionRow(
             } else {
                 stringResource(MR.strings.add_to_library)
             },
-            icon = if (favorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            icon = if (favorite) MaterialSymbols.RoundedFilled.Favorite else MaterialSymbols.Rounded.Favorite,
             color = if (favorite) MaterialTheme.colorScheme.primary else defaultActionButtonColor,
             onClick = onAddToLibraryClicked,
             onLongClick = onEditCategory,
@@ -205,7 +220,7 @@ fun MangaActionRow(
                     nextUpdateDays,
                 )
             },
-            icon = Icons.Default.HourglassEmpty,
+            icon = MaterialSymbols.Rounded.HourglassEmpty,
             color = if (isUserIntervalMode) MaterialTheme.colorScheme.primary else defaultActionButtonColor,
             onClick = { onEditIntervalClicked?.invoke() },
         )
@@ -215,14 +230,14 @@ fun MangaActionRow(
             } else {
                 pluralStringResource(MR.plurals.num_trackers, count = trackingCount, trackingCount)
             },
-            icon = if (trackingCount == 0) Icons.Outlined.Sync else Icons.Outlined.Done,
+            icon = if (trackingCount == 0) MaterialSymbols.Rounded.Sync else MaterialSymbols.Rounded.Check,
             color = if (trackingCount == 0) defaultActionButtonColor else MaterialTheme.colorScheme.primary,
             onClick = onTrackingClicked,
         )
         if (onWebViewClicked != null) {
             MangaActionButton(
                 title = stringResource(MR.strings.action_web_view),
-                icon = Icons.Outlined.Public,
+                icon = MaterialSymbols.Rounded.Public,
                 color = defaultActionButtonColor,
                 onClick = onWebViewClicked,
                 onLongClick = onWebViewLongClicked,
@@ -236,8 +251,10 @@ fun ExpandableMangaDescription(
     defaultExpandState: Boolean,
     description: String?,
     tagsProvider: () -> List<String>?,
+    notes: String,
     onTagSearch: (String) -> Unit,
     onCopyTagToClipboard: (tag: String) -> Unit,
+    onEditNotes: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -246,15 +263,12 @@ fun ExpandableMangaDescription(
         }
         val desc =
             description.takeIf { !it.isNullOrBlank() } ?: stringResource(MR.strings.description_placeholder)
-        val trimmedDescription = remember(desc) {
-            desc
-                .replace(whitespaceLineRegex, "\n")
-                .trimEnd()
-        }
+
         MangaSummary(
-            expandedDescription = desc,
-            shrunkDescription = trimmedDescription,
+            description = desc,
             expanded = expanded,
+            notes = notes,
+            onEditNotesClicked = onEditNotes,
             modifier = Modifier
                 .padding(top = 8.dp)
                 .padding(horizontal = 16.dp)
@@ -332,7 +346,7 @@ fun ExpandableMangaDescription(
 private fun MangaAndSourceTitlesLarge(
     appBarPadding: Dp,
     manga: Manga,
-    sourceName: String,
+    source: Source,
     isStubSource: Boolean,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
@@ -358,7 +372,7 @@ private fun MangaAndSourceTitlesLarge(
             author = manga.author,
             artist = manga.artist,
             status = manga.status,
-            sourceName = sourceName,
+            source = source,
             isStubSource = isStubSource,
             doSearch = doSearch,
             textAlign = TextAlign.Center,
@@ -370,7 +384,7 @@ private fun MangaAndSourceTitlesLarge(
 private fun MangaAndSourceTitlesSmall(
     appBarPadding: Dp,
     manga: Manga,
-    sourceName: String,
+    source: Source,
     isStubSource: Boolean,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
@@ -401,7 +415,7 @@ private fun MangaAndSourceTitlesSmall(
                 author = manga.author,
                 artist = manga.artist,
                 status = manga.status,
-                sourceName = sourceName,
+                source = source,
                 isStubSource = isStubSource,
                 doSearch = doSearch,
             )
@@ -415,7 +429,7 @@ private fun ColumnScope.MangaContentInfo(
     author: String?,
     artist: String?,
     status: Long,
-    sourceName: String,
+    source: Source,
     isStubSource: Boolean,
     doSearch: (query: String, global: Boolean) -> Unit,
     textAlign: TextAlign? = LocalTextStyle.current.textAlign,
@@ -446,7 +460,7 @@ private fun ColumnScope.MangaContentInfo(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Filled.PersonOutline,
+            imageVector = MaterialSymbols.Rounded.Person,
             contentDescription = null,
             modifier = Modifier.size(16.dp),
         )
@@ -477,7 +491,7 @@ private fun ColumnScope.MangaContentInfo(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Filled.Brush,
+                imageVector = MaterialSymbols.RoundedFilled.Brush,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
             )
@@ -502,13 +516,13 @@ private fun ColumnScope.MangaContentInfo(
     ) {
         Icon(
             imageVector = when (status) {
-                SManga.ONGOING.toLong() -> Icons.Outlined.Schedule
-                SManga.COMPLETED.toLong() -> Icons.Outlined.DoneAll
-                SManga.LICENSED.toLong() -> Icons.Outlined.AttachMoney
-                SManga.PUBLISHING_FINISHED.toLong() -> Icons.Outlined.Done
-                SManga.CANCELLED.toLong() -> Icons.Outlined.Close
-                SManga.ON_HIATUS.toLong() -> Icons.Outlined.Pause
-                else -> Icons.Outlined.Block
+                SManga.ONGOING.toLong() -> MaterialSymbols.Rounded.Schedule
+                SManga.COMPLETED.toLong() -> MaterialSymbols.Rounded.DoneAll
+                SManga.LICENSED.toLong() -> MaterialSymbols.Rounded.AttachMoney
+                SManga.PUBLISHING_FINISHED.toLong() -> MaterialSymbols.Rounded.Check
+                SManga.CANCELLED.toLong() -> MaterialSymbols.Rounded.Close
+                SManga.ON_HIATUS.toLong() -> MaterialSymbols.RoundedFilled.Pause
+                else -> MaterialSymbols.Rounded.Block
             },
             contentDescription = null,
             modifier = Modifier
@@ -532,7 +546,7 @@ private fun ColumnScope.MangaContentInfo(
             DotSeparatorText()
             if (isStubSource) {
                 Icon(
-                    imageVector = Icons.Filled.Warning,
+                    imageVector = MaterialSymbols.RoundedFilled.Warning,
                     contentDescription = null,
                     modifier = Modifier
                         .padding(end = 4.dp)
@@ -541,12 +555,9 @@ private fun ColumnScope.MangaContentInfo(
                 )
             }
             Text(
-                text = sourceName,
+                text = source.getNameForMangaInfo(),
                 modifier = Modifier.clickableNoIndication {
-                    doSearch(
-                        sourceName,
-                        false,
-                    )
+                    doSearch(source.query(), false)
                 },
                 overflow = TextOverflow.Ellipsis,
                 maxLines = 1,
@@ -555,41 +566,99 @@ private fun ColumnScope.MangaContentInfo(
     }
 }
 
+private fun Source.query(): String = """src:"$name" lang:$lang""".takeIf { name.isNotBlank() } ?: "srcid:$id"
+
+@Composable
+private fun descriptionAnnotator(loadImages: Boolean, linkStyle: SpanStyle) = remember(loadImages, linkStyle) {
+    markdownAnnotator(
+        annotate = { content, child ->
+            if (!loadImages && child.type == MarkdownElementTypes.IMAGE) {
+                val inlineLink = child.findChildOfType(MarkdownElementTypes.INLINE_LINK)
+
+                val url = inlineLink?.findChildOfType(MarkdownElementTypes.LINK_DESTINATION)
+                    ?.getUnescapedTextInNode(content)
+                    ?: inlineLink?.findChildOfType(MarkdownElementTypes.AUTOLINK)
+                        ?.findChildOfType(MarkdownTokenTypes.AUTOLINK)
+                        ?.getUnescapedTextInNode(content)
+                    ?: return@markdownAnnotator false
+
+                val textNode = inlineLink?.findChildOfType(MarkdownElementTypes.LINK_TITLE)
+                    ?: inlineLink?.findChildOfType(MarkdownElementTypes.LINK_TEXT)
+                val altText = textNode?.findChildOfType(MarkdownTokenTypes.TEXT)
+                    ?.getUnescapedTextInNode(content).orEmpty()
+
+                withLink(LinkAnnotation.Url(url = url)) {
+                    pushStyle(linkStyle)
+                    appendInlineContent(MARKDOWN_INLINE_IMAGE_TAG)
+                    append(altText)
+                    pop()
+                }
+
+                return@markdownAnnotator true
+            }
+
+            if (child.type in DISALLOWED_MARKDOWN_TYPES) {
+                append(content.substring(child.startOffset, child.endOffset))
+                return@markdownAnnotator true
+            }
+
+            false
+        },
+        config = markdownAnnotatorConfig(
+            eolAsNewLine = true,
+        ),
+    )
+}
+
 @Composable
 private fun MangaSummary(
-    expandedDescription: String,
-    shrunkDescription: String,
+    description: String,
+    notes: String,
     expanded: Boolean,
+    onEditNotesClicked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val preferences = remember { context.appGraph.uiPreferences }
+    val loadImages = remember { preferences.imagesInDescription.get() }
     val animProgress by animateFloatAsState(
         targetValue = if (expanded) 1f else 0f,
         label = "summary",
     )
+    var infoHeight by remember { mutableIntStateOf(0) }
     Layout(
         modifier = modifier.clipToBounds(),
         contents = listOf(
             {
                 Text(
-                    text = "\n\n", // Shows at least 3 lines
+                    // Shows at least 3 lines if no notes
+                    // when there are notes show 6
+                    text = if (notes.isBlank()) "\n\n" else "\n\n\n\n\n",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             },
             {
-                Text(
-                    text = expandedDescription,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            {
-                SelectionContainer {
-                    Text(
-                        text = if (expanded) expandedDescription else shrunkDescription,
-                        maxLines = Int.MAX_VALUE,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.secondaryItemAlpha(),
+                Column(
+                    modifier = Modifier.onSizeChanged { size ->
+                        infoHeight = size.height
+                    },
+                ) {
+                    MangaNotesSection(
+                        content = notes,
+                        expanded = expanded,
+                        onEditNotes = onEditNotesClicked,
                     )
+                    SelectionContainer {
+                        MarkdownRender(
+                            content = description,
+                            modifier = Modifier.secondaryItemAlpha(),
+                            annotator = descriptionAnnotator(
+                                loadImages = loadImages,
+                                linkStyle = getMarkdownLinkStyle().toSpanStyle(),
+                            ),
+                            loadImages = loadImages,
+                        )
+                    }
                 }
             },
             {
@@ -598,7 +667,7 @@ private fun MangaSummary(
                     modifier = Modifier.background(Brush.verticalGradient(colors = colors)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    val image = AnimatedImageVector.animatedVectorResource(R.drawable.anim_caret_down)
+                    val image = AnimatedImageVector.animatedVectorResource(R.drawable.animated_caret_flip)
                     Icon(
                         painter = rememberAnimatedVectorPainter(image, !expanded),
                         contentDescription = stringResource(
@@ -610,14 +679,11 @@ private fun MangaSummary(
                 }
             },
         ),
-    ) { (shrunk, expanded, actual, scrim), constraints ->
+    ) { (shrunk, actual, scrim), constraints ->
         val shrunkHeight = shrunk.single()
             .measure(constraints)
             .height
-        val expandedHeight = expanded.single()
-            .measure(constraints)
-            .height
-        val heightDelta = expandedHeight - shrunkHeight
+        val heightDelta = infoHeight - shrunkHeight
         val scrimHeight = 24.dp.roundToPx()
 
         val actualPlaceable = actual.single()

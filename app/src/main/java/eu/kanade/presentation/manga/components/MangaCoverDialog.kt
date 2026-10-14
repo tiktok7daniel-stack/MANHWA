@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Save
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.updatePadding
 import coil3.asDrawable
 import coil3.imageLoader
@@ -47,12 +43,17 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
-import kotlinx.collections.immutable.persistentListOf
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.Edit
+import mihon.icons.materialsymbols.rounded.Save
+import mihon.icons.materialsymbols.rounded.Share
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.clickableNoIndication
+import tachiyomi.source.local.isLocal
 
 @Composable
 fun MangaCoverDialog(
@@ -68,7 +69,7 @@ fun MangaCoverDialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false, // Doesn't work https://issuetracker.google.com/issues/246909281
+            decorFitsSystemWindows = false,
         ),
     ) {
         Scaffold(
@@ -84,7 +85,7 @@ fun MangaCoverDialog(
                     ActionsPill {
                         IconButton(onClick = onDismissRequest) {
                             Icon(
-                                imageVector = Icons.Outlined.Close,
+                                imageVector = MaterialSymbols.Rounded.Close,
                                 contentDescription = stringResource(MR.strings.action_close),
                             )
                         }
@@ -92,15 +93,15 @@ fun MangaCoverDialog(
                     Spacer(modifier = Modifier.weight(1f))
                     ActionsPill {
                         AppBarActions(
-                            actions = persistentListOf(
+                            actions = listOf(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_share),
-                                    icon = Icons.Outlined.Share,
+                                    icon = MaterialSymbols.Rounded.Share,
                                     onClick = onShareClick,
                                 ),
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_save),
-                                    icon = Icons.Outlined.Save,
+                                    icon = MaterialSymbols.Rounded.Save,
                                     onClick = onSaveClick,
                                 ),
                             ),
@@ -110,15 +111,17 @@ fun MangaCoverDialog(
                                 var expanded by remember { mutableStateOf(false) }
                                 IconButton(
                                     onClick = {
-                                        if (isCustomCover) {
-                                            expanded = true
-                                        } else {
-                                            onEditClick(EditCoverAction.EDIT)
+                                        when {
+                                            !manga.favorite && !manga.isLocal() -> {
+                                                onEditClick(EditCoverAction.ADD_TO_LIBRARY)
+                                            }
+                                            isCustomCover -> expanded = true
+                                            else -> onEditClick(EditCoverAction.EDIT)
                                         }
                                     },
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Outlined.Edit,
+                                        imageVector = MaterialSymbols.Rounded.Edit,
                                         contentDescription = stringResource(MR.strings.action_edit_cover),
                                     )
                                 }
@@ -171,15 +174,13 @@ fun MangaCoverDialog(
                             .memoryCachePolicy(CachePolicy.DISABLED)
                             .target { image ->
                                 val drawable = image.asDrawable(view.context.resources)
-
                                 // Copy bitmap in case it came from memory cache
                                 // Because SSIV needs to thoroughly read the image
-                                val copy = (drawable as? BitmapDrawable)?.let {
-                                    BitmapDrawable(
-                                        view.context.resources,
-                                        it.bitmap.copy(Bitmap.Config.HARDWARE, false),
-                                    )
-                                } ?: drawable
+                                val copy = (drawable as? BitmapDrawable)
+                                    ?.bitmap
+                                    ?.copy(Bitmap.Config.HARDWARE, false)
+                                    ?.toDrawable(view.context.resources)
+                                    ?: drawable
                                 view.setImage(copy, ReaderPageImageView.Config(zoomDuration = 500))
                             }
                             .build()

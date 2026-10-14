@@ -65,8 +65,8 @@
         <item quantity="other">%d Tage</item>
     </plurals>
     <plurals name="num_repos">
-        <item quantity="one">%d Repository</item>
-        <item quantity="other">%d Repositorys</item>
+        <item quantity="one">%d Depot</item>
+        <item quantity="other">%d Depots</item>
     </plurals>
     <plurals name="upcoming_relative_time">
         <item quantity="one">Morgen</item>
@@ -75,5 +75,21 @@
     <plurals name="pref_pages">
         <item quantity="one">1 Seite</item>
         <item quantity="other">%1$s Seiten</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.migrateTitle">
+        <item quantity="one">%1$d Eintrag migrieren?</item>
+        <item quantity="other">%1$d Einträge migrieren?</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.copyTitle">
+        <item quantity="one">%1$d Eintrag kopieren?</item>
+        <item quantity="other">%1$d Einträge kopieren?</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.skipText">
+        <item quantity="one">Ein Eintrag wurde übersprungen</item>
+        <item quantity="other">%1$d Einträge wurden übersprungen</item>
+    </plurals>
+    <plurals name="notification_update_error">
+        <item quantity="one">%1$d Aktualisierung ist fehlgeschlagen</item>
+        <item quantity="other">%1$d Aktualisierungen sind fehlgeschlagen</item>
     </plurals>
 </resources>

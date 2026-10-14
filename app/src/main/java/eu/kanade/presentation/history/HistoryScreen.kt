@@ -3,8 +3,6 @@ package eu.kanade.presentation.history
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -18,9 +16,10 @@ import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.presentation.components.relativeDateText
 import eu.kanade.presentation.history.components.HistoryItem
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
-import eu.kanade.presentation.util.animateItemFastScroll
-import eu.kanade.tachiyomi.ui.history.HistoryScreenModel
-import kotlinx.collections.immutable.persistentListOf
+import eu.kanade.tachiyomi.ui.history.HistoryViewModel
+import kotlinx.datetime.LocalDate
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.DeleteSweep
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -29,16 +28,16 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import java.time.LocalDate
 
 @Composable
 fun HistoryScreen(
-    state: HistoryScreenModel.State,
+    state: HistoryViewModel.State,
     snackbarHostState: SnackbarHostState,
     onSearchQueryChange: (String?) -> Unit,
     onClickCover: (mangaId: Long) -> Unit,
     onClickResume: (mangaId: Long, chapterId: Long) -> Unit,
-    onDialogChange: (HistoryScreenModel.Dialog?) -> Unit,
+    onClickFavorite: (mangaId: Long) -> Unit,
+    onDialogChange: (HistoryViewModel.Dialog?) -> Unit,
 ) {
     Scaffold(
         topBar = { scrollBehavior ->
@@ -48,12 +47,12 @@ fun HistoryScreen(
                 onChangeSearchQuery = onSearchQueryChange,
                 actions = {
                     AppBarActions(
-                        persistentListOf(
+                        listOf(
                             AppBar.Action(
                                 title = stringResource(MR.strings.pref_clear_history),
-                                icon = Icons.Outlined.DeleteSweep,
+                                icon = MaterialSymbols.Rounded.DeleteSweep,
                                 onClick = {
-                                    onDialogChange(HistoryScreenModel.Dialog.DeleteAll)
+                                    onDialogChange(HistoryViewModel.Dialog.DeleteAll)
                                 },
                             ),
                         ),
@@ -83,7 +82,8 @@ fun HistoryScreen(
                     contentPadding = contentPadding,
                     onClickCover = { history -> onClickCover(history.mangaId) },
                     onClickResume = { history -> onClickResume(history.mangaId, history.chapterId) },
-                    onClickDelete = { item -> onDialogChange(HistoryScreenModel.Dialog.Delete(item)) },
+                    onClickDelete = { item -> onDialogChange(HistoryViewModel.Dialog.Delete(item)) },
+                    onClickFavorite = { history -> onClickFavorite(history.mangaId) },
                 )
             }
         }
@@ -97,6 +97,7 @@ private fun HistoryScreenContent(
     onClickCover: (HistoryWithRelations) -> Unit,
     onClickResume: (HistoryWithRelations) -> Unit,
     onClickDelete: (HistoryWithRelations) -> Unit,
+    onClickFavorite: (HistoryWithRelations) -> Unit,
 ) {
     FastScrollLazyColumn(
         contentPadding = contentPadding,
@@ -114,18 +115,19 @@ private fun HistoryScreenContent(
             when (item) {
                 is HistoryUiModel.Header -> {
                     ListGroupHeader(
-                        modifier = Modifier.animateItemFastScroll(),
+                        modifier = Modifier.animateItem(),
                         text = relativeDateText(item.date),
                     )
                 }
                 is HistoryUiModel.Item -> {
                     val value = item.item
                     HistoryItem(
-                        modifier = Modifier.animateItemFastScroll(),
+                        modifier = Modifier.animateItem(),
                         history = value,
                         onClickCover = { onClickCover(value) },
                         onClickResume = { onClickResume(value) },
                         onClickDelete = { onClickDelete(value) },
+                        onClickFavorite = { onClickFavorite(value) },
                     )
                 }
             }
@@ -141,8 +143,8 @@ sealed interface HistoryUiModel {
 @PreviewLightDark
 @Composable
 internal fun HistoryScreenPreviews(
-    @PreviewParameter(HistoryScreenModelStateProvider::class)
-    historyState: HistoryScreenModel.State,
+    @PreviewParameter(HistoryviewModelStateProvider::class)
+    historyState: HistoryViewModel.State,
 ) {
     TachiyomiPreviewTheme {
         HistoryScreen(
@@ -152,6 +154,7 @@ internal fun HistoryScreenPreviews(
             onClickCover = {},
             onClickResume = { _, _ -> run {} },
             onDialogChange = {},
+            onClickFavorite = {},
         )
     }
 }

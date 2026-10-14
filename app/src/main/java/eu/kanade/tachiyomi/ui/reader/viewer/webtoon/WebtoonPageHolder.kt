@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.webtoon
 
-import android.content.res.Resources
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -10,34 +9,28 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updateMargins
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.dpToPx
-import eu.kanade.translation.data.TranslationFont
-import eu.kanade.translation.presentation.WebtoonTranslationsView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import okio.Buffer
 import okio.BufferedSource
-import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.translation.TranslationPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import tachiyomi.i18n.MR
 
 /**
  * Holder of the webtoon reader for a single page of a chapter.
@@ -49,15 +42,7 @@ import uy.kohesive.injekt.api.get
 class WebtoonPageHolder(
     private val frame: ReaderPageImageView,
     viewer: WebtoonViewer,
-    // TachiyomiAT
-    translationPreferences: TranslationPreferences = Injekt.get(),
-    private val font: TranslationFont = TranslationFont.fromPref(translationPreferences.translationFont()),
-    readerPreferences: ReaderPreferences = Injekt.get(),
 ) : WebtoonBaseHolder(frame, viewer) {
-
-    // TachiyomiAT
-    private var showTranslations = true
-    private var translationsView: WebtoonTranslationsView? = null
 
     /**
      * Loading progress bar to indicate the current progress.
@@ -97,19 +82,8 @@ class WebtoonPageHolder(
         refreshLayoutParams()
 
         frame.onImageLoaded = { onImageDecoded() }
-        frame.onImageLoadError = { setError() }
+        frame.onImageLoadError = { error -> setError(error) }
         frame.onScaleChanged = { viewer.activity.hideMenu() }
-
-        // TachiyomiAT
-        showTranslations = readerPreferences.showTranslations().get()
-        readerPreferences.showTranslations().changes().onEach {
-            showTranslations = it
-            if (it) {
-                translationsView?.show()
-            } else {
-                translationsView?.hide()
-            }
-        }.launchIn(scope)
     }
 
     /**
@@ -128,9 +102,8 @@ class WebtoonPageHolder(
                 bottomMargin = 15.dpToPx
             }
 
-            val margin = Resources.getSystem().displayMetrics.widthPixels * (viewer.config.sidePadding / 100f)
-            marginEnd = margin.toInt()
-            marginStart = margin.toInt()
+            marginEnd = viewer.recycler.sidePaddingPixels
+            marginStart = viewer.recycler.sidePaddingPixels
         }
     }
 
@@ -158,26 +131,21 @@ class WebtoonPageHolder(
         val page = page ?: return
         val loader = page.chapter.pageLoader ?: return
         supervisorScope {
-            launchIO {
+            launch(Dispatchers.IO) {
                 loader.loadPage(page)
             }
             page.statusFlow.collectLatest { state ->
                 when (state) {
-                    Page.State.QUEUE -> setQueued()
-                    Page.State.LOAD_PAGE -> setLoading()
-                    Page.State.DOWNLOAD_IMAGE -> {
+                    Page.State.Queue -> setQueued()
+                    Page.State.LoadPage -> setLoading()
+                    Page.State.DownloadImage -> {
                         setDownloading()
                         page.progressFlow.collectLatest { value ->
                             progressIndicator.setProgress(value)
                         }
                     }
-
-                    Page.State.READY -> {
-                        setImage()
-                        // TachiyomiAT
-                        addTranslationsView()
-                    }
-                    Page.State.ERROR -> setError()
+                    Page.State.Ready -> setImage()
+                    is Page.State.Error -> setError(state.error)
                 }
             }
         }
@@ -219,12 +187,14 @@ class WebtoonPageHolder(
         val streamFn = page?.stream ?: return
 
         try {
-            val (source, isAnimated) = withIOContext {
-                val source = streamFn().use { process(Buffer().readFrom(it)) }
+            val buffer = withContext(Dispatchers.IO) { streamFn().use { Buffer().readFrom(it) } }
+            // Splitting and merging decode the image, which is CPU work
+            val (source, isAnimated) = withContext(Dispatchers.Default) {
+                val source = process(buffer)
                 val isAnimated = ImageUtil.isAnimatedAndSupported(source)
                 Pair(source, isAnimated)
             }
-            withUIContext {
+            withContext(Dispatchers.Main) {
                 frame.setImage(
                     source,
                     isAnimated,
@@ -238,8 +208,8 @@ class WebtoonPageHolder(
             }
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e)
-            withUIContext {
-                setError()
+            withContext(Dispatchers.Main) {
+                setError(e)
             }
         }
     }
@@ -273,11 +243,9 @@ class WebtoonPageHolder(
     /**
      * Called when the page has an error.
      */
-    private fun setError() {
+    private fun setError(error: Throwable?) {
         progressContainer.isVisible = false
-        initErrorLayout()
-        // TachiyomiAT
-        translationsView?.hide()
+        initErrorLayout(error)
     }
 
     /**
@@ -286,17 +254,6 @@ class WebtoonPageHolder(
     private fun onImageDecoded() {
         progressContainer.isVisible = false
         removeErrorLayout()
-        // TachiyomiAT
-        translationsView?.show()
-    }
-
-    // TachiyomiAT
-    private fun addTranslationsView() {
-        if (page?.translation == null) return
-        frame.removeView(translationsView)
-        translationsView = WebtoonTranslationsView(context, translation = page!!.translation!!, font = font)
-        if (!showTranslations) translationsView?.hide()
-        frame.addView(translationsView, MATCH_PARENT, MATCH_PARENT)
     }
 
     /**
@@ -318,7 +275,7 @@ class WebtoonPageHolder(
     /**
      * Initializes a button to retry pages.
      */
-    private fun initErrorLayout(): ReaderErrorBinding {
+    private fun initErrorLayout(error: Throwable?): ReaderErrorBinding {
         if (errorLayout == null) {
             errorLayout = ReaderErrorBinding.inflate(LayoutInflater.from(context), frame, true)
             errorLayout?.root?.layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, (parentHeight * 0.8).toInt())
@@ -332,11 +289,16 @@ class WebtoonPageHolder(
         if (imageUrl != null) {
             if (imageUrl.startsWith("http", true)) {
                 errorLayout?.actionOpenInWebView?.setOnClickListener {
-                    val intent = WebViewActivity.newIntent(context, imageUrl)
+                    val sourceId = viewer.activity.viewModel.manga?.source
+
+                    val intent = WebViewActivity.newIntent(context, imageUrl, sourceId)
                     context.startActivity(intent)
                 }
             }
         }
+
+        errorLayout?.errorMessage?.text = with(context) { error?.formattedMessage }
+            ?: context.stringResource(MR.strings.decode_image_error)
 
         return errorLayout!!
     }

@@ -128,22 +128,24 @@ private fun FilterItem(filter: Filter<*>, onUpdate: () -> Unit) {
             ) {
                 Column {
                     filter.values.mapIndexed { index, item ->
+                        val sortAscending = filter.state?.ascending
+                            ?.takeIf { index == filter.state?.index }
                         SortItem(
                             label = item,
-                            sortDescending = filter.state?.ascending?.not()
-                                ?.takeIf { index == filter.state?.index },
-                        ) {
-                            val ascending = if (index == filter.state?.index) {
-                                !filter.state!!.ascending
-                            } else {
-                                filter.state!!.ascending
-                            }
-                            filter.state = Filter.Sort.Selection(
-                                index = index,
-                                ascending = ascending,
-                            )
-                            onUpdate()
-                        }
+                            sortDescending = if (sortAscending != null) !sortAscending else null,
+                            onClick = {
+                                val ascending = if (index == filter.state?.index) {
+                                    !filter.state!!.ascending
+                                } else {
+                                    filter.state?.ascending ?: true
+                                }
+                                filter.state = Filter.Sort.Selection(
+                                    index = index,
+                                    ascending = ascending,
+                                )
+                                onUpdate()
+                            },
+                        )
                     }
                 }
             }
@@ -167,7 +169,7 @@ private fun Int.toTriStateFilter(): TriState {
         Filter.TriState.STATE_IGNORE -> TriState.DISABLED
         Filter.TriState.STATE_INCLUDE -> TriState.ENABLED_IS
         Filter.TriState.STATE_EXCLUDE -> TriState.ENABLED_NOT
-        else -> throw IllegalStateException("Unknown TriState state: $this")
+        else -> TriState.DISABLED
     }
 }
 

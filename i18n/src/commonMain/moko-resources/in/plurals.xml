@@ -49,12 +49,24 @@
         <item quantity="other">%d hari</item>
     </plurals>
     <plurals name="num_repos">
-        <item quantity="other">%d repo</item>
+        <item quantity="other">%d Tempat</item>
     </plurals>
     <plurals name="upcoming_relative_time">
         <item quantity="other">Dalam %1$d hari</item>
     </plurals>
     <plurals name="pref_pages">
         <item quantity="other">%1$s halaman</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.migrateTitle">
+        <item quantity="other">Migrasikan %1$d entri?</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.copyTitle">
+        <item quantity="other">Salin %1$d entri?</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.skipText">
+        <item quantity="other">%1$d entri dilewati</item>
+    </plurals>
+    <plurals name="notification_update_error">
+        <item quantity="other">%1$d update gagal</item>
     </plurals>
 </resources>

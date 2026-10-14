@@ -1,35 +1,32 @@
 package eu.kanade.tachiyomi.extension.installer
 
 import android.app.Service
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import androidx.annotation.CallSuper
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.InstallStep
-import uy.kohesive.injekt.injectLazy
+import logcat.LogPriority
+import mihon.app.di.appGraph
+import tachiyomi.core.common.util.system.logcat
 import java.util.Collections
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.CopyOnWriteArraySet
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /**
  * Base implementation class for extension installer. To be used inside a foreground [Service].
  */
+@OptIn(ExperimentalAtomicApi::class)
 abstract class Installer(private val service: Service) {
 
-    private val extensionManager: ExtensionManager by injectLazy()
+    private val extensionManager: ExtensionManager by lazy { service.appGraph.extensionManager }
 
-    private var waitingInstall = AtomicReference<Entry>(null)
+    private var waitingInstall = AtomicReference<Entry?>(null)
+
+    // Guarded by itself: cancellation comes from any thread, not only main
     private val queue = Collections.synchronizedList(mutableListOf<Entry>())
 
-    private val cancelReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val downloadId = intent.getLongExtra(EXTRA_DOWNLOAD_ID, -1).takeIf { it >= 0 } ?: return
-            cancelQueue(downloadId)
-        }
-    }
+    private val cancelListener: (Long) -> Unit = { downloadId -> cancelQueue(downloadId) }
 
     /**
      * Installer readiness. If false, queue check will not run.
@@ -79,7 +76,7 @@ abstract class Installer(private val service: Service) {
      * @see waitingInstall
      */
     fun continueQueue(resultStep: InstallStep) {
-        val completedEntry = waitingInstall.getAndSet(null)
+        val completedEntry = waitingInstall.exchange(null)
         if (completedEntry != null) {
             extensionManager.updateInstallStep(completedEntry.downloadId, resultStep)
             checkQueue()
@@ -96,15 +93,15 @@ abstract class Installer(private val service: Service) {
         if (!ready) {
             return
         }
-        if (queue.isEmpty()) {
-            service.stopSelf()
-            return
-        }
-        val nextEntry = queue.first()
-        if (waitingInstall.compareAndSet(null, nextEntry)) {
+        val nextEntry = synchronized(queue) {
+            if (queue.isEmpty()) {
+                service.stopSelf()
+                return
+            }
+            if (!waitingInstall.compareAndSet(null, queue.first())) return
             queue.removeAt(0)
-            processEntry(nextEntry)
         }
+        processEntry(nextEntry)
     }
 
     /**
@@ -112,13 +109,16 @@ abstract class Installer(private val service: Service) {
      */
     @CallSuper
     open fun onDestroy() {
-        LocalBroadcastManager.getInstance(service).unregisterReceiver(cancelReceiver)
-        queue.forEach { extensionManager.updateInstallStep(it.downloadId, InstallStep.Error) }
-        queue.clear()
-        waitingInstall.set(null)
+        cancelListeners -= cancelListener
+        val remaining = synchronized(queue) { queue.toList().also { queue.clear() } }
+        remaining.forEach {
+            logcat(LogPriority.INFO) { "The installer stopped before installing ${it.downloadId}" }
+            extensionManager.updateInstallStep(it.downloadId, InstallStep.Error)
+        }
+        waitingInstall.store(null)
     }
 
-    protected fun getActiveEntry(): Entry? = waitingInstall.get()
+    protected fun getActiveEntry(): Entry? = waitingInstall.load()
 
     /**
      * Cancels queue for the provided download ID if exists.
@@ -126,13 +126,16 @@ abstract class Installer(private val service: Service) {
      * @param downloadId Download ID as known by [ExtensionManager]
      */
     private fun cancelQueue(downloadId: Long) {
-        val waitingInstall = this.waitingInstall.get()
-        val toCancel = queue.find { it.downloadId == downloadId } ?: waitingInstall ?: return
+        val waitingInstall = this.waitingInstall.load()
+        // Every new install cancels its own previous attempt first, which mustn't hit another extension's install
+        val toCancel = synchronized(queue) { queue.find { it.downloadId == downloadId } }
+            ?: waitingInstall?.takeIf { it.downloadId == downloadId }
+            ?: return
         if (cancelEntry(toCancel)) {
             queue.remove(toCancel)
             if (waitingInstall == toCancel) {
                 // Currently processing removed entry, continue queue
-                this.waitingInstall.set(null)
+                this.waitingInstall.store(null)
                 checkQueue()
             }
             extensionManager.updateInstallStep(downloadId, InstallStep.Idle)
@@ -148,23 +151,21 @@ abstract class Installer(private val service: Service) {
     data class Entry(val downloadId: Long, val uri: Uri)
 
     init {
-        val filter = IntentFilter(ACTION_CANCEL_QUEUE)
-        LocalBroadcastManager.getInstance(service).registerReceiver(cancelReceiver, filter)
+        cancelListeners += cancelListener
     }
 
     companion object {
-        private const val ACTION_CANCEL_QUEUE = "Installer.action.CANCEL_QUEUE"
-        private const val EXTRA_DOWNLOAD_ID = "Installer.extra.DOWNLOAD_ID"
+        private val cancelListeners = CopyOnWriteArraySet<(Long) -> Unit>()
 
         /**
          * Attempts to cancel the installation entry for the provided download ID.
          *
+         * Runs on the calling thread, so the cancellation is done by the time this returns.
+         *
          * @param downloadId Download ID as known by [ExtensionManager]
          */
-        fun cancelInstallQueue(context: Context, downloadId: Long) {
-            val intent = Intent(ACTION_CANCEL_QUEUE)
-            intent.putExtra(EXTRA_DOWNLOAD_ID, downloadId)
-            LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
+        fun cancelInstallQueue(downloadId: Long) {
+            cancelListeners.forEach { it(downloadId) }
         }
     }
 }

@@ -1,35 +1,15 @@
 package tachiyomi.domain.chapter.model
 
-data class ChapterUpdate(
-    val id: Long,
-    val mangaId: Long? = null,
-    val read: Boolean? = null,
-    val bookmark: Boolean? = null,
-    val lastPageRead: Long? = null,
-    val dateFetch: Long? = null,
-    val sourceOrder: Long? = null,
-    val url: String? = null,
-    val name: String? = null,
-    val dateUpload: Long? = null,
-    val chapterNumber: Double? = null,
-    val scanlator: String? = null,
-    val version: Long? = null,
-)
+import mihon.domain.common.PartialUpdate
+import kotlin.time.Instant
 
-fun Chapter.toChapterUpdate(): ChapterUpdate {
-    return ChapterUpdate(
-        id,
-        mangaId,
-        read,
-        bookmark,
-        lastPageRead,
-        dateFetch,
-        sourceOrder,
-        url,
-        name,
-        dateUpload,
-        chapterNumber,
-        scanlator,
-        version,
-    )
+class ChapterUpdate(val id: Long, block: ChapterUpdate.() -> Unit) : PartialUpdate() {
+    var read: Boolean? by field(null)
+    var bookmark: Boolean? by field(null)
+    var lastPageRead: Int? by field(null)
+    var dateFetch: Instant? by field(null)
+
+    init {
+        block()
+    }
 }

@@ -10,18 +10,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -51,8 +53,13 @@ import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.presentation.track.components.TrackLogoIcon
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.ui.manga.track.TrackItem
+import eu.kanade.tachiyomi.util.lang.toJavaLocalDate
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import kotlinx.datetime.toJavaLocalDate
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.MoreVert
+import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import java.time.format.DateTimeFormatter
@@ -70,6 +77,7 @@ fun TrackInfoDialogHome(
     onOpenInBrowser: (TrackItem) -> Unit,
     onRemoved: (TrackItem) -> Unit,
     onCopyLink: (TrackItem) -> Unit,
+    onTogglePrivate: (TrackItem) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -84,6 +92,7 @@ fun TrackInfoDialogHome(
             if (item.track != null) {
                 val supportsScoring = item.tracker.getScoreList().isNotEmpty()
                 val supportsReadingDates = item.tracker.supportsReadingDates
+                val supportsPrivate = item.tracker.supportsPrivateTracking
                 TrackInfoItem(
                     title = item.track.title,
                     tracker = item.tracker,
@@ -103,18 +112,23 @@ fun TrackInfoDialogHome(
                         .takeIf { supportsScoring && item.track.score != 0.0 },
                     onScoreClick = { onScoreClick(item) }
                         .takeIf { supportsScoring },
-                    startDate = remember(item.track.startDate) { dateFormat.format(item.track.startDate.toLocalDate()) }
-                        .takeIf { supportsReadingDates && item.track.startDate != 0L },
+                    startDate = remember(item.track.startDate) {
+                        item.track.startDate?.let { dateFormat.format(it.toJavaLocalDate()) }
+                    }
+                        ?.takeIf { supportsReadingDates },
                     onStartDateClick = { onStartDateEdit(item) } // TODO
                         .takeIf { supportsReadingDates },
-                    endDate = dateFormat.format(item.track.finishDate.toLocalDate())
-                        .takeIf { supportsReadingDates && item.track.finishDate != 0L },
+                    endDate = item.track.finishDate?.let { dateFormat.format(it.toJavaLocalDate()) }
+                        ?.takeIf { supportsReadingDates },
                     onEndDateClick = { onEndDateEdit(item) }
                         .takeIf { supportsReadingDates },
                     onNewSearch = { onNewSearch(item) },
                     onOpenInBrowser = { onOpenInBrowser(item) },
                     onRemoved = { onRemoved(item) },
                     onCopyLink = { onCopyLink(item) },
+                    private = item.track.private,
+                    onTogglePrivate = { onTogglePrivate(item) }
+                        .takeIf { supportsPrivate },
                 )
             } else {
                 TrackInfoItemEmpty(
@@ -144,17 +158,37 @@ private fun TrackInfoItem(
     onOpenInBrowser: () -> Unit,
     onRemoved: () -> Unit,
     onCopyLink: () -> Unit,
+    private: Boolean,
+    onTogglePrivate: (() -> Unit)?,
 ) {
     val context = LocalContext.current
     Column {
         Row(
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TrackLogoIcon(
-                tracker = tracker,
-                onClick = onOpenInBrowser,
-                onLongClick = onCopyLink,
-            )
+            BadgedBox(
+                badge = {
+                    if (private) {
+                        Badge(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.absoluteOffset(x = (-5).dp),
+                        ) {
+                            Icon(
+                                imageVector = MaterialSymbols.RoundedFilled.VisibilityOff,
+                                contentDescription = stringResource(MR.strings.tracked_privately),
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
+                    }
+                },
+            ) {
+                TrackLogoIcon(
+                    tracker = tracker,
+                    onClick = onOpenInBrowser,
+                    onLongClick = onCopyLink,
+                )
+            }
             Box(
                 modifier = Modifier
                     .height(48.dp)
@@ -181,6 +215,8 @@ private fun TrackInfoItem(
                 onOpenInBrowser = onOpenInBrowser,
                 onRemoved = onRemoved,
                 onCopyLink = onCopyLink,
+                private = private,
+                onTogglePrivate = onTogglePrivate,
             )
         }
 
@@ -291,12 +327,14 @@ private fun TrackInfoItemMenu(
     onOpenInBrowser: () -> Unit,
     onRemoved: () -> Unit,
     onCopyLink: () -> Unit,
+    private: Boolean,
+    onTogglePrivate: (() -> Unit)?,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = Modifier.wrapContentSize(Alignment.TopStart)) {
         IconButton(onClick = { expanded = true }) {
             Icon(
-                imageVector = Icons.Default.MoreVert,
+                imageVector = MaterialSymbols.Rounded.MoreVert,
                 contentDescription = stringResource(MR.strings.label_more),
             )
         }
@@ -318,6 +356,25 @@ private fun TrackInfoItemMenu(
                     expanded = false
                 },
             )
+            if (onTogglePrivate != null) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                if (private) {
+                                    MR.strings.action_toggle_private_off
+                                } else {
+                                    MR.strings.action_toggle_private_on
+                                },
+                            ),
+                        )
+                    },
+                    onClick = {
+                        onTogglePrivate()
+                        expanded = false
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(MR.strings.action_remove)) },
                 onClick = {

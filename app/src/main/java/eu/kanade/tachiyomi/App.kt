@@ -8,35 +8,39 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
-import android.os.Looper
 import android.webkit.WebView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
-import androidx.lifecycle.lifecycleScope
+import androidx.preference.PreferenceManager
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
+import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.allowRgb565
 import coil3.request.crossfade
 import coil3.util.DebugLogger
-import dev.mihon.injekt.patchInjekt
-import eu.kanade.domain.DomainModule
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.createGraphFactory
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.crash.CrashActivity
 import eu.kanade.tachiyomi.crash.GlobalExceptionHandler
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.coil.BufferedSourceFetcher
+import eu.kanade.tachiyomi.data.coil.CoverRequestInterceptor
+import eu.kanade.tachiyomi.data.coil.ExtensionIconFetcher
+import eu.kanade.tachiyomi.data.coil.ImageDecoder
+import eu.kanade.tachiyomi.data.coil.InstalledExtensionIconKeyer
+import eu.kanade.tachiyomi.data.coil.InstalledSourceIconKeyer
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher
 import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
 import eu.kanade.tachiyomi.data.coil.MangaKeyer
-import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.di.AppModule
-import eu.kanade.tachiyomi.di.PreferenceModule
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegate
@@ -45,42 +49,92 @@ import eu.kanade.tachiyomi.util.system.GLUtil
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
 import eu.kanade.tachiyomi.util.system.cancelNotification
+import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import eu.kanade.tachiyomi.util.system.notify
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import logcat.AndroidLogcatLogger
 import logcat.LogPriority
 import logcat.LogcatLogger
-import mihon.core.firebase.FirebaseConfig
+import mihon.app.di.AppGraph
+import mihon.app.di.injekt.MetroInjektRegistrar
+import mihon.core.metro.AppCoroutineScope
+import mihon.core.metro.GraphProvider
+import mihon.core.migration.Migration
 import mihon.core.migration.Migrator
-import mihon.core.migration.migrations.migrations
+import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.widget.WidgetManager
 import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
+import uy.kohesive.injekt.api.InjektScope
 import java.security.Security
+import kotlin.concurrent.thread
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
-class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory {
+class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, GraphProvider<AppGraph> {
 
-    private val basePreferences: BasePreferences by injectLazy()
-    private val privacyPreferences: PrivacyPreferences by injectLazy()
-    private val networkPreferences: NetworkPreferences by injectLazy()
+    override val graph: AppGraph by lazy {
+        createGraphFactory<AppGraph.Factory>().create(context = this, isDebugBuild = isDebugBuildType)
+    }
+
+    @Inject private lateinit var preferenceStore: PreferenceStore
+
+    @Inject private lateinit var basePreferences: BasePreferences
+
+    @Inject private lateinit var privacyPreferences: PrivacyPreferences
+
+    @Inject private lateinit var networkPreferences: NetworkPreferences
+
+    @Inject private lateinit var uiPreferences: UiPreferences
+
+    // Lazy: only the image loader uses these, and process starts without UI (workers, receivers) never build it
+    @Inject private lateinit var coverCache: Lazy<CoverCache>
+
+    @Inject private lateinit var networkHelper: Lazy<NetworkHelper>
+
+    @Inject private lateinit var sourceManager: Lazy<SourceManager>
+
+    @Inject private lateinit var extensionManager: Lazy<ExtensionManager>
+
+    @Inject private lateinit var widgetManager: WidgetManager
+
+    @Inject private lateinit var migrations: Set<Migration>
+
+    @Inject @AppCoroutineScope
+    private lateinit var scope: CoroutineScope
 
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
 
     @SuppressLint("LaunchActivityFromNotification")
     override fun onCreate() {
         super<Application>.onCreate()
-        patchInjekt()
-        FirebaseConfig.init(applicationContext)
+
+        // Must run before the graph is built, since injecting dependencies initializes WebView and the
+        // suffix can't be set once a provider exists in the process. Secondary processes die otherwise.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val process = getProcessName()
+            if (packageName != process) WebView.setDataDirectorySuffix(process)
+        }
+
+        // The graph and the code after it read the default preferences straight away. Loading them takes a disk
+        // read, so start it on another thread while the graph is built; the first read then waits less or not at all
+        thread(name = "PreferencesPreload") { PreferenceManager.getDefaultSharedPreferences(this) }
+        // The first use of Dispatchers.Main finds its factory with a ServiceLoader, which reads the APK
+        thread(name = "MainDispatcherPreload") { Dispatchers.Main }
+
+        Injekt = InjektScope(MetroInjektRegistrar(application = this, graphProvider = this))
+        graph.inject(this)
+
+        TelemetryConfig.init(applicationContext)
 
         GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java)
 
@@ -89,24 +143,12 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             Security.insertProviderAt(Conscrypt.newProvider(), 1)
         }
 
-        // Avoid potential crashes
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val process = getProcessName()
-            if (packageName != process) WebView.setDataDirectorySuffix(process)
-        }
-
-        Injekt.importModule(PreferenceModule(this))
-        Injekt.importModule(AppModule(this))
-        Injekt.importModule(DomainModule())
-
         setupNotificationChannels()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
 
-        val scope = ProcessLifecycleOwner.get().lifecycleScope
-
         // Show notification to disable Incognito Mode when it's enabled
-        basePreferences.incognitoMode().changes()
+        basePreferences.incognitoMode.changes()
             .onEach { enabled ->
                 if (enabled) {
                     disableIncognitoReceiver.register()
@@ -116,13 +158,13 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                     ) {
                         setContentTitle(stringResource(MR.strings.pref_incognito_mode))
                         setContentText(stringResource(MR.strings.notification_incognito_text))
-                        setSmallIcon(R.drawable.ic_glasses_24dp)
+                        setSmallIcon(MaterialSymbolsR.drawable.rounded_eyeglasses_2)
                         setOngoing(true)
 
                         val pendingIntent = PendingIntent.getBroadcast(
                             this@App,
                             0,
-                            Intent(ACTION_DISABLE_INCOGNITO_MODE),
+                            Intent(ACTION_DISABLE_INCOGNITO_MODE).setPackage(BuildConfig.APPLICATION_ID),
                             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
                         )
                         setContentIntent(pendingIntent)
@@ -134,44 +176,51 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             }
             .launchIn(scope)
 
-        privacyPreferences.analytics()
+        privacyPreferences.analytics
             .changes()
-            .onEach(FirebaseConfig::setAnalyticsEnabled)
+            .onEach(TelemetryConfig::setAnalyticsEnabled)
             .launchIn(scope)
 
-        privacyPreferences.crashlytics()
+        privacyPreferences.crashlytics
             .changes()
-            .onEach(FirebaseConfig::setCrashlyticsEnabled)
+            .onEach(TelemetryConfig::setCrashlyticsEnabled)
             .launchIn(scope)
 
-        basePreferences.hardwareBitmapThreshold().let { preference ->
+        basePreferences.hardwareBitmapThreshold.let { preference ->
             if (!preference.isSet()) preference.set(GLUtil.DEVICE_TEXTURE_LIMIT)
         }
 
-        basePreferences.hardwareBitmapThreshold().changes()
+        basePreferences.hardwareBitmapThreshold.changes()
             .onEach { ImageUtil.hardwareBitmapThreshold = it }
             .launchIn(scope)
 
-        setAppCompatDelegateThemeMode(Injekt.get<UiPreferences>().themeMode().get())
+        setAppCompatDelegateThemeMode(uiPreferences.themeMode.get())
 
         // Updates widget update
-        WidgetManager(Injekt.get(), Injekt.get()).apply { init(scope) }
+        widgetManager.init(scope)
 
-        if (!LogcatLogger.isInstalled && networkPreferences.verboseLogging().get()) {
-            LogcatLogger.install(AndroidLogcatLogger(LogPriority.VERBOSE))
+        if (!LogcatLogger.isInstalled) {
+            val minLogPriority = when {
+                networkPreferences.verboseLogging.get() -> LogPriority.VERBOSE
+                BuildConfig.DEBUG -> LogPriority.DEBUG
+                else -> LogPriority.INFO
+            }
+            LogcatLogger.install()
+            LogcatLogger.loggers += AndroidLogcatLogger(minLogPriority)
         }
 
         initializeMigrator()
     }
 
     private fun initializeMigrator() {
-        val preferenceStore = Injekt.get<PreferenceStore>()
         val preference = preferenceStore.getInt(Preference.appStateKey("last_version_code"), 0)
-        logcat { "Migration from ${preference.get()} to ${BuildConfig.VERSION_CODE}" }
+        logcat {
+            "Migration from ${preference.get()} to ${BuildConfig.VERSION_CODE} with ${migrations.size} migration(s)"
+        }
         Migrator.initialize(
             old = preference.get(),
             new = BuildConfig.VERSION_CODE,
-            migrations = migrations,
+            migrations = migrations.toList(),
             onMigrationComplete = {
                 logcat { "Updating last version to ${BuildConfig.VERSION_CODE}" }
                 preference.set(BuildConfig.VERSION_CODE)
@@ -181,24 +230,38 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
     override fun newImageLoader(context: Context): ImageLoader {
         return ImageLoader.Builder(this).apply {
-            val callFactoryLazy = lazy { Injekt.get<NetworkHelper>().client }
+            val callFactoryLazy = lazy { networkHelper.value.client }
+            val coverCache = coverCache.value
+            val sourceManager = sourceManager.value
             components {
                 // NetworkFetcher.Factory
                 add(OkHttpNetworkFetcherFactory(callFactoryLazy::value))
                 // Decoder.Factory
-                add(TachiyomiImageDecoder.Factory())
+                add(ImageDecoder.Factory())
                 // Fetcher.Factory
                 add(BufferedSourceFetcher.Factory())
-                add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy))
-                add(MangaCoverFetcher.MangaFactory(callFactoryLazy))
+                add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy, coverCache, sourceManager))
+                add(MangaCoverFetcher.MangaFactory(callFactoryLazy, coverCache, sourceManager))
+                add(ExtensionIconFetcher.ExtensionFactory(context))
+                add(ExtensionIconFetcher.SourceFactory(context, extensionManager))
                 // Keyer
-                add(MangaCoverKeyer())
+                add(MangaCoverKeyer(coverCache))
                 add(MangaKeyer())
+                add(InstalledExtensionIconKeyer())
+                add(InstalledSourceIconKeyer())
+                // Interceptor
+                add(CoverRequestInterceptor())
             }
+
+            memoryCache(
+                MemoryCache.Builder()
+                    .maxSizePercent(context)
+                    .build(),
+            )
 
             crossfade((300 * this@App.animatorDurationScale).toInt())
             allowRgb565(DeviceUtil.isLowRamDevice(this@App))
-            if (networkPreferences.verboseLogging().get()) logger(DebugLogger())
+            if (networkPreferences.verboseLogging.get()) logger(DebugLogger())
 
             // Coil spawns a new thread for every image load by default
             fetcherCoroutineContext(Dispatchers.IO.limitedParallelism(8))
@@ -208,28 +271,26 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     }
 
     override fun onStart(owner: LifecycleOwner) {
-        SecureActivityDelegate.onApplicationStart()
+        SecureActivityDelegate.onApplicationStart(this)
     }
 
     override fun onStop(owner: LifecycleOwner) {
-        SecureActivityDelegate.onApplicationStopped()
+        SecureActivityDelegate.onApplicationStopped(this)
     }
 
     override fun getPackageName(): String {
         try {
             // Override the value passed as X-Requested-With in WebView requests
-            val stackTrace = Looper.getMainLooper().thread.stackTrace
-            val chromiumElement = stackTrace.find {
-                it.className.equals(
-                    "org.chromium.base.BuildInfo",
-                    ignoreCase = true,
-                )
+            val stackTrace = Thread.currentThread().stackTrace
+            val isChromiumCall = stackTrace.any { trace ->
+                trace.className.lowercase() in setOf("org.chromium.base.buildinfo", "org.chromium.base.apkinfo") &&
+                    trace.methodName.lowercase() in setOf("getall", "getpackagename", "<init>")
             }
-            if (chromiumElement?.methodName.equals("getAll", ignoreCase = true)) {
-                return WebViewUtil.SPOOF_PACKAGE_NAME
-            }
+
+            if (isChromiumCall) return WebViewUtil.spoofedPackageName(applicationContext)
         } catch (_: Exception) {
         }
+
         return super.getPackageName()
     }
 
@@ -245,7 +306,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         private var registered = false
 
         override fun onReceive(context: Context, intent: Intent) {
-            basePreferences.incognitoMode().set(false)
+            basePreferences.incognitoMode.set(false)
         }
 
         fun register() {

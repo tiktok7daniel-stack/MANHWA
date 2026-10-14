@@ -25,7 +25,7 @@
         <item quantity="other">第 %1$s 章以及另外 %2$d 章</item>
     </plurals>
     <plurals name="num_trackers">
-        <item quantity="other">%d個歷程平臺</item>
+        <item quantity="other">%d 個平臺</item>
     </plurals>
     <plurals name="missing_chapters_warning">
         <item quantity="other">略過了 %d 章，也許是來源沒有這些章節，或其已被篩選規則排除</item>
@@ -49,12 +49,24 @@
         <item quantity="other">%d 天</item>
     </plurals>
     <plurals name="num_repos">
-        <item quantity="other">%d 處儲存庫</item>
+        <item quantity="other">%d 個擴充套件商店</item>
     </plurals>
     <plurals name="upcoming_relative_time">
         <item quantity="other">%1$d 天後</item>
     </plurals>
     <plurals name="pref_pages">
         <item quantity="other">%1$s pages</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.migrateTitle">
+        <item quantity="other">遷移 %1$d 個項目？</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.copyTitle">
+        <item quantity="other">複製 %1$d 個項目？</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.skipText">
+        <item quantity="other">已跳過 %1$d 個項目</item>
+    </plurals>
+    <plurals name="notification_update_error">
+        <item quantity="other">%1$d 更新失敗</item>
     </plurals>
 </resources>

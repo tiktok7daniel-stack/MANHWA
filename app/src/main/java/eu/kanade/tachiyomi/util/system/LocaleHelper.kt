@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.util.system
 
 import android.content.Context
 import androidx.core.os.LocaleListCompat
-import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
+import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.util.Locale
@@ -30,8 +30,8 @@ object LocaleHelper {
      */
     fun getSourceDisplayName(lang: String?, context: Context): String {
         return when (lang) {
-            SourcesScreenModel.LAST_USED_KEY -> context.stringResource(MR.strings.last_used_source)
-            SourcesScreenModel.PINNED_KEY -> context.stringResource(MR.strings.pinned_sources)
+            SourcesViewModel.LAST_USED_KEY -> context.stringResource(MR.strings.last_used_source)
+            SourcesViewModel.PINNED_KEY -> context.stringResource(MR.strings.pinned_sources)
             "other" -> context.stringResource(MR.strings.other_source)
             "all" -> context.stringResource(MR.strings.multi_lang)
             else -> getLocalizedDisplayName(lang)
@@ -46,6 +46,17 @@ object LocaleHelper {
         }
 
         return Locale.forLanguageTag(normalizedLang).displayName
+    }
+
+    fun getShortDisplayName(lang: String?, uppercase: Boolean = false): String {
+        return when (lang) {
+            null -> ""
+            "es-419" -> "es-la"
+            "zh-CN" -> "zh-hans"
+            "zh-TW" -> "zh-hant"
+            else -> lang
+        }
+            .let { if (uppercase) it.uppercase(Locale.ENGLISH) else it }
     }
 
     /**

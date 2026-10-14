@@ -2,40 +2,31 @@ package eu.kanade.tachiyomi.ui.reader.viewer.pager
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.PointF
 import android.view.LayoutInflater
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.view.isVisible
-import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.widget.ViewPagerAdapter
-import eu.kanade.translation.data.TranslationFont
-import eu.kanade.translation.presentation.PagerTranslationsView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import okio.Buffer
 import okio.BufferedSource
-import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.translation.TranslationPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import tachiyomi.i18n.MR
 
 /**
  * View of the ViewPager that contains a page of a chapter.
@@ -45,15 +36,7 @@ class PagerPageHolder(
     readerThemedContext: Context,
     val viewer: PagerViewer,
     val page: ReaderPage,
-    // TachiyomiAT
-    translationPreferences: TranslationPreferences = Injekt.get(),
-    private val font: TranslationFont = TranslationFont.fromPref(translationPreferences.translationFont()),
-    readerPreferences: ReaderPreferences = Injekt.get(),
 ) : ReaderPageImageView(readerThemedContext), ViewPagerAdapter.PositionableView {
-
-    // TachiyomiAT
-    private var showTranslations = true
-    private var translationsView: PagerTranslationsView? = null
 
     /**
      * Item that identifies this view. Needed by the adapter to not recreate views.
@@ -80,16 +63,6 @@ class PagerPageHolder(
 
     init {
         loadJob = scope.launch { loadPageAndProcessStatus() }
-        // TachiyomiAT
-        showTranslations = readerPreferences.showTranslations().get()
-        readerPreferences.showTranslations().changes().onEach {
-            showTranslations = it
-            if (it) {
-                translationsView?.show()
-            } else {
-                translationsView?.hide()
-            }
-        }.launchIn(scope)
     }
 
     /**
@@ -120,25 +93,21 @@ class PagerPageHolder(
         val loader = page.chapter.pageLoader ?: return
 
         supervisorScope {
-            launchIO {
+            launch(Dispatchers.IO) {
                 loader.loadPage(page)
             }
             page.statusFlow.collectLatest { state ->
                 when (state) {
-                    Page.State.QUEUE -> setQueued()
-                    Page.State.LOAD_PAGE -> setLoading()
-                    Page.State.DOWNLOAD_IMAGE -> {
+                    Page.State.Queue -> setQueued()
+                    Page.State.LoadPage -> setLoading()
+                    Page.State.DownloadImage -> {
                         setDownloading()
                         page.progressFlow.collectLatest { value ->
                             progressIndicator?.setProgress(value)
                         }
                     }
-                    Page.State.READY -> {
-                        setImage()
-                        // TachiyomiAT
-                        addTranslationsView()
-                    }
-                    Page.State.ERROR -> setError()
+                    Page.State.Ready -> setImage()
+                    is Page.State.Error -> setError(state.error)
                 }
             }
         }
@@ -180,8 +149,10 @@ class PagerPageHolder(
         val streamFn = page.stream ?: return
 
         try {
-            val (source, isAnimated, background) = withIOContext {
-                val source = streamFn().use { process(item, Buffer().readFrom(it)) }
+            val buffer = withContext(Dispatchers.IO) { streamFn().use { Buffer().readFrom(it) } }
+            // Splitting, merging and sampling the background decode the image, which is CPU work
+            val (source, isAnimated, background) = withContext(Dispatchers.Default) {
+                val source = process(item, buffer)
                 val isAnimated = ImageUtil.isAnimatedAndSupported(source)
                 val background = if (!isAnimated && viewer.config.automaticBackground) {
                     ImageUtil.chooseBackground(context, source.peek().inputStream())
@@ -190,7 +161,7 @@ class PagerPageHolder(
                 }
                 Triple(source, isAnimated, background)
             }
-            withUIContext {
+            withContext(Dispatchers.Main) {
                 setImage(
                     source,
                     isAnimated,
@@ -209,8 +180,8 @@ class PagerPageHolder(
             }
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e)
-            withUIContext {
-                setError()
+            withContext(Dispatchers.Main) {
+                setError(e)
             }
         }
     }
@@ -275,30 +246,22 @@ class PagerPageHolder(
     /**
      * Called when the page has an error.
      */
-    private fun setError() {
+    private fun setError(error: Throwable?) {
         progressIndicator?.hide()
-        showErrorLayout()
-        // TachiyomiAT
-        translationsView?.hide()
+        showErrorLayout(error)
     }
 
     override fun onImageLoaded() {
         super.onImageLoaded()
         progressIndicator?.hide()
-        // TachiyomiAT
-        updateTranslationCoords(pageView as SubsamplingScaleImageView)
-        // TachiyomiAT
-        translationsView?.show()
     }
 
     /**
      * Called when an image fails to decode.
      */
-    override fun onImageLoadError() {
-        super.onImageLoadError()
-        setError()
-        // TachiyomiAT
-        translationsView?.hide()
+    override fun onImageLoadError(error: Throwable?) {
+        super.onImageLoadError(error)
+        setError(error)
     }
 
     /**
@@ -307,36 +270,9 @@ class PagerPageHolder(
     override fun onScaleChanged(newScale: Float) {
         super.onScaleChanged(newScale)
         viewer.activity.hideMenu()
-        // TachiyomiAT
-        updateTranslationCoords(pageView as SubsamplingScaleImageView)
     }
 
-    // TachiyomiAT
-    override fun onCenterChanged(newCenter: PointF?) {
-        super.onCenterChanged(newCenter)
-        updateTranslationCoords(pageView as SubsamplingScaleImageView)
-    }
-
-    // TachiyomiAT
-    private fun addTranslationsView() {
-        if (page.translation == null) return
-        removeView(translationsView)
-        translationsView = PagerTranslationsView(context, translation = page.translation!!, font = font)
-        if (!showTranslations) translationsView?.hide()
-        addView(translationsView, MATCH_PARENT, MATCH_PARENT)
-    }
-
-    // TachiyomiAT
-    private fun updateTranslationCoords(vi: SubsamplingScaleImageView) {
-        if (page.translation == null) return
-        val coords = vi.sourceToViewCoord(0f, 0f)
-        if (coords != null) {
-            translationsView?.viewTLState?.value = coords
-        }
-        translationsView?.scaleState?.value = vi.scale
-    }
-
-    private fun showErrorLayout(): ReaderErrorBinding {
+    private fun showErrorLayout(error: Throwable?): ReaderErrorBinding {
         if (errorLayout == null) {
             errorLayout = ReaderErrorBinding.inflate(LayoutInflater.from(context), this, true)
             errorLayout?.actionRetry?.viewer = viewer
@@ -351,11 +287,16 @@ class PagerPageHolder(
             if (imageUrl.startsWith("http", true)) {
                 errorLayout?.actionOpenInWebView?.viewer = viewer
                 errorLayout?.actionOpenInWebView?.setOnClickListener {
-                    val intent = WebViewActivity.newIntent(context, imageUrl)
+                    val sourceId = viewer.activity.viewModel.manga?.source
+
+                    val intent = WebViewActivity.newIntent(context, imageUrl, sourceId)
                     context.startActivity(intent)
                 }
             }
         }
+
+        errorLayout?.errorMessage?.text = with(context) { error?.formattedMessage }
+            ?: context.stringResource(MR.strings.decode_image_error)
 
         errorLayout?.root?.isVisible = true
         return errorLayout!!

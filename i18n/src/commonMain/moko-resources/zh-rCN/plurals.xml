@@ -49,12 +49,24 @@
         <item quantity="other">%d 天</item>
     </plurals>
     <plurals name="num_repos">
-        <item quantity="other">%d 个仓库</item>
+        <item quantity="other">%d 个商店</item>
     </plurals>
     <plurals name="upcoming_relative_time">
         <item quantity="other">%1$d 天后</item>
     </plurals>
     <plurals name="pref_pages">
         <item quantity="other">第 %1$s 页</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.migrateTitle">
+        <item quantity="other">迁移 %1$d 个作品？</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.copyTitle">
+        <item quantity="other">复制 %1$d 作品？</item>
+    </plurals>
+    <plurals name="migrationListScreen.migrateDialog.skipText">
+        <item quantity="other">%1$d 个作品已跳过</item>
+    </plurals>
+    <plurals name="notification_update_error">
+        <item quantity="other">%1$d 更新失败</item>
     </plurals>
 </resources>

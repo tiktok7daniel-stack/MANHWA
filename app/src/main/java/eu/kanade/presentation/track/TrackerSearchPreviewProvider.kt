@@ -5,9 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.tooling.preview.datasource.LoremIpsum
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import java.time.Instant
-import java.time.temporal.ChronoUnit
+import eu.kanade.tachiyomi.util.lang.toLocalDate
 import kotlin.random.Random
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 
 internal class TrackerSearchPreviewProvider : PreviewParameterProvider<@Composable () -> Unit> {
     private val fullPageWithSecondSelected = @Composable {
@@ -20,6 +21,7 @@ internal class TrackerSearchPreviewProvider : PreviewParameterProvider<@Composab
             onSelectedChange = {},
             onConfirmSelection = {},
             onDismissRequest = {},
+            supportsPrivateTracking = false,
         )
     }
     private val fullPageWithoutSelected = @Composable {
@@ -31,6 +33,7 @@ internal class TrackerSearchPreviewProvider : PreviewParameterProvider<@Composab
             onSelectedChange = {},
             onConfirmSelection = {},
             onDismissRequest = {},
+            supportsPrivateTracking = false,
         )
     }
     private val loading = @Composable {
@@ -42,12 +45,27 @@ internal class TrackerSearchPreviewProvider : PreviewParameterProvider<@Composab
             onSelectedChange = {},
             onConfirmSelection = {},
             onDismissRequest = {},
+            supportsPrivateTracking = false,
+        )
+    }
+    private val fullPageWithPrivateTracking = @Composable {
+        val items = someTrackSearches().take(30).toList()
+        TrackerSearch(
+            state = TextFieldState(initialText = "search text"),
+            onDispatchQuery = {},
+            queryResult = Result.success(items),
+            selected = items[1],
+            onSelectedChange = {},
+            onConfirmSelection = {},
+            onDismissRequest = {},
+            supportsPrivateTracking = true,
         )
     }
     override val values: Sequence<@Composable () -> Unit> = sequenceOf(
         fullPageWithSecondSelected,
         fullPageWithoutSelected,
         loading,
+        fullPageWithPrivateTracking,
     )
 
     private fun someTrackSearches(): Sequence<TrackSearch> = sequence {
@@ -71,10 +89,16 @@ internal class TrackerSearchPreviewProvider : PreviewParameterProvider<@Composab
         it.finished_reading_date = 0L
         it.tracking_url = "https://example.com/tracker-example"
         it.cover_url = "https://example.com/cover.png"
-        it.start_date = Instant.now().minus((1L..365).random(), ChronoUnit.DAYS).toString()
+        it.start_date = Clock.System.now().minus((1L..365).random().days).toLocalDate().toString()
         it.summary = lorem((0..40).random()).joinToString()
+        it.publishing_status = if (Random.nextBoolean()) "Finished" else ""
+        it.publishing_type = if (Random.nextBoolean()) "Oneshot" else ""
+        it.artists = randomNames()
+        it.authors = randomNames()
         it
     }
+
+    private fun randomNames(): List<String> = (0..(0..3).random()).map { lorem((3..5).random()).joinToString() }
 
     private fun lorem(words: Int): Sequence<String> =
         LoremIpsum(words).values

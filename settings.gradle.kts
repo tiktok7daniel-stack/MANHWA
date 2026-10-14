@@ -1,53 +1,48 @@
 pluginManagement {
-    resolutionStrategy {
-        eachPlugin {
-            val regex = "com.android.(library|application)".toRegex()
-            if (regex matches requested.id.id) {
-                useModule("com.android.tools.build:gradle:${requested.version}")
-            }
-        }
-    }
+    includeBuild("gradle/build-logic")
     repositories {
-        gradlePluginPortal()
         google()
         mavenCentral()
+        gradlePluginPortal()
         maven(url = "https://www.jitpack.io")
     }
 }
 
 dependencyResolutionManagement {
     versionCatalogs {
-        create("kotlinx") {
-            from(files("gradle/kotlinx.versions.toml"))
-        }
-        create("androidx") {
-            from(files("gradle/androidx.versions.toml"))
-        }
-        create("compose") {
-            from(files("gradle/compose.versions.toml"))
+        create("mihonx") {
+            from(files("gradle/mihon.versions.toml"))
         }
     }
+
+    @Suppress("UnstableApiUsage")
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
+    @Suppress("UnstableApiUsage")
     repositories {
-        mavenCentral()
         google()
+        mavenCentral()
         maven(url = "https://www.jitpack.io")
     }
 }
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "TachiyomiAT"
+rootProject.name = "Mihon"
 include(":app")
+include(":baseline-profile")
 include(":core-metadata")
 include(":core:archive")
 include(":core:common")
+include(":core:metro")
 include(":data")
 include(":domain")
 include(":i18n")
-include(":i18n-at")
-include(":macrobenchmark")
+include(":icons:custom-material-symbols")
+include(":icons:material-symbols")
+include(":icons:simple-icons")
 include(":presentation-core")
 include(":presentation-widget")
 include(":source-api")
 include(":source-local")
+include(":telemetry")

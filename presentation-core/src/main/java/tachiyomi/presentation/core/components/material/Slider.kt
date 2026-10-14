@@ -6,9 +6,12 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderState
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import kotlin.math.roundToInt
 
 @Composable
 fun Slider(
@@ -16,8 +19,8 @@ fun Slider(
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    valueRange: ClosedRange<Int> = 0..1,
-    @IntRange(from = 0) steps: Int = with(valueRange) { (endInclusive - start) - 1 },
+    valueRange: IntProgression = 0..1,
+    @IntRange(from = 0) steps: Int = with(valueRange) { (last - first) - 1 },
     onValueChangeFinished: (() -> Unit)? = null,
     colors: SliderColors = SliderDefaults.colors(),
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
@@ -32,13 +35,19 @@ fun Slider(
         SliderDefaults.Track(colors = colors, enabled = enabled, sliderState = sliderState)
     },
 ) {
+    val state = key(steps, valueRange) {
+        rememberSliderState(
+            value = value.toFloat(),
+            steps = steps,
+            trackRange = with(valueRange) { first.toFloat()..last.toFloat() },
+        )
+    }
+    state.value = value.toFloat()
     Slider(
-        value = value.toFloat(),
-        onValueChange = { onValueChange(it.toInt()) },
+        state = state,
         modifier = modifier,
         enabled = enabled,
-        valueRange = with(valueRange) { start.toFloat()..endInclusive.toFloat() },
-        steps = steps,
+        onValueChange = { onValueChange(it.roundToInt()) },
         onValueChangeFinished = onValueChangeFinished,
         colors = colors,
         interactionSource = interactionSource,

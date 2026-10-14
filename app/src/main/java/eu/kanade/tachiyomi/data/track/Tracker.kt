@@ -1,13 +1,13 @@
 package eu.kanade.tachiyomi.data.track
 
 import androidx.annotation.CallSuper
-import androidx.annotation.ColorInt
 import androidx.annotation.DrawableRes
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -22,8 +22,7 @@ interface Tracker {
     // Application and remote support for reading dates
     val supportsReadingDates: Boolean
 
-    @ColorInt
-    fun getLogoColor(): Int
+    val supportsPrivateTracking: Boolean
 
     @DrawableRes
     fun getLogo(): Int
@@ -38,7 +37,7 @@ interface Tracker {
 
     fun getCompletionStatus(): Long
 
-    fun getScoreList(): ImmutableList<String>
+    fun getScoreList(): List<String>
 
     // TODO: Store all scores as 10 point in the future maybe?
     fun get10PointScore(track: DomainTrack): Double
@@ -60,13 +59,23 @@ interface Tracker {
     @CallSuper
     fun logout()
 
+    suspend fun refreshUser()
+
     val isLoggedIn: Boolean
 
     val isLoggedInFlow: Flow<Boolean>
 
+    val isRefreshingFlow: StateFlow<Boolean>
+
+    val refreshResultFlow: SharedFlow<RefreshResult>
+
     fun getUsername(): String
 
     fun getPassword(): String
+
+    fun getDisplayUsername(): String
+
+    fun saveDisplayUsername(displayName: String)
 
     fun saveCredentials(username: String, password: String)
 
@@ -82,4 +91,6 @@ interface Tracker {
     suspend fun setRemoteStartDate(track: Track, epochMillis: Long)
 
     suspend fun setRemoteFinishDate(track: Track, epochMillis: Long)
+
+    suspend fun setRemotePrivate(track: Track, private: Boolean)
 }
