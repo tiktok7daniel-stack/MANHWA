@@ -137,11 +137,14 @@ class AiTranslator(
         }
         val output = withRetry { parse(request(systemPrompt(vision = false), listOf(Part.Text(userPrompt(input, context))))) }
         collectTerms(output)
+        val kinds = output[KINDS_KEY] as? JsonObject
         for (name in batch) {
             val page = pages[name]!!
             val translated = (output[name] as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull }
+            val pageKinds = (kinds?.get(name) as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull }
             page.blocks.forEachIndexed { i, block ->
                 block.translation = translated?.getOrNull(i)?.takeIf { it.isNotBlank() } ?: block.text
+                pageKinds?.getOrNull(i)?.let { block.kind = it }
                 context.remember(block.translation)
             }
             page.blocks = page.blocks.filterNot { it.translation.contains(WATERMARK) }.toMutableList()
@@ -203,6 +206,7 @@ class AiTranslator(
                     else -> {
                         bubble.string("text")?.takeIf { it.isNotBlank() }?.let { block.text = it }
                         block.translation = translation
+                        bubble.string("kind")?.let { block.kind = it }
                         kept += block
                     }
                 }
@@ -259,6 +263,7 @@ class AiTranslator(
             symHeight = glyph,
             symWidth = glyph,
             angle = 0f,
+            kind = missed.string("kind").orEmpty(),
         )
     }
 
@@ -322,7 +327,7 @@ class AiTranslator(
             appendLine("coordinates of its slice.")
             appendLine()
             appendLine("Reply with ONLY this JSON shape:")
-            appendLine("{\"<page>\": {\"bubbles\": [{\"id\": 0, \"text\": \"<corrected source text>\", \"translation\": \"...\"}],")
+            appendLine("{\"<page>\": {\"bubbles\": [{\"id\": 0, \"text\": \"<corrected source text>\", \"translation\": \"...\", \"kind\": \"speech\"}],")
             appendLine(" \"missed\": [{\"slice\": 0, \"box_2d\": [ymin, xmin, ymax, xmax], \"text\": \"...\", \"translation\": \"...\"}]}}")
             appendLine()
             appendLine("Rules:")
@@ -333,7 +338,12 @@ class AiTranslator(
             appendLine("values are the OCR'd speech bubbles of that page in reading order.")
             appendLine()
             appendLine("Rules:")
-            appendLine("1. Reply with ONLY a JSON object with exactly the same page keys (plus \"$TERMS_KEY\" when asked), and the same number of strings per key in the same order.")
+            appendLine("1. Reply with ONLY a JSON object with exactly the same page keys (plus \"$TERMS_KEY\" and \"$KINDS_KEY\" when asked), and the same number of strings per key in the same order.")
+        }
+        appendLine("0. kind of each bubble is one of: speech, shout (yelling, battle cries), thought (inner voice, whisper),")
+        appendLine("   narration (captions), system (game/status windows, notifications), sfx (sound effects).")
+        if (!vision) {
+            appendLine("   In text mode add a top-level key \"$KINDS_KEY\" with the same page keys, listing the kind of every bubble in order.")
         }
         appendLine("2. Write natural, fluent $target the way a skilled human localizer would: keep each character's voice, tone and emotion, adapt idioms, and keep lines short enough to fit a speech bubble.")
         appendLine("3. OCR text can be noisy or split mid-sentence: use the neighbouring bubbles to recover the intended meaning and silently fix obvious OCR mistakes.")
@@ -638,6 +648,7 @@ class AiTranslator(
             Provider.OPENROUTER to listOf("openrouter/auto"),
         )
         const val TERMS_KEY = "_terms"
+        const val KINDS_KEY = "_kinds"
         const val MAX_GLOSSARY = 200
         const val WATERMARK = "RTMTH"
         const val BATCH_LINES = 120

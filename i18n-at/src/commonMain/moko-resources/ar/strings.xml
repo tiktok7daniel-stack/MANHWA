@@ -174,4 +174,11 @@
     <string name="org_keep">خلّ أقسامي الحالية كمان</string>
     <string name="org_apply">طبّق</string>
     <string name="lib_toggle_view">تبديل العرض</string>
+    <string name="style_title">شكل الترجمة</string>
+    <string name="style_subtitle">الخط والحجم والإطار</string>
+    <string name="style_font">الخط</string>
+    <string name="style_size">حجم الخط</string>
+    <string name="style_min_size">أصغر حجم</string>
+    <string name="style_spacing">تباعد الأسطر</string>
+    <string name="style_outline">إطار حول الحروف</string>
 </resources>

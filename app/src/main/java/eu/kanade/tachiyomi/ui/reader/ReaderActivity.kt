@@ -31,6 +31,7 @@ import eu.kanade.translation.live.LiveTranslationPill
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.rounded.Translate
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -298,6 +299,23 @@ class ReaderActivity : BaseActivity() {
                     .statusBarsPadding()
                     .padding(top = if (state.menuVisible) 64.dp else 8.dp),
             )
+            // "Aa": typeface, size and outline of translations, plus the live translation switch
+            var showStyle by remember { mutableStateOf(false) }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = state.menuVisible,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 64.dp, end = 12.dp),
+            ) {
+                eu.kanade.presentation.components.ManhwaKit.GhostButton(
+                    text = "Aa",
+                    icon = mihon.icons.materialsymbols.MaterialSymbols.Rounded.Translate,
+                ) { showStyle = true }
+            }
+            if (showStyle) {
+                eu.kanade.translation.style.TranslationStyleSheet(onDismiss = { showStyle = false })
+            }
             val autoScrollSpeed by readerPreferences.autoScrollSpeed.collectAsState()
             AutoScrollControl(
                 webtoon = state.viewer is WebtoonViewer,

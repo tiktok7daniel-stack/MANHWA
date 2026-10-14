@@ -106,13 +106,8 @@ class WebtoonTranslationsView :
 
     @Composable
     fun TextBlockContent(scaleFactor: Float) {
-        translation.blocks.forEach { block ->
-            SmartTranslationBlock(
-                block = block,
-                scaleFactor = scaleFactor,
-                fontFamily = fontFamily,
-            )
-        }
+        // MANHWA typesetter: Arabic fonts by bubble kind, fitted size, soft clean mask
+        BubbleLayer(translation, scaleFactor)
     }
 
     fun show() {

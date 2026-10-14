@@ -25,6 +25,21 @@ class TranslationPreferences(
     fun translationInstructions() = preferenceStore.getString("translation_instructions", "")
     fun translationVision() = preferenceStore.getBoolean("translation_vision", true)
 
+    /** Typeface of translated bubbles (index of TranslationTypeface, 0 = Auto by bubble kind). */
+    fun translationTypeface() = preferenceStore.getInt("manhwa_translation_typeface", 0)
+
+    /** Text size relative to the best fit inside each bubble (0.7 to 1.6). */
+    fun translationSizeScale() = preferenceStore.getFloat("manhwa_translation_size_scale", 1f)
+
+    /** Smallest text size in sp, so text never becomes unreadable. */
+    fun translationMinSize() = preferenceStore.getInt("manhwa_translation_min_size", 9)
+
+    /** Light outline around letters, for text over art. */
+    fun translationOutline() = preferenceStore.getBoolean("manhwa_translation_outline", true)
+
+    /** Line height multiplier. */
+    fun translationLineSpacing() = preferenceStore.getFloat("manhwa_translation_line_spacing", 1.12f)
+
     /** Translate chapters that have no saved translation while reading, page by page. */
     fun liveTranslation() = preferenceStore.getBoolean("live_translation", true)
 }

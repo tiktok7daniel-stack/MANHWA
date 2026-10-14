@@ -210,8 +210,13 @@ class PagerPageHolder(
         }
     }
 
+    /** The shown image is not the page as translated (split or rotated): bubbles would land in the wrong place. */
+    @Volatile private var imageReshaped = false
+
     private fun process(page: ReaderPage, imageSource: BufferedSource): BufferedSource {
+        imageReshaped = false
         if (viewer.config.dualPageRotateToFit) {
+            imageReshaped = ImageUtil.isWideImage(imageSource)
             return rotateDualPage(imageSource)
         }
 
@@ -220,6 +225,7 @@ class PagerPageHolder(
         }
 
         if (page is InsertPage) {
+            imageReshaped = true
             return splitInHalf(imageSource)
         }
 
@@ -229,6 +235,7 @@ class PagerPageHolder(
         }
 
         onPageSplit(page)
+        imageReshaped = true
 
         return splitInHalf(imageSource)
     }
@@ -309,7 +316,7 @@ class PagerPageHolder(
 
     // TachiyomiAT
     private fun addTranslationsView() {
-        val translation = page.translation ?: run {
+        val translation = page.translation?.takeUnless { imageReshaped } ?: run {
             removeView(translationsView)
             translationsView = null
             return

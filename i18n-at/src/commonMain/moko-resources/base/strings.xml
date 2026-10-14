@@ -234,4 +234,11 @@
     <string name="org_keep">Keep my current categories too</string>
     <string name="org_apply">Apply</string>
     <string name="lib_toggle_view">Switch view</string>
+    <string name="style_title">Translation style</string>
+    <string name="style_subtitle">Font, size and outline</string>
+    <string name="style_font">Font</string>
+    <string name="style_size">Text size</string>
+    <string name="style_min_size">Smallest size</string>
+    <string name="style_spacing">Line spacing</string>
+    <string name="style_outline">Outline around letters</string>
 </resources>

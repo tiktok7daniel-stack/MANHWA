@@ -27,4 +27,6 @@ data class TranslationBlock(
     // Bubble background sampled from the page (ARGB, 0 = unknown) and a readable text colour on top of it
     var bgColor: Int = 0,
     var textColor: Int = 0xFF000000.toInt(),
+    // Bubble kind from the AI: speech, shout, thought, narration, system or sfx ("" = unknown)
+    var kind: String = "",
 )

@@ -104,13 +104,8 @@ class PagerTranslationsView :
 
     @Composable
     fun TextBlockContent(zoomScale: Float) {
-        translation.blocks.forEach { block ->
-            SmartTranslationBlock(
-                block = block,
-                scaleFactor = zoomScale,
-                fontFamily = fontFamily,
-            )
-        }
+        // MANHWA typesetter: Arabic fonts by bubble kind, fitted size, soft clean mask
+        BubbleLayer(translation, zoomScale)
     }
 
     fun show() {
