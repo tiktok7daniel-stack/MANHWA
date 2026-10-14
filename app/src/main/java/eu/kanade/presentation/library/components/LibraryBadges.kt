@@ -1,6 +1,10 @@
 package eu.kanade.presentation.library.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.components.neonGlow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -23,7 +27,16 @@ internal fun DownloadsBadge(count: Int) {
 @Composable
 internal fun UnreadBadge(count: Long) {
     if (count > 0) {
-        Badge(text = "$count")
+        // Glowing unread count, the MANHWA way
+        Badge(
+            text = "$count",
+            modifier = Modifier.neonGlow(
+                RoundedCornerShape(6.dp),
+                MaterialTheme.colorScheme.primary,
+                0.35f,
+                6.dp,
+            ),
+        )
     }
 }
 

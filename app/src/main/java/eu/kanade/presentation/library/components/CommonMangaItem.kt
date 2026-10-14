@@ -185,6 +185,8 @@ fun MangaComfortableGridItem(
     coverBadgeStart: (@Composable RowScope.() -> Unit)? = null,
     coverBadgeEnd: (@Composable RowScope.() -> Unit)? = null,
     onClickContinueReading: (() -> Unit)? = null,
+    progress: Float? = null,
+    statusLabel: String? = null,
 ) {
     GridItemSelectable(
         isSelected = isSelected,
@@ -204,6 +206,52 @@ fun MangaComfortableGridItem(
                 badgesStart = coverBadgeStart,
                 badgesEnd = coverBadgeEnd,
                 content = {
+                    // MANHWA: soft fade at the bottom, status chip and a thin reading progress bar
+                    if (progress != null || statusLabel != null) {
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .background(
+                                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                                        0.62f to androidx.compose.ui.graphics.Color.Transparent,
+                                        1f to androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.75f),
+                                    ),
+                                ),
+                        )
+                    }
+                    if (statusLabel != null) {
+                        Text(
+                            statusLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color.White,
+                            maxLines = 1,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(start = 6.dp, bottom = 10.dp)
+                                .background(
+                                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                                    androidx.compose.foundation.shape.RoundedCornerShape(50),
+                                )
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                        )
+                    }
+                    if (progress != null) {
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomStart)
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.15f)),
+                        ) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                    .height(3.dp)
+                                    .background(MaterialTheme.colorScheme.primary),
+                            )
+                        }
+                    }
                     if (onClickContinueReading != null) {
                         ContinueReadingButton(
                             size = ContinueReadingButtonSizeLarge,

@@ -160,4 +160,18 @@
     <string name="hub_online">متصل</string>
     <string name="hub_order">ترتيب الرئيسية</string>
     <string name="hub_order_sub">استخدم الأسهم لتختار مين يظهر أول</string>
+    <string name="org_title">منظّم المكتبة الذكي</string>
+    <string name="org_subtitle">رتّب مكتبتك بضغطة</string>
+    <string name="org_failed">تعذّر ترتيب المكتبة الآن.</string>
+    <string name="org_completed_category">منتهية</string>
+    <string name="org_done">تم: اتحدّث %d عمل.</string>
+    <string name="org_instruction">قول للذكاء الاصطناعي كيف تحبها (اختياري)</string>
+    <string name="org_instruction_hint">مثلاً: قسّمها حسب النوع وخلّ قائمة للي أقرأه حالياً</string>
+    <string name="org_organize">رتّب المكتبة بالكامل</string>
+    <string name="org_completed">اجمع المانهوات المنتهية</string>
+    <string name="org_preview">معاينة</string>
+    <string name="org_preview_sub">%1$d أقسام • %2$d توزيع</string>
+    <string name="org_keep">خلّ أقسامي الحالية كمان</string>
+    <string name="org_apply">طبّق</string>
+    <string name="lib_toggle_view">تبديل العرض</string>
 </resources>

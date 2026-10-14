@@ -220,4 +220,18 @@
     <string name="hub_online">Online</string>
     <string name="hub_order">Home order</string>
     <string name="hub_order_sub">Use the arrows to choose what comes first</string>
+    <string name="org_title">AI library organizer</string>
+    <string name="org_subtitle">Sort your library in one tap</string>
+    <string name="org_failed">Could not organize the library right now.</string>
+    <string name="org_completed_category">Completed</string>
+    <string name="org_done">Done: %d series updated.</string>
+    <string name="org_instruction">Tell the AI how you like it (optional)</string>
+    <string name="org_instruction_hint">e.g. split by genre and keep a list for what I am reading now</string>
+    <string name="org_organize">Organize the whole library</string>
+    <string name="org_completed">Collect completed series</string>
+    <string name="org_preview">Preview</string>
+    <string name="org_preview_sub">%1$d categories • %2$d placements</string>
+    <string name="org_keep">Keep my current categories too</string>
+    <string name="org_apply">Apply</string>
+    <string name="lib_toggle_view">Switch view</string>
 </resources>

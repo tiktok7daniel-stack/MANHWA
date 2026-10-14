@@ -60,6 +60,16 @@ internal fun LibraryComfortableGrid(
                 } else {
                     null
                 },
+                progress = libraryItem.libraryManga.let { lm ->
+                    if (lm.totalChapters > 0) lm.readCount.toFloat() / lm.totalChapters else null
+                },
+                statusLabel = when (manga.status.toInt()) {
+                    eu.kanade.tachiyomi.source.model.SManga.ONGOING ->
+                        tachiyomi.presentation.core.i18n.stringResource(tachiyomi.i18n.at.ATMR.strings.home_ongoing)
+                    eu.kanade.tachiyomi.source.model.SManga.COMPLETED, eu.kanade.tachiyomi.source.model.SManga.PUBLISHING_FINISHED ->
+                        tachiyomi.presentation.core.i18n.stringResource(tachiyomi.i18n.at.ATMR.strings.home_completed_badge)
+                    else -> null
+                },
             )
         }
     }

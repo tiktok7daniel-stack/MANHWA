@@ -1,5 +1,11 @@
 package eu.kanade.presentation.library.components
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import tachiyomi.presentation.core.util.collectAsState
+import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.roundedfilled.ViewModule
+import mihon.icons.materialsymbols.automirroredrounded.FormatListBulleted
 import tachiyomi.i18n.at.ATMR
 import mihon.icons.materialsymbols.rounded.AutoAwesome
 import eu.kanade.translation.search.AiChatScreen
@@ -99,14 +105,36 @@ private fun LibraryRegularToolbar(
         actions = {
             val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
             val navigator = LocalNavigator.current
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val displayModePref = remember { context.appGraph.libraryPreferences.displayMode }
+            val displayMode by displayModePref.collectAsState()
             AppBarActions(
                 listOf(
                     // Danghwa AI: find any series in every source
+                    // MANHWA AI: organize the library into categories, collect completed series
                     AppBar.Action(
-                        title = stringResource(ATMR.strings.ai_chat_title),
+                        title = stringResource(ATMR.strings.org_title),
                         icon = MaterialSymbols.Rounded.AutoAwesome,
                         iconTint = MaterialTheme.colorScheme.primary,
-                        onClick = { navigator?.push(AiChatScreen()) },
+                        onClick = { navigator?.push(eu.kanade.tachiyomi.ui.library.ai.AiLibraryOrganizerScreen()) },
+                    ),
+                    // Quick switch between the card grid and the detailed list
+                    AppBar.Action(
+                        title = stringResource(ATMR.strings.lib_toggle_view),
+                        icon = if (displayMode == tachiyomi.domain.library.model.LibraryDisplayMode.List) {
+                            MaterialSymbols.RoundedFilled.ViewModule
+                        } else {
+                            MaterialSymbols.AutoMirroredRounded.FormatListBulleted
+                        },
+                        onClick = {
+                            displayModePref.set(
+                                if (displayMode == tachiyomi.domain.library.model.LibraryDisplayMode.List) {
+                                    tachiyomi.domain.library.model.LibraryDisplayMode.ComfortableGrid
+                                } else {
+                                    tachiyomi.domain.library.model.LibraryDisplayMode.List
+                                },
+                            )
+                        },
                     ),
                     AppBar.Action(
                         title = stringResource(MR.strings.action_filter),
