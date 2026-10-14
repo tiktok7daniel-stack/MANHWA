@@ -7,11 +7,16 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
+import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
+import mihon.domain.extension.interactor.AddExtensionStore
+import mihon.domain.extension.model.ContentWarning
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.transformWhile
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.MangasPage
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +65,8 @@ class DiscoverViewModel(
     private val sourcePreferences: SourcePreferences,
     private val networkToLocalManga: NetworkToLocalManga,
     private val extensionManager: ExtensionManager,
+    private val addExtensionStore: AddExtensionStore,
+    private val basePreferences: BasePreferences,
     private val getFavorites: GetFavorites,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     getUpdates: GetUpdates,
@@ -99,6 +106,8 @@ class DiscoverViewModel(
         /** Extensions from the reader's stores that are not installed yet, in enabled languages. */
         val addable: List<Extension.Available> = emptyList(),
         val installing: Map<String, InstallStep> = emptyMap(),
+        /** Progress of "install all" as done / total, null when idle. */
+        val bulk: Pair<Int, Int>? = null,
         val progress: Progress? = null,
     ) {
         val needsSetup: Boolean get() = selectedSourceIds.isEmpty()
@@ -156,6 +165,7 @@ class DiscoverViewModel(
     private var loadJob: Job? = null
 
     init {
+        setUpBuiltinStore()
         // Sources and the reader's choices are watched, so a newly installed extension shows up at once.
         combine(
             sourceManager.sources,
@@ -242,10 +252,56 @@ class DiscoverViewModel(
         sourcePreferences.homeSources.set(sourcePreferences.homeSources.get() + ids)
         viewModelScope.launch(Dispatchers.IO) {
             extensionManager.installExtension(extension)
+                .untilDone()
                 .catch { _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to InstallStep.Error)) } }
                 .collect { step -> _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to step)) } }
         }
     }
+
+    /**
+     * First run: adds the built-in extension store and turns on English and Arabic, so every source
+     * of the store is listed in My sources without the reader looking for a store link.
+     */
+    private fun setUpBuiltinStore() {
+        if (sourcePreferences.manhwaBuiltinStore.get()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            sourcePreferences.enabledLanguages.set(sourcePreferences.enabledLanguages.get() + BUILTIN_LANGUAGES)
+            addExtensionStore(BUILTIN_STORE)
+            // Already added counts as done too; any other failure is retried next time.
+            sourcePreferences.manhwaBuiltinStore.set(true)
+            runCatching { extensionManager.findAvailableExtensions() }
+        }
+    }
+
+    /** Installs every safe extension in [languages], one after another, without asking for each one. */
+    fun installAll(languages: Set<String>) {
+        if (_state.value.bulk != null) return
+        val queue = _state.value.addable.filter { it.lang in languages && it.contentWarning == ContentWarning.SAFE }
+        if (queue.isEmpty()) return
+        basePreferences.extensionInstaller.set(BasePreferences.ExtensionInstaller.PRIVATE)
+        _state.update { it.copy(bulk = 0 to queue.size) }
+        viewModelScope.launch(Dispatchers.IO) {
+            queue.forEachIndexed { index, extension ->
+                runCatching {
+                    extensionManager.installExtension(extension)
+                        .catch { emit(InstallStep.Error) }
+                        .untilDone()
+                        .collect { step ->
+                            _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to step)) }
+                        }
+                }
+                _state.update { it.copy(bulk = (index + 1) to queue.size) }
+            }
+            _state.update { it.copy(bulk = null) }
+        }
+    }
+
+    /** The installer's step flow never completes on its own; stop at the first final step. */
+    private fun Flow<InstallStep>.untilDone() =
+        transformWhile { step ->
+            emit(step)
+            !step.isCompleted()
+        }
 
     fun setSourceFilter(sourceId: Long?) {
         _state.update { it.copy(sourceFilter = sourceId) }
@@ -326,5 +382,7 @@ class DiscoverViewModel(
         const val SOURCE_TIMEOUT_MS = 30_000L
         const val MAX_PER_LIST = 20
         const val AUTO_PICK = 6
+        const val BUILTIN_STORE = "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json"
+        val BUILTIN_LANGUAGES = setOf("en", "ar", "all")
     }
 }

@@ -51,7 +51,9 @@ import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.source.Source
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
+import mihon.domain.extension.model.ContentWarning
 import mihon.icons.materialsymbols.rounded.Check
+import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Search
@@ -70,6 +72,8 @@ fun HomeSourcesSheet(
     selected: Set<String>,
     addable: List<Extension.Available>,
     installing: Map<String, InstallStep>,
+    bulk: Pair<Int, Int>?,
+    onInstallAll: (Set<String>) -> Unit,
     onToggle: (String) -> Unit,
     onAutoPick: () -> Unit,
     onInstall: (Extension.Available) -> Unit,
@@ -179,6 +183,49 @@ fun HomeSourcesSheet(
                     ) { Icon(MaterialSymbols.Rounded.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) }
                 }
             }
+            if (bulk != null) {
+                item(key = "bulk") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .glass(RoundedCornerShape(18.dp), accent = true, alpha = 0.45f)
+                            .padding(16.dp),
+                    ) {
+                        Text(
+                            stringResource(ATMR.strings.src_installing_all, bulk.first, bulk.second),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Box(
+                            Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50))
+                                .background(Color.White.copy(alpha = 0.1f)),
+                        ) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth((bulk.first.toFloat() / bulk.second.coerceAtLeast(1)).coerceIn(0.02f, 1f))
+                                    .height(6.dp)
+                                    .neonGlow(RoundedCornerShape(50), colors.primary, 0.3f, 6.dp)
+                                    .background(colors.primary, RoundedCornerShape(50)),
+                            )
+                        }
+                    }
+                }
+            } else if (addable.isNotEmpty()) {
+                item(key = "bulk-buttons") {
+                    val arabic = addable.count { it.lang == "ar" && it.contentWarning == ContentWarning.SAFE }
+                    val english = addable.count { it.lang == "en" && it.contentWarning == ContentWarning.SAFE }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (arabic > 0) {
+                            BulkCard(stringResource(ATMR.strings.src_all_arabic), arabic, Modifier.weight(1f)) { onInstallAll(setOf("ar")) }
+                        }
+                        if (english > 0) {
+                            BulkCard(stringResource(ATMR.strings.src_all_english), english, Modifier.weight(1f)) { onInstallAll(setOf("en")) }
+                        }
+                    }
+                }
+            }
             if (addable.isEmpty()) {
                 item(key = "no-store") {
                     Column(
@@ -248,6 +295,29 @@ fun HomeSourcesSheet(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BulkCard(title: String, count: Int, modifier: Modifier, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier = modifier
+            .neonGlow(RoundedCornerShape(20.dp), colors.primary, 0.18f, 10.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Brush.linearGradient(listOf(lerp(colors.primary, Color.Black, 0.35f), Color(0xFF120A0D))))
+            .border(1.dp, colors.primary.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+    ) {
+        Icon(MaterialSymbols.Rounded.Download, contentDescription = null, tint = Color.White)
+        Spacer(Modifier.height(8.dp))
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+        Text(
+            stringResource(ATMR.strings.src_count, count),
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
     }
 }
 

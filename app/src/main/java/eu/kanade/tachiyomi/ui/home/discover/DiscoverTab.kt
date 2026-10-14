@@ -481,6 +481,8 @@ data object DiscoverTab : Tab {
                 selected = state.selectedSourceIds,
                 addable = state.addable,
                 installing = state.installing,
+                bulk = state.bulk,
+                onInstallAll = viewModel::installAll,
                 onToggle = viewModel::toggleSource,
                 onAutoPick = viewModel::autoPick,
                 onInstall = viewModel::install,

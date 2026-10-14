@@ -141,4 +141,7 @@
     <string name="src_add_store">Add store</string>
     <string name="src_count">%d sources</string>
     <string name="src_manage">Manage all extensions</string>
+    <string name="src_all_arabic">All Arabic sources</string>
+    <string name="src_all_english">All English sources</string>
+    <string name="src_installing_all">Installing %1$d of %2$d…</string>
 </resources>

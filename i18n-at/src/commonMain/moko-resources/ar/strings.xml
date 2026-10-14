@@ -81,4 +81,7 @@
     <string name="src_add_store">إضافة مستودع</string>
     <string name="src_count">%d مصادر</string>
     <string name="src_manage">إدارة كل الإضافات</string>
+    <string name="src_all_arabic">كل المصادر العربية</string>
+    <string name="src_all_english">كل المصادر الإنجليزية</string>
+    <string name="src_installing_all">جاري التثبيت %1$d من %2$d…</string>
 </resources>
