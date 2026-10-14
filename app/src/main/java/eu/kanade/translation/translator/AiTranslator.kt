@@ -52,16 +52,18 @@ class AiTranslator(
     private val maxOutputTokens: Int,
     private val temperature: Float,
     private val instructions: String,
+    /** Called when a retired model was replaced by a working one, so the choice can be saved. */
+    private val onModelReplaced: (String) -> Unit = {},
 ) : TextTranslator {
 
     enum class Provider(val defaultModel: String, val defaultBaseUrl: String) {
-        GEMINI("gemini-2.5-flash", "https://generativelanguage.googleapis.com/v1beta"),
+        GEMINI("gemini-3.8-flash", "https://generativelanguage.googleapis.com/v1beta"),
         OPENROUTER("google/gemini-2.5-flash", "https://openrouter.ai/api/v1"),
         OPENAI_COMPATIBLE("gpt-4o-mini", "https://api.openai.com/v1"),
         CLAUDE("claude-opus-5-5", "https://api.anthropic.com/v1"),
     }
 
-    private val model = model.ifBlank { provider.defaultModel }
+    @Volatile private var model = model.ifBlank { provider.defaultModel }
     private val baseUrl = baseUrl.ifBlank { provider.defaultBaseUrl }.trimEnd('/')
 
     private val client = OkHttpClient.Builder()
@@ -526,12 +528,39 @@ class AiTranslator(
         return json.parseToJsonElement(reply.substring(start, end + 1)).jsonObject
     }
 
+    /**
+     * When the provider says the model is gone (Google retires Gemini models for new keys), switches to the
+     * model it recommends, or to the newest default, and reports it so the setting is updated.
+     */
+    private fun replaceRetiredModel(e: ApiException): Boolean {
+        if (e.code != 404 && e.code != 400) return false
+        val body = e.message.orEmpty()
+        if (!body.contains("model", ignoreCase = true) ||
+            !(body.contains("not found", ignoreCase = true) || body.contains("no longer available", ignoreCase = true) ||
+                body.contains("NOT_FOUND") || body.contains("deprecated", ignoreCase = true))
+        ) {
+            return false
+        }
+        val suggested = Regex("""use (?:models/)?([A-Za-z0-9][A-Za-z0-9._]*-[A-Za-z0-9._\-]+)""", RegexOption.IGNORE_CASE)
+            .find(body)?.groupValues?.get(1)?.trimEnd('.')
+        val next = suggested?.takeIf { it != model } ?: provider.defaultModel.takeIf { it != model } ?: return false
+        logcat(LogPriority.WARN) { "Model $model is retired, switching to $next" }
+        model = next
+        onModelReplaced(next)
+        return true
+    }
+
     private suspend fun <T> withRetry(block: suspend () -> T): T {
         var wait = 2_000L
+        var replaced = 0
         repeat(MAX_ATTEMPTS - 1) { attempt ->
             try {
                 return block()
             } catch (e: Exception) {
+                if (e is ApiException && replaced < 2 && replaceRetiredModel(e)) {
+                    replaced++
+                    return@repeat
+                }
                 if (e is ApiException && e.code in 400..499 && e.code != 408 && e.code != 429) throw e
                 logcat(LogPriority.WARN, e) { "AI translation attempt ${attempt + 1} failed, retrying" }
                 delay(wait)
@@ -546,7 +575,15 @@ class AiTranslator(
         client.connectionPool.evictAll()
     }
 
-    class ApiException(val code: Int, body: String) : IOException("HTTP $code: $body")
+    class ApiException(val code: Int, body: String) : IOException("HTTP $code: ${readable(body)}") {
+        private companion object {
+            /** The provider's own error message when the body is JSON, otherwise the body. */
+            fun readable(body: String): String =
+                Regex(""""message"\s*:\s*"((?:[^"\\]|\\.)*)"""").find(body)?.groupValues?.get(1)
+                    ?.replace("\\n", " ")?.replace("\\\"", "\"")
+                    ?: body
+        }
+    }
 
     private companion object {
         const val TERMS_KEY = "_terms"

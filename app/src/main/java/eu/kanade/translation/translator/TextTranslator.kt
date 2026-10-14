@@ -42,6 +42,7 @@ enum class TextTranslators(val label: String, val needsApiKey: Boolean = false) 
             maxOutputTokens = pref.translationEngineMaxOutputTokens().get().toIntOrNull() ?: 16000,
             temperature = pref.translationEngineTemperature().get().toFloatOrNull() ?: 0.4f,
             instructions = pref.translationInstructions().get(),
+            onModelReplaced = { pref.translationEngineModel().set(it) },
         )
         return when (this) {
             MLKIT -> MLKitTranslator(fromLang, toLang)
