@@ -205,6 +205,16 @@ dependencies {
     baselineProfile(projects.baselineProfile)
 
     implementation(projects.i18n)
+    implementation(projects.i18nAt)
+
+    // TachiyomiAT translation
+    implementation(libs.mlkit.text.recognition)
+    implementation(libs.mlkit.text.recognition.chinese)
+    implementation(libs.mlkit.text.recognition.japanese)
+    implementation(libs.mlkit.text.recognition.korean)
+    implementation(libs.mlkit.text.translate)
+    implementation(libs.google.generativeai)
+
     implementation(projects.icons.customMaterialSymbols)
     implementation(projects.icons.materialSymbols)
     implementation(projects.icons.simpleIcons)
