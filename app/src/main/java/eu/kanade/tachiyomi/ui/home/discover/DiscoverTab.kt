@@ -213,9 +213,6 @@ data object DiscoverTab : Tab {
                         MenuEntry(MaterialSymbols.Rounded.LocalLibrary, stringResource(ATMR.strings.home_library)) {
                             closeDrawerThen { tabNavigator.current = LibraryTab }
                         },
-                        MenuEntry(MaterialSymbols.Rounded.Notifications, stringResource(ATMR.strings.home_updates)) {
-                            closeDrawerThen { navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen()) }
-                        },
                         MenuEntry(MaterialSymbols.Rounded.Schedule, stringResource(ATMR.strings.home_history)) {
                             closeDrawerThen { tabNavigator.current = HistoryTab }
                         },
@@ -277,9 +274,6 @@ data object DiscoverTab : Tab {
                                 listOf(
                                     QuickAction(MaterialSymbols.Rounded.LocalLibrary, stringResource(ATMR.strings.home_library), Color(0xFFFF5A6A)) {
                                         tabNavigator.current = LibraryTab
-                                    },
-                                    QuickAction(MaterialSymbols.RoundedFilled.Bolt, stringResource(ATMR.strings.home_updates), Color(0xFFFFB020)) {
-                                        navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen())
                                     },
                                     QuickAction(MaterialSymbols.Rounded.Schedule, stringResource(ATMR.strings.home_history), Color(0xFF4FC3F7)) {
                                         tabNavigator.current = HistoryTab
