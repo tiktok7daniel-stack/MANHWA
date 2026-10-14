@@ -269,7 +269,7 @@ class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .glass(RoundedCornerShape(14.dp), alpha = 0.35f)
-                            .clickable { context.startActivity(Intent(Intent.ACTION_VIEW, site.url.toUri())) }
+                            .clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, site.url.toUri())) } }
                             .padding(12.dp),
                     ) {
                         Text(site.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)

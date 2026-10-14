@@ -507,16 +507,27 @@ class AiTranslator(
     }
 
     private fun extractText(root: JsonObject): String = when (provider) {
-        Provider.GEMINI -> root["candidates"]!!.jsonArray[0].jsonObject["content"]!!.jsonObject["parts"]!!
-            .jsonArray.joinToString("") { it.jsonObject["text"]?.jsonPrimitive?.contentOrNull.orEmpty() }
-        Provider.OPENROUTER, Provider.OPENAI_COMPATIBLE -> root["choices"]!!.jsonArray[0].jsonObject["message"]!!
-            .jsonObject["content"]!!.jsonPrimitive.content
+        Provider.GEMINI -> {
+            val candidate = (root["candidates"] as? JsonArray)?.firstOrNull() as? JsonObject
+            val parts = ((candidate?.get("content") as? JsonObject)?.get("parts") as? JsonArray)
+                ?: throw IOException(
+                    "Gemini returned no text (" +
+                        ((candidate?.get("finishReason") as? JsonPrimitive)?.contentOrNull
+                            ?: ((root["promptFeedback"] as? JsonObject)?.get("blockReason") as? JsonPrimitive)?.contentOrNull
+                            ?: "empty reply") + ")",
+                )
+            parts.joinToString("") { (it as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty() }
+        }
+        Provider.OPENROUTER, Provider.OPENAI_COMPATIBLE -> {
+            val message = (((root["choices"] as? JsonArray)?.firstOrNull() as? JsonObject)?.get("message") as? JsonObject)
+            (message?.get("content") as? JsonPrimitive)?.contentOrNull ?: throw IOException("The AI returned no text")
+        }
         Provider.CLAUDE -> {
             val stopReason = root["stop_reason"]?.jsonPrimitive?.contentOrNull
             if (stopReason == "refusal") throw IOException("Claude declined to translate this batch")
-            root["content"]!!.jsonArray
-                .filter { it.jsonObject["type"]?.jsonPrimitive?.contentOrNull == "text" }
-                .joinToString("") { it.jsonObject["text"]!!.jsonPrimitive.content }
+            ((root["content"] as? JsonArray) ?: throw IOException("Claude returned no text"))
+                .filter { (it as? JsonObject)?.get("type")?.jsonPrimitive?.contentOrNull == "text" }
+                .joinToString("") { (it as JsonObject)["text"]?.jsonPrimitive?.contentOrNull.orEmpty() }
         }
     }
 

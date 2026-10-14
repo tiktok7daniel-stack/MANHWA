@@ -71,7 +71,7 @@ class HomeIntelligence(
         val daysAgo: Int?,
     )
 
-    private var alertsCache: Pair<Long, List<SourceAlert>>? = null
+    @Volatile private var alertsCache: Pair<Long, List<SourceAlert>>? = null
 
     fun aiConfigured(): Boolean {
         val engine = TextTranslators.fromPref(translationPreferences.translationEngine())
@@ -158,10 +158,8 @@ class HomeIntelligence(
             val pick = exact ?: page.mangas.firstOrNull()?.takeIf { fallback == null && normalize(it.title).contains(wanted) }
             if (pick != null) {
                 val local = runCatching { networkToLocalManga(listOf(pick.toDomainManga(source.id))).first() }.getOrNull()
-                if (local != null) {
-                    if (exact != null) return local to source
-                    fallback = local to source
-                }
+                // Stop at the first good match instead of searching every source
+                if (local != null) return local to source
             }
         }
         return fallback

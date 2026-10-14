@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.home
 
+import androidx.compose.foundation.layout.fillMaxHeight
+
 import eu.kanade.presentation.components.neonGlow
 import androidx.compose.foundation.layout.offset
 
@@ -282,11 +284,13 @@ object HomeScreen : Screen() {
                 .navigationBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
+            // The glass is drawn behind the row, so nothing in the row (the AI orb's glow) gets clipped
+            Box(Modifier.matchParentSize().glass(RoundedCornerShape(28.dp), accent = true, alpha = 0.85f))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .glass(RoundedCornerShape(28.dp), accent = true, alpha = 0.85f)
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                    .height(66.dp)
+                    .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TABS.forEachIndexed { index, tab ->
@@ -346,18 +350,19 @@ object HomeScreen : Screen() {
     private fun RowScope.AiCenterButton(onClick: () -> Unit) {
         val colors = MaterialTheme.colorScheme
         val halo by rememberInfiniteTransition(label = "orb").animateFloat(
-            initialValue = 0.85f,
-            targetValue = 1.15f,
+            initialValue = 0.9f,
+            targetValue = 1.08f,
             animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse),
             label = "halo",
         )
+        // Same width as every tab, so the orb sits exactly in the middle of the bar
         Box(
-            modifier = Modifier.weight(1f).height(58.dp).offset(y = (-16).dp),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 modifier = Modifier
-                    .size(70.dp)
+                    .size(60.dp)
                     .graphicsLayer {
                         scaleX = halo
                         scaleY = halo
@@ -369,8 +374,8 @@ object HomeScreen : Screen() {
             )
             Box(
                 modifier = Modifier
-                    .size(58.dp)
-                    .neonGlow(CircleShape, colors.primary, 0.35f, 14.dp)
+                    .size(50.dp)
+                    .neonGlow(CircleShape, colors.primary, 0.35f, 10.dp)
                     .border(1.5.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                     .background(
                         Brush.linearGradient(listOf(colors.primary, Color(0xFF9B5CFF))),

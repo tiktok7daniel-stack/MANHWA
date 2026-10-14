@@ -23,6 +23,7 @@ class PageImage(val tiles: List<Tile>) {
 object PageImageProcessor {
 
     private const val TARGET_WIDTH = 1024
+    private const val MAX_PIXELS = 12_000_000L
     private const val MAX_TILE_RATIO = 1.6f
     private const val JPEG_QUALITY = 85
 
@@ -35,6 +36,8 @@ object PageImageProcessor {
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
         var sample = 1
         while (bounds.outWidth / (sample * 2) >= TARGET_WIDTH) sample *= 2
+        // Very tall webtoon strips: also keep the whole bitmap within a safe memory budget
+        while (bounds.outWidth.toLong() / sample * (bounds.outHeight.toLong() / sample) > MAX_PIXELS) sample *= 2
         val options = BitmapFactory.Options().apply { inSampleSize = sample }
         val bitmap = open().use { BitmapFactory.decodeStream(it, null, options) } ?: return null
         return Decoded(bitmap, bitmap.width.toFloat() / bounds.outWidth)

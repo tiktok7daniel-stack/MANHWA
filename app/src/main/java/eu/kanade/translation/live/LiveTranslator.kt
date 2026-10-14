@@ -75,7 +75,8 @@ class LiveTranslator(
     /** Translated pages of this app session, keyed by chapter id and page index. */
     private val cache = LruCache<String, PageTranslation>(CACHE_PAGES)
 
-    private fun key(page: ReaderPage) = "${page.chapter.chapter.id}:${page.index}"
+    private fun key(page: ReaderPage) =
+        "${page.chapter.chapter.id}:${page.index}:${preferences.translateToLanguage().get()}:${preferences.translationEngine().get()}"
 
     fun session(scope: CoroutineScope, mangaId: () -> Long?, sourceLang: () -> String?): Session =
         Session(scope, mangaId, sourceLang)
@@ -96,8 +97,14 @@ class LiveTranslator(
         @Volatile private var paused = false
         private val failed = HashSet<ReaderPage>()
         private val wake = Channel<Unit>(Channel.CONFLATED)
-        private var recognizer: TextRecognizer? = null
-        private var translator: TextTranslator? = null
+        @Volatile private var recognizer: TextRecognizer? = null
+
+        @Volatile private var translator: TextTranslator? = null
+
+        /** Set from the UI; the worker rebuilds its engine before the next page instead of closing it mid-call. */
+        @Volatile private var resetEngine = false
+
+        @Volatile private var lastError: String? = null
 
         init {
             scope.launch(Dispatchers.IO) {
@@ -132,6 +139,7 @@ class LiveTranslator(
             preferences.liveTranslation().set(enabled)
             paused = false
             synchronized(failed) { failed.clear() }
+            lastError = null
             publish(error = null)
             wake.trySend(Unit)
         }
@@ -145,9 +153,9 @@ class LiveTranslator(
         /** Tries the pages that failed again (after a network or API problem). */
         fun retry() {
             synchronized(failed) { failed.clear() }
-            translator?.close()
-            translator = null
+            resetEngine = true
             paused = false
+            lastError = null
             publish(error = null)
             wake.trySend(Unit)
         }
@@ -159,8 +167,8 @@ class LiveTranslator(
                 cache.remove(key(page))
                 page.translation = null
             }
-            translator?.close()
-            translator = null
+            resetEngine = true
+            lastError = null
             preferences.liveTranslation().set(true)
             paused = false
             publish(error = null)
@@ -191,14 +199,20 @@ class LiveTranslator(
                     if (e is CancellationException) throw e
                     logcat(LogPriority.ERROR, e) { "Live translation failed on page ${next.number}" }
                     synchronized(failed) { failed += next }
-                    publish(error = e.message?.take(160) ?: e.javaClass.simpleName)
+                    // Network and API problems stop the queue until Retry; a bad page only skips that page
+                    if (e is java.io.IOException) {
+                        lastError = e.message?.take(160) ?: e.javaClass.simpleName
+                        publish(error = lastError)
+                    } else {
+                        publish()
+                    }
                 }
             }
         }
 
         private fun canWork(): Boolean =
             preferences.liveTranslation().get() && !paused && readerPreferences.showTranslations.get() &&
-                _status.value.error == null
+                lastError == null
 
         /** The page on screen first, then the next pages that are loaded and not translated yet. */
         private fun pick(): ReaderPage? {
@@ -236,6 +250,11 @@ class LiveTranslator(
                 recognizer?.close()
                 recognizer = it
             }
+            if (resetEngine) {
+                resetEngine = false
+                translator?.close()
+                translator = null
+            }
             val engine = translator?.takeIf { it.fromLang == from && it.toLang == to }
                 ?: TextTranslators.fromPref(preferences.translationEngine()).build(preferences, from, to).also {
                     translator?.close()
@@ -243,7 +262,8 @@ class LiveTranslator(
                 }
 
             // 1. Read the page and find the bubbles
-            val bytes = page.stream!!().use { it.readBytes() }
+            val stream = page.stream ?: return null
+            val bytes = stream().use { it.readBytes() }
             val decoded = PageImageProcessor.decode { ByteArrayInputStream(bytes) } ?: return null
             val result: PageTranslation
             val images = mutableMapOf<String, PageImage>()
@@ -278,7 +298,8 @@ class LiveTranslator(
             if (id != null) {
                 glossaryStore.get(id).filter { it.edited }.forEach { entry ->
                     result.blocks.forEach { block ->
-                        if (block.text.contains(entry.source, ignoreCase = true) && !block.translation.contains(entry.translation)) {
+                        // The model left the original term untranslated: put the reader's translation in
+                        if (block.text.contains(entry.source, ignoreCase = true) && block.translation.contains(entry.source, ignoreCase = true)) {
                             block.translation = block.translation.replace(entry.source, entry.translation, ignoreCase = true)
                         }
                     }
@@ -290,10 +311,13 @@ class LiveTranslator(
         private suspend fun applyGlossaryEdit(edit: GlossaryStore.Edit) {
             val changed = pages.mapNotNull { page ->
                 val current = page.translation ?: return@mapNotNull null
-                if (current.blocks.none { it.translation.contains(edit.oldTranslation) }) return@mapNotNull null
+                val word = Regex("(?<![\\p{L}\\p{N}])" + Regex.escape(edit.oldTranslation) + "(?![\\p{L}\\p{N}])")
+                fun touches(block: eu.kanade.translation.model.TranslationBlock) =
+                    block.text.contains(edit.source, ignoreCase = true) && word.containsMatchIn(block.translation)
+                if (current.blocks.none(::touches)) return@mapNotNull null
                 val updated = current.copy(
                     blocks = current.blocks.map {
-                        it.copy(translation = it.translation.replace(edit.oldTranslation, edit.newTranslation))
+                        if (touches(it)) it.copy(translation = word.replace(it.translation, Regex.escapeReplacement(edit.newTranslation))) else it
                     }.toMutableList(),
                 )
                 page to updated
@@ -307,14 +331,15 @@ class LiveTranslator(
             }
         }
 
-        private fun publish(working: Int? = _status.value.workingPage, error: String? = _status.value.error) {
+        private fun publish(working: Int? = _status.value.workingPage, error: String? = lastError) {
             val list = pages
             val translated = list.count { it.translation != null }
             val focusPage = list.getOrNull(focus)
+            val focusDone = focusPage != null && (focusPage.translation != null || synchronized(failed) { focusPage in failed })
             val phase = when {
                 !preferences.liveTranslation().get() -> Phase.OFF
                 error != null -> Phase.ERROR
-                paused -> Phase.PAUSED
+                paused || !readerPreferences.showTranslations.get() -> Phase.PAUSED
                 working != null -> Phase.WORKING
                 list.isNotEmpty() && translated + synchronized(failed) { failed.size } >= list.size -> Phase.DONE
                 else -> Phase.IDLE
@@ -323,7 +348,7 @@ class LiveTranslator(
                 phase = phase,
                 workingPage = working,
                 focusPage = focus + 1,
-                focusReady = focusPage?.translation != null,
+                focusReady = focusDone,
                 translated = translated,
                 total = list.size,
                 error = error,

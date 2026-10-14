@@ -107,18 +107,24 @@ fun LiveTranslationPill(
         }
     }
     val working = phase == LiveTranslator.Phase.WORKING
-    val visible = menuVisible || when (phase) {
+    val visible = phase != LiveTranslator.Phase.OFF && (menuVisible || when (phase) {
         LiveTranslator.Phase.OFF -> false
         LiveTranslator.Phase.DONE -> justFinished
         LiveTranslator.Phase.IDLE -> status.total > 0 && !status.focusReady
         else -> true
+    })
+    // The pulse only runs while a page is being translated, so an idle pill costs nothing
+    val pulseState = if (working) {
+        rememberInfiniteTransition(label = "live").animateFloat(
+            initialValue = 0.35f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse),
+            label = "pulse",
+        )
+    } else {
+        null
     }
-    val pulse by rememberInfiniteTransition(label = "live").animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse),
-        label = "pulse",
-    )
+    val pulse = pulseState?.value ?: 1f
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn() + expandHorizontally(),

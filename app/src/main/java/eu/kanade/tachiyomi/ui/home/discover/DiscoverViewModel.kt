@@ -18,6 +18,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -180,9 +182,14 @@ class DiscoverViewModel(
                 _state.update { it.copy(availableSources = available, selectedSourceIds = ids) }
                 val loadedIds = before.feeds.map { "${it.source.id}" }.toSet()
                 val nowIds = ids.filter { id -> available.any { "${it.id}" == id } }.toSet()
-                if (loadedIds != nowIds) {
-                    _state.update { it.copy(sourceFilter = null) }
-                    load()
+                when {
+                    loadedIds == nowIds -> Unit
+                    loadedIds.isEmpty() -> load()
+                    // Only the sources that were added or removed change; the other feeds stay as they are
+                    else -> changeFeeds(
+                        added = available.filter { "${it.id}" in nowIds && "${it.id}" !in loadedIds },
+                        removed = loadedIds - nowIds,
+                    )
                 }
             }
             .launchIn(viewModelScope)
@@ -273,23 +280,41 @@ class DiscoverViewModel(
             coroutineScope {
                 sources.map { source ->
                     async {
-                        gate.withPermit {
-                            val latest = fetch(source) { source.getLatestUpdates(1) }
-                            val popular = fetch(source) { source.getPopularManga(1) }
-                            val feed = SourceFeed(
-                                source = source,
-                                latest = latest.orEmpty(),
-                                popular = popular.orEmpty(),
-                                loading = false,
-                                failed = latest == null && popular == null,
-                            )
-                            _state.update { s -> s.copy(feeds = s.feeds.map { if (it.source.id == source.id) feed else it }) }
-                        }
+                        gate.withPermit { loadFeed(source) }
                     }
                 }.awaitAll()
             }
             _state.update { it.copy(refreshing = false) }
-            loadIntelligence(force = refreshing)
+            // Pull to refresh only reloads the feeds; picks and alerts keep their own cache times
+            loadIntelligence(force = false)
+        }
+    }
+
+    private suspend fun loadFeed(source: Source) {
+        val latest = fetch(source) { source.getLatestUpdates(1) }
+        val popular = fetch(source) { source.getPopularManga(1) }
+        currentCoroutineContext().ensureActive()
+        val feed = SourceFeed(
+            source = source,
+            latest = latest.orEmpty(),
+            popular = popular.orEmpty(),
+            loading = false,
+            failed = latest == null && popular == null,
+        )
+        _state.update { s -> s.copy(feeds = s.feeds.map { if (it.source.id == source.id) feed else it }) }
+    }
+
+    private fun changeFeeds(added: List<Source>, removed: Set<String>) {
+        _state.update { s ->
+            s.copy(
+                feeds = s.feeds.filterNot { "${it.source.id}" in removed } + added.map { SourceFeed(it) },
+                sourceFilter = s.sourceFilter?.takeIf { id -> "$id" !in removed },
+            )
+        }
+        if (added.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val gate = Semaphore(PARALLEL_SOURCES)
+            coroutineScope { added.map { source -> async { gate.withPermit { loadFeed(source) } } }.awaitAll() }
         }
     }
 
@@ -298,7 +323,7 @@ class DiscoverViewModel(
         if (_state.value.recommendations.isEmpty()) {
             _state.update { it.copy(recommendations = intelligence.cachedRecommendations()) }
         }
-        if (force || !intelligence.recommendationsAreFresh() || _state.value.recommendations.isEmpty()) {
+        if (force || !intelligence.recommendationsAreFresh()) {
             loadRecommendations(sources)
         }
         val alerts = runCatching { intelligence.alerts(sources, force) }
@@ -317,13 +342,20 @@ class DiscoverViewModel(
         runCatching { intelligence.recommend(sources) }
             .onSuccess { list -> _state.update { it.copy(recommendations = list, recsLoading = false) } }
             .onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) {
+                    _state.update { it.copy(recsLoading = false) }
+                    throw e
+                }
                 logcat(LogPriority.ERROR, e)
                 _state.update { it.copy(recsLoading = false, recsProblem = if (it.recommendations.isEmpty()) RecsProblem.FAILED else null) }
             }
     }
 
+    private var recsJob: Job? = null
+
     fun refreshRecommendations() {
-        viewModelScope.launch(Dispatchers.IO) {
+        if (recsJob?.isActive == true) return
+        recsJob = viewModelScope.launch(Dispatchers.IO) {
             loadRecommendations(_state.value.feeds.filterNot { it.failed }.map { it.source })
         }
     }
@@ -339,7 +371,15 @@ class DiscoverViewModel(
     }
 
     private suspend fun fetch(source: Source, call: suspend () -> MangasPage): List<Manga>? {
-        val page = withTimeoutOrNull(SOURCE_TIMEOUT_MS) { runCatching { call() }.getOrNull() } ?: return null
+        val page = withTimeoutOrNull(SOURCE_TIMEOUT_MS) {
+            try {
+                call()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+        } ?: return null
         val mangas = page.mangas.take(MAX_PER_LIST).map { it.toDomainManga(source.id) }.distinctBy { it.url }
         return runCatching { networkToLocalManga(mangas) }.getOrNull()
     }

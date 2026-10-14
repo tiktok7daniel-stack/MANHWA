@@ -49,6 +49,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.encodeToStream
 import logcat.LogPriority
 import mihon.core.archive.archiveReader
@@ -72,6 +73,8 @@ class ChapterTranslator(
     private val translationPreferences: TranslationPreferences,
     private val glossaryStore: GlossaryStore,
 ) {
+
+    private val translationMutex = kotlinx.coroutines.sync.Mutex()
 
     private val _queueState = MutableStateFlow<List<Translation>>(emptyList())
     val queueState = _queueState.asStateFlow()
@@ -169,7 +172,8 @@ class ChapterTranslator(
 
     private fun CoroutineScope.launchTranslationJob(translation: Translation) = launchIO {
         try {
-            translateChapter(translation)
+            // One chapter at a time: the recognizer, translator and glossary are shared
+            translationMutex.withLock { translateChapter(translation) }
             if (translation.status == Translation.State.TRANSLATED) {
                 removeFromQueue(translation)
             }
@@ -275,7 +279,7 @@ class ChapterTranslator(
                 pages.entries.removeAll { it.value.blocks.isEmpty() }
             }
             // Serialize the Map and save to translations json file
-            Json.encodeToStream(pages, translationMangaDir.createFile(saveFile)!!.openOutputStream())
+            translationMangaDir.createFile(saveFile)!!.openOutputStream().use { Json.encodeToStream(pages, it) }
             translation.status = Translation.State.TRANSLATED
             context.notify(
                 Notifications.ID_NEW_CHAPTERS - 1000 - (translation.chapter.id % 1000).toInt(),

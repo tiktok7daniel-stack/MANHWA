@@ -63,6 +63,7 @@ import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.AsyncImage
+import coil3.request.allowHardware
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -126,11 +127,17 @@ class WrappedViewModel(
     private val _state = MutableStateFlow<Wrapped?>(null)
     val state = _state.asStateFlow()
 
+    private val _failed = MutableStateFlow(false)
+    val failed = _failed.asStateFlow()
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching { build() }
                 .onSuccess { _state.value = it }
-                .onFailure { logcat(LogPriority.ERROR, it) }
+                .onFailure {
+                    logcat(LogPriority.ERROR, it)
+                    _failed.value = true
+                }
         }
     }
 
@@ -206,8 +213,13 @@ class WrappedScreen : Screen() {
                 )
                 val data = wrapped
                 if (data == null) {
+                    val failed by viewModel.failed.collectAsState()
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(strokeWidth = 2.dp)
+                        if (failed) {
+                            Text(stringResource(ATMR.strings.recs_failed), color = Color.White.copy(alpha = 0.7f))
+                        } else {
+                            CircularProgressIndicator(strokeWidth = 2.dp)
+                        }
                     }
                     return@Column
                 }
@@ -367,7 +379,11 @@ class WrappedScreen : Screen() {
                                     .border(1.dp, if (index == 0) colors.primary else Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
                             ) {
                                 AsyncImage(
-                                    model = item.cover,
+                                    // Software bitmaps, so the poster can be drawn into the shared picture
+                                    model = coil3.request.ImageRequest.Builder(LocalContext.current)
+                                        .data(item.cover)
+                                        .allowHardware(false)
+                                        .build(),
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     placeholder = ColorPainter(Color(0x1F888888)),

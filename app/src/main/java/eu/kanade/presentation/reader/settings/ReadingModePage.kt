@@ -34,6 +34,12 @@ internal fun ColumnScope.ReadingModePage(viewModel: ReaderSettingsViewModel) {
         label = stringResource(ATMR.strings.pref_show_translations),
         pref = viewModel.preferences.showTranslations,
     )
+    // MANHWA: live translation on or off; when off nothing about it shows in the chapter
+    val context = LocalContext.current
+    CheckboxItem(
+        label = stringResource(ATMR.strings.pref_live_translation),
+        pref = remember { context.appGraph.translationPreferences.liveTranslation() },
+    )
 
     HeadingItem(MR.strings.pref_category_for_this_series)
     val manga by viewModel.mangaFlow.collectAsState()

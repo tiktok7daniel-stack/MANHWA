@@ -80,7 +80,6 @@ class WebtoonTranslationsView :
         ) {
             if (size == IntSize.Zero) return
             val scaleFactor = size.width / translation.imgWidth
-            TextBlockBackground(scaleFactor)
             TextBlockContent(scaleFactor)
         }
     }

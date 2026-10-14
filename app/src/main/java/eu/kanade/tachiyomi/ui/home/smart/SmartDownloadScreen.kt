@@ -94,9 +94,25 @@ class SmartDownloadViewModel(
         measure()
     }
 
+    private var measureJob: kotlinx.coroutines.Job? = null
+
     fun measure() {
+        measureJob?.cancel()
         _state.update { it.copy(loading = true) }
-        viewModelScope.launch(Dispatchers.IO) {
+        measureJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                scan()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Storage not set up or permission lost: show what we have instead of crashing
+                _state.update { it.copy(loading = false) }
+            }
+        }
+    }
+
+    private fun scan() {
+        run {
             val perSeries = mutableListOf<Usage>()
             storageManager.getDownloadsDirectory()?.listFiles()?.forEach { sourceDir ->
                 sourceDir.listFiles()?.forEach { mangaDir ->

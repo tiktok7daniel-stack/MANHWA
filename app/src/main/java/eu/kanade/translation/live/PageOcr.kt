@@ -11,8 +11,10 @@ object PageOcr {
     fun toPageTranslation(blocks: List<Text.TextBlock>, width: Int, height: Int): PageTranslation {
         val translation = PageTranslation(imgWidth = width.toFloat(), imgHeight = height.toFloat())
         for (block in blocks) {
-            val bounds = block.boundingBox!!
-            val symBounds = block.lines.first().elements.first().symbols.first().boundingBox!!
+            val bounds = block.boundingBox ?: continue
+            val symBounds = block.lines.firstOrNull()?.elements?.firstOrNull()?.symbols?.firstOrNull()?.boundingBox
+                ?: block.lines.firstOrNull()?.boundingBox
+                ?: bounds
             translation.blocks.add(
                 TranslationBlock(
                     text = block.text,
@@ -20,7 +22,7 @@ object PageOcr {
                     height = bounds.height().toFloat(),
                     symWidth = symBounds.width().toFloat(),
                     symHeight = symBounds.height().toFloat(),
-                    angle = block.lines.first().angle,
+                    angle = block.lines.firstOrNull()?.angle ?: 0f,
                     x = bounds.left.toFloat(),
                     y = bounds.top.toFloat(),
                 ),
@@ -64,7 +66,7 @@ object PageOcr {
     ): Boolean {
         val isWidthSimilar = (b.width < a.width) || (abs(a.width - b.width) < widthThreshold)
         val isXClose = abs(a.x - b.x) < xThreshold
-        val isYClose = (b.y - (a.y + a.height)) < yThreshold
+        val isYClose = (b.y - (a.y + a.height)) in -yThreshold.toFloat()..yThreshold.toFloat()
         return isWidthSimilar && isXClose && isYClose
     }
 

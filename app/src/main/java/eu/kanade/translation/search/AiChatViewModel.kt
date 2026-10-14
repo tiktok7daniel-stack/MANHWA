@@ -227,8 +227,12 @@ class AiChatViewModel(
     private suspend fun findInSources(queries: List<String>, onStatus: (Status) -> Unit): List<SourceHit> {
         val enabledLanguages = sourcePreferences.enabledLanguages.get()
         val disabledSources = sourcePreferences.disabledSources.get()
-        val sources = sourceManager.getAll()
+        val all = sourceManager.getAll()
             .filter { !it.isLocal() && it.lang in enabledLanguages && "${it.id}" !in disabledSources }
+        // The reader's own sources first (home screen and pinned), so one question never searches hundreds of sites
+        val preferred = sourcePreferences.homeSources.get() + sourcePreferences.pinnedSources.get()
+        val sources = (all.filter { "${it.id}" in preferred } + all.filterNot { "${it.id}" in preferred })
+            .take(MAX_SEARCH_SOURCES)
         val wanted = queries.map(::normalize).filter { it.length >= 2 }
         val gate = Semaphore(PARALLEL_SOURCES)
 
@@ -374,6 +378,7 @@ class AiChatViewModel(
         private const val PARALLEL_SOURCES = 6
         private const val SOURCE_TIMEOUT_MS = 25_000L
         private const val MAX_CHAPTERS = 200
+        const val MAX_SEARCH_SOURCES = 20
 
         private val SYSTEM = """
             You are MANHWA AI, an expert on manga, manhwa, manhua and webtoons: titles in every language,

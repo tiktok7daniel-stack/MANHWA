@@ -77,7 +77,6 @@ class PagerTranslationsView :
             modifier = Modifier
                 .absoluteOffset(viewTL.x.pxToDp(), viewTL.y.pxToDp()),
         ) {
-            TextBlockBackground(scale)
             TextBlockContent(scale)
         }
     }

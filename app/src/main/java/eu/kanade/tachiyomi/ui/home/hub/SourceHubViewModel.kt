@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -82,6 +83,10 @@ class SourceHubViewModel(
         .build()
     private val pingGate = Semaphore(PARALLEL_PINGS)
 
+    /** One check per host: multi-language extensions share a host for dozens of sources. */
+    private val hostLatency = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Long>>()
+    private var pingJob = kotlinx.coroutines.SupervisorJob(viewModelScope.coroutineContext[kotlinx.coroutines.Job])
+
     init {
         combine(
             sourceManager.sources,
@@ -124,19 +129,28 @@ class SourceHubViewModel(
         if (_state.value.health.containsKey(source.id)) return
         val url = (source as? HttpSource)?.baseUrl?.takeIf { it.startsWith("http") } ?: return
         _state.update { it.copy(health = it.health + (source.id to Health(null))) }
-        viewModelScope.launch(Dispatchers.IO) {
-            val latency = pingGate.withPermit {
-                runCatching {
-                    val start = System.nanoTime()
-                    pingClient.newCall(Request.Builder().url(url).head().build()).execute().use { }
-                    (System.nanoTime() - start) / 1_000_000
-                }.getOrDefault(-1L)
+        val host = runCatching { java.net.URI(url).host }.getOrNull() ?: url
+        val check = hostLatency.getOrPut(host) {
+            viewModelScope.async(Dispatchers.IO + pingJob) {
+                pingGate.withPermit {
+                    runCatching {
+                        val start = System.nanoTime()
+                        pingClient.newCall(Request.Builder().url(url).head().build()).execute().use { }
+                        (System.nanoTime() - start) / 1_000_000
+                    }.getOrDefault(-1L)
+                }
             }
+        }
+        viewModelScope.launch(Dispatchers.IO + pingJob) {
+            val latency = runCatching { check.await() }.getOrDefault(-1L)
             _state.update { it.copy(health = it.health + (source.id to Health(latency))) }
         }
     }
 
     fun recheckHealth() {
+        pingJob.cancel()
+        pingJob = kotlinx.coroutines.SupervisorJob(viewModelScope.coroutineContext[kotlinx.coroutines.Job])
+        hostLatency.clear()
         _state.update { it.copy(health = emptyMap()) }
         _state.value.installed.forEach(::checkHealth)
     }
@@ -182,14 +196,20 @@ class SourceHubViewModel(
         if (_state.value.bulk != null) return
         val queue = _state.value.addable.filter { it.lang in languages && it.contentWarning == ContentWarning.SAFE }
         if (queue.isEmpty()) return
+        // Installs privately so Android does not ask for every extension, then puts the reader's choice back
+        val previousInstaller = basePreferences.extensionInstaller.get()
         basePreferences.extensionInstaller.set(BasePreferences.ExtensionInstaller.PRIVATE)
         _state.update { it.copy(bulk = 0 to queue.size) }
         viewModelScope.launch(Dispatchers.IO) {
-            queue.forEachIndexed { index, extension ->
-                runInstall(extension)
-                _state.update { it.copy(bulk = (index + 1) to queue.size) }
+            try {
+                queue.forEachIndexed { index, extension ->
+                    runInstall(extension)
+                    _state.update { it.copy(bulk = (index + 1) to queue.size) }
+                }
+            } finally {
+                basePreferences.extensionInstaller.set(previousInstaller)
+                _state.update { it.copy(bulk = null) }
             }
-            _state.update { it.copy(bulk = null) }
         }
     }
 

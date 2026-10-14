@@ -1,6 +1,10 @@
 package eu.kanade.tachiyomi.ui.home.discover
 
 import android.text.format.DateUtils
+import androidx.compose.animation.Crossfade
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.unit.Dp
 import eu.kanade.presentation.components.neonGlow
@@ -176,6 +180,7 @@ data object DiscoverTab : Tab {
         val state by viewModel.state.collectAsState()
         val uiPreferences = remember { context.appGraph.uiPreferences }
         val accent by uiPreferences.manhwaAccent.collectPrefAsState()
+        val appTheme by uiPreferences.appTheme.collectPrefAsState()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
         val scope = rememberCoroutineScope()
         val openHub = { navigator.push(SourceHubScreen()) }
@@ -199,6 +204,7 @@ data object DiscoverTab : Tab {
             drawerContent = {
                 SideMenu(
                     accent = accent,
+                    showAccent = appTheme == eu.kanade.domain.ui.model.AppTheme.DANGHWA,
                     onAccent = { uiPreferences.manhwaAccent.set(it) },
                     onClose = { scope.launch { drawerState.close() } },
                     entries = listOf(
@@ -836,6 +842,7 @@ data object DiscoverTab : Tab {
     @Composable
     private fun SideMenu(
         accent: Int,
+        showAccent: Boolean,
         onAccent: (Int) -> Unit,
         onClose: () -> Unit,
         entries: List<MenuEntry>,
@@ -929,34 +936,36 @@ data object DiscoverTab : Tab {
                 Spacer(Modifier.height(22.dp))
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    stringResource(ATMR.strings.home_appearance),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White.copy(alpha = 0.6f),
-                )
-                Spacer(Modifier.height(12.dp))
-                AccentChoices.chunked(5).forEach { row ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.padding(bottom = 10.dp),
-                    ) {
-                        row.forEach { choice ->
-                            val selected = choice == accent
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .then(
-                                        if (selected) {
-                                            Modifier.border(2.dp, Color.White, RoundedCornerShape(13.dp))
-                                        } else {
-                                            Modifier
-                                        },
-                                    )
-                                    .padding(if (selected) 4.dp else 0.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(choice))
-                                    .clickable { onAccent(choice) },
-                            )
+                if (showAccent) {
+                    Text(
+                        stringResource(ATMR.strings.home_appearance),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    AccentChoices.chunked(5).forEach { row ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(bottom = 10.dp),
+                        ) {
+                            row.forEach { choice ->
+                                val selected = choice == accent
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .then(
+                                            if (selected) {
+                                                Modifier.border(2.dp, Color.White, RoundedCornerShape(13.dp))
+                                            } else {
+                                                Modifier
+                                            },
+                                        )
+                                        .padding(if (selected) 4.dp else 0.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(choice))
+                                        .clickable { onAccent(choice) },
+                                )
+                            }
                         }
                     }
                 }
@@ -978,47 +987,66 @@ data object DiscoverTab : Tab {
             }
         }
         val colors = MaterialTheme.colorScheme
-        Box(modifier = Modifier.fillMaxWidth().height(590.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(520.dp)) {
+            // One blurred backdrop for the whole hero, cross-fading between titles: it never splits while swiping
+            Crossfade(
+                targetState = items.getOrNull(pager.currentPage)?.first,
+                animationSpec = tween(700),
+                label = "heroBackdrop",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        // Fade the art out at the bottom so it melts into the screen, no hard edge
+                        drawRect(
+                            Brush.verticalGradient(0.55f to Color.Black, 1f to Color.Transparent),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    },
+            ) { current ->
+                if (current != null) {
+                    Cover(
+                        data = current.asMangaCover(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = 1.25f
+                                scaleY = 1.25f
+                            }
+                            .blur(18.dp),
+                    )
+                }
+            }
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0f to Ink.copy(alpha = 0.8f),
+                        0.32f to Ink.copy(alpha = 0.2f),
+                        0.72f to Ink.copy(alpha = 0.55f),
+                        1f to Color.Transparent,
+                    ),
+                ),
+            )
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.radialGradient(
+                        listOf(colors.primary.copy(alpha = 0.22f), Color.Transparent),
+                        radius = 900f,
+                    ),
+                ),
+            )
             HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
                 val manga = items[page].first
                 val source = items[page].second
                 val offset = (pager.currentPage - page) + pager.currentPageOffsetFraction
                 Box(modifier = Modifier.fillMaxSize().clickable { onOpen(manga) }) {
-                    Cover(
-                        data = manga.asMangaCover(),
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer {
-                                translationX = offset * size.width * 0.45f
-                                scaleX = 1.2f
-                                scaleY = 1.2f
-                            }
-                            .blur(14.dp),
-                    )
-                    Box(
-                        Modifier.fillMaxSize().background(
-                            Brush.verticalGradient(
-                                0f to Ink.copy(alpha = 0.75f),
-                                0.3f to Ink.copy(alpha = 0.25f),
-                                0.62f to Ink.copy(alpha = 0.8f),
-                                1f to Ink,
-                            ),
-                        ),
-                    )
-                    Box(
-                        Modifier.fillMaxSize().background(
-                            Brush.radialGradient(
-                                listOf(colors.primary.copy(alpha = 0.28f), Color.Transparent),
-                                radius = 900f,
-                            ),
-                        ),
-                    )
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp)
-                            .padding(bottom = 46.dp)
+                            .padding(bottom = 40.dp)
                             .graphicsLayer {
                                 alpha = 1f - abs(offset).coerceIn(0f, 1f)
                                 translationX = -offset * 160f
