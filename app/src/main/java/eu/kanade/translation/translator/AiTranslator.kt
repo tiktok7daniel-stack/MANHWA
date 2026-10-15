@@ -70,6 +70,28 @@ class AiTranslator(
         /** Uses the OpenAI chat/completions protocol. */
         val openAiLike: Boolean get() = this == OPENROUTER || this == OPENAI_COMPATIBLE || this == GROQ || this == DEEPSEEK
 
+        /** MANHWA router: a quick, cheap model for chat, search and the home screen. */
+        val lightModel: String
+            get() = when (this) {
+                GEMINI -> "gemini-flash-lite-latest"
+                OPENROUTER -> "google/gemini-2.5-flash-lite"
+                OPENAI_COMPATIBLE -> "gpt-4o-mini"
+                CLAUDE -> "claude-haiku-5-5"
+                GROQ -> "llama-3.1-8b-instant"
+                DEEPSEEK -> "deepseek-chat"
+            }
+
+        /** MANHWA router: the strongest model, for the editor's review of a chapter. */
+        val strongModel: String
+            get() = when (this) {
+                GEMINI -> "gemini-2.5-pro"
+                OPENROUTER -> "google/gemini-2.5-pro"
+                OPENAI_COMPATIBLE -> "gpt-4o"
+                CLAUDE -> "claude-opus-5-5"
+                GROQ -> "llama-3.3-70b-versatile"
+                DEEPSEEK -> "deepseek-chat"
+            }
+
         /** Well-known models to pick from by hand (the key's own list can be fetched too). */
         val suggestedModels: List<String>
             get() = when (this) {

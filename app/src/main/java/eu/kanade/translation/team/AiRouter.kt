@@ -1,0 +1,251 @@
+package eu.kanade.translation.team
+
+import eu.kanade.translation.recognizer.TextRecognizerLanguage
+import eu.kanade.translation.translator.AiTranslator
+import eu.kanade.translation.translator.TextTranslatorLanguage
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import logcat.LogPriority
+import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.util.system.logcat
+
+/**
+ * MANHWA: the one door every AI call of the app goes through, so the team's keys serve what matters first.
+ *
+ * - **Priorities.** Every call belongs to a [Lane]. The page being read ([Lane.LIVE]) always gets a key at once,
+ *   even while chapters are translated in the background (it may use one call more than a key's usual share);
+ *   then chapter translation and the editor's review, then chat and search, then the home screen and other
+ *   extras. When a key is busy, waiting calls are let in by lane first, then by arrival.
+ * - **A reserve.** The last [RESERVE_PERCENT]% of a key's daily quota is kept for translation: chat and the home
+ *   screen do not use a key that low.
+ * - **The right model.** A key set to choose its model by itself uses a light model for chat and extras and its
+ *   strongest one for the review; translation keeps the key's balanced default. A model the reader chose is
+ *   always used as it is.
+ * - **Failover.** A call that fails because the key is busy, out of quota, refused or unreachable moves to the
+ *   next key at once; a key that keeps failing rests longer each time (see [TeamStore.reportFailure]).
+ * - **A record.** Calls made today by each lane, so the reader sees where the quota went.
+ */
+class AiRouter internal constructor(
+    private val store: TeamStore,
+    private val record: Preference<String>,
+) {
+
+    enum class Lane(val rank: Int) {
+        LIVE(0),
+        CHAPTER(1),
+        REVIEW(1),
+        CHAT(2),
+        BACKGROUND(3),
+    }
+
+    class NoKeyException : IllegalStateException("No AI key can take this call")
+
+    private class Waiter(val lane: Lane, val order: Long, val gate: CompletableDeferred<Unit> = CompletableDeferred())
+
+    private val lock = Any()
+    private val running = HashMap<String, MutableMap<Lane, Int>>()
+    private val waiting = HashMap<String, MutableList<Waiter>>()
+    private var arrivals = 0L
+
+    private val _working = MutableStateFlow<Map<String, Map<Lane, Int>>>(emptyMap())
+
+    /** What every key is doing right now: calls in flight by lane. */
+    val working: StateFlow<Map<String, Map<Lane, Int>>> = _working.asStateFlow()
+
+    @Serializable
+    private data class Day(val day: String = "", val calls: Map<String, Int> = emptyMap())
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private val _today = MutableStateFlow(loadDay())
+
+    private val _todayLanes = MutableStateFlow(_today.value.toLanes())
+
+    /** Calls made today by each lane. */
+    val todayLanes: StateFlow<Map<Lane, Int>> = _todayLanes.asStateFlow()
+
+    private fun loadDay(): Day = runCatching { json.decodeFromString<Day>(record.get()) }.getOrDefault(Day())
+        .let { if (it.day == UsageMeter.today()) it else Day(UsageMeter.today()) }
+
+    private fun Day.toLanes(): Map<Lane, Int> = calls.mapNotNull { (k, v) -> Lane.entries.firstOrNull { it.name == k }?.let { it to v } }.toMap()
+
+    /** Counts one call of [lane] for today. */
+    fun count(lane: Lane) {
+        synchronized(lock) {
+            val current = _today.value.let { if (it.day == UsageMeter.today()) it else Day(UsageMeter.today()) }
+            val next = current.copy(calls = current.calls + (lane.name to (current.calls[lane.name] ?: 0) + 1))
+            _today.value = next
+            _todayLanes.value = next.toLanes()
+            record.set(json.encodeToString(next))
+        }
+    }
+
+    /** Calls a key may run at once: strong keys 3, average 2, weak 1. */
+    fun capacity(memberId: String): Int {
+        val strength = store.strength(memberId)
+        return when {
+            strength >= STRONG -> 3
+            strength >= AVERAGE -> 2
+            else -> 1
+        }
+    }
+
+    private fun limit(lane: Lane, capacity: Int): Int = when (lane) {
+        // The page on screen never waits behind background work
+        Lane.LIVE -> capacity + 1
+        Lane.CHAPTER, Lane.REVIEW -> capacity
+        // A question in the chat gets one call of its own, so it never waits for a whole chapter
+        Lane.CHAT -> capacity + 1
+        // Extras only use a key that is doing nothing else
+        Lane.BACKGROUND -> 1
+    }
+
+    /** Whether [lane] may use [member] at all: chat and extras leave the last part of the quota to translation. */
+    fun allowed(member: TeamStore.Member, lane: Lane): Boolean {
+        if (lane == Lane.LIVE || lane == Lane.CHAPTER || lane == Lane.REVIEW) return true
+        val level = store.usage.level(member)
+        return !level.exhausted && level.percent >= RESERVE_PERCENT
+    }
+
+    /** The model [member] uses for [lane]: the reader's choice, or the one that suits the work. */
+    fun modelFor(member: TeamStore.Member, lane: Lane): String {
+        if (member.model.isNotBlank()) return member.model
+        return when (lane) {
+            Lane.CHAT, Lane.BACKGROUND -> member.providerEnum.lightModel
+            Lane.REVIEW -> member.providerEnum.strongModel
+            Lane.LIVE, Lane.CHAPTER -> ""
+        }
+    }
+
+    // ---- Permits: one per call in flight on a key ----
+
+    private fun inFlight(memberId: String): Int = running[memberId]?.values?.sum() ?: 0
+
+    private fun canStart(memberId: String, lane: Lane, self: Waiter? = null): Boolean {
+        if (inFlight(memberId) >= limit(lane, capacity(memberId))) return false
+        if ((lane == Lane.BACKGROUND || lane == Lane.CHAT) && (running[memberId]?.get(lane) ?: 0) >= 1) return false
+        // Nobody jumps the queue: a call already waiting in a more urgent lane, or earlier in the same one, goes first
+        return waiting[memberId].orEmpty().none { other ->
+            other !== self && (other.lane.rank < lane.rank || (other.lane.rank == lane.rank && (self == null || other.order < self.order)))
+        }
+    }
+
+    private fun start(memberId: String, lane: Lane) {
+        val lanes = running.getOrPut(memberId) { mutableMapOf() }
+        lanes[lane] = (lanes[lane] ?: 0) + 1
+        publish()
+    }
+
+    private fun publish() {
+        _working.value = running.mapValues { (_, lanes) -> lanes.filterValues { it > 0 }.toMap() }.filterValues { it.isNotEmpty() }
+    }
+
+    /** Waits until [memberId] may make one more call for [lane]. Every acquire is followed by one [release]. */
+    suspend fun acquire(memberId: String, lane: Lane) {
+        val waiter = synchronized(lock) {
+            if (canStart(memberId, lane)) {
+                start(memberId, lane)
+                return
+            }
+            Waiter(lane, arrivals++).also { waiting.getOrPut(memberId) { mutableListOf() } += it }
+        }
+        try {
+            waiter.gate.await()
+        } catch (e: CancellationException) {
+            synchronized(lock) {
+                // Let in already: the permit is ours and goes back
+                if (waiting[memberId]?.remove(waiter) != true) releaseLocked(memberId, lane)
+            }
+            throw e
+        }
+    }
+
+    fun release(memberId: String, lane: Lane) {
+        synchronized(lock) { releaseLocked(memberId, lane) }
+    }
+
+    private fun releaseLocked(memberId: String, lane: Lane) {
+        running[memberId]?.let { lanes ->
+            lanes[lane] = ((lanes[lane] ?: 1) - 1).coerceAtLeast(0)
+        }
+        // Let in the waiting calls, most urgent lane first, then by arrival, while the key has room
+        val queue = waiting[memberId] ?: return publish()
+        while (queue.isNotEmpty()) {
+            val next = queue.minWith(compareBy<Waiter>({ it.lane.rank }, { it.order }))
+            if (!canStart(memberId, next.lane, self = next)) break
+            queue.remove(next)
+            start(memberId, next.lane)
+            next.gate.complete(Unit)
+        }
+        publish()
+    }
+
+    // ---- One call, any key ----
+
+    /**
+     * Runs [block] with a translator of the best key that may take [lane], moving to the next key when one is
+     * busy, out of quota, refused or unreachable. [prefer] limits the keys (e.g. those that can search the web).
+     * Throws [NoKeyException] when no key can take the call.
+     */
+    suspend fun <T> ask(
+        lane: Lane,
+        from: TextRecognizerLanguage = TextRecognizerLanguage.ENGLISH,
+        to: TextTranslatorLanguage = store.targetLanguage(),
+        prefer: (TeamStore.Member) -> Boolean = { true },
+        block: suspend (AiTranslator) -> T,
+    ): T = withContext(Dispatchers.IO) {
+        val health = store.health.value
+        val candidates = store.active()
+            .filter { prefer(it) && allowed(it, lane) }
+            // Resting keys last, then the strongest first
+            .sortedWith(compareBy<TeamStore.Member> { health[it.id]?.resting == true }.thenByDescending { store.strength(it.id) })
+        if (candidates.isEmpty()) throw NoKeyException()
+        var last: Throwable? = null
+        for (member in candidates) {
+            acquire(member.id, lane)
+            try {
+                val translator = store.translatorFor(member, from, to, lane)
+                // One key at a time here: a failing call goes to the next key instead of waiting
+                translator.fastFail = candidates.size > 1
+                val result = block(translator)
+                count(lane)
+                store.reportOk(member.id)
+                return@withContext result
+            } catch (e: Exception) {
+                if (e is CancellationException && e !is TimeoutCancellationException) throw e
+                count(lane)
+                last = e
+                store.reportFailure(member.id, e, TeamStore.restFor(e))
+                if (!handOver(e)) throw e
+                logcat(LogPriority.WARN, e) { "Key ${member.providerEnum} failed a $lane call, trying the next one" }
+            } finally {
+                release(member.id, lane)
+            }
+        }
+        throw last ?: NoKeyException()
+    }
+
+    /** Whether another key may succeed where this one failed. */
+    private fun handOver(e: Throwable): Boolean = when (e) {
+        is AiTranslator.ApiException -> e.code == 401 || e.code == 403 || e.code == 408 || e.code == 429 || e.code in 500..599
+        is TimeoutCancellationException -> true
+        is java.io.IOException -> true
+        else -> false
+    }
+
+    companion object {
+        /** Percent of a key's daily quota kept for translation. */
+        const val RESERVE_PERCENT = 20
+        private const val STRONG = 70
+        private const val AVERAGE = 40
+    }
+}

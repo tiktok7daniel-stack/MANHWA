@@ -127,8 +127,7 @@ class AiLibraryOrganizerViewModel(
                     "${m.id}|${m.title}|${m.genre.orEmpty().take(6).joinToString(",")}|$status|read ${item.readCount}/${item.totalChapters}"
                 }
                 val language = Locale.getDefault().getDisplayLanguage(Locale.ENGLISH)
-                val ai = eu.kanade.translation.translator.appAi() ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
-                val reply = try {
+                val reply = eu.kanade.translation.translator.appAsk(eu.kanade.translation.team.AiRouter.Lane.CHAT) { ai ->
                     ai.askJson(
                         system = """
                             You organize a reader's comic library (manga, manhwa, manhua) into clear categories.
@@ -143,8 +142,6 @@ class AiLibraryOrganizerViewModel(
                             append(list)
                         },
                     )
-                } finally {
-                    ai.close()
                 }
                 val valid = library.map { it.manga.id }.toSet()
                 val groups = (reply["categories"] as? JsonArray).orEmpty().mapNotNull { element ->

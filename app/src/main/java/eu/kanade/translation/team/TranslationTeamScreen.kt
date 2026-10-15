@@ -103,6 +103,8 @@ class TranslationTeamScreen : Screen() {
         val analyzing by store.analyzingIds.collectAsState()
         // Read so the meters move while the screen is open
         val usageState by store.usage.usage.collectAsState()
+        val working by store.router.working.collectAsState()
+        val todayLanes by store.router.todayLanes.collectAsState()
         var adding by remember { mutableStateOf(false) }
         var editing by remember { mutableStateOf<TeamStore.Member?>(null) }
 
@@ -176,6 +178,22 @@ class TranslationTeamScreen : Screen() {
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.White.copy(alpha = 0.6f),
                             )
+                            // Where today's calls went, by kind of work, and the router's rules behind the (i)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        stringResource(ATMR.strings.router_today),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = Color.White.copy(alpha = 0.75f),
+                                    )
+                                    Text(
+                                        lanesText(todayLanes).ifEmpty { stringResource(ATMR.strings.router_nothing_today) },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.6f),
+                                    )
+                                }
+                                InfoButton(stringResource(ATMR.strings.router_title), stringResource(ATMR.strings.router_info))
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 ManhwaKit.NeonButton(
                                     text = stringResource(ATMR.strings.team_add),
@@ -209,6 +227,7 @@ class TranslationTeamScreen : Screen() {
                             strength = store.strength(member.id),
                             share = shares[member.id],
                             lead = member.id == leadId,
+                            busy = working[member.id].orEmpty(),
                             level = remember(member, usageState) { store.usage.level(member) },
                             onEnabled = { store.setEnabled(member.id, it) },
                             onAnalyze = { analyze(member) },
@@ -321,6 +340,7 @@ class TranslationTeamScreen : Screen() {
         strength: Int,
         share: Int?,
         lead: Boolean,
+        busy: Map<AiRouter.Lane, Int>,
         level: UsageMeter.Level,
         onEnabled: (Boolean) -> Unit,
         onAnalyze: () -> Unit,
@@ -376,6 +396,10 @@ class TranslationTeamScreen : Screen() {
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(status, color = statusColor, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
+            // What the key is doing right now, by kind of work
+            if (busy.isNotEmpty()) {
+                Tag(MaterialSymbols.Rounded.Speed, stringResource(ATMR.strings.router_working, lanesText(busy)), Green)
             }
             if (member.enabled && analysis?.ok != false) {
                 Text(
@@ -631,6 +655,20 @@ class TranslationTeamScreen : Screen() {
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(ATMR.strings.col_cancel)) } },
         )
+    }
+
+    /** "Live 2 · Chapters 5": calls by kind of work, most urgent first; empty when there are none. */
+    @Composable
+    private fun lanesText(lanes: Map<AiRouter.Lane, Int>): String {
+        // Names first (composable), then joined: a composable call can't sit inside joinToString's lambda
+        val names = mapOf(
+            AiRouter.Lane.LIVE to stringResource(ATMR.strings.lane_live),
+            AiRouter.Lane.CHAPTER to stringResource(ATMR.strings.lane_chapter),
+            AiRouter.Lane.REVIEW to stringResource(ATMR.strings.lane_review),
+            AiRouter.Lane.CHAT to stringResource(ATMR.strings.lane_chat),
+            AiRouter.Lane.BACKGROUND to stringResource(ATMR.strings.lane_background),
+        )
+        return AiRouter.Lane.entries.filter { (lanes[it] ?: 0) > 0 }.joinToString(" · ") { "${names[it]} ${lanes[it]}" }
     }
 
     private fun providerLabel(provider: AiTranslator.Provider) = when (provider) {

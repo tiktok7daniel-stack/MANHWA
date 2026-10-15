@@ -495,4 +495,14 @@
     <string name="game_empty">Read a chapter to start leveling up</string>
     <string name="game_total">%1$d chapters read</string>
     <string name="game_time">%1$dh %2$dm</string>
+    <string name="lane_live">Live</string>
+    <string name="lane_chapter">Chapters</string>
+    <string name="lane_review">Review</string>
+    <string name="lane_chat">Chat &amp; search</string>
+    <string name="lane_background">Home &amp; extras</string>
+    <string name="router_today">Today</string>
+    <string name="router_nothing_today">No AI calls yet today</string>
+    <string name="router_working">Working now: %1$s</string>
+    <string name="router_title">Who goes first</string>
+    <string name="router_info">Every AI call of the app goes through one router. The page you are reading always goes first, even while chapters are translated in the background; then chapters and the review, then chat and search, then the home screen. The last 20% of every key's daily quota is kept for translation, so chat and the home screen never use it up. A key set to Automatic uses a light model for chat and extras and its strongest model for the review. A call that fails moves to the next key at once, and a key that keeps failing rests longer each time.</string>
 </resources>

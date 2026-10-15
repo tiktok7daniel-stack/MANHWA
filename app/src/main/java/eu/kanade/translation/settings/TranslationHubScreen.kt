@@ -70,6 +70,7 @@ import mihon.icons.materialsymbols.rounded.TextFields
 import mihon.icons.materialsymbols.rounded.Thermostat
 import mihon.icons.materialsymbols.rounded.TouchApp
 import mihon.icons.materialsymbols.rounded.Translate
+import mihon.icons.materialsymbols.rounded.Tune
 import mihon.icons.materialsymbols.rounded.Upload
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -187,6 +188,15 @@ class TranslationHubScreen : Screen() {
                                 title = stringResource(ATMR.strings.team_title),
                                 info = stringResource(ATMR.strings.info_team),
                                 value = stringResource(ATMR.strings.th_keys_count, members.size),
+                                onClick = { navigator.push(TranslationTeamScreen()) },
+                            )
+                            HubDivider()
+                            HubNavRow(
+                                icon = MaterialSymbols.Rounded.Tune,
+                                title = stringResource(ATMR.strings.router_title),
+                                info = stringResource(ATMR.strings.router_info),
+                                value = stringResource(ATMR.strings.lane_live) + " › " + stringResource(ATMR.strings.lane_chapter) +
+                                    " › " + stringResource(ATMR.strings.lane_chat) + " › " + stringResource(ATMR.strings.lane_background),
                                 onClick = { navigator.push(TranslationTeamScreen()) },
                             )
                             HubDivider()

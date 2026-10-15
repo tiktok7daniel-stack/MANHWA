@@ -84,6 +84,8 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         val done: Int = 0,
         val failed: Int = 0,
         val lastError: String? = null,
+        /** Failures in a row: a key that keeps failing rests longer each time. */
+        val streak: Int = 0,
     ) {
         val resting: Boolean get() = System.currentTimeMillis() < restingUntil
     }
@@ -98,6 +100,12 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
     private val _health = MutableStateFlow<Map<String, Health>>(emptyMap())
     val health: StateFlow<Map<String, Health>> = _health.asStateFlow()
+
+    /** MANHWA: every AI call of the app goes through it (priorities, reserve, model per task, failover). */
+    val router: AiRouter by lazy { AiRouter(this, prefs.translationTeamLanes()) }
+
+    /** The language translations go to, as set by the reader. */
+    fun targetLanguage(): TextTranslatorLanguage = TextTranslatorLanguage.fromPref(prefs.translateToLanguage())
 
     private val analyzing = ConcurrentHashMap.newKeySet<String>()
     private val _analyzingIds = MutableStateFlow<Set<String>>(emptySet())
@@ -204,7 +212,15 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         _health.update { map ->
             val old = map[id] ?: Health()
             val latency = if (old.latencyMs == 0L) latencyMs else (old.latencyMs * 0.7 + latencyMs * 0.3).toLong()
-            map + (id to old.copy(latencyMs = latency, done = old.done + 1, restingUntil = 0))
+            map + (id to old.copy(latencyMs = latency, done = old.done + 1, restingUntil = 0, streak = 0))
+        }
+    }
+
+    /** A call that worked, whose time says nothing about the key's speed (chat, search, review). */
+    fun reportOk(id: String) {
+        _health.update { map ->
+            val old = map[id] ?: Health()
+            map + (id to old.copy(done = old.done + 1, restingUntil = 0, streak = 0))
         }
     }
 
@@ -216,7 +232,16 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
                 id to old.copy(
                     failed = old.failed + 1,
                     lastError = error.message?.take(160) ?: error.javaClass.simpleName,
-                    restingUntil = if (restMs > 0) System.currentTimeMillis() + restMs else old.restingUntil,
+                    streak = old.streak + 1,
+                    // Three failures in a row and more: the key rests 2, 4, 6… minutes (at most 10) before it is tried
+                    restingUntil = maxOf(
+                        if (restMs > 0) System.currentTimeMillis() + restMs else old.restingUntil,
+                        if (old.streak + 1 >= BREAKER_AFTER) {
+                            System.currentTimeMillis() + (BREAKER_STEP_MS * (old.streak + 2 - BREAKER_AFTER)).coerceAtMost(BREAKER_MAX_MS)
+                        } else {
+                            0L
+                        },
+                    ),
                 )
                 )
         }
@@ -227,12 +252,17 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     }
 
     /** A translator for [member], set the way the reader set translation (instructions, temperature…). */
-    fun translatorFor(member: Member, from: TextRecognizerLanguage, to: TextTranslatorLanguage): AiTranslator = AiTranslator(
+    fun translatorFor(
+        member: Member,
+        from: TextRecognizerLanguage,
+        to: TextTranslatorLanguage,
+        lane: AiRouter.Lane = AiRouter.Lane.CHAPTER,
+    ): AiTranslator = AiTranslator(
         fromLang = from,
         toLang = to,
         provider = member.providerEnum,
         apiKey = member.key,
-        model = member.model,
+        model = router.modelFor(member, lane),
         baseUrl = when {
             member.baseUrl.isNotBlank() -> member.baseUrl.trim()
             member.providerEnum == AiTranslator.Provider.OPENAI_COMPATIBLE -> prefs.translationEngineBaseUrl().get().trim()
@@ -321,6 +351,19 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     }
 
     companion object {
+        private const val BREAKER_AFTER = 3
+        private const val BREAKER_STEP_MS = 120_000L
+        private const val BREAKER_MAX_MS = 600_000L
+
+        /** How long a key rests after [error]: busy or out of quota rests longer than a glitch. */
+        fun restFor(error: Throwable): Long = when {
+            error is AiTranslator.ApiException && error.code == 429 -> 60_000L
+            error is AiTranslator.ApiException && error.code in 500..504 -> 20_000L
+            error is kotlinx.coroutines.TimeoutCancellationException -> 20_000L
+            error is java.io.IOException -> 10_000L
+            else -> 0L
+        }
+
         private const val DEFAULT_STRENGTH = 50
         private const val LOW_PERCENT = 20
         private const val NOTIFICATION_BASE = 0x3A000

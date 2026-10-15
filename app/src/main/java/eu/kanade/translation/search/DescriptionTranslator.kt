@@ -124,23 +124,22 @@ fun DescriptionTranslator(description: String?, modifier: Modifier = Modifier) {
 
 /** Translates with the AI when possible; if it is not set up, busy or failing, Google Translate does it. */
 private suspend fun translate(prefs: TranslationPreferences, text: String): String? = withContext(Dispatchers.IO) {
-    val ai = eu.kanade.translation.translator.appAi()
     val target = TextTranslatorLanguage.fromPref(prefs.translateToLanguage())
     val google = GoogleTranslator(TextRecognizerLanguage.ENGLISH, target)
-    if (ai == null) {
+    if (!eu.kanade.translation.translator.appAiConfigured()) {
         return@withContext google.translateText(text).ifBlank { null }
     }
     try {
-        val json = ai.askJson(
-            "Translate this comic synopsis into natural ${target.label}. Keep names consistent. " +
-                "Reply with ONLY this JSON: {\"translation\": \"...\"}",
-            text,
-        )
+        val json = eu.kanade.translation.translator.appAsk(eu.kanade.translation.team.AiRouter.Lane.CHAT) { ai ->
+            ai.askJson(
+                "Translate this comic synopsis into natural ${target.label}. Keep names consistent. " +
+                    "Reply with ONLY this JSON: {\"translation\": \"...\"}",
+                text,
+            )
+        }
         (json["translation"] as? JsonPrimitive)?.contentOrNull ?: google.translateText(text)
     } catch (e: Exception) {
         if (e is CancellationException) throw e
         google.translateText(text).ifBlank { throw e }
-    } finally {
-        ai.close()
     }
 }

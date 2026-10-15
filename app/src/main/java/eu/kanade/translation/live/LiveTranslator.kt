@@ -14,6 +14,7 @@ import eu.kanade.translation.model.Translation
 import eu.kanade.translation.collection.TranslationCollection
 import eu.kanade.translation.learning.LessonStore
 import eu.kanade.translation.model.TranslationBlock
+import eu.kanade.translation.team.AiRouter
 import eu.kanade.translation.team.TeamStore
 import eu.kanade.translation.translator.TeamTranslator
 import java.util.Collections
@@ -350,8 +351,9 @@ class LiveTranslator(
             to: TextTranslatorLanguage,
         ): TextTranslator = when {
             team.isEmpty() -> TextTranslators.withoutKeys(preferences).build(preferences, from, to)
-            quickDraft -> HybridTranslator(from, to, GoogleTranslator(from, to), TeamTranslator(from, to, teamStore, team))
-            else -> TeamTranslator(from, to, teamStore, team)
+            // The page being read goes first through the router, even while chapters are translated
+            quickDraft -> HybridTranslator(from, to, GoogleTranslator(from, to), TeamTranslator(from, to, teamStore, team, AiRouter.Lane.LIVE))
+            else -> TeamTranslator(from, to, teamStore, team, AiRouter.Lane.LIVE)
         }
 
         private suspend fun translate(page: ReaderPage): PageTranslation? {

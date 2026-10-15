@@ -105,8 +105,8 @@ class HomeIntelligence(
                 "- ${item.manga.title} [${item.manga.genre.orEmpty().take(5).joinToString()}] read ${item.readCount}/${item.totalChapters}"
             }
         val language = Locale.getDefault().getDisplayLanguage(Locale.ENGLISH)
-        val ai = eu.kanade.translation.translator.appAi() ?: throw AiSearchAssistant.NotConfiguredException()
-        val reply = try {
+        // Home screen picks are extras: they wait behind translation and leave the reserve of every key alone
+        val reply = eu.kanade.translation.translator.appAsk(eu.kanade.translation.team.AiRouter.Lane.BACKGROUND) { ai ->
             ai.askJson(
                 system = """
                     You are an expert curator of manhwa, manga, manhua and webtoons.
@@ -118,8 +118,6 @@ class HomeIntelligence(
                 """.trimIndent(),
                 prompt = "My library (most recent first):\n${profile.ifBlank { "(empty, suggest the best-known hits)" }}",
             )
-        } finally {
-            ai.close()
         }
         val items = (reply["items"] as? JsonArray).orEmpty().mapNotNull { element ->
             val obj = element as? JsonObject ?: return@mapNotNull null

@@ -527,7 +527,15 @@ class ChapterTranslator(
                 showProgress()
                 if (ai != null && translationPreferences.translationTeamAccurate().get()) {
                     translation.note(Translation.Note.AI)
-                    val fixed = runCatching { edit(ai, pages, translation.manga.id, translation.manga.title) }
+                    // With the team, the review goes to its strongest key and model through the router
+                    val team = textTranslator as? TeamTranslator
+                    val fixed = runCatching {
+                        if (team != null) {
+                            team.asEditor { editor -> edit(editor, pages, translation.manga.id, translation.manga.title) }
+                        } else {
+                            edit(ai, pages, translation.manga.id, translation.manga.title)
+                        }
+                    }
                         .onFailure {
                             if (it is CancellationException) throw it
                             logcat(LogPriority.WARN, it) { "Editor failed, keeping the team's translation" }

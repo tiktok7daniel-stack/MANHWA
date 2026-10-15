@@ -4,6 +4,7 @@ import eu.kanade.translation.data.PageImage
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
 import eu.kanade.translation.style.BubbleKind
+import eu.kanade.translation.team.AiRouter
 import eu.kanade.translation.team.ChapterPlanner
 import eu.kanade.translation.team.TeamStore
 import kotlinx.coroutines.CancellationException
@@ -35,6 +36,8 @@ class TeamTranslator(
     override val toLang: TextTranslatorLanguage,
     private val store: TeamStore,
     private val members: List<TeamStore.Member>,
+    /** Whose work this is, for the router's priorities: the page being read, or a chapter. */
+    private val lane: AiRouter.Lane = AiRouter.Lane.CHAPTER,
 ) : TextTranslator {
 
     private val leadMember = members.maxBy { store.strength(it.id) }
@@ -106,7 +109,9 @@ class TeamTranslator(
                     launch {
                         while (true) {
                             val batch = take(member, vision) ?: break
-                            val translator = store.translatorFor(member, fromLang, toLang).also(::shareSettings)
+                            // The router's permit: the page being read goes before chapters on the same key
+                            store.router.acquire(member.id, lane)
+                            val translator = store.translatorFor(member, fromLang, toLang, lane).also(::shareSettings)
                             val part = batch.pages.associateWithTo(mutableMapOf()) { pages.getValue(it) }
                             val partImages = if (vision) images.filterKeys { it in batch.pages } else emptyMap()
                             val started = System.currentTimeMillis()
@@ -120,10 +125,12 @@ class TeamTranslator(
                             } catch (e: Exception) {
                                 if (e is CancellationException && e !is TimeoutCancellationException) throw e
                                 logcat(LogPriority.WARN, e) { "Team key ${member.provider} failed a batch, handing it over" }
-                                store.reportFailure(member.id, e, restFor(e))
+                                store.reportFailure(member.id, e, TeamStore.restFor(e))
                                 lead.onRetry?.invoke(e)
                             } finally {
                                 translator.close()
+                                store.router.release(member.id, lane)
+                                store.router.count(lane)
                             }
                             lock.withLock {
                                 inFlight--
@@ -190,25 +197,24 @@ class TeamTranslator(
         if (translator.summaries.isNotEmpty()) summaries.getOrPut(position) { mutableListOf() } += translator.summaries
     }
 
-    /** Calls a key may run at once: strong keys 3, average 2, weak 1; a lone key at most 2, to spare its quota. */
+    /** Calls a key may run at once (see [AiRouter.capacity]); a lone key at most 2, to spare its quota. */
     private fun slotsFor(member: TeamStore.Member): Int {
-        val strength = store.strength(member.id)
-        val slots = when {
-            strength >= STRONG -> 3
-            strength >= AVERAGE -> 2
-            else -> 1
-        }
+        val slots = store.router.capacity(member.id)
         return if (members.size == 1) slots.coerceAtMost(2) else slots
     }
 
-    /** How long a key rests after [error]: busy or out of quota rests longer than a glitch. */
-    private fun restFor(error: Throwable): Long = when {
-        error is AiTranslator.ApiException && error.code == 429 -> 60_000L
-        error is AiTranslator.ApiException && error.code in 500..504 -> 20_000L
-        error is TimeoutCancellationException -> 20_000L
-        error is java.io.IOException -> 10_000L
-        else -> 0L
-    }
+    /**
+     * MANHWA: runs the editor's review with the team's strongest key and its strongest model (a key that fails
+     * hands the review to the next one), with what the chapter translator set on [lead].
+     */
+    suspend fun <T> asEditor(block: suspend (AiTranslator) -> T): T =
+        store.router.ask(AiRouter.Lane.REVIEW, fromLang, toLang) { editor ->
+            editor.glossary = lead.glossary
+            editor.glossaryNotes = lead.glossaryNotes
+            editor.storySoFar = lead.storySoFar
+            editor.lessons = lead.lessons
+            block(editor)
+        }
 
     override fun close() {
         lead.close()
@@ -221,8 +227,6 @@ class TeamTranslator(
         private const val MAX_ATTEMPTS = 3
         private const val BATCH_TIMEOUT_MS = 150_000L
         private const val REFERENCE_POINTS = 8f
-        private const val STRONG = 70
-        private const val AVERAGE = 40
 
         private val wordPattern = Regex("\\b[A-Z][a-zA-Z'-]{2,}")
 

@@ -29,6 +29,7 @@ import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.translation.translator.AiTranslator
+import eu.kanade.translation.translator.canSearchWeb
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -171,17 +172,20 @@ class AiChatViewModel(
         while (history.size > 12) history.removeFirst()
     }
 
-    private fun buildAi(): AiTranslator {
-        return eu.kanade.translation.translator.appAi() ?: throw AiSearchAssistant.NotConfiguredException()
-    }
-
     /** Looks on the web for the sites that publish the series, when the reader's sources don't have it. */
     private suspend fun searchWeb(request: String, queries: List<String>): Pair<String?, List<WebSite>> {
-        val ai = buildAi()
-        try {
-            if (!ai.canSearchWeb) return context.stringResource(ATMR.strings.ai_web_unavailable) to emptyList()
-            val prompt = "Reader's request: $request\nSeries titles: ${queries.joinToString(" / ")}"
-            val json = ai.askJsonWithWeb(WEB_SYSTEM, prompt)
+        if (!eu.kanade.translation.translator.appAiConfigured()) throw AiSearchAssistant.NotConfiguredException()
+        val prompt = "Reader's request: $request\nSeries titles: ${queries.joinToString(" / ")}"
+        // Only keys whose provider can search the web; none of them: say so instead of failing
+        val json = try {
+            eu.kanade.translation.translator.appAsk(
+                eu.kanade.translation.team.AiRouter.Lane.CHAT,
+                prefer = { it.canSearchWeb() },
+            ) { ai -> ai.askJsonWithWeb(WEB_SYSTEM, prompt) }
+        } catch (e: AiSearchAssistant.NotConfiguredException) {
+            return context.stringResource(ATMR.strings.ai_web_unavailable) to emptyList()
+        }
+        run {
             val summary = (json["summary"] as? JsonPrimitive)?.contentOrNull
             val sites = (json["sites"] as? JsonArray).orEmpty().mapNotNull { element ->
                 val site = element as? JsonObject ?: return@mapNotNull null
@@ -189,15 +193,12 @@ class AiChatViewModel(
                 WebSite(name = site.str("name") ?: url, url = url, latest = site.str("latest"))
             }.take(8)
             return summary to sites
-        } finally {
-            ai.close()
         }
     }
 
     /** Asks the AI what the reader means: a short answer in their language plus titles to search for. */
     private suspend fun understand(request: String): Triple<String, List<String>, List<JsonObject>> {
-        val ai = buildAi()
-        try {
+        run {
             val state = runCatching { controller.snapshot() }.getOrDefault("")
             val prompt = buildString {
                 if (state.isNotEmpty()) appendLine(state).appendLine()
@@ -208,7 +209,7 @@ class AiChatViewModel(
                 }
                 append("Reader: ").append(request)
             }
-            val json = ai.askJson(SYSTEM, prompt)
+            val json = eu.kanade.translation.translator.appAsk(eu.kanade.translation.team.AiRouter.Lane.CHAT) { ai -> ai.askJson(SYSTEM, prompt) }
             val reply = (json["reply"] as? JsonPrimitive)?.contentOrNull.orEmpty()
             val queries = (json["queries"] as? JsonArray).orEmpty()
                 .mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.trim() }
@@ -217,8 +218,6 @@ class AiChatViewModel(
                 .take(4)
             val actions = (json["actions"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
             return Triple(reply, queries, actions)
-        } finally {
-            ai.close()
         }
     }
 

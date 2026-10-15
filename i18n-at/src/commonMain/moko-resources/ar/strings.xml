@@ -436,4 +436,14 @@
     <string name="game_empty">اقرا أول فصل وابدأ تطلع ليفل</string>
     <string name="game_total">%1$d فصل مقروء</string>
     <string name="game_time">%1$d س %2$d د</string>
+    <string name="lane_live">لايف</string>
+    <string name="lane_chapter">فصول</string>
+    <string name="lane_review">مراجعة</string>
+    <string name="lane_chat">شات وبحث</string>
+    <string name="lane_background">الرئيسية والإضافات</string>
+    <string name="router_today">النهارده</string>
+    <string name="router_nothing_today">لسه مفيش طلبات AI النهارده</string>
+    <string name="router_working">شغال دلوقتي: %1$s</string>
+    <string name="router_title">مين الأول</string>
+    <string name="router_info">كل طلبات الـ AI في التطبيق بتعدي على موزّع واحد. الصفحة اللي بتقراها دايماً الأول، حتى لو فيه فصول بتتترجم في الخلفية. بعدها الفصول والمراجعة، وبعدها الشات والبحث، وفي الآخر الرئيسية. آخر 20% من رصيد كل مفتاح محجوزين للترجمة، فالشات والرئيسية ما يخلصوهوش. المفتاح اللي موديله تلقائي بيستخدم موديل خفيف للشات والإضافات، وأقوى موديل للمراجعة. الطلب اللي يفشل بيروح للمفتاح اللي بعده على طول، والمفتاح اللي بيفشل كتير بيرتاح مدة أطول كل مرة.</string>
 </resources>

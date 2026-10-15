@@ -1,7 +1,8 @@
 package eu.kanade.translation.search
 
 import eu.kanade.translation.translator.AiTranslator
-import eu.kanade.translation.translator.appAi
+import eu.kanade.translation.team.AiRouter
+import eu.kanade.translation.translator.appAsk
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -16,17 +17,12 @@ class AiSearchAssistant(private val preferences: TranslationPreferences) {
     class NotConfiguredException : IllegalStateException("No AI engine configured")
 
     suspend fun suggestQueries(request: String): List<String> {
-        val ai = appAi() ?: throw NotConfiguredException()
-        try {
-            val reply = ai.askJson(SYSTEM, request.trim())
-            return (reply["queries"] as? JsonArray).orEmpty()
-                .mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.trim() }
-                .filter { it.isNotEmpty() }
-                .distinct()
-                .take(MAX_QUERIES)
-        } finally {
-            ai.close()
-        }
+        val reply = appAsk(AiRouter.Lane.CHAT) { ai -> ai.askJson(SYSTEM, request.trim()) }
+        return (reply["queries"] as? JsonArray).orEmpty()
+            .mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .take(MAX_QUERIES)
     }
 
     private companion object {
