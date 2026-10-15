@@ -468,6 +468,8 @@ class ChapterTranslator(
                     setProgress(100, percent, false)
                     setOngoing(true)
                     setOnlyAlertOnce(true)
+                    // Opens the manga screen, where every chapter shows its ring
+                    setContentIntent(NotificationReceiver.openEntryPendingActivity(context, translation.manga.id))
                 }
             }
         }

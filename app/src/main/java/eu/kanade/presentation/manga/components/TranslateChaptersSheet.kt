@@ -34,6 +34,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,7 +58,12 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /** The "translate chapters" bar of the manga screen: the button, and the progress while chapters translate. */
 @Composable
-fun TranslateChaptersBar(batch: MangaViewModel.TranslateBatch?, onClick: () -> Unit) {
+fun TranslateChaptersBar(
+    batch: MangaViewModel.TranslateBatch?,
+    onClick: () -> Unit,
+    onStopAll: () -> Unit = {},
+    onRetryFailed: () -> Unit = {},
+) {
     val colors = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
@@ -127,6 +136,26 @@ fun TranslateChaptersBar(batch: MangaViewModel.TranslateBatch?, onClick: () -> U
                             maxLines = 1,
                         )
                     }
+                    // Time spent, and the time left from the real percentage so far
+                    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+                    LaunchedEffect(batch.startedAt) {
+                        while (true) {
+                            now = System.currentTimeMillis()
+                            delay(1_000)
+                        }
+                    }
+                    val elapsed = (now - batch.startedAt).coerceAtLeast(0)
+                    val percent = batch.totalPercent
+                    Text(
+                        if (percent in 5..99) {
+                            stringResource(ATMR.strings.tp_time_left, clock(elapsed), clock(elapsed * (100 - percent) / percent))
+                        } else {
+                            stringResource(ATMR.strings.tp_time, clock(elapsed))
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceVariant,
+                        maxLines = 1,
+                    )
                 }
             }
             if (batch != null && !batch.finished) {
@@ -154,8 +183,26 @@ fun TranslateChaptersBar(batch: MangaViewModel.TranslateBatch?, onClick: () -> U
                 trackColor = colors.primary.copy(alpha = 0.15f),
                 strokeCap = StrokeCap.Round,
             )
+            // Stops every chapter that has not ended; the translated ones stay
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onStopAll) {
+                    Text(stringResource(ATMR.strings.tc_stop_all), color = colors.error)
+                }
+            }
+        }
+        if (batch != null && batch.finished && batch.failed > 0) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onRetryFailed) {
+                    Text(stringResource(ATMR.strings.tc_retry_failed, batch.failed))
+                }
+            }
         }
     }
+}
+
+private fun clock(ms: Long): String {
+    val seconds = (ms / 1000).coerceAtLeast(0)
+    return "%d:%02d".format(seconds / 60, seconds % 60)
 }
 
 /**

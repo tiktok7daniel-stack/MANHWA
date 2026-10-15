@@ -886,9 +886,13 @@ class MangaViewModel(
         val percent: Int = 0,
         val totalPercent: Int = 0,
         val finished: Boolean = false,
+        /** When the chapters were asked for, for the time spent and the time left. */
+        val startedAt: Long = System.currentTimeMillis(),
     )
 
     private val translateBatchIds = MutableStateFlow<List<Long>>(emptyList())
+
+    private var translateBatchStartedAt = System.currentTimeMillis()
 
     val translateBatch: StateFlow<TranslateBatch?> = combine(translateBatchIds, translationStates, translationProgress) { ids, states, progress ->
         if (ids.isEmpty()) return@combine null
@@ -910,6 +914,7 @@ class MangaViewModel(
             percent = current?.let(chapterPercent) ?: 100,
             totalPercent = ids.sumOf(chapterPercent) / ids.size,
             finished = done >= ids.size,
+            startedAt = translateBatchStartedAt,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -926,6 +931,39 @@ class MangaViewModel(
      * Translates [count] unread chapters (all of them when null) starting at [startChapterId]. Chapters that
      * are not downloaded are fetched from the source first, by themselves, and translated as soon as they arrive.
      */
+    /**
+     * MANHWA: stops every chapter of the batch that has not ended: queued and running translations are
+     * cancelled, and chapters still downloading only to be translated stop downloading. Translated ones stay.
+     */
+    fun stopTranslateBatch() {
+        val ids = translateBatchIds.value
+        if (ids.isEmpty()) return
+        val states = translationStates.value
+        val open = ids.filter { states[it] != Translation.State.TRANSLATED && states[it] != Translation.State.ERROR }
+        val fetching = open.filter { translationManager.translateAfterDownload.remove(it) }
+        open.forEach { id ->
+            translationManager.getQueuedTranslationOrNull(id)?.let(translationManager::cancelQueuedTranslation)
+        }
+        downloadStage.update { it - open.toSet() }
+        translationStates.update { map -> map + open.associateWith { Translation.State.NOT_TRANSLATED } }
+        translateBatchIds.value = emptyList()
+        if (fetching.isNotEmpty()) {
+            appScope.launch(Dispatchers.IO) {
+                downloadManager.cancelQueuedDownloads(fetching.mapNotNull(downloadManager::getQueuedDownloadOrNull))
+            }
+        }
+    }
+
+    /** MANHWA: tries the chapters of the batch that failed again; each carries on from where it stopped. */
+    fun retryFailedInBatch() {
+        val states = translationStates.value
+        val items = allChapters.orEmpty().associateBy { it.id }
+        val failed = translateBatchIds.value.filter { states[it] == Translation.State.ERROR }.mapNotNull { items[it] }
+        if (failed.isEmpty()) return
+        translateBatchStartedAt = System.currentTimeMillis()
+        failed.forEach { runChapterTranslationAction(it, ChapterTranslationAction.START) }
+    }
+
     fun translateChapters(count: Int?, startChapterId: Long?) {
         val manga = successState?.manga ?: return
         val candidates = translateCandidates()
@@ -934,6 +972,7 @@ class MangaViewModel(
         if (picked.isEmpty()) return
         val items = allChapters.orEmpty().associateBy { it.id }
         val (downloaded, missing) = picked.partition { items[it.id]?.isDownloaded == true }
+        translateBatchStartedAt = System.currentTimeMillis()
         translateBatchIds.value = picked.map { it.id }
         translationStates.update { states -> states + picked.associate { it.id to Translation.State.QUEUE } }
         downloadStage.update { map -> map - picked.map { it.id }.toSet() + missing.associate { it.id to Translation.Progress() } }

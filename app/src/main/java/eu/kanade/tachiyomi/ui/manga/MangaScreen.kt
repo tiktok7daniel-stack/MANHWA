@@ -123,7 +123,12 @@ class MangaScreen(
                     // MANHWA: translate chapters from here; missing ones are fetched by themselves
                     val batch by viewModel.translateBatch.collectAsStateWithLifecycle()
                     var showSheet by remember { mutableStateOf(false) }
-                    eu.kanade.presentation.manga.components.TranslateChaptersBar(batch = batch, onClick = { showSheet = true })
+                    eu.kanade.presentation.manga.components.TranslateChaptersBar(
+                        batch = batch,
+                        onClick = { showSheet = true },
+                        onStopAll = viewModel::stopTranslateBatch,
+                        onRetryFailed = viewModel::retryFailedInBatch,
+                    )
                     if (showSheet) {
                         eu.kanade.presentation.manga.components.TranslateChaptersSheet(
                             candidates = remember { viewModel.translateCandidates() },

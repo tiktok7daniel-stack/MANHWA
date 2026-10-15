@@ -314,4 +314,6 @@
     <string name="tp_time_left">⏱ %1$s, about %2$s left</string>
     <string name="tc_progress_percent">%1$s · %2$d%%</string>
     <string name="tc_total">Chapter %1$d of %2$d · %3$d%% overall</string>
+    <string name="tc_stop_all">⏸ Stop all</string>
+    <string name="tc_retry_failed">Try the failed ones again (%1$d)</string>
 </resources>

@@ -254,4 +254,6 @@
     <string name="tp_time_left">⏱ %1$s، باقي حوالي %2$s</string>
     <string name="tc_progress_percent">%1$s · %2$d%%</string>
     <string name="tc_total">فصل %1$d من %2$d · الإجمالي %3$d%%</string>
+    <string name="tc_stop_all">⏸ إيقاف الكل</string>
+    <string name="tc_retry_failed">حاول تاني للفصول اللي فشلت (%1$d)</string>
 </resources>
