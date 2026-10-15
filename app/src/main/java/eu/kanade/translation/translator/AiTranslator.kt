@@ -205,7 +205,7 @@ class AiTranslator(
             }
             if (fitHints) {
                 putJsonObject(LIMITS_KEY) {
-                    batch.forEach { name -> putJsonArray(name) { pages[name]!!.blocks.forEach { add(charBudget(it)) } } }
+                    batch.forEach { name -> putJsonArray(name) { pages[name]!!.blocks.forEach { add(bubbleCharBudget(it)) } } }
                 }
             }
         }
@@ -306,7 +306,7 @@ class AiTranslator(
             put("id", id)
             put("ocr", block.text)
             if (useDrafts && block.translation.isNotBlank()) put("draft", block.translation)
-            if (fitHints) put("max", charBudget(block))
+            if (fitHints) put("max", bubbleCharBudget(block))
             if (tile != null && page.imgWidth > 0) {
                 put("slice", tileIndex)
                 putJsonArray("box_2d") {
@@ -851,18 +851,6 @@ class AiTranslator(
         const val SCOUT_MAX_CHARS = 12_000
         const val LIMITS_KEY = "_limits"
 
-        /**
-         * About how many characters of translation fit [block]: its bubble (or its text box) divided by the
-         * size of one letter of the original, with room for line spacing.
-         */
-        fun charBudget(block: TranslationBlock): Int {
-            val area = if (block.hasBubble) block.bubbleW * block.bubbleH * 0.7f else block.width * block.height * 1.25f
-            val letter = (block.symWidth.coerceAtLeast(1f)) * (block.symHeight.coerceAtLeast(1f)) * 1.6f
-            return (area / letter).toInt().coerceIn(MIN_BUDGET, MAX_BUDGET)
-        }
-
-        private const val MIN_BUDGET = 6
-        private const val MAX_BUDGET = 400
         const val REVIEW_LINES = 120
         const val KINDS_KEY = "_kinds"
         const val MAX_GLOSSARY = 200
@@ -876,3 +864,12 @@ class AiTranslator(
     }
 }
 
+/**
+ * MANHWA: about how many characters of translation fit [block]: its bubble (or its text box) divided by the
+ * size of one letter of the original, with room for line spacing.
+ */
+fun bubbleCharBudget(block: TranslationBlock): Int {
+    val area = if (block.hasBubble) block.bubbleW * block.bubbleH * 0.7f else block.width * block.height * 1.25f
+    val letter = (block.symWidth.coerceAtLeast(1f)) * (block.symHeight.coerceAtLeast(1f)) * 1.6f
+    return (area / letter).toInt().coerceIn(6, 400)
+}

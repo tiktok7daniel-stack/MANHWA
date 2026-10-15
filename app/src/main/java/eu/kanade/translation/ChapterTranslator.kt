@@ -32,6 +32,7 @@ import eu.kanade.translation.live.PageOcr.rescaled
 import eu.kanade.translation.data.TranslationProvider
 import eu.kanade.translation.translator.AiTranslator
 import eu.kanade.translation.translator.aiPart
+import eu.kanade.translation.translator.bubbleCharBudget
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.model.Translation
 import eu.kanade.translation.model.TranslationBlock
@@ -650,7 +651,7 @@ class ChapterTranslator(
             val bad = page.blocks.filter {
                 QualityCheck.check(it.text, it.translation, glossary, latin) != null ||
                     // Far more than fits its (real, detected) bubble: asked again, with the size it has
-                    (it.hasBubble && it.translation.length > AiTranslator.charBudget(it) * OVERFLOW_FACTOR)
+                    (it.hasBubble && it.translation.length > bubbleCharBudget(it) * OVERFLOW_FACTOR)
             }
             if (bad.isEmpty()) null else name to page.copy(blocks = bad.toMutableList())
         }.toMap(mutableMapOf())
