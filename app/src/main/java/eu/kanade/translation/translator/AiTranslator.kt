@@ -358,6 +358,85 @@ class AiTranslator(
     suspend fun askJson(system: String, prompt: String): JsonObject =
         withRetry { parse(request(system, listOf(Part.Text(prompt)))) }
 
+    /** MANHWA scout: a term found in a chapter before it is translated. */
+    class ScoutTerm(val source: String, val translation: String, val kind: String, val gender: String, val note: String)
+
+    /**
+     * MANHWA scout: reads a whole chapter's text in one call before it is translated and lists its names and
+     * terms (characters with gender and how they speak, skills, places, titles), so every key of the team uses
+     * the same ones from the first page.
+     */
+    suspend fun scout(chapterText: String): List<ScoutTerm> {
+        val system = buildString {
+            appendLine("You prepare a ${fromLang.label} comic chapter for translation into ${toLang.label}. Reply with JSON only.")
+            if (glossary.isNotEmpty()) {
+                appendLine("Already known (do not repeat): " + glossary.keys.take(MAX_GLOSSARY).joinToString(", "))
+            }
+            if (storySoFar.isNotBlank()) appendLine("Story so far: ${storySoFar.trim()}")
+        }
+        val prompt = buildString {
+            appendLine("List the NEW proper nouns and terms in this chapter: character names, skills, ranks, titles, sects, places,")
+            appendLine("items. For characters give their gender when the text makes it clear and, in a few words, how they speak.")
+            appendLine("Reply as {\"terms\": [{\"s\": \"<as written>\", \"t\": \"<translation>\", \"kind\":")
+            appendLine("\"character|skill|place|title|group|item\", \"gender\": \"male|female|\", \"note\": \"<how they speak, or empty>\"}]}.")
+            appendLine("At most 25 terms. Chapter text:")
+            append(chapterText.take(SCOUT_MAX_CHARS))
+        }
+        val reply = withRetry { parse(request(system, listOf(Part.Text(prompt)))) }
+        return (reply["terms"] as? JsonArray).orEmpty().mapNotNull { item ->
+            val o = item as? JsonObject ?: return@mapNotNull null
+            fun str(key: String) = (o[key] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+            val source = str("s")
+            val translation = str("t")
+            if (source.isBlank() || translation.isBlank()) null else ScoutTerm(source, translation, str("kind"), str("gender"), str("note").take(80))
+        }
+    }
+
+    /**
+     * MANHWA editor: reads translated lines ([id] to source and translation) and returns only the ones it
+     * corrects (wrong meaning, a name not as in the glossary, a gender that does not match the character,
+     * awkward wording), as id to the corrected translation.
+     */
+    suspend fun review(lines: Map<String, kotlin.Pair<String, String>>): Map<String, String> {
+        if (lines.isEmpty()) return emptyMap()
+        val system = buildString {
+            appendLine("You are the final editor of a ${fromLang.label} comic translated into ${toLang.label}. Reply with JSON only.")
+            if (glossary.isNotEmpty()) {
+                appendLine("Series glossary (must be followed):")
+                glossary.entries.take(MAX_GLOSSARY).forEach { (source, translation) ->
+                    val note = glossaryNotes[source]
+                    appendLine(if (note.isNullOrBlank()) "- $source => $translation" else "- $source => $translation ($note)")
+                }
+            }
+            if (storySoFar.isNotBlank()) appendLine("Story so far: ${storySoFar.trim()}")
+            if (instructions.isNotBlank()) appendLine("Reader's instructions: ${instructions.trim()}")
+        }
+        val fixes = mutableMapOf<String, String>()
+        for (chunk in lines.entries.chunked(REVIEW_LINES)) {
+            val input = buildJsonObject {
+                chunk.forEach { (id, pair) ->
+                    putJsonObject(id) {
+                        put("src", pair.first)
+                        put("tr", pair.second)
+                    }
+                }
+            }
+            val prompt = buildString {
+                appendLine("Check every translation against its source, in order (they are consecutive bubbles of the chapter).")
+                appendLine("Fix only real problems: wrong meaning, names not as in the glossary, verbs/pronouns that do not match")
+                appendLine("the character's gender, unnatural or too literal wording, text left untranslated. Keep good lines as they are.")
+                appendLine("Reply as {\"fixes\": {\"<id>\": \"<corrected translation>\"}} with only the lines you changed ({} if none).")
+                append(input.toString())
+            }
+            val reply = withRetry { parse(request(system, listOf(Part.Text(prompt)))) }
+            (reply["fixes"] as? JsonObject)?.forEach { (id, value) ->
+                val text = (value as? JsonPrimitive)?.contentOrNull?.trim()
+                if (!text.isNullOrBlank() && id in lines) fixes[id] = text
+            }
+        }
+        return fixes
+    }
+
     /** Whether this engine can search the web (Gemini, Claude and OpenRouter can). */
     val canSearchWeb: Boolean get() = provider != Provider.OPENAI_COMPATIBLE
 
@@ -739,6 +818,8 @@ class AiTranslator(
         )
         const val TERMS_KEY = "_terms"
         const val SUMMARY_KEY = "_summary"
+        const val SCOUT_MAX_CHARS = 12_000
+        const val REVIEW_LINES = 120
         const val KINDS_KEY = "_kinds"
         const val MAX_GLOSSARY = 200
         const val WATERMARK = "RTMTH"

@@ -68,19 +68,25 @@ class GlossaryStore(private val context: Context) {
      * Adds terms found by the AI without touching entries that already exist. MANHWA: [details] (kind and
      * gender) fill in what an entry does not know yet, but never change what the reader edited.
      */
-    fun merge(mangaId: Long, terms: Map<String, String>, details: Map<String, Pair<String, String>> = emptyMap()) {
-        if (terms.isEmpty() && details.isEmpty()) return
+    fun merge(
+        mangaId: Long,
+        terms: Map<String, String>,
+        details: Map<String, Pair<String, String>> = emptyMap(),
+        notes: Map<String, String> = emptyMap(),
+    ) {
+        if (terms.isEmpty() && details.isEmpty() && notes.isEmpty()) return
         update(mangaId) { list ->
             val known = list.map { it.source.lowercase() }.toSet()
             val completed = list.map { entry ->
-                val (kind, gender) = details.entries.firstOrNull { it.key.equals(entry.source, ignoreCase = true) }?.value ?: return@map entry
                 if (entry.edited) return@map entry
-                entry.copy(kind = entry.kind.ifBlank { kind }, gender = entry.gender.ifBlank { gender })
+                val (kind, gender) = details.entries.firstOrNull { it.key.equals(entry.source, ignoreCase = true) }?.value ?: ("" to "")
+                val note = notes.entries.firstOrNull { it.key.equals(entry.source, ignoreCase = true) }?.value.orEmpty()
+                entry.copy(kind = entry.kind.ifBlank { kind }, gender = entry.gender.ifBlank { gender }, note = entry.note.ifBlank { note })
             }
             completed + terms.filter { (s, t) -> s.isNotBlank() && t.isNotBlank() && s.lowercase() !in known }
                 .map { (s, t) ->
                     val (kind, gender) = details[s] ?: ("" to "")
-                    Entry(s.trim(), t.trim(), kind = kind, gender = gender)
+                    Entry(s.trim(), t.trim(), kind = kind, gender = gender, note = notes[s].orEmpty())
                 }
         }
     }

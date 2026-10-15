@@ -68,6 +68,7 @@ class TranslationTeamScreen : Screen() {
         val store = remember { context.appGraph.teamStore }
         val prefs = remember { context.appGraph.translationPreferences }
         val enabled by prefs.translationTeamEnabled().collectPreference()
+        val accurate by prefs.translationTeamAccurate().collectPreference()
         val members by store.members.collectAsState()
         val analysis by store.analysis.collectAsState()
         val health by store.health.collectAsState()
@@ -107,6 +108,24 @@ class TranslationTeamScreen : Screen() {
                             }
                             Switch(checked = enabled, onCheckedChange = { prefs.translationTeamEnabled().set(it) })
                         }
+                        // Fast: scout + translators + collection + automatic check. Accurate: the lead also edits.
+                        Text(stringResource(ATMR.strings.team_mode), fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = !accurate,
+                                onClick = { prefs.translationTeamAccurate().set(false) },
+                                label = { Text(stringResource(ATMR.strings.team_mode_fast)) },
+                            )
+                            FilterChip(
+                                selected = accurate,
+                                onClick = { prefs.translationTeamAccurate().set(true) },
+                                label = { Text(stringResource(ATMR.strings.team_mode_accurate)) },
+                            )
+                        }
+                        Text(
+                            stringResource(if (accurate) ATMR.strings.team_mode_accurate_summary else ATMR.strings.team_mode_fast_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
                 }
                 item {

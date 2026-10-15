@@ -328,4 +328,9 @@
     <string name="team_left_estimate">فاضل حوالي %1$d%% (تقدير)</string>
     <string name="team_today">النهارده: %1$d طلب · %2$d خطأ</string>
     <string name="team_daily_limit">الحد اليومي للطلبات (اختياري)</string>
+    <string name="team_mode">الوضع</string>
+    <string name="team_mode_fast">⚡ سريع</string>
+    <string name="team_mode_accurate">🎯 دقيق</string>
+    <string name="team_mode_fast_summary">الكشّاف + المترجمين + المكتبة + الفحص الآلي.</string>
+    <string name="team_mode_accurate_summary">زي السريع، وفوقه القائد بيراجع الفصل كله ويصلّح الغلط (طلب زيادة لكل فصل).</string>
 </resources>

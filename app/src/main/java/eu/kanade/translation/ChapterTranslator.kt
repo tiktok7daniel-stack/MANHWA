@@ -19,6 +19,7 @@ import eu.kanade.translation.collection.TextKey
 import eu.kanade.translation.collection.TranslationCollection
 import eu.kanade.translation.data.PageImage
 import eu.kanade.translation.team.ChapterPlanner
+import eu.kanade.translation.team.QualityCheck
 import eu.kanade.translation.team.TeamStore
 import eu.kanade.translation.translator.TeamTranslator
 import java.util.Collections
@@ -374,7 +375,6 @@ class ChapterTranslator(
             val src = translation.fromLang.name
             val tgt = translation.toLang.name
             val useLibrary = translationPreferences.translationCollection().get()
-            val glossaryNow = glossaryStore.asMap(translation.manga.id)
             collection.limitBytes = translationPreferences.translationCollectionLimitMb().get().toLong() * 1024 * 1024
 
             // 3. Translate (60–92%), batch by batch, never waiting silently
@@ -398,9 +398,29 @@ class ChapterTranslator(
                     }
                     onRetry = { error -> translation.note(noteFor(error)) }
                 }
+                // MANHWA scout: the chapter's names and terms (with gender and how they speak) found in one call
+                // before translating, so every key uses the same ones from the first page
+                if (ai != null && pages.values.sumOf { it.blocks.size } >= SCOUT_MIN_LINES) {
+                    translation.note(Translation.Note.AI)
+                    runCatching {
+                        val text = pages.values.joinToString("\n") { page -> page.blocks.joinToString(" | ") { it.text } }
+                        val found = ai.scout(text)
+                        glossaryStore.merge(
+                            translation.manga.id,
+                            found.associate { it.source to it.translation },
+                            found.associate { it.source to (it.kind to it.gender) },
+                            found.filter { it.note.isNotBlank() }.associate { it.source to it.note },
+                        )
+                        ai.glossary = glossaryStore.asMap(translation.manga.id)
+                        ai.glossaryNotes = glossaryStore.notes(translation.manga.id)
+                    }.onFailure {
+                        if (it is CancellationException) throw it
+                        logcat(LogPriority.WARN, it) { "Scout failed, translating without it" }
+                    }
+                }
                 // MANHWA collection: lines translated before, in any manhwa, are written at once; repeats inside
                 // the chapter are translated once; only what is left goes to the translator
-                val library = if (useLibrary) fromLibrary(pages, src, tgt, glossaryNow) else LibraryPass.NONE
+                val library = if (useLibrary) fromLibrary(pages, src, tgt, glossaryStore.asMap(translation.manga.id)) else LibraryPass.NONE
                 translation.fromLibrary(library.percent)
                 val work = pages.mapNotNull { (name, page) ->
                     val rest = page.blocks.filter { it !in library.known && !library.copies.containsKey(it) }
@@ -450,10 +470,30 @@ class ChapterTranslator(
                 ai?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms, termDetails) }
                 glossaryStore.addChapterSummary(translation.manga.id, translation.chapter.name, chapterSummary)
 
-                // 4. Review (92–98%): bubbles added by the vision model placed on their real letters, or dropped
-                val toPlace = pages.filterValues { page -> page.blocks.any { it.needsSnap } }
-                translation.advance(Translation.Stage.REVIEWING, 0, toPlace.size)
+                // 4. Review (92–98%): the automatic check, then (accurate mode) the editor
+                translation.advance(Translation.Stage.REVIEWING, 0, 3)
                 showProgress()
+                val glossaryAfter = glossaryStore.asMap(translation.manga.id)
+                recheck(pages, glossaryAfter, translation)
+                translation.advance(Translation.Stage.REVIEWING, 1, 3)
+                showProgress()
+                if (ai != null && translationPreferences.translationTeamAccurate().get()) {
+                    translation.note(Translation.Note.AI)
+                    val fixed = runCatching { edit(ai, pages, translation.manga.id) }
+                        .onFailure {
+                            if (it is CancellationException) throw it
+                            logcat(LogPriority.WARN, it) { "Editor failed, keeping the team's translation" }
+                        }
+                        .getOrDefault(emptyList())
+                    if (useLibrary && fixed.isNotEmpty()) {
+                        collection.learn(src, tgt, translation.manga.id, glossaryAfter, fixed, TranslationCollection.Source.EDITOR)
+                    }
+                }
+                translation.advance(Translation.Stage.REVIEWING, 2, 3)
+                showProgress()
+
+                // Bubbles added by the vision model: placed on their real letters, or dropped
+                val toPlace = pages.filterValues { page -> page.blocks.any { it.needsSnap } }
                 for ((i, entry) in toPlace.entries.withIndex()) {
                     val (name, page) = entry
                     val open = streams.firstOrNull { it.first == name }?.second ?: continue
@@ -467,8 +507,10 @@ class ChapterTranslator(
                             }
                         }
                     }
-                    translation.advance(Translation.Stage.REVIEWING, i + 1, toPlace.size)
-                    showProgress()
+                    if (i == toPlace.size - 1) {
+                        translation.advance(Translation.Stage.REVIEWING, 3, 3)
+                        showProgress()
+                    }
                 }
                 pages.values.forEach(PageOcr::finish)
                 pages.entries.removeAll { it.value.blocks.isEmpty() }
@@ -587,6 +629,51 @@ class ChapterTranslator(
         library.copies.forEach { (repeat, first) ->
             repeat.translation = first.translation
             if (repeat.kind.isBlank()) repeat.kind = first.kind
+        }
+    }
+
+    /**
+     * MANHWA automatic check: every bubble is checked on the phone (empty, left untranslated, far too long, a
+     * glossary name lost); only the flagged ones are translated once more, by the same translator or team.
+     */
+    private suspend fun recheck(pages: MutableMap<String, PageTranslation>, glossary: Map<String, String>, translation: Translation) {
+        val latin = translation.toLang.code !in NON_LATIN_TARGETS
+        val flagged = pages.mapNotNull { (name, page) ->
+            val bad = page.blocks.filter { QualityCheck.check(it.text, it.translation, glossary, latin) != null }
+            if (bad.isEmpty()) null else name to page.copy(blocks = bad.toMutableList())
+        }.toMap(mutableMapOf())
+        if (flagged.isEmpty()) return
+        logcat { "Automatic check: ${flagged.values.sumOf { it.blocks.size }} bubbles translated again" }
+        // The chapter's plan stays the one shown, not this small second pass
+        (textTranslator as? TeamTranslator)?.onPlan = null
+        val before = flagged.values.flatMap { it.blocks }.associateWith { it.translation }
+        runCatching { withWatchdog(translation) { textTranslator.translate(flagged) } }
+            .onFailure { if (it is CancellationException) throw it }
+        // A second try that is no better keeps the first one
+        before.forEach { (block, old) -> if (block.translation.isBlank()) block.translation = old }
+    }
+
+    /**
+     * MANHWA editor (accurate mode): the team's lead reads the chapter and corrects only what is wrong. Returns
+     * the corrected lines, for the collection.
+     */
+    private suspend fun edit(ai: AiTranslator, pages: Map<String, PageTranslation>, mangaId: Long): List<TranslationCollection.Line> {
+        ai.glossary = glossaryStore.asMap(mangaId)
+        ai.glossaryNotes = glossaryStore.notes(mangaId)
+        ai.storySoFar = glossaryStore.storySoFar(mangaId)
+        try {
+            val blocks = pages.entries.flatMap { (name, page) -> page.blocks.mapIndexed { i, block -> "$name#$i" to block } }
+                .filter { it.second.translation.isNotBlank() }
+                .toMap()
+            val fixes = ai.review(blocks.mapValues { (_, block) -> block.text to block.translation })
+            return fixes.mapNotNull { (id, text) ->
+                val block = blocks[id] ?: return@mapNotNull null
+                block.translation = text
+                TranslationCollection.Line(block.text, text, block.kind)
+            }
+        } finally {
+            ai.glossaryNotes = emptyMap()
+            ai.storySoFar = ""
         }
     }
 
@@ -721,5 +808,11 @@ class ChapterTranslator(
 
         /** Sentences kept as a chapter's summary for the next chapters. */
         const val SUMMARY_LINES = 3
+
+        /** Below this many lines the chapter is too short to scout. */
+        const val SCOUT_MIN_LINES = 8
+
+        /** Target languages not written in Latin letters (English words left in them are a mistake). */
+        val NON_LATIN_TARGETS = setOf("ar", "fa", "ur", "he", "ru", "uk", "bg", "el", "hi", "bn", "th", "zh", "ja", "ko")
     }
 }

@@ -66,4 +66,7 @@ class TranslationPreferences(
 
     /** Each key's use today and what its provider says is left, as JSON (see UsageMeter). */
     fun translationTeamUsage() = preferenceStore.getString("manhwa_translation_team_usage", "{}")
+
+    /** Accurate mode: after the team translates, its lead reviews the chapter and fixes what is wrong. */
+    fun translationTeamAccurate() = preferenceStore.getBoolean("manhwa_translation_team_accurate", false)
 }

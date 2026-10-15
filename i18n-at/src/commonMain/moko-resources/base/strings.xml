@@ -388,4 +388,9 @@
     <string name="team_left_estimate">About %1$d%% left (estimate)</string>
     <string name="team_today">Today: %1$d requests · %2$d errors</string>
     <string name="team_daily_limit">Daily request limit (optional)</string>
+    <string name="team_mode">Mode</string>
+    <string name="team_mode_fast">⚡ Fast</string>
+    <string name="team_mode_accurate">🎯 Accurate</string>
+    <string name="team_mode_fast_summary">Scout + translators + collection + automatic check.</string>
+    <string name="team_mode_accurate_summary">As fast, and the lead reviews the whole chapter and fixes mistakes (one more call per chapter).</string>
 </resources>
