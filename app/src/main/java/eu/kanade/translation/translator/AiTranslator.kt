@@ -111,6 +111,12 @@ class AiTranslator(
      */
     var fastFail: Boolean = false
 
+    /**
+     * MANHWA usage meter: every answer's status, headers (where the provider says how much is left) and,
+     * for errors, the body. Unset: as before.
+     */
+    var onResponse: ((Int, okhttp3.Headers, String) -> Unit)? = null
+
     /** The model this translator uses now (it can change when a retired model is replaced). */
     val currentModel: String get() = model
 
@@ -608,6 +614,7 @@ class AiTranslator(
             .build()
         client.newCall(request).execute().use { response ->
             val text = response.body.string()
+            onResponse?.invoke(response.code, response.headers, if (response.isSuccessful) "" else text.take(500))
             if (!response.isSuccessful) throw ApiException(response.code, text.take(500))
             extractText(json.parseToJsonElement(text).jsonObject)
         }

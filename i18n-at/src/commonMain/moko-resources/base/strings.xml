@@ -381,4 +381,11 @@
     <string name="team_model">Model (optional)</string>
     <string name="team_save">Save and check</string>
     <string name="team_note">Note: Google may suspend many free Gemini accounts used together. Mixing providers is safer.</string>
+    <string name="team_low_title">⚠️ Key %1$s is almost out</string>
+    <string name="team_out_title">⛔ Key %1$s is out for today</string>
+    <string name="team_low_text">%1$d%% left. The team moves its work to the other keys. Open the translation team to change it.</string>
+    <string name="team_left_real">%1$d%% left (from the provider)</string>
+    <string name="team_left_estimate">About %1$d%% left (estimate)</string>
+    <string name="team_today">Today: %1$d requests · %2$d errors</string>
+    <string name="team_daily_limit">Daily request limit (optional)</string>
 </resources>

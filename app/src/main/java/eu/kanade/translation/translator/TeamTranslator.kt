@@ -152,6 +152,8 @@ class TeamTranslator(
         }
         lead.summaries.clear()
         summaries.values.forEach { lead.summaries += it }
+        // OpenRouter tells the credit left on a key: read again after the chapter
+        members.forEach { store.usage.refreshOpenRouter(it) }
     }
 
     /** What the chapter translator set on [lead], given to a key's translator for one batch. */

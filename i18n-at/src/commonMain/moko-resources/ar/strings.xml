@@ -321,4 +321,11 @@
     <string name="team_model">الموديل (اختياري)</string>
     <string name="team_save">حفظ وتحليل</string>
     <string name="team_note">ملحوظة: حسابات Gemini المجانية الكتير ممكن جوجل توقفها. الأأمن تنوّع المزوّدين.</string>
+    <string name="team_low_title">⚠️ المفتاح %1$s قرّب يخلص</string>
+    <string name="team_out_title">⛔ المفتاح %1$s خلص النهارده</string>
+    <string name="team_low_text">فاضل %1$d%%. الفريق هينقل شغله للمفاتيح التانية. افتح فريق الترجمة لو عايز تغيّره.</string>
+    <string name="team_left_real">فاضل %1$d%% (من المزوّد)</string>
+    <string name="team_left_estimate">فاضل حوالي %1$d%% (تقدير)</string>
+    <string name="team_today">النهارده: %1$d طلب · %2$d خطأ</string>
+    <string name="team_daily_limit">الحد اليومي للطلبات (اختياري)</string>
 </resources>

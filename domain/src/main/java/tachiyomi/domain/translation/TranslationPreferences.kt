@@ -63,4 +63,7 @@ class TranslationPreferences(
 
     /** What the last analysis found out about each key, as JSON (see TeamStore). */
     fun translationTeamAnalysis() = preferenceStore.getString("manhwa_translation_team_analysis", "{}")
+
+    /** Each key's use today and what its provider says is left, as JSON (see UsageMeter). */
+    fun translationTeamUsage() = preferenceStore.getString("manhwa_translation_team_usage", "{}")
 }

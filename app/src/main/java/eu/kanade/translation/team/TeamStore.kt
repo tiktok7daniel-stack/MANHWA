@@ -1,6 +1,12 @@
 package eu.kanade.translation.team
 
+import android.content.Context
 import dev.zacsweers.metro.AppScope
+import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.util.system.notify
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.i18n.at.ATMR
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
@@ -32,7 +38,13 @@ import kotlin.math.roundToInt
  */
 @Inject
 @SingleIn(AppScope::class)
-class TeamStore(private val prefs: TranslationPreferences) {
+class TeamStore(private val context: Context, private val prefs: TranslationPreferences) {
+
+    /** How much each key has left (see [UsageMeter]). */
+    val usage = UsageMeter(prefs.translationTeamUsage())
+
+    /** Keys already warned about today ("almost out", "out"), so each warning comes once. */
+    private val warned = ConcurrentHashMap.newKeySet<String>()
 
     @Serializable
     data class Member(
@@ -41,6 +53,8 @@ class TeamStore(private val prefs: TranslationPreferences) {
         val key: String,
         val model: String = "",
         val enabled: Boolean = true,
+        /** Requests a day the key may make (Gemini tells nothing), 0 = a default by model. */
+        val dailyLimit: Int = 0,
     ) {
         val providerEnum: AiTranslator.Provider
             get() = AiTranslator.Provider.entries.firstOrNull { it.name == provider } ?: AiTranslator.Provider.GEMINI
@@ -132,6 +146,7 @@ class TeamStore(private val prefs: TranslationPreferences) {
     }
 
     fun remove(id: String) {
+        usage.forget(id)
         save(_members.value.filterNot { it.id == id })
         saveAnalysis(_analysis.value - id)
         _health.update { it - id }
@@ -139,7 +154,7 @@ class TeamStore(private val prefs: TranslationPreferences) {
 
     /** The members the team works with: enabled, with a key, and not known to be broken. */
     fun active(): List<Member> = _members.value.filter { m ->
-        m.enabled && m.key.isNotBlank() && _analysis.value[m.id]?.let { it.ok || it.limited } != false
+        m.enabled && m.key.isNotBlank() && _analysis.value[m.id]?.let { it.ok || it.limited } != false && !usage.exhausted(m)
     }
 
     /** Strength now (1–100): the analysis, adjusted by how the member has done while translating. */
@@ -199,7 +214,28 @@ class TeamStore(private val prefs: TranslationPreferences) {
         maxOutputTokens = prefs.translationEngineMaxOutputTokens().get().toIntOrNull() ?: 16000,
         temperature = prefs.translationEngineTemperature().get().toFloatOrNull() ?: 0.4f,
         instructions = prefs.translationInstructions().get(),
-    )
+    ).apply {
+        onResponse = { code, headers, body ->
+            usage.record(member, code, headers, body)
+            warnIfLow(member)
+        }
+    }
+
+    /** Tells the reader once a day when a key is almost out (under 20%) or out, so it can be changed in time. */
+    private fun warnIfLow(member: Member) {
+        val level = usage.level(member)
+        val out = level.exhausted || level.percent == 0
+        if (!out && level.percent >= LOW_PERCENT) return
+        val tag = "${member.id}:${UsageMeter.today()}:${if (out) "out" else "low"}"
+        if (!warned.add(tag)) return
+        val name = "${member.providerEnum.name.lowercase().replaceFirstChar { it.uppercase() }} ${member.key.takeLast(4)}"
+        context.notify(NOTIFICATION_BASE + (member.id.hashCode() and 0xFFF), Notifications.CHANNEL_COMMON) {
+            setSmallIcon(R.drawable.ic_translate)
+            setContentTitle(context.stringResource(if (out) ATMR.strings.team_out_title else ATMR.strings.team_low_title, name))
+            setContentText(context.stringResource(ATMR.strings.team_low_text, level.percent))
+            setAutoCancel(true)
+        }
+    }
 
     /**
      * Tries [member] with a tiny translation: does it answer (and why not), how fast, with which model, and
@@ -227,7 +263,7 @@ class TeamStore(private val prefs: TranslationPreferences) {
                     model = model,
                     vision = readsImages(member.providerEnum, model),
                     strength = strengthOf(model, latency),
-                )
+                ).also { usage.refreshOpenRouter(member) }
             } finally {
                 translator.close()
             }
@@ -252,6 +288,8 @@ class TeamStore(private val prefs: TranslationPreferences) {
 
     companion object {
         private const val DEFAULT_STRENGTH = 50
+        private const val LOW_PERCENT = 20
+        private const val NOTIFICATION_BASE = 0x3A000
         private const val SPEED_REFERENCE_MS = 2_500f
 
         /** The provider a key belongs to, from how it looks. */

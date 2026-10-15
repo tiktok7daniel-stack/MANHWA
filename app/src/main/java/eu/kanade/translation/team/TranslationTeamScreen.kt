@@ -72,6 +72,8 @@ class TranslationTeamScreen : Screen() {
         val analysis by store.analysis.collectAsState()
         val health by store.health.collectAsState()
         val analyzing by store.analyzingIds.collectAsState()
+        // Read so the meters move while the screen is open
+        val usageState by store.usage.usage.collectAsState()
         var adding by remember { mutableStateOf(false) }
         var editing by remember { mutableStateOf<TeamStore.Member?>(null) }
 
@@ -133,6 +135,7 @@ class TranslationTeamScreen : Screen() {
                         strength = store.strength(member.id),
                         share = shares[member.id],
                         lead = member.id == leadId,
+                        level = remember(member, usageState) { store.usage.level(member) },
                         onEnabled = { store.setEnabled(member.id, it) },
                         onAnalyze = { analyze(member) },
                         onEdit = { editing = member },
@@ -156,12 +159,12 @@ class TranslationTeamScreen : Screen() {
                     adding = false
                     editing = null
                 },
-                onSave = { key, provider, model ->
+                onSave = { key, provider, model, dailyLimit ->
                     val current = editing
                     val saved = if (current == null) {
-                        store.add(key, provider, model)
+                        store.add(key, provider, model).copy(dailyLimit = dailyLimit).also(store::update)
                     } else {
-                        current.copy(key = key.trim(), provider = provider.name, model = model.trim()).also(store::update)
+                        current.copy(key = key.trim(), provider = provider.name, model = model.trim(), dailyLimit = dailyLimit).also(store::update)
                     }
                     adding = false
                     editing = null
@@ -181,6 +184,7 @@ class TranslationTeamScreen : Screen() {
         strength: Int,
         share: Int?,
         lead: Boolean,
+        level: UsageMeter.Level,
         onEnabled: (Boolean) -> Unit,
         onAnalyze: () -> Unit,
         onEdit: () -> Unit,
@@ -245,6 +249,33 @@ class TranslationTeamScreen : Screen() {
                     color = colors.onSurfaceVariant,
                 )
             }
+            // How much is left: 100% → 0%, green, then amber, then red
+            val levelColor = when {
+                level.percent > 50 -> Green
+                level.percent >= 20 -> Amber
+                else -> colors.error
+            }
+            Text(
+                stringResource(
+                    if (level.real) ATMR.strings.team_left_real else ATMR.strings.team_left_estimate,
+                    level.percent,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = levelColor,
+                fontWeight = FontWeight.Bold,
+            )
+            LinearProgressIndicator(
+                progress = { level.percent / 100f },
+                modifier = Modifier.fillMaxWidth().height(6.dp),
+                color = levelColor,
+                trackColor = levelColor.copy(alpha = 0.18f),
+                strokeCap = StrokeCap.Round,
+            )
+            Text(
+                stringResource(ATMR.strings.team_today, level.requests, level.errors),
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.onSurfaceVariant,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onAnalyze, enabled = !analyzing) { Text(stringResource(ATMR.strings.team_analyze)) }
                 TextButton(onClick = onEdit) { Text(stringResource(ATMR.strings.team_edit)) }
@@ -257,9 +288,10 @@ class TranslationTeamScreen : Screen() {
     private fun KeyDialog(
         member: TeamStore.Member?,
         onDismiss: () -> Unit,
-        onSave: (String, AiTranslator.Provider, String) -> Unit,
+        onSave: (String, AiTranslator.Provider, String, Int) -> Unit,
     ) {
         var key by remember { mutableStateOf(member?.key.orEmpty()) }
+        var dailyLimit by remember { mutableStateOf(member?.dailyLimit?.takeIf { it > 0 }?.toString().orEmpty()) }
         var model by remember { mutableStateOf(member?.model.orEmpty()) }
         var chosen by remember { mutableStateOf(member?.providerEnum) }
         // Told from the key as it is typed, until the reader picks one
@@ -289,10 +321,20 @@ class TranslationTeamScreen : Screen() {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    // Gemini does not say how much is left: the meter counts against this
+                    if (provider == AiTranslator.Provider.GEMINI) {
+                        OutlinedTextField(
+                            value = dailyLimit,
+                            onValueChange = { dailyLimit = it.filter(Char::isDigit).take(6) },
+                            label = { Text(stringResource(ATMR.strings.team_daily_limit)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { onSave(key, provider, model) }, enabled = key.isNotBlank()) {
+                TextButton(onClick = { onSave(key, provider, model, dailyLimit.toIntOrNull() ?: 0) }, enabled = key.isNotBlank()) {
                     Text(stringResource(ATMR.strings.team_save))
                 }
             },
