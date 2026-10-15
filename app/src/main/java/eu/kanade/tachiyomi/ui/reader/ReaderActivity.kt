@@ -333,7 +333,8 @@ class ReaderActivity : BaseActivity() {
                 onScrollBy = { dy -> (viewModel.state.value.viewer as? WebtoonViewer)?.recycler?.scrollBy(0, dy) },
                 onNextPage = { (viewModel.state.value.viewer as? PagerViewer)?.moveToNext() },
             )
-            eu.kanade.translation.live.ReaderActionOrb(
+            val showOrb by remember { appGraph.translationPreferences.translationReaderButton() }.collectAsState()
+            if (showOrb || editing) eu.kanade.translation.live.ReaderActionOrb(
                 status = live,
                 expanded = orbOpen,
                 onExpanded = { orbOpen = it },

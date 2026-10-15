@@ -784,6 +784,57 @@ class MangaViewModel(
         }
     }
 
+    // MANHWA: translate chapters from the manga screen, without downloading them by hand first
+
+    /** Progress of the chapters asked to translate from this screen: finished, total and the one in progress. */
+    data class TranslateBatch(val done: Int, val total: Int, val current: String?, val fetching: Boolean)
+
+    private val translateBatchIds = MutableStateFlow<List<Long>>(emptyList())
+
+    val translateBatch: StateFlow<TranslateBatch?> = combine(translateBatchIds, translationStates) { ids, states ->
+        if (ids.isEmpty()) return@combine null
+        val items = allChapters.orEmpty().associateBy { it.id }
+        val done = ids.count { states[it] == Translation.State.TRANSLATED || items[it]?.translationState == Translation.State.TRANSLATED }
+        val current = ids.firstOrNull { states[it] != Translation.State.TRANSLATED && states[it] != Translation.State.ERROR }
+        TranslateBatch(
+            done = done,
+            total = ids.size,
+            current = current?.let { items[it]?.chapter?.name },
+            fetching = current != null && items[current]?.isDownloaded == false,
+        ).takeIf { done < ids.size }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Unread chapters in reading order: the ones the translate sheet offers. */
+    fun translateCandidates(): List<Chapter> {
+        val manga = successState?.manga ?: return emptyList()
+        val unread = allChapters.orEmpty().filter { !it.chapter.read }.map { it.chapter }.sortedWith(getChapterSort(manga))
+        return if (manga.sortDescending()) unread.reversed() else unread
+    }
+
+    fun totalChapterCount(): Int = allChapters.orEmpty().size
+
+    /**
+     * Translates [count] unread chapters (all of them when null) starting at [startChapterId]. Chapters that
+     * are not downloaded are fetched from the source first, by themselves, and translated as soon as they arrive.
+     */
+    fun translateChapters(count: Int?, startChapterId: Long?) {
+        val manga = successState?.manga ?: return
+        val candidates = translateCandidates()
+        val start = candidates.indexOfFirst { it.id == startChapterId }.coerceAtLeast(0)
+        val picked = candidates.drop(start).let { if (count != null) it.take(count) else it }
+        if (picked.isEmpty()) return
+        val items = allChapters.orEmpty().associateBy { it.id }
+        val (downloaded, missing) = picked.partition { items[it.id]?.isDownloaded == true }
+        translateBatchIds.value = picked.map { it.id }
+        translationStates.update { states -> states + picked.associate { it.id to Translation.State.QUEUE } }
+        // The queue outlives the screen
+        appScope.launch(Dispatchers.IO) {
+            missing.forEach { translationManager.translateAfterDownload += it.id }
+            if (missing.isNotEmpty()) downloadManager.downloadChapters(manga, missing)
+            downloaded.forEach { translationManager.translateChapter(manga, it) }
+        }
+    }
+
     fun runDownloadAction(action: DownloadAction) {
         val chaptersToDownload = when (action) {
             DownloadAction.NEXT_1_CHAPTER -> getUnreadChaptersSorted().take(1)

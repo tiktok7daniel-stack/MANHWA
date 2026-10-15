@@ -268,4 +268,18 @@
     <string name="ai_act_fresh">%1$s new chapters from your sources</string>
     <string name="ai_act_not_found">Could not find %1$s</string>
     <string name="ai_open_screen">Open</string>
+    <string name="tc_title">Translate chapters</string>
+    <string name="tc_subtitle">Pick how many; chapters are fetched and translated by themselves</string>
+    <string name="tc_progress">Translating %1$s (%2$d of %3$d)…</string>
+    <string name="tc_progress_fetching">Fetching %1$s (%2$d of %3$d)…</string>
+    <string name="tc_counts">%1$d chapters • %2$d unread</string>
+    <string name="tc_none">No unread chapters to translate</string>
+    <string name="tc_all">All %1$d</string>
+    <string name="tc_n_chapters">%1$d ch.</string>
+    <string name="tc_all_unread">All unread</string>
+    <string name="tc_start_from">Start from</string>
+    <string name="tc_hint">Chapters that are not downloaded are fetched from the source first, then translated. When a chapter shows ✓ it opens translated at once.</string>
+    <string name="tc_start">Start translating</string>
+    <string name="pref_reader_button">Show the floating translation button in the reader</string>
+    <string name="pref_reader_button_summary">Off: a clean reading screen; translations still show and auto translation keeps working</string>
 </resources>

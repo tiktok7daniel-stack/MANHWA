@@ -91,6 +91,7 @@ fun MangaScreen(
     onChapterClicked: (Chapter) -> Unit,
     onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
     onTranslateChapter: ((ChapterList.Item, ChapterTranslationAction) -> Unit)? = null, // TachiyomiAT
+    translateBar: (@Composable () -> Unit)? = null, // MANHWA: translate chapters from here
     downloadProgressProvider: (chapterId: Long) -> Int,
     onAddToLibraryClicked: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
@@ -148,6 +149,7 @@ fun MangaScreen(
             onChapterClicked = onChapterClicked,
             onDownloadChapter = onDownloadChapter,
             onTranslateChapter = onTranslateChapter,
+            translateBar = translateBar,
             downloadProgressProvider = downloadProgressProvider,
             onAddToLibraryClicked = onAddToLibraryClicked,
             onWebViewClicked = onWebViewClicked,
@@ -186,6 +188,7 @@ fun MangaScreen(
             onChapterClicked = onChapterClicked,
             onDownloadChapter = onDownloadChapter,
             onTranslateChapter = onTranslateChapter,
+            translateBar = translateBar,
             downloadProgressProvider = downloadProgressProvider,
             onAddToLibraryClicked = onAddToLibraryClicked,
             onWebViewClicked = onWebViewClicked,
@@ -227,6 +230,7 @@ private fun MangaScreenSmallImpl(
     onChapterClicked: (Chapter) -> Unit,
     onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
     onTranslateChapter: ((ChapterList.Item, ChapterTranslationAction) -> Unit)? = null, // TachiyomiAT
+    translateBar: (@Composable () -> Unit)? = null, // MANHWA: translate chapters from here
     downloadProgressProvider: (chapterId: Long) -> Int,
     onAddToLibraryClicked: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
@@ -420,6 +424,9 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
+                    if (translateBar != null) {
+                        item(key = "manhwa_translate") { translateBar() }
+                    }
                     item(
                         key = MangaScreenItem.CHAPTER_HEADER,
                         contentType = MangaScreenItem.CHAPTER_HEADER,
@@ -462,6 +469,7 @@ fun MangaScreenLargeImpl(
     onChapterClicked: (Chapter) -> Unit,
     onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
     onTranslateChapter: ((ChapterList.Item, ChapterTranslationAction) -> Unit)? = null, // TachiyomiAT
+    translateBar: (@Composable () -> Unit)? = null, // MANHWA: translate chapters from here
     downloadProgressProvider: (chapterId: Long) -> Int,
     onAddToLibraryClicked: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
@@ -648,6 +656,9 @@ fun MangaScreenLargeImpl(
                                 bottom = contentPadding.calculateBottomPadding(),
                             ),
                         ) {
+                            if (translateBar != null) {
+                                item(key = "manhwa_translate") { translateBar() }
+                            }
                             item(
                                 key = MangaScreenItem.CHAPTER_HEADER,
                                 contentType = MangaScreenItem.CHAPTER_HEADER,

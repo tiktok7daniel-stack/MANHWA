@@ -45,4 +45,7 @@ class TranslationPreferences(
 
     /** Translate chapters that have no saved translation while reading, page by page. */
     fun liveTranslation() = preferenceStore.getBoolean("live_translation", true)
+
+    /** The floating MANHWA translation button inside the reader. */
+    fun translationReaderButton() = preferenceStore.getBoolean("manhwa_translation_reader_button", true)
 }

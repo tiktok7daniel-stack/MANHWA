@@ -208,4 +208,18 @@
     <string name="ai_act_fresh">%1$s فصل جديد من مصادرك</string>
     <string name="ai_act_not_found">ما لقيتش %1$s</string>
     <string name="ai_open_screen">افتح</string>
+    <string name="tc_title">ترجمة الفصول</string>
+    <string name="tc_subtitle">اختار العدد، والفصول تتجلب وتتترجم لوحدها</string>
+    <string name="tc_progress">جاري ترجمة %1$s (%2$d من %3$d)…</string>
+    <string name="tc_progress_fetching">جاري جلب %1$s (%2$d من %3$d)…</string>
+    <string name="tc_counts">%1$d فصل • %2$d غير مقروء</string>
+    <string name="tc_none">مفيش فصول غير مقروءة للترجمة</string>
+    <string name="tc_all">الكل %1$d</string>
+    <string name="tc_n_chapters">%1$d فصل</string>
+    <string name="tc_all_unread">كل غير المقروء</string>
+    <string name="tc_start_from">ابدأ من</string>
+    <string name="tc_hint">الفصول غير المحمّلة بتتجلب من المصدر لوحدها وبعدين تتترجم. لما يظهر ✓ جنب الفصل يفتح مترجم على طول.</string>
+    <string name="tc_start">ابدأ الترجمة</string>
+    <string name="pref_reader_button">إظهار زر الترجمة العائم داخل الفصل</string>
+    <string name="pref_reader_button_summary">لو مقفول: شاشة قراءة نظيفة، والترجمة والترجمة التلقائية شغّالين عادي</string>
 </resources>

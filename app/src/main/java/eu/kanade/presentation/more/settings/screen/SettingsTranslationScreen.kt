@@ -110,6 +110,11 @@ object SettingsTranslationScreen : SearchableSettings {
                     subtitle = stringResource(ATMR.strings.pref_live_translation_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.translationReaderButton(),
+                    title = stringResource(ATMR.strings.pref_reader_button),
+                    subtitle = stringResource(ATMR.strings.pref_reader_button_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.translationVision(),
                     title = stringResource(ATMR.strings.pref_translation_vision),
                     subtitle = stringResource(ATMR.strings.pref_translation_vision_summary),

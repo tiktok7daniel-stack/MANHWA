@@ -116,6 +116,24 @@ class MangaScreen(
             onChapterClicked = { openChapter(context, it) },
             onDownloadChapter = viewModel::runChapterDownloadActions.takeIf { !successState.source.isLocalOrStub() },
             onTranslateChapter = viewModel::runChapterTranslationAction.takeIf { !successState.source.isLocalOrStub() },
+            translateBar = if (successState.source.isLocalOrStub()) {
+                null
+            } else {
+                @Composable {
+                    // MANHWA: translate chapters from here; missing ones are fetched by themselves
+                    val batch by viewModel.translateBatch.collectAsStateWithLifecycle()
+                    var showSheet by remember { mutableStateOf(false) }
+                    eu.kanade.presentation.manga.components.TranslateChaptersBar(batch = batch, onClick = { showSheet = true })
+                    if (showSheet) {
+                        eu.kanade.presentation.manga.components.TranslateChaptersSheet(
+                            candidates = remember { viewModel.translateCandidates() },
+                            totalChapters = viewModel.totalChapterCount(),
+                            onDismiss = { showSheet = false },
+                            onStart = viewModel::translateChapters,
+                        )
+                    }
+                }
+            },
             downloadProgressProvider = viewModel::getDownloadProgress,
             onAddToLibraryClicked = {
                 if (successState.manga.favorite) {
