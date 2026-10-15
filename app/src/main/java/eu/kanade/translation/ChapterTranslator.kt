@@ -15,7 +15,11 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.translation.collection.TextKey
+import eu.kanade.translation.collection.TranslationCollection
 import eu.kanade.translation.data.PageImage
+import java.util.Collections
+import java.util.IdentityHashMap
 import eu.kanade.translation.data.PageImageProcessor
 import eu.kanade.translation.glossary.GlossaryStore
 import eu.kanade.translation.live.PageOcr
@@ -79,6 +83,7 @@ class ChapterTranslator(
     private val sourceManager: SourceManager,
     private val translationPreferences: TranslationPreferences,
     private val glossaryStore: GlossaryStore,
+    private val collection: TranslationCollection,
 ) {
 
     private val translationMutex = kotlinx.coroutines.sync.Mutex()
@@ -339,6 +344,11 @@ class ChapterTranslator(
             // 2. Plan (55–60%)
             translation.advance(Translation.Stage.PLANNING)
             showProgress()
+            val src = translation.fromLang.name
+            val tgt = translation.toLang.name
+            val useLibrary = translationPreferences.translationCollection().get()
+            val glossaryNow = glossaryStore.asMap(translation.manga.id)
+            collection.limitBytes = translationPreferences.translationCollectionLimitMb().get().toLong() * 1024 * 1024
 
             // 3. Translate (60–92%), batch by batch, never waiting silently
             val ai = textTranslator.aiPart
@@ -354,16 +364,30 @@ class ChapterTranslator(
                     }
                     onRetry = { error -> translation.note(noteFor(error)) }
                 }
+                // MANHWA collection: lines translated before, in any manhwa, are written at once; repeats inside
+                // the chapter are translated once; only what is left goes to the translator
+                val library = if (useLibrary) fromLibrary(pages, src, tgt, glossaryNow) else LibraryPass.NONE
+                translation.fromLibrary(library.percent)
+                val work = pages.mapNotNull { (name, page) ->
+                    val rest = page.blocks.filter { it !in library.known && !library.copies.containsKey(it) }
+                    if (rest.isEmpty()) null else name to page.copy(blocks = rest.toMutableList())
+                }.toMap(mutableMapOf())
+                val workImages = images.filterKeys { it in work }
                 translation.advance(Translation.Stage.TRANSLATING)
-                translation.note(if (ai != null) Translation.Note.AI else null)
+                translation.note(if (ai != null && work.isNotEmpty()) Translation.Note.AI else null)
                 showProgress()
+                val draftsBefore = ai?.useDrafts ?: false
                 try {
+                    // Suggestions from the collection go to the AI as drafts to follow or fix
+                    if (library.hinted > 0) ai?.useDrafts = true
                     // Translate the text in blocks , this mutates the original blocks
-                    withWatchdog(translation) { textTranslator.translate(pages, images) }
+                    if (work.isNotEmpty()) withWatchdog(translation) { textTranslator.translate(work, workImages) }
                 } finally {
+                    ai?.useDrafts = draftsBefore
                     ai?.onBatchDone = null
                     ai?.onRetry = null
                 }
+                mergeBack(pages, work, library)
                 ai?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms) }
 
                 // 4. Review (92–98%): bubbles added by the vision model placed on their real letters, or dropped
@@ -402,6 +426,13 @@ class ChapterTranslator(
             if (saved == null || saved.length() <= 0L) throw StepFailure(Translation.Note.SAVE_FAILED)
             translation.advance(Translation.Stage.SAVING, 1, 1)
             readCache.remove(translation.chapter.id)
+            // Everything this chapter taught goes into the collection, for every manhwa after it
+            if (useLibrary) {
+                withContext(Dispatchers.IO) {
+                    val lines = pages.values.flatMap { it.blocks }.map { TranslationCollection.Line(it.text, it.translation, it.kind) }
+                    collection.learn(src, tgt, translation.manga.id, glossaryStore.asMap(translation.manga.id), lines, TranslationCollection.Source.TEAM)
+                }
+            }
             translation.status = Translation.State.TRANSLATED
             context.cancelNotification(notificationId)
             context.notify(
@@ -422,6 +453,80 @@ class ChapterTranslator(
             translation.fail(failure?.note ?: noteFor(error), failure?.detail ?: error.message?.take(160))
             translation.status = Translation.State.ERROR
             logcat(LogPriority.ERROR, error)
+        }
+    }
+
+    /** What the collection did for a chapter: lines written at once, repeats waiting for their first copy, hints. */
+    private class LibraryPass(
+        val known: MutableSet<TranslationBlock>,
+        val copies: IdentityHashMap<TranslationBlock, TranslationBlock>,
+        val hinted: Int,
+        val percent: Int,
+    ) {
+        companion object {
+            val NONE = LibraryPass(Collections.newSetFromMap(IdentityHashMap()), IdentityHashMap(), 0, 0)
+        }
+    }
+
+    private fun fromLibrary(
+        pages: Map<String, PageTranslation>,
+        src: String,
+        tgt: String,
+        glossary: Map<String, String>,
+    ): LibraryPass {
+        val known: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
+        val copies = IdentityHashMap<TranslationBlock, TranslationBlock>()
+        val firstOf = HashMap<String, TranslationBlock>()
+        var hinted = 0
+        var lines = 0
+        for (page in pages.values) {
+            for (block in page.blocks) {
+                if (block.text.isBlank()) continue
+                lines++
+                val hit = collection.lookup(src, tgt, block.text, glossary)
+                if (hit?.sure == true) {
+                    block.translation = hit.translation
+                    known += block
+                    continue
+                }
+                // The same short line again in this chapter ("!!!", "Huff…"): translated once, copied after
+                val line = TextKey.normalize(block.text)
+                if (line.length <= REPEAT_MAX_LENGTH) {
+                    val first = firstOf.putIfAbsent(line, block)
+                    if (first != null) {
+                        copies[block] = first
+                        continue
+                    }
+                }
+                if (hit != null) {
+                    block.translation = hit.translation
+                    hinted++
+                }
+            }
+        }
+        collection.record(lines, known.size)
+        return LibraryPass(known, copies, hinted, if (lines > 0) known.size * 100 / lines else 0)
+    }
+
+    /**
+     * Puts the translated lines back into the chapter's pages, in their places: the lines from the collection,
+     * the repeats (given their first copy's translation) and what the translator returned, including bubbles
+     * the vision model added and without the ones it dropped.
+     */
+    private fun mergeBack(pages: MutableMap<String, PageTranslation>, work: Map<String, PageTranslation>, library: LibraryPass) {
+        for ((name, page) in pages) {
+            val done = work[name] ?: continue
+            val returned: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
+            returned += done.blocks
+            val merged = page.blocks.filterTo(mutableListOf()) { it in library.known || library.copies.containsKey(it) || it in returned }
+            val placed: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
+            placed += merged
+            done.blocks.filterTo(merged) { it !in placed }
+            page.blocks = merged
+        }
+        library.copies.forEach { (repeat, first) ->
+            repeat.translation = first.translation
+            if (repeat.kind.isBlank()) repeat.kind = first.kind
         }
     }
 
@@ -550,5 +655,8 @@ class ChapterTranslator(
         /** How often the watchdog looks, and how long without any progress counts as stuck. */
         const val WATCH_MS = 5_000L
         const val STALL_MS = 180_000L
+
+        /** Lines up to this long that repeat inside a chapter are translated once. */
+        const val REPEAT_MAX_LENGTH = 40
     }
 }

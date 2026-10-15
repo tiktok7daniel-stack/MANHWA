@@ -48,4 +48,10 @@ class TranslationPreferences(
 
     /** The floating MANHWA translation button inside the reader. */
     fun translationReaderButton() = preferenceStore.getBoolean("manhwa_translation_reader_button", true)
+
+    /** The translation collection: lines translated before are reused at once, in every manhwa. */
+    fun translationCollection() = preferenceStore.getBoolean("manhwa_translation_collection", true)
+
+    /** Largest size of the translation collection on storage, in megabytes (0 = no limit). */
+    fun translationCollectionLimitMb() = preferenceStore.getInt("manhwa_translation_collection_limit_mb", 1024)
 }

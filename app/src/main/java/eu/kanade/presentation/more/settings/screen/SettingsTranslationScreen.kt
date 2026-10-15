@@ -6,6 +6,8 @@ import tachiyomi.presentation.core.util.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.translation.data.TranslationFont
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
@@ -142,9 +144,16 @@ object SettingsTranslationScreen : SearchableSettings {
 
     @Composable
     private fun getReadingGroup(prefs: TranslationPreferences): Preference.PreferenceGroup {
+        val navigator = LocalNavigator.currentOrThrow
         return Preference.PreferenceGroup(
             title = stringResource(ATMR.strings.pref_group_advanced),
             preferenceItems = persistentListOf(
+                // MANHWA: the translation collection, shared by every manhwa
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(ATMR.strings.col_open),
+                    subtitle = stringResource(ATMR.strings.col_open_summary),
+                    onClick = { navigator.push(eu.kanade.translation.collection.TranslationCollectionScreen()) },
+                ),
                 Preference.PreferenceItem.ListPreference(
                     preference = prefs.translationFont(),
                     title = stringResource(ATMR.strings.pref_reader_font),

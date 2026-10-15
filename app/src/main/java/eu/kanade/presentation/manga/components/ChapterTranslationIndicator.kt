@@ -132,7 +132,7 @@ fun translationStageLabel(state: Translation.State, progress: Translation.Progre
         return stringResource(if (progress.stage == Translation.Stage.TRANSLATING) ATMR.strings.tp_wait_ai else ATMR.strings.tp_waiting)
     }
     val counted = progress.total > 0
-    return when (progress.stage) {
+    val stage = when (progress.stage) {
         Translation.Stage.QUEUED -> stringResource(ATMR.strings.tp_queued)
         Translation.Stage.DOWNLOADING ->
             if (counted) stringResource(ATMR.strings.tp_downloading_n, progress.done, progress.total) else stringResource(ATMR.strings.tp_downloading)
@@ -143,6 +143,12 @@ fun translationStageLabel(state: Translation.State, progress: Translation.Progre
             if (counted) stringResource(ATMR.strings.tp_translating_n, progress.done, progress.total) else stringResource(ATMR.strings.tp_translating)
         Translation.Stage.REVIEWING -> stringResource(ATMR.strings.tp_reviewing)
         Translation.Stage.SAVING -> stringResource(ATMR.strings.tp_saving)
+    }
+    // How much of the chapter came straight from the translation collection
+    return if (progress.library > 0 && progress.stage >= Translation.Stage.TRANSLATING) {
+        stage + " · " + stringResource(ATMR.strings.tp_library, progress.library)
+    } else {
+        stage
     }
 }
 

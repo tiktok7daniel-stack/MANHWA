@@ -47,13 +47,27 @@ data class Translation(
     fun advance(stage: Stage, done: Int = 0, total: Int = 0) {
         _progress.update { old ->
             val percent = stage.percentAt(done, total).coerceAtLeast(old.percent)
-            Progress(stage, done, total, percent, note = null, startedAt = old.startedAt, updatedAt = System.currentTimeMillis())
+            Progress(
+                stage,
+                done,
+                total,
+                percent,
+                note = null,
+                library = old.library,
+                startedAt = old.startedAt,
+                updatedAt = System.currentTimeMillis(),
+            )
         }
     }
 
     /** Why the chapter is waiting right now (kept until it moves on); does not count as progress. */
     fun note(note: Note?) {
         _progress.update { it.copy(note = note) }
+    }
+
+    /** Share (0–100) of the chapter's lines that came straight from the translation collection. */
+    fun fromLibrary(percent: Int) {
+        _progress.update { it.copy(library = percent) }
     }
 
     fun fail(reason: Note, detail: String?) {
@@ -97,6 +111,8 @@ data class Translation(
         val note: Note? = null,
         /** The error text behind a failure, shown with it. */
         val detail: String? = null,
+        /** Share (0–100) of the lines written straight from the translation collection. */
+        val library: Int = 0,
         val startedAt: Long = System.currentTimeMillis(),
         /** Last time real work moved forward. */
         val updatedAt: Long = System.currentTimeMillis(),
