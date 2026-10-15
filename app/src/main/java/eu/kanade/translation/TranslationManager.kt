@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import tachiyomi.domain.chapter.model.Chapter
@@ -33,7 +36,65 @@ class TranslationManager(
     private val sourceManager: SourceManager,
     private val translationPreferences: TranslationPreferences,
     private val translator: ChapterTranslator,
+    private val getManga: tachiyomi.domain.manga.interactor.GetManga,
+    private val getChapter: tachiyomi.domain.chapter.interactor.GetChapter,
 ) {
+
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+
+    /** Put back once per app start, before the queue is saved again (an empty queue would erase it). */
+    private val restored = kotlinx.coroutines.CompletableDeferred<Unit>()
+    private val restoring = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    init {
+        scope.launch {
+            restorePending()
+            // From now on the queue is saved on every change (chapters waiting or being translated); a change means
+            // progress, so the count of restores starts again from 0
+            translator.queueState
+                .drop(1)
+                .onEach { queue ->
+                    val pending = queue.filter { TranslationJob.active(it.status) }.joinToString(",") { "${it.manga.id}:${it.chapter.id}" }
+                    translationPreferences.translationPendingQueue().set(if (pending.isEmpty()) "" else "0|$pending")
+                }
+                .launchIn(this)
+        }
+    }
+
+    /** Puts the saved queue back after the app was closed (once), and keeps translating it in the background. */
+    suspend fun restorePending() {
+        if (!restoring.compareAndSet(false, true)) return restored.await()
+        try {
+            val stored = translationPreferences.translationPendingQueue().get()
+            if (stored.isBlank()) return
+            val restores = stored.substringBefore('|', "0").toIntOrNull() ?: 0
+            val saved = stored.substringAfter('|')
+            // Put back this often without any chapter finishing: something in it brings the app down, let it go
+            if (restores >= MAX_RESTORES) {
+                translationPreferences.translationPendingQueue().set("")
+                return
+            }
+            translationPreferences.translationPendingQueue().set("${restores + 1}|$saved")
+            saved.split(',').mapNotNull { entry ->
+                val (mangaId, chapterId) = entry.split(':').takeIf { it.size == 2 } ?: return@mapNotNull null
+                (mangaId.toLongOrNull() ?: return@mapNotNull null) to (chapterId.toLongOrNull() ?: return@mapNotNull null)
+            }.forEach { (mangaId, chapterId) ->
+                if (queueState.value.any { it.chapter.id == chapterId }) return@forEach
+                val manga = getManga.await(mangaId) ?: return@forEach
+                val chapter = getChapter.await(chapterId) ?: return@forEach
+                runCatching { translator.queueChapter(manga, chapter) }
+            }
+            if (hasWork()) TranslationJob.start(context)
+        } finally {
+            restored.complete(Unit)
+        }
+    }
+
+    /** Chapters still waiting or being translated. */
+    fun hasWork(): Boolean = translator.queueState.value.any { TranslationJob.active(it.status) }
+
+    val isPaused: Boolean
+        get() = translator.isPaused
 
     /** Chapters to translate as soon as their download finishes (asked for by MANHWA AI). */
     val translateAfterDownload: MutableSet<Long> = ConcurrentHashMap.newKeySet()
@@ -73,6 +134,8 @@ class TranslationManager(
     suspend fun translateChapter(manga: Manga, chapters: Chapter) {
         translator.queueChapter(manga, chapters)
         startTranslation()
+        // Kept alive in the background until the queue is done, even with the app closed
+        if (hasWork()) TranslationJob.start(context)
     }
 
     suspend fun getChapterTranslationStatus(
@@ -191,4 +254,8 @@ class TranslationManager(
                 queueState.value.filter { translation -> translation.status == Translation.State.TRANSLATING }.asFlow(),
             )
         }
+
+    private companion object {
+        const val MAX_RESTORES = 3
+    }
 }

@@ -504,5 +504,8 @@
     <string name="router_nothing_today">No AI calls yet today</string>
     <string name="router_working">Working now: %1$s</string>
     <string name="router_title">Who goes first</string>
-    <string name="router_info">Every AI call of the app goes through one router. The page you are reading always goes first, even while chapters are translated in the background; then chapters and the review, then chat and search, then the home screen. The last 20% of every key's daily quota is kept for translation, so chat and the home screen never use it up. A key set to Automatic uses a light model for chat and extras and its strongest model for the review. A call that fails moves to the next key at once, and a key that keeps failing rests longer each time.</string>
+    <string name="router_info">Every AI call of the app goes through one router. The page you are reading always goes first, even while chapters are translated in the background; then chapters and the review, then chat and search, then the home screen. The last 20% of every key's daily quota is kept for translation, so chat and the home screen never use it up. A key set to Automatic uses a light model for chat and extras and its strongest model for the review. A call that fails moves to the next key at once, and a key that keeps failing rests longer each time. Every key also learns how many calls it can run at once: it adds a little after each answer and halves at the first \"too busy\". While you read, if the first key is slow on a page, a second key races it and the first good answer wins. Chapters queued for translation keep going in the background, even after the app is closed.</string>
+    <string name="tj_title">Translating chapters</string>
+    <string name="tj_text">Keeps going in the background until the queue is done</string>
+    <string name="router_parallel">%1$d calls at once</string>
 </resources>

@@ -64,6 +64,9 @@ class TranslationPreferences(
     /** Each key's use today and what its provider says is left, as JSON (see UsageMeter). */
     fun translationTeamUsage() = preferenceStore.getString("manhwa_translation_team_usage", "{}")
 
+    /** Chapters waiting to be translated ("mangaId:chapterId,…"), so the queue survives the app being closed. */
+    fun translationPendingQueue() = preferenceStore.getString("manhwa_translation_pending_queue", "")
+
     /** Calls made today by each kind of work (live, chapters, chat…), as JSON (see AiRouter). */
     fun translationTeamLanes() = preferenceStore.getString("manhwa_translation_team_lanes", "{}")
 

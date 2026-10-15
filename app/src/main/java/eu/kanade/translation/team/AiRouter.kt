@@ -89,13 +89,64 @@ class AiRouter internal constructor(
         }
     }
 
-    /** Calls a key may run at once: strong keys 3, average 2, weak 1. */
-    fun capacity(memberId: String): Int {
+    /**
+     * Calls each key may run at once, learnt while it works (additive increase, multiplicative decrease, the way
+     * the internet itself shares a line): every answer that comes back adds a little, so a key with room climbs
+     * to [MAX_CAPACITY] by itself; a "too busy" answer halves it at once. It starts from the key's strength.
+     */
+    private val adaptive = HashMap<String, Double>()
+
+    private val _capacities = MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    /** The calls each key may run at once right now (what it learnt). */
+    val capacities: StateFlow<Map<String, Int>> = _capacities.asStateFlow()
+
+    private fun startingCapacity(memberId: String): Double {
         val strength = store.strength(memberId)
         return when {
-            strength >= STRONG -> 3
-            strength >= AVERAGE -> 2
-            else -> 1
+            strength >= STRONG -> 3.0
+            strength >= AVERAGE -> 2.0
+            else -> 1.0
+        }
+    }
+
+    /** Calls [memberId] may run at once now. */
+    fun capacity(memberId: String): Int = synchronized(lock) {
+        (adaptive[memberId] ?: startingCapacity(memberId)).toInt().coerceIn(1, MAX_CAPACITY)
+    }
+
+    /**
+     * How a call on [memberId] ended: null when it worked (one step up), or the error. Busy, overloaded or slow
+     * answers halve the key's calls; other errors (a bad request) say nothing about its room and change nothing.
+     */
+    fun report(memberId: String, error: Throwable?) {
+        synchronized(lock) {
+            val current = adaptive[memberId] ?: startingCapacity(memberId)
+            val next = when {
+                error == null -> (current + 1.0 / current).coerceAtMost(MAX_CAPACITY.toDouble())
+                congested(error) -> (current / 2).coerceAtLeast(1.0)
+                else -> current
+            }
+            adaptive[memberId] = next
+            _capacities.value = adaptive.mapValues { (_, v) -> v.toInt().coerceIn(1, MAX_CAPACITY) }
+            // Room grew: calls waiting for this key may go now
+            pumpLocked(memberId)
+        }
+    }
+
+    private fun congested(error: Throwable): Boolean = when (error) {
+        is AiTranslator.ApiException -> error.code == 429 || error.code in 500..504
+        is TimeoutCancellationException -> true
+        else -> false
+    }
+
+    /** Takes a permit for [memberId] only if one is free right now (the team's workers ask again a moment later). */
+    fun tryAcquire(memberId: String, lane: Lane): Boolean = synchronized(lock) {
+        if (canStart(memberId, lane)) {
+            start(memberId, lane)
+            true
+        } else {
+            false
         }
     }
 
@@ -177,7 +228,11 @@ class AiRouter internal constructor(
         running[memberId]?.let { lanes ->
             lanes[lane] = ((lanes[lane] ?: 1) - 1).coerceAtLeast(0)
         }
-        // Let in the waiting calls, most urgent lane first, then by arrival, while the key has room
+        pumpLocked(memberId)
+    }
+
+    /** Lets in the waiting calls, most urgent lane first, then by arrival, while the key has room. */
+    private fun pumpLocked(memberId: String) {
         val queue = waiting[memberId] ?: return publish()
         while (queue.isNotEmpty()) {
             val next = queue.minWith(compareBy<Waiter>({ it.lane.rank }, { it.order }))
@@ -219,12 +274,14 @@ class AiRouter internal constructor(
                 val result = block(translator)
                 count(lane)
                 store.reportOk(member.id)
+                report(member.id, null)
                 return@withContext result
             } catch (e: Exception) {
                 if (e is CancellationException && e !is TimeoutCancellationException) throw e
                 count(lane)
                 last = e
                 store.reportFailure(member.id, e, TeamStore.restFor(e))
+                report(member.id, e)
                 if (!handOver(e)) throw e
                 logcat(LogPriority.WARN, e) { "Key ${member.providerEnum} failed a $lane call, trying the next one" }
             } finally {
@@ -245,6 +302,9 @@ class AiRouter internal constructor(
     companion object {
         /** Percent of a key's daily quota kept for translation. */
         const val RESERVE_PERCENT = 20
+
+        /** The most calls one key may run at once, however well it does. */
+        const val MAX_CAPACITY = 6
         private const val STRONG = 70
         private const val AVERAGE = 40
     }

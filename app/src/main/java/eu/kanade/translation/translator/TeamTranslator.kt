@@ -8,7 +8,10 @@ import eu.kanade.translation.team.AiRouter
 import eu.kanade.translation.team.ChapterPlanner
 import eu.kanade.translation.team.TeamStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -61,12 +64,15 @@ class TeamTranslator(
         fellBack = false
         learnt = emptyMap()
         if (pages.isEmpty()) return
-        val slots = members.associateWith { slotsFor(it) }
+        // The page being read with more than one key: the keys race when the first one is slow
+        if (lane == AiRouter.Lane.LIVE && members.size > 1) return translateRacing(pages, images)
+        // Calls the keys can run at once now (they grow while the keys keep up, see AiRouter.report)
+        val slots = members.sumOf { store.router.capacity(it.id) }
         val plan = ChapterPlanner.plan(
             pages.mapValues { (name, page) -> statsOf(page, name in images, lead.glossary.keys) },
-            slots = slots.values.sum(),
+            slots = slots,
         )
-        onPlan?.invoke(plan, slots.values.sum())
+        onPlan?.invoke(plan, slots)
         val total = plan.batches.size
         if (total == 0) return
 
@@ -87,6 +93,9 @@ class TeamTranslator(
                     if (queue.isEmpty()) return@withLock if (inFlight == 0) STOP else WAIT
                     if (store.health.value[member.id]?.resting == true) return@withLock WAIT
                     if (members.none { it.id == member.id } || store.active().none { it.id == member.id }) return@withLock STOP
+                    // The router's permit, taken only when free: no batch is held by a worker that can't start it
+                    // (the page being read goes before chapters on the same key)
+                    if (!store.router.tryAcquire(member.id, lane)) return@withLock WAIT
                     val pick = queue.firstOrNull { !it.needsImage || vision } ?: queue.first()
                     queue.remove(pick)
                     inFlight++
@@ -103,14 +112,13 @@ class TeamTranslator(
         }
 
         coroutineScope {
-            for ((member, count) in slots) {
+            for (member in members) {
                 val vision = store.analysis.value[member.id]?.vision ?: true
-                repeat(count) {
+                // As many workers as a key could ever run; the router's permits decide how many work at once
+                repeat(AiRouter.MAX_CAPACITY) {
                     launch {
                         while (true) {
                             val batch = take(member, vision) ?: break
-                            // The router's permit: the page being read goes before chapters on the same key
-                            store.router.acquire(member.id, lane)
                             val translator = store.translatorFor(member, fromLang, toLang, lane).also(::shareSettings)
                             val part = batch.pages.associateWithTo(mutableMapOf()) { pages.getValue(it) }
                             val partImages = if (vision) images.filterKeys { it in batch.pages } else emptyMap()
@@ -122,10 +130,12 @@ class TeamTranslator(
                                 // Speed per weight point, so a light batch and a heavy one count the same
                                 val perPoint = (System.currentTimeMillis() - started) / batch.weight.coerceAtLeast(1f)
                                 store.reportSuccess(member.id, (perPoint * REFERENCE_POINTS).toLong())
+                                store.router.report(member.id, null)
                             } catch (e: Exception) {
                                 if (e is CancellationException && e !is TimeoutCancellationException) throw e
                                 logcat(LogPriority.WARN, e) { "Team key ${member.provider} failed a batch, handing it over" }
                                 store.reportFailure(member.id, e, TeamStore.restFor(e))
+                                store.router.report(member.id, e)
                                 lead.onRetry?.invoke(e)
                             } finally {
                                 translator.close()
@@ -170,6 +180,96 @@ class TeamTranslator(
         members.forEach { store.usage.refreshOpenRouter(it) }
     }
 
+    /**
+     * MANHWA: the page being read, raced. The best key starts; if it has not answered within its usual time
+     * ([raceDelay]), the next key gets the same page too, and the first good answer wins (the other call is
+     * stopped). A key that fails hands over at once. If every key fails, Google translates the page.
+     */
+    private suspend fun translateRacing(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>): Unit = coroutineScope {
+        val health = store.health.value
+        val active = store.active().map { it.id }.toSet()
+        val order = members.filter { it.id in active }
+            .sortedWith(compareBy<TeamStore.Member> { health[it.id]?.resting == true }.thenByDescending { store.strength(it.id) })
+
+        class Outcome(val result: Map<String, PageTranslation>?, val translator: AiTranslator)
+
+        val outcomes = Channel<Outcome>(Channel.UNLIMITED)
+        val jobs = mutableListOf<Job>()
+        var launched = 0
+        var finished = 0
+
+        fun launchNext(): Boolean {
+            val member = order.getOrNull(launched) ?: return false
+            launched++
+            jobs += launch {
+                val vision = store.analysis.value[member.id]?.vision ?: true
+                store.router.acquire(member.id, lane)
+                val translator = store.translatorFor(member, fromLang, toLang, lane).also(::shareSettings)
+                // Every racer works on its own copy; the winner's copy is put on the page
+                val copy = pages.mapValuesTo(mutableMapOf()) { (_, page) -> page.copy(blocks = page.blocks.map { it.copy() }.toMutableList()) }
+                val outcome = try {
+                    withTimeout(BATCH_TIMEOUT_MS) { translator.translate(copy, if (vision) images else emptyMap()) }
+                    store.reportOk(member.id)
+                    store.router.report(member.id, null)
+                    Outcome(copy, translator)
+                } catch (e: Exception) {
+                    if (e is CancellationException && e !is TimeoutCancellationException) throw e
+                    logcat(LogPriority.WARN, e) { "Team key ${member.provider} failed the page, the next key takes it" }
+                    store.reportFailure(member.id, e, TeamStore.restFor(e))
+                    store.router.report(member.id, e)
+                    Outcome(null, translator)
+                } finally {
+                    translator.close()
+                    store.router.release(member.id, lane)
+                    store.router.count(lane)
+                }
+                outcomes.send(outcome)
+            }
+            return true
+        }
+
+        var winner: Outcome? = null
+        if (launchNext()) {
+            while (winner == null) {
+                val canRace = launched < MAX_RACERS && launched < order.size
+                val next = when {
+                    canRace -> withTimeoutOrNull(raceDelay(order[launched - 1])) { outcomes.receive() }
+                    finished < launched -> outcomes.receive()
+                    else -> break
+                }
+                if (next == null) {
+                    // The key is slow: the next one races it
+                    launchNext()
+                    continue
+                }
+                finished++
+                if (next.result != null) {
+                    winner = next
+                } else if (finished >= launched && !launchNext()) {
+                    break
+                }
+            }
+        }
+        jobs.forEach { it.cancel() }
+        val won = winner
+        if (won?.result != null) {
+            // In place: the caller keeps its own page objects
+            won.result.forEach { (name, page) -> pages[name]?.blocks = page.blocks }
+            won.translator.discoveredTerms.forEach { (source, translation) -> lead.discoveredTerms.putIfAbsent(source, translation) }
+            won.translator.discoveredDetails.forEach { (source, info) -> lead.discoveredDetails.putIfAbsent(source, info) }
+        } else {
+            fellBack = true
+            runCatching { GoogleTranslator(fromLang, toLang).translate(pages) }.onFailure { if (it is CancellationException) throw it }
+        }
+        Unit
+    }
+
+    /** How long the page waits on [member] before another key races it: its usual time, within 4–12 s. */
+    private fun raceDelay(member: TeamStore.Member): Long {
+        val usual = store.health.value[member.id]?.latencyMs ?: 0L
+        return (usual * 3 / 2).coerceIn(RACE_MIN_MS, RACE_MAX_MS)
+    }
+
     /** New names the keys found so far in this chapter (a copy, replaced under the team's lock). */
     @Volatile private var learnt: Map<String, String> = emptyMap()
 
@@ -197,12 +297,6 @@ class TeamTranslator(
         if (translator.summaries.isNotEmpty()) summaries.getOrPut(position) { mutableListOf() } += translator.summaries
     }
 
-    /** Calls a key may run at once (see [AiRouter.capacity]); a lone key at most 2, to spare its quota. */
-    private fun slotsFor(member: TeamStore.Member): Int {
-        val slots = store.router.capacity(member.id)
-        return if (members.size == 1) slots.coerceAtMost(2) else slots
-    }
-
     /**
      * MANHWA: runs the editor's review with the team's strongest key and its strongest model (a key that fails
      * hands the review to the next one), with what the chapter translator set on [lead].
@@ -225,6 +319,9 @@ class TeamTranslator(
         private val WAIT = Any()
         private const val WAIT_MS = 150L
         private const val MAX_ATTEMPTS = 3
+        private const val MAX_RACERS = 2
+        private const val RACE_MIN_MS = 4_000L
+        private const val RACE_MAX_MS = 12_000L
         private const val BATCH_TIMEOUT_MS = 150_000L
         private const val REFERENCE_POINTS = 8f
 

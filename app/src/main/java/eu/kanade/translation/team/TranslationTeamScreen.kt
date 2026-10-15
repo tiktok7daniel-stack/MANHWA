@@ -105,6 +105,8 @@ class TranslationTeamScreen : Screen() {
         val usageState by store.usage.usage.collectAsState()
         val working by store.router.working.collectAsState()
         val todayLanes by store.router.todayLanes.collectAsState()
+        // Read so the learnt speed of every key shows as it changes
+        val capacities by store.router.capacities.collectAsState()
         var adding by remember { mutableStateOf(false) }
         var editing by remember { mutableStateOf<TeamStore.Member?>(null) }
 
@@ -228,6 +230,7 @@ class TranslationTeamScreen : Screen() {
                             share = shares[member.id],
                             lead = member.id == leadId,
                             busy = working[member.id].orEmpty(),
+                            parallel = capacities[member.id] ?: store.router.capacity(member.id),
                             level = remember(member, usageState) { store.usage.level(member) },
                             onEnabled = { store.setEnabled(member.id, it) },
                             onAnalyze = { analyze(member) },
@@ -341,6 +344,7 @@ class TranslationTeamScreen : Screen() {
         share: Int?,
         lead: Boolean,
         busy: Map<AiRouter.Lane, Int>,
+        parallel: Int,
         level: UsageMeter.Level,
         onEnabled: (Boolean) -> Unit,
         onAnalyze: () -> Unit,
@@ -418,6 +422,8 @@ class TranslationTeamScreen : Screen() {
                         Tag(MaterialSymbols.Rounded.Translate, stringResource(ATMR.strings.team_role_translator), colors.primary)
                     }
                     if (share != null) Tag(MaterialSymbols.Rounded.Speed, stringResource(ATMR.strings.team_share, share), colors.primary)
+                    // How many calls the key handles at once, learnt while it works
+                    Tag(MaterialSymbols.RoundedFilled.Bolt, stringResource(ATMR.strings.router_parallel, parallel), colors.primary)
                     if (analysis?.vision == true) Tag(MaterialSymbols.Rounded.Image, stringResource(ATMR.strings.team_vision), colors.primary)
                     if (health != null && health.done + health.failed > 0) {
                         Tag(MaterialSymbols.RoundedFilled.CheckCircle, stringResource(ATMR.strings.team_record, health.done, health.failed), Green)
