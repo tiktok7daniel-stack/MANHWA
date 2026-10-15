@@ -103,7 +103,7 @@ class TranslationTeamScreen : Screen() {
         val analyzing by store.analyzingIds.collectAsState()
         // Read so the meters move while the screen is open
         val usageState by store.usage.usage.collectAsState()
-        val working by store.router.working.collectAsState()
+        val busyByKey by store.router.working.collectAsState()
         val todayLanes by store.router.todayLanes.collectAsState()
         // Read so the learnt speed of every key shows as it changes
         val capacities by store.router.capacities.collectAsState()
@@ -229,7 +229,7 @@ class TranslationTeamScreen : Screen() {
                             strength = store.strength(member.id),
                             share = shares[member.id],
                             lead = member.id == leadId,
-                            busy = working[member.id].orEmpty(),
+                            busy = busyByKey[member.id].orEmpty(),
                             parallel = capacities[member.id] ?: store.router.capacity(member.id),
                             level = remember(member, usageState) { store.usage.level(member) },
                             onEnabled = { store.setEnabled(member.id, it) },
