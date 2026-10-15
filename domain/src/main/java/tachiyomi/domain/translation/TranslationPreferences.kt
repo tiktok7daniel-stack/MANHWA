@@ -72,4 +72,10 @@ class TranslationPreferences(
 
     /** While a chapter is read, the next one is translated in the background (off unless the reader turns it on). */
     fun translationPretranslateNext() = preferenceStore.getBoolean("manhwa_translation_pretranslate_next", false)
+
+    /**
+     * The translation team and the collection also inside the reader (live translation). Off by default:
+     * live translation then works exactly as before.
+     */
+    fun translationTeamInReader() = preferenceStore.getBoolean("manhwa_translation_team_in_reader", false)
 }

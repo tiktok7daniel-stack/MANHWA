@@ -412,4 +412,6 @@
     <string name="lessons_import">Import</string>
     <string name="lessons_exported">Saved the knowledge of %1$d manhwa</string>
     <string name="lessons_imported">Added the knowledge of %1$d manhwa</string>
+    <string name="team_in_reader">Use the team and the collection inside the reader (experimental)</string>
+    <string name="team_in_reader_summary">Live translation inside a chapter uses the team, the collection, the smart glossary and the lessons. If anything goes wrong, turn it off and it works exactly as before.</string>
 </resources>

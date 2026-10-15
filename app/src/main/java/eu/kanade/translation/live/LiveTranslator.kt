@@ -9,6 +9,13 @@ import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.translation.HeavyWork
+import eu.kanade.translation.collection.TranslationCollection
+import eu.kanade.translation.learning.LessonStore
+import eu.kanade.translation.model.TranslationBlock
+import eu.kanade.translation.team.TeamStore
+import eu.kanade.translation.translator.TeamTranslator
+import java.util.Collections
+import java.util.IdentityHashMap
 import eu.kanade.translation.data.PageImage
 import eu.kanade.translation.data.PageImageProcessor
 import eu.kanade.translation.glossary.GlossaryStore
@@ -56,6 +63,9 @@ class LiveTranslator(
     private val readerPreferences: ReaderPreferences,
     private val glossaryStore: GlossaryStore,
     private val editStore: eu.kanade.translation.edit.TranslationEditStore,
+    private val teamStore: TeamStore,
+    private val collection: TranslationCollection,
+    private val lessonStore: LessonStore,
 ) {
 
     enum class Phase { OFF, IDLE, WORKING, PAUSED, DONE, ERROR }
@@ -106,6 +116,9 @@ class LiveTranslator(
 
         /** Set from the UI; the worker rebuilds its engine before the next page instead of closing it mid-call. */
         @Volatile private var resetEngine = false
+
+        /** MANHWA: the team the engine was built for ("" = not the team). */
+        @Volatile private var builtForTeam = ""
 
         @Volatile private var lastError: String? = null
 
@@ -275,8 +288,18 @@ class LiveTranslator(
                 translator?.close()
                 translator = null
             }
+            // MANHWA: with "team inside the reader" on, the team (and the collection, below) translate here too;
+            // off (the default), the engine is chosen exactly as before
+            val teamHere = preferences.translationTeamInReader().get()
+            val team = if (teamHere && preferences.translationTeamEnabled().get()) teamStore.active() else emptyList()
+            val teamSignature = team.joinToString(",") { "${it.id}:${it.model}:${it.key.hashCode()}" }
+            if (teamSignature != builtForTeam) {
+                builtForTeam = teamSignature
+                translator?.close()
+                translator = null
+            }
             val engine = translator?.takeIf { it.fromLang == from && it.toLang == to }
-                ?: TextTranslators.fromPref(preferences.translationEngine()).build(preferences, from, to).also {
+                ?: (if (team.isNotEmpty()) TeamTranslator(from, to, teamStore, team) else TextTranslators.fromPref(preferences.translationEngine()).build(preferences, from, to)).also {
                     translator?.close()
                     translator = it
                 }
@@ -309,15 +332,55 @@ class LiveTranslator(
                 learnTerms = id != null
                 discoveredTerms.clear()
             }
-            val map = mutableMapOf(KEY to result)
+            // MANHWA: lines from the collection are written at once; only the rest goes to the translator
+            val known: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
+            if (teamHere) {
+                val glossary = id?.let(glossaryStore::asMap).orEmpty()
+                result.blocks.forEach { block ->
+                    val hit = collection.lookup(from.name, to.name, block.text, glossary)
+                    if (hit?.sure == true) {
+                        block.translation = hit.translation
+                        known += block
+                    }
+                }
+                collection.record(result.blocks.size, known.size)
+                engine.aiPart?.apply {
+                    glossaryNotes = id?.let(glossaryStore::notes).orEmpty()
+                    lessons = id?.let(lessonStore::forPrompt).orEmpty()
+                    fitHints = true
+                }
+            }
+            val work = if (known.isEmpty()) result else result.copy(blocks = result.blocks.filterTo(mutableListOf()) { it !in known })
+            val map = mutableMapOf(KEY to work)
             // Hybrid: the Google draft shows on the page right away, the AI version replaces it a moment later
             (engine as? HybridTranslator)?.onDraft = { drafts ->
-                drafts[KEY]?.takeIf { it.blocks.isNotEmpty() }?.let { draft ->
+                // With lines from the collection, the draft is the whole page: those lines and the Google draft
+                (if (known.isEmpty()) drafts[KEY] else result)?.takeIf { it.blocks.isNotEmpty() }?.let { draft ->
                     val copy = draft.copy(blocks = draft.blocks.map { it.copy() }.toMutableList())
                     scope.launch(Dispatchers.Main) { if (page.translation == null) page.translation = copy }
                 }
             }
-            engine.translate(map, images)
+            try {
+                if (work.blocks.isNotEmpty() || known.isEmpty()) engine.translate(map, images)
+            } finally {
+                if (teamHere) {
+                    engine.aiPart?.apply {
+                        glossaryNotes = emptyMap()
+                        lessons = ""
+                        fitHints = false
+                    }
+                }
+            }
+            if (known.isNotEmpty()) {
+                // The page as translated: the collection's lines and the translator's, in their places
+                val returned: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
+                returned += work.blocks
+                val merged = result.blocks.filterTo(mutableListOf()) { it in known || it in returned }
+                val placed: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
+                placed += merged
+                work.blocks.filterTo(merged) { it !in placed }
+                result.blocks = merged
+            }
             if (result.blocks.any { it.needsSnap }) {
                 // Bubbles added by the vision model: placed on their real letters, or dropped
                 HeavyWork.reader {
@@ -334,6 +397,17 @@ class LiveTranslator(
             PageOcr.finish(result)
             editStore.restore(result, "l${page.chapter.chapter.id}", "${page.index}")
             if (id != null) engine.aiPart?.let { glossaryStore.merge(id, it.discoveredTerms) }
+            // MANHWA: what this page taught goes into the collection too
+            if (teamHere && id != null) {
+                collection.learn(
+                    from.name,
+                    to.name,
+                    id,
+                    glossaryStore.asMap(id),
+                    result.blocks.map { TranslationCollection.Line(it.text, it.translation, it.kind) },
+                    TranslationCollection.Source.TEAM,
+                )
+            }
 
             // 3. Apply edited glossary terms the model may have ignored
             if (id != null) {

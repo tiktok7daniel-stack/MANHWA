@@ -69,6 +69,7 @@ class TranslationTeamScreen : Screen() {
         val prefs = remember { context.appGraph.translationPreferences }
         val enabled by prefs.translationTeamEnabled().collectPreference()
         val accurate by prefs.translationTeamAccurate().collectPreference()
+        val inReader by prefs.translationTeamInReader().collectPreference()
         val members by store.members.collectAsState()
         val analysis by store.analysis.collectAsState()
         val health by store.health.collectAsState()
@@ -126,6 +127,14 @@ class TranslationTeamScreen : Screen() {
                             stringResource(if (accurate) ATMR.strings.team_mode_accurate_summary else ATMR.strings.team_mode_fast_summary),
                             style = MaterialTheme.typography.bodySmall,
                         )
+                        // Inside the reader too (live translation): off by default
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(ATMR.strings.team_in_reader), fontWeight = FontWeight.Bold)
+                                Text(stringResource(ATMR.strings.team_in_reader_summary), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Switch(checked = inReader, onCheckedChange = { prefs.translationTeamInReader().set(it) })
+                        }
                     }
                 }
                 item {

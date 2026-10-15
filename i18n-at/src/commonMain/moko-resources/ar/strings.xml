@@ -352,4 +352,6 @@
     <string name="lessons_import">استيراد</string>
     <string name="lessons_exported">اتحفظت معرفة %1$d مانهوا</string>
     <string name="lessons_imported">اتضافت معرفة %1$d مانهوا</string>
+    <string name="team_in_reader">استخدم الفريق والمكتبة جوه القارئ (تجريبي)</string>
+    <string name="team_in_reader_summary">الترجمة اللايف جوه الفصل تستخدم الفريق والمكتبة والقاموس الذكي والدروس. لو حصلت أي مشكلة، اقفله وهترجع زي ما كانت بالظبط.</string>
 </resources>
