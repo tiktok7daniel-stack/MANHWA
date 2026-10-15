@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.repository.HistoryRepository
@@ -24,7 +25,39 @@ class ReadingProgressEngine(
     private val getLibraryManga: GetLibraryManga,
     private val historyRepository: HistoryRepository,
     private val getChaptersByMangaId: GetChaptersByMangaId,
+    private val sourcePreferences: eu.kanade.domain.source.service.SourcePreferences,
 ) {
+
+    /** The level a manhwa had when last seen, and when it last went up (0: never seen going up). */
+    @kotlinx.serialization.Serializable
+    private data class Seen(val level: Int, val upAt: Long = 0)
+
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    /**
+     * Compares every level with the one seen last time: a level that went up is marked with the time, so its card
+     * celebrates for a day. A manhwa seen for the first time is only remembered (no celebration for old reading).
+     */
+    private fun levelUps(series: List<Series>): Map<Long, Long> {
+        val seen = runCatching {
+            json.decodeFromString<Map<String, Seen>>(sourcePreferences.manhwaSeenLevels.get())
+        }.getOrDefault(emptyMap()).toMutableMap()
+        val now = System.currentTimeMillis()
+        series.forEach { s ->
+            val key = s.manga.id.toString()
+            val before = seen[key]
+            seen[key] = when {
+                before == null -> Seen(s.level.level)
+                s.level.level > before.level -> Seen(s.level.level, now)
+                else -> before.copy(level = s.level.level)
+            }
+        }
+        sourcePreferences.manhwaSeenLevels.set(json.encodeToString<Map<String, Seen>>(seen.toMap()))
+        return seen.mapNotNull { (key, value) ->
+            val id = key.toLongOrNull() ?: return@mapNotNull null
+            if (value.upAt > 0 && now - value.upAt < CELEBRATE_MS) id to value.upAt else null
+        }.toMap()
+    }
 
     data class Series(
         val manga: Manga,
@@ -33,7 +66,12 @@ class ReadingProgressEngine(
         val minutes: Long,
         val level: ReadingLevels.Level,
         val lastRead: Long,
-    )
+        /** When the level last went up, if within the last day (the card celebrates it), else 0. */
+        val leveledUpAt: Long = 0,
+    ) {
+        val completed: Boolean get() = total > 0 && read >= total
+        val readingNow: Boolean get() = read < total && System.currentTimeMillis() - lastRead < READING_NOW_MS
+    }
 
     data class Snapshot(
         val streak: ReadingLevels.Streak,
@@ -66,6 +104,10 @@ class ReadingProgressEngine(
                 lastRead = item.lastRead?.toEpochMilliseconds() ?: 0L,
             )
         }.sortedByDescending { it.lastRead }
+            .let { list ->
+                val ups = levelUps(list)
+                list.map { s -> ups[s.manga.id]?.let { s.copy(leveledUpAt = it) } ?: s }
+            }
         val total = series.sumOf { it.read }
         Snapshot(
             streak = ReadingLevels.streak(days, LocalDate.now(zone)),
@@ -73,6 +115,11 @@ class ReadingProgressEngine(
             totalChapters = total,
             series = series,
         )
+    }
+
+    private companion object {
+        const val CELEBRATE_MS = 24 * 60 * 60 * 1000L
+        const val READING_NOW_MS = 30L * 24 * 60 * 60 * 1000
     }
 
     /** The chapter to read next in [mangaId]: the first unread one in reading order, or the last one. */

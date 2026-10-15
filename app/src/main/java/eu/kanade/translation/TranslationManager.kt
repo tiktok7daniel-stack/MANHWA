@@ -109,6 +109,10 @@ class TranslationManager(
     val finished
         get() = translator.finished
 
+    /** Pages already translated of chapters still in progress (see ChapterTranslator.partial). */
+    val partial
+        get() = translator.partial
+
     fun translatorStart() = translator.start()
     fun translatorStop(reason: String? = null) = translator.stop(reason)
 

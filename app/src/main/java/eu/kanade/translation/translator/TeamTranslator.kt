@@ -54,6 +54,22 @@ class TeamTranslator(
     /** Which key is working on what right now (key id to the number of batches it holds). */
     var onWorking: ((Map<String, Int>) -> Unit)? = null
 
+    /** MANHWA: pages whose batch is translated, so the reader can show them before the whole chapter is done. */
+    var onPagesDone: ((Map<String, PageTranslation>) -> Unit)? = null
+
+    /**
+     * MANHWA: the lines translated last (source to translation), given to every new batch and page as context.
+     * A chapter starts empty; while reading, it carries on from page to page.
+     */
+    @Volatile private var recent: List<kotlin.Pair<String, String>> = emptyList()
+
+    private fun remember(translated: Collection<PageTranslation>) {
+        val lines = translated.flatMap { page -> page.blocks }
+            .filter { it.translation.isNotBlank() && it.text.isNotBlank() }
+            .map { it.text to it.translation }
+        if (lines.isNotEmpty()) recent = (recent + lines).takeLast(RECENT_LINES)
+    }
+
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) = translate(pages, emptyMap())
 
     /** True when some of the last pages had to be translated by Google (no key could do them). */
@@ -63,6 +79,7 @@ class TeamTranslator(
     override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
         fellBack = false
         learnt = emptyMap()
+        if (lane != AiRouter.Lane.LIVE) recent = emptyList()
         if (pages.isEmpty()) return
         // The page being read with more than one key: the keys race when the first one is slow
         if (lane == AiRouter.Lane.LIVE && members.size > 1) return translateRacing(pages, images)
@@ -148,6 +165,8 @@ class TeamTranslator(
                                 onWorking?.invoke(working.toMap())
                                 if (ok) {
                                     gather(translator, summaries, batch.pages.minOf { order.getValue(it) })
+                                    remember(part.values)
+                                    onPagesDone?.invoke(part.toMap())
                                     done++
                                     lead.onBatchDone?.invoke(done, total)
                                 } else {
@@ -257,6 +276,7 @@ class TeamTranslator(
             won.result.forEach { (name, page) -> pages[name]?.blocks = page.blocks }
             won.translator.discoveredTerms.forEach { (source, translation) -> lead.discoveredTerms.putIfAbsent(source, translation) }
             won.translator.discoveredDetails.forEach { (source, info) -> lead.discoveredDetails.putIfAbsent(source, info) }
+            remember(pages.values)
         } else {
             fellBack = true
             runCatching { GoogleTranslator(fromLang, toLang).translate(pages) }.onFailure { if (it is CancellationException) throw it }
@@ -282,6 +302,7 @@ class TeamTranslator(
         translator.richTerms = lead.richTerms
         translator.storySoFar = lead.storySoFar
         translator.lessons = lead.lessons
+        translator.recentLines = recent
         translator.fitHints = lead.fitHints
         translator.askSummary = lead.askSummary
         translator.useDrafts = lead.useDrafts
@@ -320,6 +341,7 @@ class TeamTranslator(
         private const val WAIT_MS = 150L
         private const val MAX_ATTEMPTS = 3
         private const val MAX_RACERS = 2
+        private const val RECENT_LINES = 30
         private const val RACE_MIN_MS = 4_000L
         private const val RACE_MAX_MS = 12_000L
         private const val BATCH_TIMEOUT_MS = 150_000L

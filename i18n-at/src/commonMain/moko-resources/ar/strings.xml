@@ -449,4 +449,24 @@
     <string name="tj_title">بيترجم الفصول</string>
     <string name="tj_text">شغال في الخلفية لحد ما الطابور يخلص</string>
     <string name="router_parallel">%1$d طلبات مع بعض</string>
+    <string name="title_novice">مبتدئ</string>
+    <string name="title_follower">متابع</string>
+    <string name="title_devoted">متعمق</string>
+    <string name="title_addict">مدمن</string>
+    <string name="title_master">سيد العمل</string>
+    <string name="filter_all">الكل</string>
+    <string name="filter_top">الأعلى ليفل</string>
+    <string name="filter_reading">بقراها</string>
+    <string name="filter_completed">المكتملة</string>
+    <string name="filter_empty">لسه مفيش حاجة هنا</string>
+    <string name="level_up">ليفل أب</string>
+    <string name="level_up_banner">وصلت Lv. %1$d في %2$s</string>
+    <string name="sheet_chapters">الفصول المقروءة</string>
+    <string name="sheet_time">الوقت</string>
+    <string name="sheet_level">المستوى</string>
+    <string name="sheet_next">المستوى الجاي</string>
+    <string name="sheet_next_value">باقي %1$d فصل لـ Lv. %2$d</string>
+    <string name="sheet_continue">كمّل وارفع الليفل</string>
+    <string name="sheet_open">افتح المانهوا</string>
+    <string name="sheet_rank">الرتبة</string>
 </resources>

@@ -158,6 +158,12 @@ class AiTranslator(
     /** MANHWA: rules and corrections learnt from earlier chapters, to follow. Empty: as before. */
     var lessons: String = ""
 
+    /**
+     * MANHWA: the last lines translated just before these pages (source to translation), so pronouns, tone and
+     * who-speaks-to-whom carry on from page to page and between the team's batches. Empty: as before.
+     */
+    var recentLines: List<kotlin.Pair<String, String>> = emptyList()
+
     /** MANHWA: also ask a one-line summary of each batch, collected in [summaries]. Off: as before. */
     var askSummary: Boolean = false
 
@@ -600,6 +606,20 @@ class AiTranslator(
         if (toLang == TextTranslatorLanguage.ARABIC) {
             appendLine("7. Use clear Modern Standard Arabic suited to comics, with Arabic punctuation (، ؟ !).")
         }
+        // MANHWA style guide: every kind of bubble has its own voice, like a professional scanlation team
+        appendLine("8. Style by kind:")
+        appendLine("   speech: natural, lively dialogue in the character's own voice, never stiff or literal.")
+        appendLine("   shout: short and forceful, a few strong words, ending with ! (or !! for battle cries).")
+        appendLine("   thought: soft and inward, shorter than speech.")
+        appendLine("   narration: polished, slightly literary storytelling.")
+        appendLine("   system: precise and formal like a game interface; keep the layout, numbers, units and stat names;")
+        if (toLang == TextTranslatorLanguage.ARABIC) {
+            appendLine("   put window titles, ranks and skill names in 【 】 (e.g. 【المهمة】, 【الرتبة: S】).")
+        } else {
+            appendLine("   put window titles, ranks and skill names in [ ].")
+        }
+        appendLine("   sfx: one short sound word.")
+        appendLine("9. Once a skill, rank, title or item has a translation in these pages or the glossary, use exactly the same one every time.")
         if (useDrafts) {
             appendLine()
             appendLine("Each bubble comes with a fast machine translation (after \"$DRAFT_MARK\" or in \"draft\"). It is often literal,")
@@ -622,6 +642,13 @@ class AiTranslator(
             appendLine()
             appendLine("Story so far (earlier chapters, for context only):")
             appendLine(storySoFar.trim())
+        }
+        if (recentLines.isNotEmpty()) {
+            appendLine()
+            appendLine("Earlier in this chapter (already translated, for context only; keep pronouns, tone and terms consistent):")
+            recentLines.takeLast(MAX_RECENT_LINES).forEach { (source, translation) ->
+                appendLine("- ${source.take(140)} => ${translation.take(140)}")
+            }
         }
         if (lessons.isNotBlank()) {
             appendLine()
@@ -938,6 +965,7 @@ class AiTranslator(
             .retryOnConnectionFailure(true)
             .build()
         const val TERMS_KEY = "_terms"
+        const val MAX_RECENT_LINES = 30
         const val SUMMARY_KEY = "_summary"
         const val SCOUT_MAX_CHARS = 12_000
         const val LIMITS_KEY = "_limits"

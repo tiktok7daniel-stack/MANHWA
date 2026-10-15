@@ -81,9 +81,13 @@ object ReadingLevels {
         /** Chapters still to read for the next level. */
         val toNext: Int,
         val rank: Rank,
+        val title: Title,
     ) {
         val fraction: Float get() = into.toFloat() / CHAPTERS_PER_LEVEL
     }
+
+    /** What the reader is called in a manhwa, by level: from newcomer to master of the work. */
+    enum class Title(val fromLevel: Int) { NOVICE(1), FOLLOWER(5), DEVOTED(10), ADDICT(25), MASTER(50) }
 
     /** Letter ranks a manhwa's level shows, from E to S. */
     enum class Rank(val fromLevel: Int) { E(1), D(5), C(10), B(20), A(35), S(50) }
@@ -92,7 +96,13 @@ object ReadingLevels {
         val read = chaptersRead.coerceAtLeast(0)
         val level = 1 + read / CHAPTERS_PER_LEVEL
         val into = read % CHAPTERS_PER_LEVEL
-        return Level(level, into, CHAPTERS_PER_LEVEL - into, Rank.entries.last { level >= it.fromLevel })
+        return Level(
+            level = level,
+            into = into,
+            toNext = CHAPTERS_PER_LEVEL - into,
+            rank = Rank.entries.last { level >= it.fromLevel },
+            title = Title.entries.last { level >= it.fromLevel },
+        )
     }
 
     /** The reader's rank, from all their levels and chapters together. */

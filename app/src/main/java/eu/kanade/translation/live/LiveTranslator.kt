@@ -142,6 +142,9 @@ class LiveTranslator(
          */
         @Volatile private var heldFor: Translation? = null
 
+        /** Pages showing a translation from the waiting chapter's finished batches: the saved file replaces them. */
+        private val fromPartial: MutableSet<ReaderPage> = Collections.newSetFromMap(IdentityHashMap())
+
         init {
             scope.launch(Dispatchers.IO) {
                 try {
@@ -162,6 +165,13 @@ class LiveTranslator(
                     wake.trySend(Unit)
                 }
                 .launchIn(scope)
+            // The chapter the reader waits for: every batch translated outside shows at once
+            translationManager.partial
+                .onEach { all ->
+                    val held = heldFor ?: return@onEach
+                    all[held.chapter.id]?.let { putPages(it, replacePartial = false) }
+                }
+                .launchIn(scope)
             // A glossary edit updates the bubbles already on screen at once, without asking the AI again
             glossaryStore.edits
                 .onEach { edit -> if (edit.mangaId == mangaId()) applyGlossaryEdit(edit) }
@@ -178,6 +188,7 @@ class LiveTranslator(
                 // chapter was translated already (pages without text are not in the file and need nothing)
                 savedChapter = chapterPages.any { it.translation != null }
                 heldFor = null
+                synchronized(fromPartial) { fromPartial.clear() }
                 if (!savedChapter) handOver(page.chapter.chapter.id)
                 pages = chapterPages
                 forced = false
@@ -292,6 +303,8 @@ class LiveTranslator(
             val stage = queued.progress.value.stage
             if (stage >= Translation.Stage.TRANSLATING) {
                 heldFor = queued
+                // Batches already done before the chapter was opened
+                translationManager.partial.value[chapterId]?.let { ready -> scope.launch { putPages(ready, replacePartial = false) } }
             } else {
                 translationManager.cancelQueuedTranslation(queued)
             }
@@ -303,15 +316,29 @@ class LiveTranslator(
                 translationManager.getChapterTranslation(held.chapter.name, held.chapter.scanlator, held.manga.title, held.source)
             }
             if (saved.isEmpty()) return
-            val byNumber = saved.entries.associate { (name, page) -> name.substringBeforeLast('.').filter(Char::isDigit).toIntOrNull() to page }
+            // The saved (reviewed) chapter replaces what its batches showed before
+            putPages(saved, replacePartial = true)
+            synchronized(fromPartial) { fromPartial.clear() }
+            savedChapter = true
+        }
+
+        /**
+         * Puts [ready] pages on the chapter on screen, matched by file name or page number: on pages with nothing
+         * yet, and with [replacePartial] also over what an earlier batch showed.
+         */
+        private suspend fun putPages(ready: Map<String, PageTranslation>, replacePartial: Boolean) {
+            if (ready.isEmpty()) return
+            val byNumber = ready.entries.associate { (name, page) -> name.substringBeforeLast('.').filter(Char::isDigit).toIntOrNull() to page }
             withContext(Dispatchers.Main) {
                 pages.forEach { page ->
-                    if (page.translation != null) return@forEach
-                    val found = page.translationKey?.let(saved::get) ?: byNumber[page.number]
-                    if (found != null) page.translation = found
+                    val earlier = synchronized(fromPartial) { page in fromPartial }
+                    if (page.translation != null && !(replacePartial && earlier)) return@forEach
+                    val found = page.translationKey?.let(ready::get) ?: byNumber[page.number] ?: return@forEach
+                    page.translation = found
+                    if (!replacePartial) synchronized(fromPartial) { fromPartial += page }
                 }
             }
-            savedChapter = true
+            publish()
         }
 
         /** The page on screen first, then the next pages that are loaded and not translated yet. */

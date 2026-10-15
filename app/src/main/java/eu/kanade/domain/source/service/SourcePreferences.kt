@@ -40,6 +40,9 @@ class SourcePreferences(
 
     /** Last AI recommendations as JSON [{"m": mangaId, "r": reason}], and when they were made. */
     val manhwaAiRecs: Preference<String> = preferenceStore.getString("manhwa_ai_recs", "")
+
+    /** MANHWA reading game: the level each manhwa had when last seen, and when it went up, as JSON. */
+    val manhwaSeenLevels: Preference<String> = preferenceStore.getString("manhwa_seen_levels", "{}")
     val manhwaAiRecsAt: Preference<Long> = preferenceStore.getLong("manhwa_ai_recs_at", 0L)
 
     /** The reader's order of the home sources, as comma separated ids. */

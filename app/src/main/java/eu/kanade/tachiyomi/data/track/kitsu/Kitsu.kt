@@ -38,7 +38,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
             // Smileys
             RATING_SIMPLE to RatingSystem(
                 name = RATING_SIMPLE,
-                scoreList = listOf("-", "😡", "😐", "😊", "😀"),
+                scoreList = listOf("-", "Awful", "Okay", "Good", "Great"),
                 twentyScale = (2..20 step 6).toList(), // 2, 8, 14, 20
             ),
             // DecimalFormatter is not thread safe, so new formatters for each map instead of extracted val attribute

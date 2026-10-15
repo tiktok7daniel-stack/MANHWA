@@ -84,7 +84,7 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
             // 5 stars
             POINT_5 -> IntRange(0, 5).map { "$it ★" }
             // Smiley
-            POINT_3 -> listOf("-", "😦", "😐", "😊")
+            POINT_3 -> listOf("-", "Bad", "Okay", "Good")
             // 10 point decimal
             POINT_10_DECIMAL -> IntRange(0, 100).map { (it / 10f).toString() }
             else -> throw Exception("Unknown score type")
@@ -129,9 +129,9 @@ class Anilist(id: Long) : BaseTracker(id, "AniList"), DeletableTracker {
 
             POINT_3 -> when {
                 score == 0.0 -> "0"
-                score <= 35 -> "😦"
-                score <= 60 -> "😐"
-                else -> "😊"
+                score <= 35 -> "Bad"
+                score <= 60 -> "Okay"
+                else -> "Good"
             }
 
             else -> track.toApiScore(appGraph.trackPreferences)

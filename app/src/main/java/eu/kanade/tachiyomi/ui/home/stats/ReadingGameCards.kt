@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -304,21 +305,27 @@ fun SeriesLevelCard(
                 Icon(MaterialSymbols.Rounded.TrendingUp, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    stringResource(ATMR.strings.game_level, level.level),
+                    stringResource(ATMR.strings.game_level, level.level) + " · " + titleName(level.title),
                     style = MaterialTheme.typography.labelLarge.copy(shadow = Shadow(color.copy(alpha = 0.7f), blurRadius = 14f)),
                     fontWeight = FontWeight.Black,
                     color = color,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(ATMR.strings.game_chapters, series.read, series.total) + " · " +
-                        stringResource(ATMR.strings.game_time, (series.minutes / 60).toInt(), (series.minutes % 60).toInt()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.6f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                if (series.leveledUpAt > 0) {
+                    Spacer(Modifier.width(6.dp))
+                    LevelUpBadge(color)
+                }
             }
+            Text(
+                stringResource(ATMR.strings.game_chapters, series.read, series.total) + " · " +
+                    stringResource(ATMR.strings.game_time, (series.minutes / 60).toInt(), (series.minutes % 60).toInt()),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.6f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             GlowProgress(level.fraction, color)
             Text(
                 stringResource(ATMR.strings.game_next_level, level.toNext, level.level + 1),
@@ -343,6 +350,162 @@ fun SeriesLevelCard(
                 contentDescription = stringResource(ATMR.strings.game_continue),
                 tint = Color.Black,
                 modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
+
+/** The name of a level title in the reader's language. */
+@Composable
+fun titleName(title: ReadingLevels.Title): String = when (title) {
+    ReadingLevels.Title.NOVICE -> stringResource(ATMR.strings.title_novice)
+    ReadingLevels.Title.FOLLOWER -> stringResource(ATMR.strings.title_follower)
+    ReadingLevels.Title.DEVOTED -> stringResource(ATMR.strings.title_devoted)
+    ReadingLevels.Title.ADDICT -> stringResource(ATMR.strings.title_addict)
+    ReadingLevels.Title.MASTER -> stringResource(ATMR.strings.title_master)
+}
+
+/** "Level up", pulsing in the rank's colour, on a card whose level went up today. */
+@Composable
+fun LevelUpBadge(color: Color) {
+    val transition = rememberInfiniteTransition(label = "levelUp")
+    val scale by transition.animateFloat(
+        initialValue = 0.92f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "levelUpScale",
+    )
+    Row(
+        modifier = Modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .neonGlow(RoundedCornerShape(50), color, 0.35f, 6.dp)
+            .clip(RoundedCornerShape(50))
+            .background(color)
+            .padding(horizontal = 7.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(MaterialSymbols.Rounded.TrendingUp, contentDescription = null, tint = Color.Black, modifier = Modifier.size(12.dp))
+        Spacer(Modifier.width(3.dp))
+        Text(
+            stringResource(ATMR.strings.level_up),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Black,
+            color = Color.Black,
+            maxLines = 1,
+        )
+    }
+}
+
+/** A glowing strip on the home screen for manhwa whose level went up today. */
+@Composable
+fun LevelUpBanner(series: ReadingProgressEngine.Series, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val color = rankColor(series.level.rank)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .glass(RoundedCornerShape(18.dp), accent = true, alpha = 0.5f)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GlowIcon(MaterialSymbols.Rounded.MilitaryTech, color, size = 34, pulse = true)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            stringResource(ATMR.strings.level_up_banner, series.level.level, series.manga.title),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        LevelUpBadge(color)
+    }
+}
+
+/** One line of the details sheet: a label and its value. */
+@Composable
+private fun DetailRow(label: String, value: String, color: Color) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color)
+    }
+}
+
+/** Everything about one manhwa's level, with the way to the next chapter. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun SeriesDetailsSheet(
+    series: ReadingProgressEngine.Series,
+    onDismiss: () -> Unit,
+    onContinue: () -> Unit,
+    onOpen: () -> Unit,
+) {
+    val level = series.level
+    val color = rankColor(level.rank)
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF0B0B10),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(
+                    model = series.manga.asMangaCover(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .width(72.dp)
+                        .aspectRatio(2f / 3f)
+                        .clip(RoundedCornerShape(12.dp)),
+                )
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        series.manga.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        stringResource(ATMR.strings.game_level, level.level) + " · " + titleName(level.title),
+                        style = MaterialTheme.typography.titleSmall.copy(shadow = Shadow(color.copy(alpha = 0.7f), blurRadius = 16f)),
+                        fontWeight = FontWeight.Black,
+                        color = color,
+                    )
+                    if (series.leveledUpAt > 0) LevelUpBadge(color)
+                }
+            }
+            GlowProgress(level.fraction, color)
+            DetailRow(stringResource(ATMR.strings.sheet_chapters), stringResource(ATMR.strings.game_chapters, series.read, series.total), Color.White)
+            DetailRow(
+                stringResource(ATMR.strings.sheet_time),
+                stringResource(ATMR.strings.game_time, (series.minutes / 60).toInt(), (series.minutes % 60).toInt()),
+                Color.White,
+            )
+            DetailRow(stringResource(ATMR.strings.sheet_rank), level.rank.name, color)
+            DetailRow(stringResource(ATMR.strings.sheet_next), stringResource(ATMR.strings.sheet_next_value, level.toNext, level.level + 1), color)
+            Spacer(Modifier.height(6.dp))
+            eu.kanade.presentation.components.ManhwaKit.NeonButton(
+                text = stringResource(ATMR.strings.sheet_continue),
+                icon = MaterialSymbols.RoundedFilled.PlayArrow,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onContinue,
+            )
+            eu.kanade.presentation.components.ManhwaKit.GhostButton(
+                text = stringResource(ATMR.strings.sheet_open),
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onOpen,
             )
         }
     }

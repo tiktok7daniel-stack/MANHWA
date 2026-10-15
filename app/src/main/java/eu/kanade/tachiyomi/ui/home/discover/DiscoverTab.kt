@@ -1488,17 +1488,36 @@ data object DiscoverTab : Tab {
             }
             // MANHWA reading game: hunter rank, streak stages and the level of the manhwa being read
             if (game != null) {
+                var details by remember { mutableStateOf<eu.kanade.tachiyomi.ui.home.stats.ReadingProgressEngine.Series?>(null) }
+                details?.let { series ->
+                    eu.kanade.tachiyomi.ui.home.stats.SeriesDetailsSheet(
+                        series = series,
+                        onDismiss = { details = null },
+                        onContinue = {
+                            details = null
+                            onContinue(series.manga.id)
+                        },
+                        onOpen = {
+                            details = null
+                            onOpen(series.manga.id)
+                        },
+                    )
+                }
                 Spacer(Modifier.height(12.dp))
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    // Levels that went up today, celebrated first
+                    game.series.filter { it.leveledUpAt > 0 }.sortedByDescending { it.leveledUpAt }.take(2).forEach { series ->
+                        eu.kanade.tachiyomi.ui.home.stats.LevelUpBanner(series, onClick = { details = series })
+                    }
                     eu.kanade.tachiyomi.ui.home.stats.HunterCard(game.hunter, game.totalChapters)
                     eu.kanade.tachiyomi.ui.home.stats.StreakCard(game.streak)
                     game.series.take(DASHBOARD_LEVELS).forEach { series ->
                         eu.kanade.tachiyomi.ui.home.stats.SeriesLevelCard(
                             series = series,
-                            onOpen = { onOpen(series.manga.id) },
+                            onOpen = { details = series },
                             onContinue = { onContinue(series.manga.id) },
                         )
                     }

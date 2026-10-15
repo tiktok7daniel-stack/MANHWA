@@ -111,7 +111,15 @@ class ChapterTranslator(
     private val _finished = MutableSharedFlow<Finished>(extraBufferCapacity = 256)
     val finished = _finished.asSharedFlow()
 
+    /**
+     * MANHWA: pages of chapters still being translated whose batch is done (chapter id to page name to page),
+     * so a reader waiting for the chapter shows them at once. Gone when the chapter ends (the file takes over).
+     */
+    private val _partial = MutableStateFlow<Map<Long, Map<String, PageTranslation>>>(emptyMap())
+    val partial = _partial.asStateFlow()
+
     private fun finish(manga: Manga, chapter: Chapter, state: Translation.State) {
+        _partial.update { it - chapter.id }
         _finished.tryEmit(Finished(manga.id, chapter.id, state))
     }
 
@@ -488,6 +496,17 @@ class ChapterTranslator(
                         ),
                     )
                 }
+                // Every finished batch goes to a reader waiting for this chapter (the whole page: the collection's
+                // lines and the new ones, which are the same blocks), before the review and the save
+                val chapterId = translation.chapter.id
+                (textTranslator as? TeamTranslator)?.onPagesDone = { done ->
+                    val ready = done.keys.mapNotNull { name ->
+                        pages[name]?.let { page ->
+                            name to page.copy(blocks = page.blocks.filter { it.translation.isNotBlank() }.map { it.copy() }.toMutableList())
+                        }
+                    }.toMap()
+                    _partial.update { it + (chapterId to (it[chapterId].orEmpty() + ready)) }
+                }
                 translation.advance(Translation.Stage.TRANSLATING)
                 translation.note(if (ai != null && work.isNotEmpty()) Translation.Note.AI else null)
                 showProgress()
@@ -502,6 +521,7 @@ class ChapterTranslator(
                 } finally {
                     chapterSummary = ai?.summaries?.takeLast(SUMMARY_LINES)?.joinToString(" ").orEmpty()
                     termDetails = ai?.discoveredDetails?.mapValues { (_, info) -> info.kind to info.gender }.orEmpty()
+                    (textTranslator as? TeamTranslator)?.onPagesDone = null
                     ai?.apply {
                         useDrafts = draftsBefore
                         onBatchDone = null

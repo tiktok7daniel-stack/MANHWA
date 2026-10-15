@@ -508,4 +508,24 @@
     <string name="tj_title">Translating chapters</string>
     <string name="tj_text">Keeps going in the background until the queue is done</string>
     <string name="router_parallel">%1$d calls at once</string>
+    <string name="title_novice">Novice</string>
+    <string name="title_follower">Follower</string>
+    <string name="title_devoted">Devoted</string>
+    <string name="title_addict">Addict</string>
+    <string name="title_master">Master of the work</string>
+    <string name="filter_all">All</string>
+    <string name="filter_top">Top level</string>
+    <string name="filter_reading">Reading now</string>
+    <string name="filter_completed">Completed</string>
+    <string name="filter_empty">Nothing here yet</string>
+    <string name="level_up">Level up</string>
+    <string name="level_up_banner">Lv. %1$d in %2$s</string>
+    <string name="sheet_chapters">Chapters read</string>
+    <string name="sheet_time">Time spent</string>
+    <string name="sheet_level">Level</string>
+    <string name="sheet_next">Next level</string>
+    <string name="sheet_next_value">%1$d more chapters to Lv. %2$d</string>
+    <string name="sheet_continue">Continue and level up</string>
+    <string name="sheet_open">Open the manhwa</string>
+    <string name="sheet_rank">Rank</string>
 </resources>
