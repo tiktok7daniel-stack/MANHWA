@@ -194,7 +194,11 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             .onEach { ImageUtil.hardwareBitmapThreshold = it }
             .launchIn(scope)
 
-        setAppCompatDelegateThemeMode(uiPreferences.themeMode.get())
+        // MANHWA Glass is the only look: dark, glass, the old Mihon themes gone
+        uiPreferences.themeMode.set(eu.kanade.domain.ui.model.ThemeMode.DARK)
+        uiPreferences.appTheme.set(eu.kanade.domain.ui.model.AppTheme.DANGHWA)
+        uiPreferences.themeDarkAmoled.set(true)
+        setAppCompatDelegateThemeMode(eu.kanade.domain.ui.model.ThemeMode.DARK)
 
         // Updates widget update
         widgetManager.init(scope)

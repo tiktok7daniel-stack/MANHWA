@@ -56,10 +56,10 @@ class GetExtensionsByType(
                 )
 
             Extensions(
-                updates = updates.filterNot(adultFilter::hides),
-                loaded = loaded.filterNot(adultFilter::hides).sortedWith(compareBy<Extension.Loaded> { !it.isObsolete }.then(byName)),
-                available = available.filterNot(adultFilter::hides),
-                notLoaded = notLoaded.filterNot(adultFilter::hides).sortedWith(byName),
+                updates = updates.filterNot { adultFilter.hides(it) },
+                loaded = loaded.filterNot { adultFilter.hides(it) }.sortedWith(compareBy<Extension.Loaded> { !it.isObsolete }.then(byName)),
+                available = available.filterNot { adultFilter.hides(it) },
+                notLoaded = notLoaded.filterNot { adultFilter.hides(it) }.sortedWith(byName),
             )
         }
     }

@@ -571,4 +571,5 @@
     <string name="drop_tab">Favorites · %1$d</string>
     <string name="drop_empty">New chapters of the series in your library will show up here the moment they come out.</string>
     <string name="fresh_just_now">Just now</string>
+    <string name="theme_glass_sub">One look, dark glass with a glow. Pick its colour; it changes at once.</string>
 </resources>

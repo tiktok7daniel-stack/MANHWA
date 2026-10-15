@@ -5,12 +5,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
-import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
-import eu.kanade.presentation.more.settings.widget.AppThemePreferenceWidget
+import eu.kanade.presentation.components.ManhwaGlassPalette
 import mihon.app.di.appGraph
 import tachiyomi.presentation.core.util.collectAsState
 
+/** First run: pick the MANHWA Glass variant (the only look of the app). */
 internal class ThemeStep : OnboardingStep {
 
     override val isComplete: Boolean = true
@@ -19,29 +18,10 @@ internal class ThemeStep : OnboardingStep {
     override fun Content() {
         val context = LocalContext.current
         val uiPreferences = remember { context.appGraph.uiPreferences }
-        val themeModePref = uiPreferences.themeMode
-        val themeMode by themeModePref.collectAsState()
-
-        val appThemePref = uiPreferences.appTheme
-        val appTheme by appThemePref.collectAsState()
-
-        val amoledPref = uiPreferences.themeDarkAmoled
-        val amoled by amoledPref.collectAsState()
+        val accent by uiPreferences.manhwaAccent.collectAsState()
 
         Column {
-            AppThemeModePreferenceWidget(
-                value = themeMode,
-                onItemClick = {
-                    themeModePref.set(it)
-                    setAppCompatDelegateThemeMode(it)
-                },
-            )
-
-            AppThemePreferenceWidget(
-                value = appTheme,
-                amoled = amoled,
-                onItemClick = { appThemePref.set(it) },
-            )
+            ManhwaGlassPalette(selected = accent, onPick = { uiPreferences.manhwaAccent.set(it) })
         }
     }
 }

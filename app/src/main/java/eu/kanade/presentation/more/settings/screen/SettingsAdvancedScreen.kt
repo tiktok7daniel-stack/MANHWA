@@ -27,7 +27,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.advanced.ClearDatabaseScreen
-import eu.kanade.presentation.more.settings.screen.debug.DebugInfoScreen
 import eu.kanade.tachiyomi.data.library.MetadataUpdateWorker
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.PREF_DOH_360
@@ -91,19 +90,6 @@ object SettingsAdvancedScreen : SearchableSettings {
                         crashLogUtil.dumpLogs()
                     }
                 },
-            ),
-            Preference.PreferenceItem.SwitchPreference(
-                preference = networkPreferences.verboseLogging,
-                title = stringResource(MR.strings.pref_verbose_logging),
-                subtitle = stringResource(MR.strings.pref_verbose_logging_summary),
-                onValueChanged = {
-                    context.toast(MR.strings.requires_app_restart)
-                    true
-                },
-            ),
-            Preference.PreferenceItem.TextPreference(
-                title = stringResource(MR.strings.pref_debug_info),
-                onClick = { navigator.push(DebugInfoScreen()) },
             ),
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_onboarding_guide),
