@@ -71,13 +71,11 @@ android {
     buildTypes {
         val debug = getByName("debug") {
             applicationIdSuffix = ".dev"
-            // MANHWA: the builds people install are compiled and optimized like a release (R8, no debugger, ART
-            // profiles), which makes Compose several times smoother. Same package and key, so it installs over.
+            // MANHWA: the builds people install run without the debugger (Compose is several times smoother) and
+            // with ART profiles. No R8: it renames what ML Kit and the extensions find by reflection. Same package
+            // and key, so it installs over.
             isDebuggable = false
-            isMinifyEnabled = true
-            isShrinkResources = true
             isProfileable = true
-            proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
         }
         val release = getByName("release") {
             isMinifyEnabled = true

@@ -133,13 +133,13 @@ class ChapterTranslator(
     @Volatile
     var isPaused: Boolean = false
 
-    private var textRecognizer: TextRecognizer
+    /** Made when the first chapter is translated: building it at startup could take the app down with it. */
+    private var textRecognizer: TextRecognizer? = null
     private var textTranslator: TextTranslator
 
     init {
         val fromLang = TextRecognizerLanguage.fromPref(translationPreferences.translateFromLanguage())
         val toLang = TextTranslatorLanguage.fromPref(translationPreferences.translateToLanguage())
-        textRecognizer = TextRecognizer(fromLang)
         textTranslator = TextTranslators.withoutKeys(translationPreferences)
             .build(translationPreferences, fromLang, toLang)
     }
@@ -338,10 +338,12 @@ class ChapterTranslator(
         try {
             translation.status = Translation.State.TRANSLATING
             // Check if recognizer reinitialization is needed
-            if (translation.fromLang != textRecognizer.language) {
-                textRecognizer.close()
+            val current = textRecognizer
+            if (current == null || translation.fromLang != current.language) {
+                current?.close()
                 textRecognizer = TextRecognizer(translation.fromLang)
             }
+            val recognizer = textRecognizer!!
             // Check if translator reinitialization is needed: other languages, another engine, or the team changed
             val signature = translatorSignature(translation)
             if (signature != builtFor) {
@@ -398,7 +400,7 @@ class ChapterTranslator(
                                 ?: return@background null
                             try {
                                 // OCR in strips on the decoded page, then the colour behind every line
-                                PageOcr.recognize(textRecognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
+                                PageOcr.recognize(recognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
                                     PageImageProcessor.prepare(it, decoded)
                                     if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
                                 }
