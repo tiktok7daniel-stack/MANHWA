@@ -44,7 +44,12 @@ class GlossaryStore(private val context: Context) {
 
     /** What happened in a chapter, in a sentence or three, kept to give the next chapters their context. */
     @Serializable
-    data class ChapterSummary(val chapter: String, val summary: String)
+    data class ChapterSummary(
+        val chapter: String,
+        val summary: String,
+        /** MANHWA: the chapter's number (-1 when unknown), so a recap can stop at the last chapter read. */
+        val number: Double = -1.0,
+    )
 
     /** A term whose translation the reader changed: shown translations are updated right away. */
     data class Edit(val mangaId: Long, val source: String, val oldTranslation: String, val newTranslation: String)
@@ -139,12 +144,12 @@ class GlossaryStore(private val context: Context) {
 
     /** Keeps [summary] for [chapter] (the latest few chapters only). */
     @Synchronized
-    fun addChapterSummary(mangaId: Long, chapter: String, summary: String) {
+    fun addChapterSummary(mangaId: Long, chapter: String, summary: String, number: Double = -1.0) {
         if (summary.isBlank()) return
         runCatching {
             val file = storyFile(mangaId)
             val list = file.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<ChapterSummary>>(it) }.orEmpty()
-            val next = (list.filterNot { it.chapter == chapter } + ChapterSummary(chapter, summary.take(600))).takeLast(STORY_KEEP)
+            val next = (list.filterNot { it.chapter == chapter } + ChapterSummary(chapter, summary.take(600), number)).takeLast(STORY_KEEP)
             file.writeText(json.encodeToString(next))
         }.onFailure { logcat(LogPriority.WARN, it) }
     }
@@ -174,7 +179,8 @@ class GlossaryStore(private val context: Context) {
 
     private companion object {
         const val STORY_CHAPTERS = 3
-        const val STORY_KEEP = 10
+        // Enough for a recap of a long series; each summary is at most 600 characters
+        const val STORY_KEEP = 60
     }
 
     @Synchronized

@@ -294,10 +294,20 @@ class ReaderActivity : BaseActivity() {
             var scrolling by rememberSaveable { mutableStateOf(false) }
             val editStore = remember { appGraph.translationEditStore }
             val editing by editStore.editing.collectAsState()
-            DisposableEffect(Unit) { onDispose { editStore.setEditing(false) } }
+            DisposableEffect(Unit) {
+                // A bubble the reader rewrites is learnt for the manhwa open here
+                editStore.mangaId = { viewModel.state.value.manga?.id }
+                editStore.sourceLang = { viewModel.state.value.source?.lang }
+                onDispose {
+                    editStore.setEditing(false)
+                    editStore.mangaId = { null }
+                    editStore.sourceLang = { null }
+                }
+            }
             val showTranslations by readerPreferences.showTranslations.collectAsState()
             val autoTranslate by remember { appGraph.translationPreferences.liveTranslation() }.collectAsState()
             val autoScrollSpeed by readerPreferences.autoScrollSpeed.collectAsState()
+            val smartScroll by remember { appGraph.translationPreferences.translationSmartScroll() }.collectAsState()
             // Errors still show on top with their retry button
             if (live.phase == eu.kanade.translation.live.LiveTranslator.Phase.ERROR && !editing) {
                 LiveTranslationPill(
@@ -332,6 +342,19 @@ class ReaderActivity : BaseActivity() {
                 webtoon = state.viewer is WebtoonViewer,
                 onScrollBy = { dy -> (viewModel.state.value.viewer as? WebtoonViewer)?.recycler?.scrollBy(0, dy) },
                 onNextPage = { (viewModel.state.value.viewer as? PagerViewer)?.moveToNext() },
+                // MANHWA smart pace: slower over dialogue, full speed over art
+                textNow = {
+                    if (!smartScroll) {
+                        0
+                    } else {
+                        val current = viewModel.state.value
+                        when (val viewer = current.viewer) {
+                            is WebtoonViewer -> viewer.textOnScreen()
+                            else -> current.viewerChapters?.currChapter?.pages?.getOrNull(current.currentPage - 1)
+                                ?.translation?.blocks?.sumOf { it.translation.length } ?: 0
+                        }
+                    }
+                },
             )
             val showOrb by remember { appGraph.translationPreferences.translationReaderButton() }.collectAsState()
             if (showOrb || editing) eu.kanade.translation.live.ReaderActionOrb(

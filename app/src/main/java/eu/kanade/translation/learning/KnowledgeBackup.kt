@@ -64,7 +64,7 @@ class KnowledgeBackup(
                 ?: continue
             matched++
             glossaryStore.importEntries(manga.id, item.glossary)
-            if (glossaryStore.story(manga.id).isEmpty()) item.story.forEach { glossaryStore.addChapterSummary(manga.id, it.chapter, it.summary) }
+            if (glossaryStore.story(manga.id).isEmpty()) item.story.forEach { glossaryStore.addChapterSummary(manga.id, it.chapter, it.summary, it.number) }
             lessonStore.mergeBook(manga.id, item.lessons, manga.title)
         }
         lessonStore.mergeBook(LessonStore.GLOBAL, file.global, "")

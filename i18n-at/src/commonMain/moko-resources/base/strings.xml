@@ -528,4 +528,23 @@
     <string name="sheet_continue">Continue and level up</string>
     <string name="sheet_open">Open the manhwa</string>
     <string name="sheet_rank">Rank</string>
+    <string name="edit_text_title">Rewrite this bubble</string>
+    <string name="edit_rephrase">Rephrase with AI</string>
+    <string name="edit_rephrase_failed">Could not rephrase: %1$s</string>
+    <string name="edit_text_learns">The team learns your wording and uses it from now on.</string>
+    <string name="recap_button">Remind me of the story</string>
+    <string name="recap_title">Previously…</string>
+    <string name="recap_loading">Recalling what you read</string>
+    <string name="recap_none_read">Read a chapter first, then the recap follows you.</string>
+    <string name="recap_failed">Could not write the recap: %1$s</string>
+    <string name="recap_retry">Try again</string>
+    <string name="recap_stopped">Where you stopped</string>
+    <string name="recap_characters">Who matters</string>
+    <string name="radar_text">Chapter %1$s is out on %2$s (you are at %3$s)</string>
+    <string name="radar_open">Read it</string>
+    <string name="radar_move">Move here</string>
+    <string name="th_dramatic">Dramatic style</string>
+    <string name="info_dramatic">Shouts get a heavy outline so they hit, and system windows (status, quests, level up) get glowing corners like a game interface. The window drawn in the art stays visible. Turn it off for a plain look.</string>
+    <string name="th_smart_scroll">Smart auto-scroll</string>
+    <string name="info_smart_scroll">While auto-scrolling, the speed slows down where there is a lot of dialogue on screen and goes back to full speed over art without text, so you never chase the bubbles. In page mode, a page full of text stays longer.</string>
 </resources>

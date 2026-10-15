@@ -76,6 +76,12 @@ class TranslationPreferences(
     /** While a chapter is read, the next one is translated in the background (off unless the reader turns it on). */
     fun translationPretranslateNext() = preferenceStore.getBoolean("manhwa_translation_pretranslate_next", false)
 
+    /** System windows (game status, quests) drawn with glowing HUD corners, shouts with a heavy outline. */
+    fun translationDramaticStyle() = preferenceStore.getBoolean("manhwa_translation_dramatic_style", true)
+
+    /** Auto-scroll slows down where there is a lot of text to read and speeds up over art. */
+    fun translationSmartScroll() = preferenceStore.getBoolean("manhwa_translation_smart_scroll", true)
+
     /** Inside the reader, a quick Google draft shows first and the team's translation replaces it. */
     fun translationQuickDraft() = preferenceStore.getBoolean("manhwa_translation_quick_draft", true)
 }

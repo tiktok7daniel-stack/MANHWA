@@ -26,7 +26,21 @@ import java.util.concurrent.ConcurrentHashMap
 class TranslationEditStore(private val context: Context) {
 
     @Serializable
-    data class BlockEdit(val i: Int, val t: Int, val dx: Float, val dy: Float, val s: Float, val f: Float)
+    data class BlockEdit(
+        val i: Int,
+        val t: Int,
+        val dx: Float,
+        val dy: Float,
+        val s: Float,
+        val f: Float,
+        /** MANHWA: the reader's own wording of the bubble, if they rewrote it. */
+        val tx: String? = null,
+    )
+
+    /** MANHWA: the manhwa and source language open in the reader, so a rewritten bubble is learnt for it. */
+    @Volatile var mangaId: () -> Long? = { null }
+
+    @Volatile var sourceLang: () -> String? = { null }
 
     /** Whether the bubble edit mode is on in the reader. */
     private val _editing = MutableStateFlow(false)
@@ -64,6 +78,10 @@ class TranslationEditStore(private val context: Context) {
             block.userDy = edit.dy
             block.userScale = edit.s
             block.userFont = edit.f
+            edit.tx?.let {
+                block.userText = it
+                block.translation = it
+            }
         }
     }
 
@@ -73,7 +91,7 @@ class TranslationEditStore(private val context: Context) {
         val chapter = key.substringBefore('|')
         val pageKey = key.substringAfter('|')
         val edits = page.blocks.mapIndexedNotNull { i, b ->
-            BlockEdit(i, b.text.hashCode(), b.userDx, b.userDy, b.userScale, b.userFont).takeIf { b.edited }
+            BlockEdit(i, b.text.hashCode(), b.userDx, b.userDy, b.userScale, b.userFont, b.userText).takeIf { b.edited }
         }
         val map = chapter(chapter)
         if (edits.isEmpty()) map.remove(pageKey) else map[pageKey] = edits

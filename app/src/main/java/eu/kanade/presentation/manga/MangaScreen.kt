@@ -384,15 +384,18 @@ private fun MangaScreenSmallImpl(
                         key = MangaScreenItem.INFO_BOX,
                         contentType = MangaScreenItem.INFO_BOX,
                     ) {
-                        MangaInfoBox(
-                            isTabletUi = false,
-                            appBarPadding = topPadding,
-                            manga = state.manga,
-                            source = remember { state.source },
-                            isStubSource = remember { state.source is StubSource },
-                            onCoverClick = onCoverClicked,
-                            doSearch = onSearch,
-                        )
+                        // MANHWA: the header glows in the colour of the cover
+                        eu.kanade.presentation.components.AmbientGlow(eu.kanade.presentation.components.rememberCoverColor(state.manga)) {
+                            MangaInfoBox(
+                                isTabletUi = false,
+                                appBarPadding = topPadding,
+                                manga = state.manga,
+                                source = remember { state.source },
+                                isStubSource = remember { state.source is StubSource },
+                                onCoverClick = onCoverClicked,
+                                doSearch = onSearch,
+                            )
+                        }
                     }
 
                     item(
@@ -421,6 +424,7 @@ private fun MangaScreenSmallImpl(
                             defaultExpandState = state.isFromSource,
                             description = state.manga.description,
                             mangaId = state.manga.id,
+                            title = state.manga.title,
                             tagsProvider = { state.manga.genre },
                             notes = state.manga.notes,
                             onTagSearch = onTagSearch,
@@ -617,15 +621,18 @@ fun MangaScreenLargeImpl(
                             .verticalScroll(rememberScrollState())
                             .padding(bottom = contentPadding.calculateBottomPadding()),
                     ) {
-                        MangaInfoBox(
-                            isTabletUi = true,
-                            appBarPadding = contentPadding.calculateTopPadding(),
-                            manga = state.manga,
-                            source = remember { state.source },
-                            isStubSource = remember { state.source is StubSource },
-                            onCoverClick = onCoverClicked,
-                            doSearch = onSearch,
-                        )
+                        // MANHWA: the header glows in the colour of the cover
+                        eu.kanade.presentation.components.AmbientGlow(eu.kanade.presentation.components.rememberCoverColor(state.manga)) {
+                            MangaInfoBox(
+                                isTabletUi = true,
+                                appBarPadding = contentPadding.calculateTopPadding(),
+                                manga = state.manga,
+                                source = remember { state.source },
+                                isStubSource = remember { state.source is StubSource },
+                                onCoverClick = onCoverClicked,
+                                doSearch = onSearch,
+                            )
+                        }
                         MangaActionRow(
                             favorite = state.manga.favorite,
                             trackingCount = state.trackingCount,
@@ -642,6 +649,7 @@ fun MangaScreenLargeImpl(
                             defaultExpandState = true,
                             description = state.manga.description,
                             mangaId = state.manga.id,
+                            title = state.manga.title,
                             tagsProvider = { state.manga.genre },
                             notes = state.manga.notes,
                             onTagSearch = onTagSearch,

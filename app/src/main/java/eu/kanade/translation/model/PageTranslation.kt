@@ -52,6 +52,8 @@ data class TranslationBlock(
     var userDy: Float = 0f,
     var userScale: Float = 1f,
     var userFont: Float = 1f,
+    // MANHWA: the reader's own wording of this bubble (null: the translation as it came)
+    var userText: String? = null,
     // Every original line of text (page pixels) with the colour behind its letters: each one is erased on its own
     var lines: List<LineBox> = emptyList(),
 ) {
@@ -60,7 +62,7 @@ data class TranslationBlock(
     /** The original lines, or the whole box for translations saved before lines were kept. */
     val lineBoxes: List<LineBox> get() = lines.ifEmpty { listOf(LineBox(x, y, width, height, bgColor)) }
 
-    val edited: Boolean get() = userDx != 0f || userDy != 0f || userScale != 1f || userFont != 1f
+    val edited: Boolean get() = userDx != 0f || userDy != 0f || userScale != 1f || userFont != 1f || userText != null
 
     /** Placed by the vision model from a rough box: snapped onto the real bubble before it is shown. */
     @kotlinx.serialization.Transient

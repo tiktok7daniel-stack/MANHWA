@@ -41,6 +41,27 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
     val recycler = WebtoonRecyclerView(activity)
 
     /**
+     * MANHWA smart auto-scroll: characters of translated text in the reading band of the screen (its upper
+     * four fifths), from the bubbles of the pages on screen placed at their real height.
+     */
+    fun textOnScreen(): Int {
+        val band = recycler.height * 0.8f
+        var chars = 0
+        for (i in 0 until recycler.childCount) {
+            val child = recycler.getChildAt(i) ?: continue
+            val holder = recycler.getChildViewHolder(child) as? WebtoonPageHolder ?: continue
+            val translation = holder.shownPage?.translation ?: continue
+            if (translation.imgHeight <= 0f || child.height <= 0) continue
+            val scale = child.height / translation.imgHeight
+            translation.blocks.forEach { block ->
+                val center = child.top + (block.y + block.height / 2f) * scale
+                if (center in 0f..band) chars += block.translation.length
+            }
+        }
+        return chars
+    }
+
+    /**
      * Frame containing the recycler view.
      */
     private val frame = WebtoonFrame(activity)

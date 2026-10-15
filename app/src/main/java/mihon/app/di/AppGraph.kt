@@ -103,6 +103,9 @@ interface AppGraph : ViewModelGraph {
     val teamStore: eu.kanade.translation.team.TeamStore
     val lessonStore: eu.kanade.translation.learning.LessonStore
     val readingProgressEngine: eu.kanade.tachiyomi.ui.home.stats.ReadingProgressEngine
+    val getChaptersByMangaId: tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+    val homeIntelligence: eu.kanade.tachiyomi.ui.home.discover.HomeIntelligence
+    val getMangaById: tachiyomi.domain.manga.interactor.GetManga
     val translationEditStore: eu.kanade.translation.edit.TranslationEditStore
     val freshChaptersEngine: eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine
 

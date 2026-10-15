@@ -254,6 +254,7 @@ fun ExpandableMangaDescription(
     defaultExpandState: Boolean,
     description: String?,
     mangaId: Long? = null,
+    title: String = "",
     tagsProvider: () -> List<String>?,
     notes: String,
     onTagSearch: (String) -> Unit,
@@ -288,6 +289,22 @@ fun ExpandableMangaDescription(
             eu.kanade.translation.glossary.GlossaryButton(
                 mangaId = mangaId,
                 modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
+            )
+        }
+        // MANHWA: a spoiler-free recap of the chapters already read
+        if (mangaId != null) {
+            eu.kanade.translation.search.StoryRecapButton(
+                mangaId = mangaId,
+                title = title,
+                description = description,
+                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
+            )
+        }
+        // MANHWA: a newer chapter on another of the reader's sources
+        if (mangaId != null) {
+            eu.kanade.tachiyomi.ui.manga.SourceRadar(
+                mangaId = mangaId,
+                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 10.dp),
             )
         }
         val tags = tagsProvider()

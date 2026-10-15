@@ -536,7 +536,7 @@ class ChapterTranslator(
                 }
                 mergeBack(pages, work, library)
                 ai?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms, termDetails) }
-                glossaryStore.addChapterSummary(translation.manga.id, translation.chapter.name, chapterSummary)
+                glossaryStore.addChapterSummary(translation.manga.id, translation.chapter.name, chapterSummary, translation.chapter.chapterNumber)
 
                 // 4. Review (92–98%): the automatic check, then (accurate mode) the editor
                 translation.advance(Translation.Stage.REVIEWING, 0, 3)

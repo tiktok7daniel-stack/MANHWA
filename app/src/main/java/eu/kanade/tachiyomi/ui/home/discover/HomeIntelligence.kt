@@ -185,6 +185,26 @@ class HomeIntelligence(
         return alerts
     }
 
+    /** Per manhwa: when it was last looked for on other sources, and what was found. */
+    private val radarCache = java.util.concurrent.ConcurrentHashMap<Long, Pair<Long, SourceAlert?>>()
+
+    /**
+     * MANHWA radar: whether [manga] has a newer chapter on one of [sources] (at most [MAX_RADAR_SOURCES], a few at
+     * a time), the newest one found. Looked up again only after a few hours.
+     */
+    suspend fun alertFor(manga: Manga, sources: List<Source>, force: Boolean = false): SourceAlert? {
+        radarCache[manga.id]?.let { (at, found) -> if (!force && System.currentTimeMillis() - at < RADAR_TTL_MS) return found }
+        val ourNumber = getChaptersByMangaId.await(manga.id).maxOfOrNull { it.chapterNumber } ?: return null
+        val gate = Semaphore(PARALLEL)
+        val found = coroutineScope {
+            sources.filter { it.id != manga.source }.take(MAX_RADAR_SOURCES).map { source ->
+                async { gate.withPermit { runCatching { newerOn(source, manga, ourNumber) }.getOrNull() } }
+            }.awaitAll().filterNotNull().maxByOrNull { it.chapterNumber }
+        }
+        radarCache[manga.id] = System.currentTimeMillis() to found
+        return found
+    }
+
     private suspend fun newerOn(source: Source, manga: Manga, ourNumber: Double): SourceAlert? {
         val wanted = normalize(manga.title)
         val match = withTimeoutOrNull(SEARCH_TIMEOUT_MS) {
@@ -222,6 +242,8 @@ class HomeIntelligence(
     private companion object {
         const val MAX_RECS = 10
         const val PARALLEL = 3
+        const val MAX_RADAR_SOURCES = 6
+        const val RADAR_TTL_MS = 6 * 60 * 60 * 1000L
         const val SEARCH_TIMEOUT_MS = 20_000L
         const val MAX_ALERT_CANDIDATES = 10
         const val RECS_TTL_MS = 24 * 60 * 60 * 1000L

@@ -57,6 +57,8 @@ object ScanlationRenderer {
         val lineSpacing: Float,
         val skipSfx: Boolean,
         val latinOnly: Boolean,
+        /** MANHWA: system windows get glowing HUD corners and shouts a heavy outline. */
+        val dramatic: Boolean = true,
     )
 
     private val cache = object : LruCache<String, ByteArray>(CACHE_BYTES) {
@@ -76,6 +78,7 @@ object ScanlationRenderer {
             lineSpacing = prefs.translationLineSpacing().get(),
             skipSfx = prefs.translationSkipSfx().get(),
             latinOnly = lang != null && lang.code !in RTL_SCRIPTS && lang.code !in WIDE_SCRIPTS,
+            dramatic = prefs.translationDramaticStyle().get(),
         )
     }
 
@@ -604,8 +607,12 @@ object ScanlationRenderer {
             canvas.save()
             canvas.translate(x, y)
             val plain = set.cleaned.plain
+            val kind = set.cleaned.kind
+            // MANHWA dramatic style: a shout gets a heavy outline in a contrasting colour, so it hits
+            val shout = style.dramatic && kind == BubbleKind.SHOUT
             val stroke = when {
-                set.cleaned.kind == BubbleKind.SFX || !plain -> size * 0.16f
+                kind == BubbleKind.SFX || !plain -> size * 0.16f
+                shout -> size * 0.12f
                 style.outline -> size * 0.07f
                 else -> 0f
             }
@@ -614,13 +621,45 @@ object ScanlationRenderer {
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = stroke
                 paint.strokeJoin = Paint.Join.ROUND
-                paint.color = if (plain) set.cleaned.bg else outlineFor(fill)
+                paint.color = if (plain && !shout) set.cleaned.bg else outlineFor(fill)
                 layout.draw(canvas)
                 paint.style = Paint.Style.FILL
                 paint.color = fill
             }
             layout.draw(canvas)
             canvas.restore()
+            // MANHWA dramatic style: a system window gets glowing HUD corners around its text, like a game
+            // interface; corners only, so the window drawn in the art stays visible
+            if (style.dramatic && kind == BubbleKind.SYSTEM) {
+                drawHudCorners(RectF(x, y, x + layout.width, y + layout.height), size)
+            }
+        }
+
+        private fun drawHudCorners(text: RectF, size: Float) {
+            val pad = size * 0.45f
+            val box = RectF(text.left - pad, text.top - pad * 0.7f, text.right + pad, text.bottom + pad * 0.7f)
+            box.intersect(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
+            val arm = min(size * 0.9f, min(box.width(), box.height()) / 3f)
+            val width = max(1.5f, size * 0.07f)
+            val path = android.graphics.Path().apply {
+                // Top left, top right, bottom right, bottom left: an L at every corner
+                moveTo(box.left, box.top + arm); lineTo(box.left, box.top); lineTo(box.left + arm, box.top)
+                moveTo(box.right - arm, box.top); lineTo(box.right, box.top); lineTo(box.right, box.top + arm)
+                moveTo(box.right, box.bottom - arm); lineTo(box.right, box.bottom); lineTo(box.right - arm, box.bottom)
+                moveTo(box.left + arm, box.bottom); lineTo(box.left, box.bottom); lineTo(box.left, box.bottom - arm)
+            }
+            val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+                color = HUD_COLOR
+                alpha = 70
+                strokeWidth = width * 3.2f
+            }
+            canvas.drawPath(path, glow)
+            glow.alpha = 255
+            glow.strokeWidth = width
+            canvas.drawPath(path, glow)
         }
 
         private fun layout(text: String, paint: TextPaint, width: Int): StaticLayout =
@@ -763,6 +802,9 @@ object ScanlationRenderer {
     private fun outlineFor(text: Int): Int = if (luminance(text) > 140) Color.argb(230, 0, 0, 0) else Color.argb(240, 255, 255, 255)
 
     private const val CACHE_BYTES = 24 * 1024 * 1024
+
+    /** MANHWA: the glow of system window corners (cyan, like a game interface). */
+    private val HUD_COLOR = 0xFF4FD8FF.toInt()
     private const val MAX_PIXELS = 30_000_000L
     private const val ARGB_PIXELS = 10_000_000L
     private const val JPEG_QUALITY = 92

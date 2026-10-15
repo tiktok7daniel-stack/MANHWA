@@ -1,5 +1,9 @@
 package eu.kanade.translation.live
 
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -87,6 +91,7 @@ fun ReaderActionOrb(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val peekScope = rememberCoroutineScope()
     Column(modifier = modifier, horizontalAlignment = Alignment.End) {
         AnimatedVisibility(visible = expanded, enter = fadeIn() + scaleIn(transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)), exit = fadeOut() + scaleOut(transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f))) {
             Column(
@@ -208,7 +213,25 @@ fun ReaderActionOrb(
                         .neonGlow(CircleShape, colors.primary, if (working || expanded) 0.45f else 0.2f, 10.dp)
                         .clip(CircleShape)
                         .background(if (expanded) ManhwaKit.accentBrush() else androidx.compose.ui.graphics.SolidColor(Color(0xD9140508)))
-                        .clickable { onExpanded(!expanded) },
+                        // MANHWA before/after: tap opens the menu; hold to see the original page, let go to come back
+                        .pointerInput(expanded, showTranslations) {
+                            detectTapGestures(
+                                onTap = { onExpanded(!expanded) },
+                                onLongPress = { },
+                                onPress = {
+                                    if (!showTranslations || expanded) return@detectTapGestures
+                                    var peeking = false
+                                    val hold = peekScope.launch {
+                                        delay(PEEK_AFTER_MS)
+                                        peeking = true
+                                        onShowTranslations(false)
+                                    }
+                                    tryAwaitRelease()
+                                    hold.cancel()
+                                    if (peeking) onShowTranslations(true)
+                                },
+                            )
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -285,6 +308,8 @@ fun AutoScrollRunner(
     webtoon: Boolean,
     onScrollBy: (Int) -> Unit,
     onNextPage: () -> Unit,
+    /** MANHWA smart pace: characters of text being read now (0 when unknown or off). */
+    textNow: () -> Int = { 0 },
 ) {
     val density = LocalDensity.current.density
     LaunchedEffect(playing, paused, speed, webtoon) {
@@ -292,10 +317,18 @@ fun AutoScrollRunner(
         if (webtoon) {
             var last = 0L
             var carry = 0f
+            // Slower where there is a lot to read, back to full speed over art; eased so it never jerks
+            var pace = 1f
+            var sampledAt = 0L
             while (isActive) {
                 withFrameNanos { now ->
+                    if (now - sampledAt > PACE_SAMPLE_NS) {
+                        sampledAt = now
+                        val target = (1f / (1f + textNow() / PACE_CHARS)).coerceIn(PACE_MIN, 1f)
+                        pace += (target - pace) * PACE_EASE
+                    }
                     if (last != 0L) {
-                        val pixels = speed * 26f * density * (now - last) / 1_000_000_000f + carry
+                        val pixels = speed * 26f * density * pace * (now - last) / 1_000_000_000f + carry
                         val whole = pixels.toInt()
                         carry = pixels - whole
                         if (whole > 0) onScrollBy(whole)
@@ -305,7 +338,9 @@ fun AutoScrollRunner(
             }
         } else {
             while (isActive) {
-                delay((15 - speed).coerceAtLeast(2) * 1_000L)
+                // A page full of text stays longer before it turns
+                val base = (15 - speed).coerceAtLeast(2) * 1_000L
+                delay((base * (1f + textNow() / PAGE_CHARS)).toLong().coerceAtMost(base * 3))
                 onNextPage()
             }
         }
@@ -341,3 +376,10 @@ fun BubbleEditBanner(onDone: () -> Unit, modifier: Modifier = Modifier) {
         )
     }
 }
+
+private const val PACE_SAMPLE_NS = 250_000_000L
+private const val PACE_CHARS = 140f
+private const val PACE_MIN = 0.35f
+private const val PACE_EASE = 0.35f
+private const val PAGE_CHARS = 300f
+private const val PEEK_AFTER_MS = 350L

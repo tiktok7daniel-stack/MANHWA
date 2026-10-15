@@ -469,4 +469,23 @@
     <string name="sheet_continue">كمّل وارفع الليفل</string>
     <string name="sheet_open">افتح المانهوا</string>
     <string name="sheet_rank">الرتبة</string>
+    <string name="edit_text_title">عدّل الفقاعة دي</string>
+    <string name="edit_rephrase">أعد الصياغة بالـ AI</string>
+    <string name="edit_rephrase_failed">ما قدرش يعيد الصياغة: %1$s</string>
+    <string name="edit_text_learns">الفريق بيتعلم صياغتك ويستخدمها من دلوقتي.</string>
+    <string name="recap_button">ذكرني بالقصة</string>
+    <string name="recap_title">اللي فات…</string>
+    <string name="recap_loading">بيفتكر اللي قريته</string>
+    <string name="recap_none_read">اقرا فصل الأول، والملخص هيمشي معاك.</string>
+    <string name="recap_failed">ما قدرش يكتب الملخص: %1$s</string>
+    <string name="recap_retry">حاول تاني</string>
+    <string name="recap_stopped">وقفت فين</string>
+    <string name="recap_characters">الشخصيات المهمة</string>
+    <string name="radar_text">الفصل %1$s نزل على %2$s (انت عند %3$s)</string>
+    <string name="radar_open">اقراه</string>
+    <string name="radar_move">انقل هنا</string>
+    <string name="th_dramatic">ستايل درامي</string>
+    <string name="info_dramatic">الصراخ بيتكتب بتحديد عريض عشان يبان قوي، ونوافذ النظام (الحالة، المهام، ليفل أب) بيتحط حواليها زوايا مضيئة زي واجهة الألعاب. النافذة المرسومة في الصورة بتفضل باينة. اقفله لو عايز شكل عادي.</string>
+    <string name="th_smart_scroll">تمرير تلقائي ذكي</string>
+    <string name="info_smart_scroll">وانت في التمرير التلقائي، السرعة بتهدى لما يكون فيه حوار كتير على الشاشة، وبترجع لسرعتها في الرسومات اللي ملهاش كلام، فما تجريش ورا الفقاعات. وفي وضع الصفحات، الصفحة المليانة كلام بتقعد وقت أطول.</string>
 </resources>

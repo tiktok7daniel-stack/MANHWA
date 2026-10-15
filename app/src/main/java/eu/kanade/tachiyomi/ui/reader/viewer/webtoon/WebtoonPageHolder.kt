@@ -85,6 +85,9 @@ class WebtoonPageHolder(
      */
     private var page: ReaderPage? = null
 
+    /** MANHWA: the page shown by this holder (smart auto-scroll reads its translated text). */
+    val shownPage: ReaderPage? get() = page
+
     private val scope = MainScope()
 
     /**

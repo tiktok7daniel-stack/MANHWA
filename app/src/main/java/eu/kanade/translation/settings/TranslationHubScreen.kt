@@ -118,6 +118,8 @@ class TranslationHubScreen : Screen() {
         val readerButton by prefs.translationReaderButton().collectPreference()
         val font by prefs.translationFont().collectPreference()
         val pretranslate by prefs.translationPretranslateNext().collectPreference()
+        val dramatic by prefs.translationDramaticStyle().collectPreference()
+        val smartScroll by prefs.translationSmartScroll().collectPreference()
         val noKeyEngine = if (TextTranslators.entries.getOrNull(engineIndex) == TextTranslators.MLKIT) TextTranslators.MLKIT else TextTranslators.GOOGLE
         val noKeyLabel = stringResource(
             if (noKeyEngine == TextTranslators.MLKIT) ATMR.strings.pref_no_key_mlkit else ATMR.strings.pref_no_key_google,
@@ -294,6 +296,21 @@ class TranslationHubScreen : Screen() {
                                 info = stringResource(ATMR.strings.info_reader_button),
                                 checked = readerButton,
                                 onChange = { prefs.translationReaderButton().set(it) },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.Speed,
+                                title = stringResource(ATMR.strings.th_smart_scroll),
+                                info = stringResource(ATMR.strings.info_smart_scroll),
+                                checked = smartScroll,
+                                onChange = { prefs.translationSmartScroll().set(it) },
+                            )                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.AutoAwesome,
+                                title = stringResource(ATMR.strings.th_dramatic),
+                                info = stringResource(ATMR.strings.info_dramatic),
+                                checked = dramatic,
+                                onChange = { prefs.translationDramaticStyle().set(it) },
                             )
                             HubDivider()
                             HubChoiceRow(

@@ -20,7 +20,9 @@ import androidx.compose.runtime.collectAsState as collectFlowAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,7 +63,13 @@ import eu.kanade.translation.model.TranslationBlock
 import eu.kanade.translation.style.BubbleKind
 import eu.kanade.translation.style.TranslationTypeface
 import eu.kanade.translation.translator.TextTranslatorLanguage
+import eu.kanade.translation.edit.BubbleTextDialog
+import eu.kanade.translation.edit.BubbleTextEditor
+import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Edit
+import mihon.icons.materialsymbols.rounded.Refresh
 import tachiyomi.presentation.core.util.collectAsState
 import kotlin.math.max
 import kotlin.math.min
@@ -88,6 +96,7 @@ fun BubbleLayer(translation: PageTranslation, zoom: Float) {
     val outline by prefs.translationOutline().collectAsState()
     val lineSpacing by prefs.translationLineSpacing().collectAsState()
     val skipSfx by prefs.translationSkipSfx().collectAsState()
+    val dramatic by prefs.translationDramaticStyle().collectAsState()
     val target by prefs.translateToLanguage().collectAsState()
     val editing by editStore.editing.collectFlowAsState()
     val typeface = TranslationTypeface.entries.getOrNull(typefaceIndex) ?: TranslationTypeface.SMART
@@ -98,8 +107,8 @@ fun BubbleLayer(translation: PageTranslation, zoom: Float) {
     val measurer = rememberTextMeasurer(cacheSize = 64)
     var revision by remember { mutableIntStateOf(0) }
 
-    val placed = remember(translation, typeface, sizeScale, minSize, lineSpacing, latinOnly, outline, skipSfx, revision) {
-        Typesetter(measurer, typeface, latinOnly, lineSpacing, sizeScale, minSize, outline, skipSfx).layout(translation)
+    val placed = remember(translation, typeface, sizeScale, minSize, lineSpacing, latinOnly, outline, skipSfx, dramatic, revision) {
+        Typesetter(measurer, typeface, latinOnly, lineSpacing, sizeScale, minSize, outline, skipSfx, dramatic).layout(translation)
     }
 
     // Edit mode: the bubble being moved and its live gesture, applied to the block on release
@@ -116,6 +125,9 @@ fun BubbleLayer(translation: PageTranslation, zoom: Float) {
         editStore.save(translation)
         revision++
     }
+
+    var rewriting by remember(translation) { mutableStateOf<TranslationBlock?>(null) }
+    val scope = rememberCoroutineScope()
 
     Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).requiredSize(widthDp, heightDp)) {
         Canvas(
@@ -189,7 +201,9 @@ fun BubbleLayer(translation: PageTranslation, zoom: Float) {
             ) {
                 EditChip("A−") { chosen.block.userFont = (chosen.block.userFont / 1.12f).coerceAtLeast(0.3f); save() }
                 EditChip("A+") { chosen.block.userFont = (chosen.block.userFont * 1.12f).coerceAtMost(4f); save() }
-                EditChip("↺") {
+                // MANHWA: rewrite the bubble (by hand or with the team); the team learns the new wording
+                EditIcon(MaterialSymbols.Rounded.Edit) { rewriting = chosen.block }
+                EditIcon(MaterialSymbols.Rounded.Refresh) {
                     chosen.block.userDx = 0f
                     chosen.block.userDy = 0f
                     chosen.block.userScale = 1f
@@ -199,6 +213,34 @@ fun BubbleLayer(translation: PageTranslation, zoom: Float) {
             }
         }
     }
+
+    rewriting?.let { block ->
+        BubbleTextDialog(
+            block = block,
+            onDismiss = { rewriting = null },
+            onSave = { wording ->
+                val old = block.translation
+                block.userText = wording
+                block.translation = wording
+                save()
+                rewriting = null
+                scope.launch { BubbleTextEditor.learn(context, block, old, wording) }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EditIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    androidx.compose.material3.Icon(
+        icon,
+        contentDescription = null,
+        tint = Color.White,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .requiredSize(20.dp),
+    )
 }
 
 @Composable
@@ -226,6 +268,9 @@ private class Placed(
     val fg: Color,
     val outlineColor: Color,
     val stroke: Float,
+    /** MANHWA: a system window, drawn with glowing HUD corners around its text. */
+    val hud: Boolean = false,
+    val size: Float = 0f,
 )
 
 private fun DrawScope.drawPlaced(p: Placed, dx: Float, dy: Float, ds: Float, editing: Boolean, selected: Boolean, zoom: Float) {
@@ -244,6 +289,7 @@ private fun DrawScope.drawPlaced(p: Placed, dx: Float, dy: Float, ds: Float, edi
                 drawText(p.layout, color = p.outlineColor, topLeft = topLeft, drawStyle = Stroke(width = p.stroke, join = StrokeJoin.Round))
             }
             drawText(p.layout, color = p.fg, topLeft = topLeft)
+            if (p.hud) drawHudCorners(topLeft, Size(p.layout.size.width.toFloat(), p.layout.size.height.toFloat()), p.size)
             if (editing) {
                 val half = Size(area.width, area.height)
                 val frame = if (selected) Color(0xFFFF2E63) else Color(0xCCFF6B8B)
@@ -268,6 +314,8 @@ private class Typesetter(
     private val minSize: Int,
     private val outline: Boolean,
     private val skipSfx: Boolean,
+    /** MANHWA: system windows with glowing HUD corners, shouts with a heavy outline. */
+    private val dramatic: Boolean = true,
 ) {
     // Page pixels: 1 sp = 1 px
     private val unit = Density(1f, 1f)
@@ -324,13 +372,20 @@ private class Typesetter(
             val layout = balanced(block.translation, plan.style.copy(fontSize = size.sp), area)
             val bg = Color(block.bgColor.takeIf { it != 0 } ?: 0xFFFFFFFF.toInt()).copy(alpha = 1f)
             val fg = Color(block.textColor)
+            val shout = dramatic && plan.kind == BubbleKind.SHOUT
             val stroke = when {
                 plan.kind == BubbleKind.SFX -> size * 0.18f
+                shout -> size * 0.12f
                 outline -> size * 0.08f
                 else -> 0f
             }
-            val outlineColor = if (fg.luminance() > 0.5f) Color.Black.copy(alpha = 0.75f) else bg.copy(alpha = 0.95f)
-            Placed(block, area, plan.patches, layout, fg, outlineColor, stroke)
+            val outlineColor = when {
+                // A shout stands out in the colour opposite to its letters
+                shout -> if (fg.luminance() > 0.5f) Color.Black else Color.White
+                fg.luminance() > 0.5f -> Color.Black.copy(alpha = 0.75f)
+                else -> bg.copy(alpha = 0.95f)
+            }
+            Placed(block, area, plan.patches, layout, fg, outlineColor, stroke, hud = dramatic && plan.kind == BubbleKind.SYSTEM, size = size)
         }
     }
 
@@ -452,3 +507,24 @@ private class Typesetter(
 
 private val RTL_SCRIPTS = setOf("ar", "fa", "ur", "he", "iw")
 private val WIDE_SCRIPTS = setOf("ja", "zh", "ko", "th", "hi", "ru", "uk", "el", "bg")
+
+/** MANHWA: glowing corners around a system window's text, like a game interface (the window in the art stays visible). */
+private fun DrawScope.drawHudCorners(topLeft: Offset, text: Size, size: Float) {
+    val pad = size * 0.45f
+    val left = topLeft.x - pad
+    val top = topLeft.y - pad * 0.7f
+    val right = topLeft.x + text.width + pad
+    val bottom = topLeft.y + text.height + pad * 0.7f
+    val arm = min(size * 0.9f, min(right - left, bottom - top) / 3f)
+    val width = max(1.5f, size * 0.07f)
+    val path = androidx.compose.ui.graphics.Path().apply {
+        moveTo(left, top + arm); lineTo(left, top); lineTo(left + arm, top)
+        moveTo(right - arm, top); lineTo(right, top); lineTo(right, top + arm)
+        moveTo(right, bottom - arm); lineTo(right, bottom); lineTo(right - arm, bottom)
+        moveTo(left + arm, bottom); lineTo(left, bottom); lineTo(left, bottom - arm)
+    }
+    drawPath(path, HudColor.copy(alpha = 0.28f), style = Stroke(width = width * 3.2f, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(path, HudColor, style = Stroke(width = width, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = StrokeJoin.Round))
+}
+
+private val HudColor = Color(0xFF4FD8FF)

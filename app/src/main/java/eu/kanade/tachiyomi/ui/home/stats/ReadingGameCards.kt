@@ -257,10 +257,13 @@ fun SeriesLevelCard(
     modifier: Modifier = Modifier,
 ) {
     val level = series.level
+    val cover = eu.kanade.presentation.components.rememberCoverColor(series.manga)
     val color = rankColor(level.rank)
     Row(
         modifier
             .fillMaxWidth()
+            // MANHWA ambient light: the card glows in the colour of its cover
+            .neonGlow(RoundedCornerShape(22.dp), cover ?: color, 0.16f, 8.dp)
             .glass(RoundedCornerShape(22.dp), alpha = 0.45f)
             .clickable(onClick = onOpen)
             .padding(12.dp),
