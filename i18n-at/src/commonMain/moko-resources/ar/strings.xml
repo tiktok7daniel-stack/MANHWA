@@ -220,6 +220,9 @@
     <string name="tc_start_from">ابدأ من</string>
     <string name="tc_hint">الفصول غير المحمّلة بتتجلب من المصدر لوحدها وبعدين تتترجم. لما يظهر ✓ جنب الفصل يفتح مترجم على طول.</string>
     <string name="tc_start">ابدأ الترجمة</string>
+    <string name="tc_progress_pages">جاري ترجمة %1$s، صفحة %2$d من %3$d (فصل %4$d من %5$d)…</string>
+    <string name="tc_done">✓ خلصت الترجمة: %1$d من %2$d فصل. افتح الفصل وهيظهر مترجم على طول</string>
+    <string name="tc_done_failed">✓ اتترجم %1$d من %2$d فصل، و%3$d ما اتترجمش. اضغط هنا وحاول تاني</string>
     <string name="pref_reader_button">إظهار زر الترجمة العائم داخل الفصل</string>
     <string name="pref_reader_button_summary">لو مقفول: شاشة قراءة نظيفة، والترجمة والترجمة التلقائية شغّالين عادي</string>
 </resources>

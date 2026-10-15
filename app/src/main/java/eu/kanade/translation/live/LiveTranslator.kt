@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import eu.kanade.translation.HeavyWork
 import eu.kanade.translation.data.PageImage
 import eu.kanade.translation.data.PageImageProcessor
 import eu.kanade.translation.glossary.GlossaryStore
@@ -280,22 +281,25 @@ class LiveTranslator(
                     translator = it
                 }
 
-            // 1. Read the page and find the bubbles
+            // 1. Read the page and find the bubbles. Image work goes through the shared gate (reader first), so it
+            // never runs together with a background translation's OCR or another page's drawing.
             val stream = page.stream ?: return null
             val bytes = stream().use { it.readBytes() }
-            val decoded = PageImageProcessor.decode { ByteArrayInputStream(bytes) } ?: return null
-            val result: PageTranslation
             val images = mutableMapOf<String, PageImage>()
-            try {
-                // OCR ran on the downscaled bitmap (in strips for tall pages); boxes go back to the real page size
-                result = PageOcr.recognize(ocr, decoded.bitmap).rescaled(1f / decoded.scale)
-                PageImageProcessor.prepare(result, decoded)
-                if (engine.aiPart != null && preferences.translationVision().get()) {
-                    images[KEY] = PageImageProcessor.tiles(decoded)
+            val result: PageTranslation = HeavyWork.reader<PageTranslation?> {
+                val decoded = PageImageProcessor.decode { ByteArrayInputStream(bytes) } ?: return@reader null
+                try {
+                    // OCR ran on the downscaled bitmap (in strips for tall pages); boxes go back to the real page size
+                    PageOcr.recognize(ocr, decoded.bitmap).rescaled(1f / decoded.scale).also {
+                        PageImageProcessor.prepare(it, decoded)
+                        if (engine.aiPart != null && preferences.translationVision().get()) {
+                            images[KEY] = PageImageProcessor.tiles(decoded)
+                        }
+                    }
+                } finally {
+                    decoded.bitmap.recycle()
                 }
-            } finally {
-                decoded.bitmap.recycle()
-            }
+            } ?: return null
             if (result.blocks.isEmpty() && images.isEmpty()) return null
 
             // 2. Translate, following the series glossary and adding the new names it finds
@@ -316,11 +320,13 @@ class LiveTranslator(
             engine.translate(map, images)
             if (result.blocks.any { it.needsSnap }) {
                 // Bubbles added by the vision model: placed on their real letters, or dropped
-                PageImageProcessor.decode { ByteArrayInputStream(bytes) }?.let { again ->
-                    try {
-                        PageImageProcessor.prepare(result, again)
-                    } finally {
-                        again.bitmap.recycle()
+                HeavyWork.reader {
+                    PageImageProcessor.decode { ByteArrayInputStream(bytes) }?.let { again ->
+                        try {
+                            PageImageProcessor.prepare(result, again)
+                        } finally {
+                            again.bitmap.recycle()
+                        }
                     }
                 }
             }

@@ -77,6 +77,22 @@ fun TranslateChaptersBar(batch: MangaViewModel.TranslateBatch?, onClick: () -> U
                 Text(
                     if (batch == null) {
                         stringResource(ATMR.strings.tc_subtitle)
+                    } else if (batch.finished) {
+                        val translated = batch.total - batch.failed
+                        if (batch.failed == 0) {
+                            stringResource(ATMR.strings.tc_done, translated, batch.total)
+                        } else {
+                            stringResource(ATMR.strings.tc_done_failed, translated, batch.total, batch.failed)
+                        }
+                    } else if (batch.pages > 0 && !batch.fetching) {
+                        stringResource(
+                            ATMR.strings.tc_progress_pages,
+                            batch.current.orEmpty(),
+                            batch.page,
+                            batch.pages,
+                            batch.done + 1,
+                            batch.total,
+                        )
                     } else {
                         stringResource(
                             if (batch.fetching) ATMR.strings.tc_progress_fetching else ATMR.strings.tc_progress,
@@ -86,16 +102,24 @@ fun TranslateChaptersBar(batch: MangaViewModel.TranslateBatch?, onClick: () -> U
                         )
                     },
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (batch == null) colors.onSurfaceVariant else colors.primary,
+                    color = when {
+                        batch == null -> colors.onSurfaceVariant
+                        batch.finished && batch.failed > 0 -> colors.error
+                        else -> colors.primary
+                    },
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        if (batch != null) {
+        if (batch != null && !batch.finished) {
             Spacer(Modifier.height(10.dp))
             LinearProgressIndicator(
-                progress = { batch.done.toFloat() / batch.total.coerceAtLeast(1) },
+                progress = {
+                    // Finished chapters, plus the share of pages read in the one in progress
+                    val partial = if (batch.pages > 0) batch.page.toFloat() / batch.pages else 0f
+                    ((batch.done + partial) / batch.total.coerceAtLeast(1)).coerceIn(0f, 1f)
+                },
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)),
             )
         }

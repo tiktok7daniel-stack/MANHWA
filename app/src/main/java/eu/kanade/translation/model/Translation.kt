@@ -29,6 +29,10 @@ data class Translation(
             _statusFlow.value = status
         }
 
+    /** Pages of this chapter read so far, and how many it has (0 until the pages are known). */
+    @Transient
+    val pageProgress = MutableStateFlow(0 to 0)
+
     enum class State(val value: Int) {
         NOT_TRANSLATED(0),
         QUEUE(1),

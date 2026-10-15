@@ -44,6 +44,10 @@ class TranslationManager(
     val queueState
         get() = translator.queueState
 
+    /** Every chapter's end (translated, failed or turned away), so screens waiting on one always hear of it. */
+    val finished
+        get() = translator.finished
+
     fun translatorStart() = translator.start()
     fun translatorStop(reason: String? = null) = translator.stop(reason)
 

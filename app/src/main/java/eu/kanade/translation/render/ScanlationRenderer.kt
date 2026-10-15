@@ -14,6 +14,7 @@ import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import android.util.LruCache
 import androidx.core.content.res.ResourcesCompat
+import eu.kanade.translation.HeavyWork
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.model.TranslationBlock
 import eu.kanade.translation.style.BubbleKind
@@ -21,8 +22,6 @@ import eu.kanade.translation.style.TranslationTypeface
 import eu.kanade.translation.translator.TextTranslatorLanguage
 import logcat.LogPriority
 import mihon.app.di.appGraph
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import okio.Buffer
 import okio.BufferedSource
 import tachiyomi.core.common.util.system.logcat
@@ -80,16 +79,25 @@ object ScanlationRenderer {
         )
     }
 
-    /** The page with its translation cleaned and drawn in, or null when there is nothing to draw. */
     /**
-     * One page at a time: the webtoon viewer prepares several tall pages at once, and drawing them all
-     * together runs out of memory (which used to leave a page untranslated).
+     * The page with its translation cleaned and drawn in, or null when there is nothing to draw or drawing
+     * failed (the original page is shown then, never a crash). One page at a time, and never together with
+     * the OCR of a background translation: the webtoon viewer prepares several tall pages at once, and doing
+     * all that image work together runs out of memory.
      */
-    private val gate = Mutex()
-
-    suspend fun bake(context: Context, source: BufferedSource, translation: PageTranslation): BufferedSource? = gate.withLock {
-        bakeNow(context, source, translation)
-    }
+    suspend fun bake(context: Context, source: BufferedSource, translation: PageTranslation): BufferedSource? =
+        HeavyWork.reader {
+            try {
+                bakeNow(context, source, translation)
+            } catch (e: OutOfMemoryError) {
+                cache.evictAll()
+                logcat(LogPriority.ERROR, e) { "Out of memory drawing the translation; showing the original page" }
+                null
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Could not draw the translation; showing the original page" }
+                null
+            }
+        }
 
     private fun bakeNow(context: Context, source: BufferedSource, translation: PageTranslation): BufferedSource? {
         if (translation.blocks.none { it.translation.isNotBlank() }) return null
@@ -173,7 +181,14 @@ object ScanlationRenderer {
                 if (block.translation.isBlank()) return@mapNotNull null
                 val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
                 if (kind == BubbleKind.SFX && style.skipSfx) return@mapNotNull null
-                clean(block, kind)
+                if (block.lineBoxes.isEmpty()) return@mapNotNull null
+                // One bad bubble never costs the whole page its translation
+                try {
+                    clean(block, kind)
+                } catch (e: Exception) {
+                    logcat(LogPriority.WARN, e) { "Skipped a bubble that could not be cleaned" }
+                    null
+                }
             }
             // 2. Room for every bubble's text, stopping at outlines, the drawing and the other bubbles
             val unions = cleaned.map { it.union }
@@ -198,7 +213,11 @@ object ScanlationRenderer {
                 // Big titles stay big, but never giant
                 size = min(size, bitmap.width * MAX_TEXT_OF_WIDTH)
                 size = (size * set.cleaned.block.userFont).coerceAtLeast(MIN_TEXT_PX * s)
-                typeset(set, size)
+                try {
+                    typeset(set, size)
+                } catch (e: Exception) {
+                    logcat(LogPriority.WARN, e) { "Skipped a bubble that could not be typeset" }
+                }
             }
         }
 
@@ -741,7 +760,7 @@ object ScanlationRenderer {
 
     private fun outlineFor(text: Int): Int = if (luminance(text) > 140) Color.argb(230, 0, 0, 0) else Color.argb(240, 255, 255, 255)
 
-    private const val CACHE_BYTES = 48 * 1024 * 1024
+    private const val CACHE_BYTES = 24 * 1024 * 1024
     private const val MAX_PIXELS = 30_000_000L
     private const val ARGB_PIXELS = 10_000_000L
     private const val JPEG_QUALITY = 92

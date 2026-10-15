@@ -280,6 +280,9 @@
     <string name="tc_start_from">Start from</string>
     <string name="tc_hint">Chapters that are not downloaded are fetched from the source first, then translated. When a chapter shows ✓ it opens translated at once.</string>
     <string name="tc_start">Start translating</string>
+    <string name="tc_progress_pages">Translating %1$s, page %2$d of %3$d (chapter %4$d of %5$d)…</string>
+    <string name="tc_done">✓ Done: %1$d of %2$d chapters translated. Open one and it shows translated at once</string>
+    <string name="tc_done_failed">✓ %1$d of %2$d chapters translated, %3$d failed. Tap here to try again</string>
     <string name="pref_reader_button">Show the floating translation button in the reader</string>
     <string name="pref_reader_button_summary">Off: a clean reading screen; translations still show and auto translation keeps working</string>
 </resources>

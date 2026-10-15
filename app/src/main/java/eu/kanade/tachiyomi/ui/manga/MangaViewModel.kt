@@ -66,6 +66,7 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
@@ -321,6 +322,13 @@ class MangaViewModel(
                 .filter { it.manga.id == mangaId }
                 .catch { logcat(LogPriority.ERROR, it) }
                 .collect { translation -> translationStates.update { it + (translation.chapter.id to translation.status) } }
+        }
+        // MANHWA: the end of every chapter, also of those that left the queue or were turned away before it
+        viewModelScope.launch(Dispatchers.Default) {
+            translationManager.finished
+                .filter { it.mangaId == mangaId }
+                .catch { logcat(LogPriority.ERROR, it) }
+                .collect { end -> translationStates.update { it + (end.chapterId to end.state) } }
         }
         viewModelScope.launch(Dispatchers.Default) {
             downloadManager.progressFlow()
@@ -599,6 +607,11 @@ class MangaViewModel(
         } else {
             downloadProgress.remove(chapterId)
         }
+        // MANHWA: a chapter waiting to be translated whose download failed or was cancelled won't be translated
+        val failed = download.status == Download.State.ERROR || download.status == Download.State.NOT_DOWNLOADED
+        if (failed && translationManager.translateAfterDownload.remove(chapterId)) {
+            translationStates.update { it + (chapterId to Translation.State.ERROR) }
+        }
     }
 
     fun getDownloadProgress(chapterId: Long): Int {
@@ -786,22 +799,56 @@ class MangaViewModel(
 
     // MANHWA: translate chapters from the manga screen, without downloading them by hand first
 
-    /** Progress of the chapters asked to translate from this screen: finished, total and the one in progress. */
-    data class TranslateBatch(val done: Int, val total: Int, val current: String?, val fetching: Boolean)
+    /**
+     * Progress of the chapters asked to translate from this screen: how many ended ([done], failed ones
+     * included), the chapter in progress with its page counter, and at the end ([finished]) the result.
+     */
+    data class TranslateBatch(
+        val done: Int,
+        val total: Int,
+        val current: String?,
+        val fetching: Boolean,
+        val failed: Int = 0,
+        val page: Int = 0,
+        val pages: Int = 0,
+        val finished: Boolean = false,
+    )
 
     private val translateBatchIds = MutableStateFlow<List<Long>>(emptyList())
 
-    val translateBatch: StateFlow<TranslateBatch?> = combine(translateBatchIds, translationStates) { ids, states ->
+    /** The chapter of this manga being translated now, with (pages read, pages). */
+    private val translatingPages = translationManager.queueState
+        .flatMapLatest { queue ->
+            val mine = queue.filter { it.manga.id == mangaId }
+            if (mine.isEmpty()) {
+                flowOf<Pair<Long, Pair<Int, Int>>?>(null)
+            } else {
+                combine(mine.map { t -> combine(t.statusFlow, t.pageProgress) { status, pages -> Triple(t.chapter.id, status, pages) } }) { all ->
+                    all.firstOrNull { it.second == Translation.State.TRANSLATING }?.let { it.first to it.third }
+                }
+            }
+        }
+        .distinctUntilChanged()
+
+    val translateBatch: StateFlow<TranslateBatch?> = combine(translateBatchIds, translationStates, translatingPages) { ids, states, working ->
         if (ids.isEmpty()) return@combine null
         val items = allChapters.orEmpty().associateBy { it.id }
-        val done = ids.count { states[it] == Translation.State.TRANSLATED || items[it]?.translationState == Translation.State.TRANSLATED }
-        val current = ids.firstOrNull { states[it] != Translation.State.TRANSLATED && states[it] != Translation.State.ERROR }
+        fun ended(id: Long) = states[id] == Translation.State.TRANSLATED || states[id] == Translation.State.ERROR
+        val failed = ids.count { states[it] == Translation.State.ERROR }
+        val done = ids.count(::ended)
+        // The one working now, else the next one waiting (it may still be downloading)
+        val current = working?.first?.takeIf { it in ids && !ended(it) } ?: ids.firstOrNull { !ended(it) }
+        val pages = working?.takeIf { it.first == current }?.second
         TranslateBatch(
             done = done,
             total = ids.size,
             current = current?.let { items[it]?.chapter?.name },
             fetching = current != null && items[current]?.isDownloaded == false,
-        ).takeIf { done < ids.size }
+            failed = failed,
+            page = pages?.first ?: 0,
+            pages = pages?.second ?: 0,
+            finished = done >= ids.size,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Unread chapters in reading order: the ones the translate sheet offers. */

@@ -37,7 +37,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -80,6 +82,20 @@ class ChapterTranslator(
     private val _queueState = MutableStateFlow<List<Translation>>(emptyList())
     val queueState = _queueState.asStateFlow()
 
+    /** A chapter that will not be worked on any more: translated, failed, or turned away when it was asked for. */
+    data class Finished(val mangaId: Long, val chapterId: Long, val state: Translation.State)
+
+    /**
+     * Every chapter's end, sent before it leaves the queue. The status of a chapter that leaves the queue could
+     * be missed by whoever watched it, which left the manga screen loading forever.
+     */
+    private val _finished = MutableSharedFlow<Finished>(extraBufferCapacity = 256)
+    val finished = _finished.asSharedFlow()
+
+    private fun finish(manga: Manga, chapter: Chapter, state: Translation.State) {
+        _finished.tryEmit(Finished(manga.id, chapter.id, state))
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var translationJob: Job? = null
@@ -116,7 +132,10 @@ class ChapterTranslator(
     fun stop(reason: String? = null) {
         cancelTranslatorJob()
         queueState.value.filter { it.status == Translation.State.TRANSLATING }
-            .forEach { it.status = Translation.State.ERROR }
+            .forEach {
+                it.status = Translation.State.ERROR
+                finish(it.manga, it.chapter, Translation.State.ERROR)
+            }
         if (reason != null) return
         isPaused = false
     }
@@ -175,6 +194,7 @@ class ChapterTranslator(
         try {
             // One chapter at a time: the recognizer, translator and glossary are shared
             translationMutex.withLock { translateChapter(translation) }
+            finish(translation.manga, translation.chapter, translation.status)
             if (translation.status == Translation.State.TRANSLATED) {
                 removeFromQueue(translation)
             }
@@ -184,6 +204,8 @@ class ChapterTranslator(
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
             logcat(LogPriority.ERROR, e)
+            translation.status = Translation.State.ERROR
+            finish(translation.manga, translation.chapter, Translation.State.ERROR)
             stop()
         }
     }
@@ -193,16 +215,26 @@ class ChapterTranslator(
         translationJob = null
     }
 
+    /** Queues [chapter]; a chapter that can't or needn't be translated is reported as finished at once. */
     suspend fun queueChapter(manga: Manga, chapter: Chapter) {
-        val source = sourceManager.get(manga.source) as? HttpSource ?: return
-        if (provider.findTranslationFile(chapter.name, chapter.scanlator, manga.title, source) != null) return
-        if (queueState.value.any { it.chapter.id == chapter.id }) return
+        val source = sourceManager.get(manga.source) as? HttpSource
+            ?: return finish(manga, chapter, Translation.State.ERROR)
+        if (provider.findTranslationFile(chapter.name, chapter.scanlator, manga.title, source) != null) {
+            return finish(manga, chapter, Translation.State.TRANSLATED)
+        }
+        val queued = queueState.value.firstOrNull { it.chapter.id == chapter.id }
+        if (queued != null) {
+            // A chapter that failed before is tried again; one still waiting or working is left as it is
+            if (queued.status != Translation.State.ERROR) return
+            _queueState.update { it - queued }
+        }
         val fromLang = TextRecognizerLanguage.fromPref(translationPreferences.translateFromLanguage())
         val toLang = TextTranslatorLanguage.fromPref(translationPreferences.translateToLanguage())
         val engine = TextTranslators.fromPref(translationPreferences.translationEngine())
         if (engine == TextTranslators.MLKIT && !TextTranslatorLanguage.mlkitSupportedLanguages().contains(toLang)) {
-            context.toast(ATMR.strings.error_mlkit_language_unsupported)
-            return
+            // A toast from a background thread closes the app: it is shown on the main thread
+            withContext(Dispatchers.Main) { context.toast(ATMR.strings.error_mlkit_language_unsupported) }
+            return finish(manga, chapter, Translation.State.ERROR)
         }
         val translation = Translation(source, manga, chapter, fromLang, toLang)
         addToQueue(translation)
@@ -210,6 +242,8 @@ class ChapterTranslator(
 
     private suspend fun translateChapter(translation: Translation) {
         try {
+            translation.status = Translation.State.TRANSLATING
+            translation.pageProgress.value = 0 to 0
             // Check if recognizer reinitialization is needed
             if (translation.fromLang != textRecognizer.language) {
                 textRecognizer.close()
@@ -244,24 +278,32 @@ class ChapterTranslator(
             val images = mutableMapOf<String, PageImage>()
             val tmpFile = translationMangaDir.createFile("tmp")!!
             val streams = getChapterPages(chapterPath)
+            translation.pageProgress.value = 0 to streams.size
             /**
              * saving the stream to tmp file cuz i can't get the
              * BitmapFactory.decodeStream() to work with the stream from .cbz archive
              */
             withContext(Dispatchers.IO) {
-                for ((fileName, streamFn) in streams) {
+                for ((index, entry) in streams.withIndex()) {
+                    val (fileName, streamFn) = entry
                     coroutineContext.ensureActive()
-                    streamFn().use { tmpFile.openOutputStream().use { out -> it.copyTo(out) } }
-                    val decoded = PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! } ?: continue
-                    val pageTranslation = try {
-                        // OCR in strips on the decoded page, then the colour behind every line
-                        PageOcr.recognize(textRecognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
-                            PageImageProcessor.prepare(it, decoded)
-                            if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
+                    // One page at a time through the shared gate: the reader's live translation and drawing go first
+                    val pageTranslation = HeavyWork.background<PageTranslation?> {
+                        streamFn().use { tmpFile.openOutputStream().use { out -> it.copyTo(out) } }
+                        val decoded = PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! }
+                            ?: return@background null
+                        try {
+                            // OCR in strips on the decoded page, then the colour behind every line
+                            PageOcr.recognize(textRecognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
+                                PageImageProcessor.prepare(it, decoded)
+                                if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
+                            }
+                        } finally {
+                            decoded.bitmap.recycle()
                         }
-                    } finally {
-                        decoded.bitmap.recycle()
                     }
+                    translation.pageProgress.value = (index + 1) to streams.size
+                    if (pageTranslation == null) continue
                     if (pageTranslation.blocks.isNotEmpty() || fileName in images) pages[fileName] = pageTranslation
                 }
             }
@@ -281,11 +323,13 @@ class ChapterTranslator(
                     if (page.blocks.none { it.needsSnap }) continue
                     val open = streams.firstOrNull { it.first == name }?.second ?: continue
                     val bytes = runCatching { open().use { it.readBytes() } }.getOrNull() ?: continue
-                    PageImageProcessor.decode { java.io.ByteArrayInputStream(bytes) }?.let { decoded ->
-                        try {
-                            PageImageProcessor.prepare(page, decoded)
-                        } finally {
-                            decoded.bitmap.recycle()
+                    HeavyWork.background {
+                        PageImageProcessor.decode { java.io.ByteArrayInputStream(bytes) }?.let { decoded ->
+                            try {
+                                PageImageProcessor.prepare(page, decoded)
+                            } finally {
+                                decoded.bitmap.recycle()
+                            }
                         }
                     }
                 }
@@ -306,6 +350,8 @@ class ChapterTranslator(
                 setContentIntent(NotificationReceiver.openChapterPendingActivity(context, translation.manga, translation.chapter))
             }
         } catch (error: Throwable) {
+            // Paused or stopped: the queue sets the status itself
+            if (error is CancellationException) throw error
             translation.status = Translation.State.ERROR
             logcat(LogPriority.ERROR, error)
         }
