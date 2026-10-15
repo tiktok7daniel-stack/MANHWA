@@ -68,6 +68,7 @@ object SourceFame {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     fun loadAi(raw: String) {
+        cache.clear()
         ai = runCatching {
             json.parseToJsonElement(raw).jsonObject.mapNotNull { (k, v) -> (v as? JsonPrimitive)?.doubleOrNull?.toInt()?.let { k to it } }.toMap()
         }.getOrDefault(emptyMap())
@@ -77,8 +78,20 @@ object SourceFame {
 
     private fun normalize(name: String) = name.lowercase().filter { it.isLetterOrDigit() || it == ' ' }
 
+    /** Scores already worked out, by name: lists sort hundreds of sources many times, this keeps it instant. */
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private const val UNKNOWN = -1
+
     /** The source's fame, or null when neither the knowledge base nor the AI knows it. */
     fun score(name: String): Int? {
+        val cached = cache[name]
+        if (cached != null) return cached.takeIf { it != UNKNOWN }
+        val value = compute(name)
+        cache[name] = value ?: UNKNOWN
+        return value
+    }
+
+    private fun compute(name: String): Int? {
         val n = normalize(name)
         val compact = n.replace(" ", "")
         val hit = known.entries.filter { (k, _) -> compact.contains(k.replace(" ", "")) }.maxByOrNull { it.key.length }
@@ -119,6 +132,7 @@ object SourceFame {
             val learnt = reply.mapNotNull { (k, v) -> (v as? JsonPrimitive)?.doubleOrNull?.toInt()?.coerceIn(0, 100)?.let { normalize(k) to it } }
             if (learnt.isEmpty()) return@runCatching false
             ai = ai + learnt
+            cache.clear()
             true
         }.getOrDefault(false)
     }

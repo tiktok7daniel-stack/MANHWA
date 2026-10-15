@@ -572,4 +572,23 @@
     <string name="drop_empty">New chapters of the series in your library will show up here the moment they come out.</string>
     <string name="fresh_just_now">Just now</string>
     <string name="theme_glass_sub">One look, dark glass with a glow. Pick its colour; it changes at once.</string>
+    <string name="ai_src_title">AI source search</string>
+    <string name="ai_src_sub">Ask about sources only: the best, the ones that work, the fastest</string>
+    <string name="ai_src_hint">E.g. the best working Arabic sources for manhwa</string>
+    <string name="ai_src_ask">Ask the AI</string>
+    <string name="ai_src_thinking">Checking your sources and the stores…</string>
+    <string name="ai_src_failed">The AI could not answer: %1$s</string>
+    <string name="ai_src_no_key">Add an AI key in the translation team first, then ask again.</string>
+    <string name="ai_src_install">Install</string>
+    <string name="ai_src_s1">Best working Arabic sources</string>
+    <string name="ai_src_s2">Fastest English sources</string>
+    <string name="ai_src_s3">Official sources</string>
+    <string name="ai_src_s4">Replace my dead sources</string>
+    <string name="hub_auto_update">Update sources automatically</string>
+    <string name="hub_auto_update_sub">Sources the app installed update on their own, with no prompt</string>
+    <string name="hub_update_all">Update all (%1$d)</string>
+    <string name="hub_updating">Updating sources…</string>
+    <string name="hub_uninstall_title">Remove %1$s?</string>
+    <string name="hub_uninstall_body">Its %1$d sources leave the app and the home screen. Your library keeps its series.</string>
+    <string name="hub_uninstall_ok">Remove</string>
 </resources>

@@ -71,7 +71,13 @@ android {
     buildTypes {
         val debug = getByName("debug") {
             applicationIdSuffix = ".dev"
-            isPseudoLocalesEnabled = true
+            // MANHWA: the builds people install are compiled and optimized like a release (R8, no debugger, ART
+            // profiles), which makes Compose several times smoother. Same package and key, so it installs over.
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            isProfileable = true
+            proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
         }
         val release = getByName("release") {
             isMinifyEnabled = true

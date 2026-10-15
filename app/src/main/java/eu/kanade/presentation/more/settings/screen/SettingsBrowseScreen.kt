@@ -60,6 +60,11 @@ object SettingsBrowseScreen : SearchableSettings {
                         title = stringResource(tachiyomi.i18n.at.ATMR.strings.hub_hide_adult),
                         subtitle = stringResource(tachiyomi.i18n.at.ATMR.strings.hub_hide_adult_sub),
                     ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = sourcePreferences.autoUpdateExtensions,
+                        title = stringResource(tachiyomi.i18n.at.ATMR.strings.hub_auto_update),
+                        subtitle = stringResource(tachiyomi.i18n.at.ATMR.strings.hub_auto_update_sub),
+                    ),
                     Preference.PreferenceItem.MultiSelectListPreference(
                         preference = sourcePreferences.enabledContentWarnings,
                         entries = mapOf(

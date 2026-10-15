@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
@@ -33,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import mihon.domain.extension.interactor.UpdateExtensionStores
@@ -212,12 +214,27 @@ class ExtensionManager(
         initialized.await()
         setAvailableExtensions(extensions)
 
-        val names = (loadedExtensionMapFlow.value.values + notLoadedExtensionMapFlow.value.values)
+        val updatable = (loadedExtensionMapFlow.value.values + notLoadedExtensionMapFlow.value.values)
             .filter { it.hasUpdate }
-            .map { it.name }
+        // MANHWA: privately installed extensions update on their own, with no prompt. Ones installed on the
+        // system need Android's confirmation, so those are still announced.
+        val updated = if (preferences.autoUpdateExtensions.get()) autoUpdate(updatable) else emptySet()
+        val names = updatable.filter { it.pkgName !in updated }.map { it.name }
         if (names.isNotEmpty()) {
             extensionUpdateNotifier.promptUpdates(names)
         }
+    }
+
+    /** Updates every privately installed extension of [extensions], one after another. Returns the ones done. */
+    suspend fun autoUpdate(extensions: Collection<Extension.Installed>): Set<String> {
+        val done = mutableSetOf<String>()
+        extensions.filter { !it.isShared }.forEach { extension ->
+            val step = withTimeoutOrNull(AUTO_UPDATE_TIMEOUT_MS) {
+                runCatching { updateExtension(extension).first { it.isCompleted() } }.getOrNull()
+            }
+            if (step == InstallStep.Installed) done += extension.pkgName
+        }
+        return done
     }
 
     private suspend fun fetchExtensions(): List<Extension.Available> {
@@ -439,3 +456,5 @@ class ExtensionManager(
         return onStart { initialized.await() }.map { it.values.toList() }
     }
 }
+
+private const val AUTO_UPDATE_TIMEOUT_MS = 120_000L

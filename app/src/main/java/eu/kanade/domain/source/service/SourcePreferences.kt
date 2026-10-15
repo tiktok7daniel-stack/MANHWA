@@ -40,6 +40,12 @@ class SourcePreferences(
     /** MANHWA: fame scores the team's AI gave to sources the built-in index doesn't know, as JSON. */
     val sourceFameAi: Preference<String> = preferenceStore.getString("manhwa_source_fame_ai", "{}")
 
+    /** MANHWA: privately installed extensions update on their own, with no prompt (on by default). */
+    val autoUpdateExtensions: Preference<Boolean> = preferenceStore.getBoolean("manhwa_auto_update_extensions", true)
+
+    /** MANHWA: when the stores were last checked for extension updates in the background. */
+    val lastExtensionCheck: Preference<Long> = preferenceStore.getLong("manhwa_last_extension_check", 0L)
+
     /** MANHWA: how the source hub sorts sources: 0 fame, 1 speed, 2 A to Z. */
     val hubSort: Preference<Int> = preferenceStore.getInt("manhwa_hub_sort", 0)
 

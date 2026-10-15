@@ -62,6 +62,8 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.Check
+import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Keep
@@ -91,10 +93,17 @@ class SourceHubScreen : Screen() {
         var language by rememberSaveable { mutableStateOf<String?>(null) }
         // 0 = all, 1 = online, 2 = offline
         var health by rememberSaveable { mutableStateOf(0) }
+        var aiOpen by rememberSaveable { mutableStateOf(false) }
+        var confirmUninstall by remember { mutableStateOf<Long?>(null) }
 
         val q = query.trim().lowercase()
         val top = language == TOP
-        val installed = state.sorted(state.installed).filter {
+        // Sorted only when what the order depends on changes, not on every frame
+        val sortedInstalled = remember(state.installed, state.sort, state.health, state.pinned, state.libraryBySource, state.fameVersion) {
+            state.sorted(state.installed)
+        }
+        val sortedAddable = remember(state.addable, state.sort, state.fameVersion) { state.sortedExtensions(state.addable) }
+        val installed = sortedInstalled.filter {
             (q.isEmpty() || it.name.lowercase().contains(q)) &&
                 (language == null || it.lang == language || (top && (SourceFame.score(it.name) ?: 0) >= TOP_SCORE)) &&
                 when (health) {
@@ -103,7 +112,7 @@ class SourceHubScreen : Screen() {
                     else -> true
                 }
         }
-        val addable = state.sortedExtensions(state.addable).filter {
+        val addable = sortedAddable.filter {
             (q.isEmpty() || it.name.lowercase().contains(q)) &&
                 (language == null || it.lang == language || (top && (SourceFame.score(it.name) ?: 0) >= TOP_SCORE))
         }
@@ -124,6 +133,8 @@ class SourceHubScreen : Screen() {
                     subtitle = stringResource(ATMR.strings.hub_on_home, onHome),
                     onBack = navigator::pop,
                 ) {
+                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.AutoAwesome, active = aiOpen) { aiOpen = !aiOpen }
+                    Spacer(Modifier.width(8.dp))
                     ManhwaKit.IconOrb(MaterialSymbols.Rounded.Refresh) {
                         viewModel.recheckHealth()
                         viewModel.refreshExtensions()
@@ -172,7 +183,31 @@ class SourceHubScreen : Screen() {
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 120.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    if (aiOpen) {
+                        item(key = "ai") {
+                            AiPanel(
+                                state = state,
+                                onAsk = viewModel::askAi,
+                                onClear = viewModel::clearAi,
+                                onOpen = { navigator.push(BrowseSourceScreen(it, null)) },
+                                onToggle = viewModel::toggleHome,
+                                onInstall = viewModel::install,
+                                onUninstall = { confirmUninstall = it },
+                            )
+                        }
+                    }
                     item(key = "adult") { AdultSwitch(state.hideAdult, viewModel::setHideAdult) }
+                    if (!discover) {
+                        item(key = "auto-update") {
+                            UpdatesCard(
+                                autoUpdate = state.autoUpdate,
+                                updates = state.updatable.size,
+                                updating = state.updating,
+                                onAutoUpdate = viewModel::setAutoUpdate,
+                                onUpdateAll = viewModel::updateAll,
+                            )
+                        }
+                    }
                     if (!discover) {
                         installedContent(
                             state = state,
@@ -185,6 +220,7 @@ class SourceHubScreen : Screen() {
                             onMove = viewModel::move,
                             onDiscover = { discover = true },
                             fameRank = fameRank,
+                            onUninstall = { confirmUninstall = it },
                         )
                     } else {
                         discoverContent(
@@ -203,6 +239,28 @@ class SourceHubScreen : Screen() {
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
+        confirmUninstall?.let { sourceId ->
+            val extension = state.extensionBySource[sourceId]
+            if (extension == null) {
+                confirmUninstall = null
+            } else {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { confirmUninstall = null },
+                    containerColor = Color(0xFF0E0B0F),
+                    title = { Text(stringResource(ATMR.strings.hub_uninstall_title, extension.name), color = Color.White, fontWeight = FontWeight.Black) },
+                    text = { Text(stringResource(ATMR.strings.hub_uninstall_body, extension.sources.size), color = Color.White.copy(alpha = 0.75f)) },
+                    confirmButton = {
+                        ManhwaKit.NeonButton(stringResource(ATMR.strings.hub_uninstall_ok), icon = MaterialSymbols.Rounded.Delete) {
+                            viewModel.uninstall(sourceId)
+                            confirmUninstall = null
+                        }
+                    },
+                    dismissButton = {
+                        ManhwaKit.GhostButton(stringResource(ATMR.strings.th_cancel)) { confirmUninstall = null }
+                    },
+                )
+            }
+        }
     }
 
     private fun androidx.compose.foundation.lazy.LazyListScope.installedContent(
@@ -216,6 +274,7 @@ class SourceHubScreen : Screen() {
         onMove: (String, Int) -> Unit,
         onDiscover: () -> Unit,
         fameRank: Map<Long, Int>,
+        onUninstall: (Long) -> Unit,
     ) {
         item(key = "actions") {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -291,6 +350,7 @@ class SourceHubScreen : Screen() {
                             onPin = onPin,
                             onOpen = onOpen,
                             rank = fameRank[source.id],
+                            onUninstall = onUninstall,
                         )
                     }
                 }
@@ -301,7 +361,7 @@ class SourceHubScreen : Screen() {
             item(key = "row-${row.first().id}") {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     row.forEach { source ->
-                        SourceCard(source, state, Modifier.weight(1f), onToggle, onPin, onOpen, fameRank[source.id])
+                        SourceCard(source, state, Modifier.weight(1f), onToggle, onPin, onOpen, fameRank[source.id], onUninstall)
                     }
                     if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
@@ -374,6 +434,7 @@ class SourceHubScreen : Screen() {
         onPin: (String) -> Unit,
         onOpen: (Long) -> Unit,
         rank: Int? = null,
+        onUninstall: (Long) -> Unit = {},
     ) {
         val colors = MaterialTheme.colorScheme
         val id = "${source.id}"
@@ -389,6 +450,27 @@ class SourceHubScreen : Screen() {
             Row(verticalAlignment = Alignment.Top) {
                 SourceLogo(source, Modifier.size(46.dp))
                 Spacer(Modifier.weight(1f))
+                if (state.extensionBySource[source.id]?.hasUpdate == true) {
+                    Icon(
+                        MaterialSymbols.Rounded.Download,
+                        contentDescription = null,
+                        tint = colors.primary,
+                        modifier = Modifier.padding(top = 6.dp, end = 4.dp).size(16.dp),
+                    )
+                }
+                if (state.extensionBySource.containsKey(source.id)) {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.06f))
+                            .clickable { onUninstall(source.id) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(MaterialSymbols.Rounded.Delete, contentDescription = null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
                 Box(
                     modifier = Modifier
                         .size(30.dp)
@@ -746,6 +828,201 @@ class SourceHubScreen : Screen() {
             )
             Spacer(Modifier.width(4.dp))
             Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+        }
+    }
+
+    /** Auto-update switch for the sources, with "Update all" when updates wait. */
+    @Composable
+    private fun UpdatesCard(autoUpdate: Boolean, updates: Int, updating: Boolean, onAutoUpdate: (Boolean) -> Unit, onUpdateAll: () -> Unit) {
+        val colors = MaterialTheme.colorScheme
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glass(RoundedCornerShape(20.dp), accent = autoUpdate, alpha = 0.4f)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onAutoUpdate(!autoUpdate) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(MaterialSymbols.Rounded.Refresh, contentDescription = null, tint = colors.primary, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(ATMR.strings.hub_auto_update), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(ATMR.strings.hub_auto_update_sub), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+                }
+                androidx.compose.material3.Switch(checked = autoUpdate, onCheckedChange = onAutoUpdate)
+            }
+            if (updates > 0 || updating) {
+                Spacer(Modifier.height(10.dp))
+                if (updating) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(stringResource(ATMR.strings.hub_updating), style = MaterialTheme.typography.labelLarge, color = Color.White)
+                    }
+                } else {
+                    ManhwaKit.NeonButton(
+                        stringResource(ATMR.strings.hub_update_all, updates),
+                        Modifier.fillMaxWidth(),
+                        MaterialSymbols.Rounded.Download,
+                        onUpdateAll,
+                    )
+                }
+            }
+        }
+    }
+
+    /** AI source search: ask about sources only, get picks you can open, add to home, install or remove. */
+    @Composable
+    private fun AiPanel(
+        state: SourceHubViewModel.State,
+        onAsk: (String) -> Unit,
+        onClear: () -> Unit,
+        onOpen: (Long) -> Unit,
+        onToggle: (String) -> Unit,
+        onInstall: (Extension.Available) -> Unit,
+        onUninstall: (Long) -> Unit,
+    ) {
+        val colors = MaterialTheme.colorScheme
+        var question by rememberSaveable { mutableStateOf("") }
+        val ai = state.ai
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .neonGlow(RoundedCornerShape(24.dp), colors.primary, 0.2f, 12.dp)
+                .glass(RoundedCornerShape(24.dp), accent = true, alpha = 0.5f)
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = null, tint = colors.primary, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(ATMR.strings.ai_src_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Color.White)
+                    Text(stringResource(ATMR.strings.ai_src_sub), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+                }
+                if (ai.answer != null || ai.picks.isNotEmpty() || ai.error != null) {
+                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.Close, size = 32, onClick = onClear)
+                }
+            }
+            ManhwaKit.SearchField(question, stringResource(ATMR.strings.ai_src_hint), { question = it })
+            ManhwaKit.NeonButton(stringResource(ATMR.strings.ai_src_ask), Modifier.fillMaxWidth(), MaterialSymbols.Rounded.AutoAwesome) { onAsk(question) }
+            val suggestions = listOf(
+                stringResource(ATMR.strings.ai_src_s1),
+                stringResource(ATMR.strings.ai_src_s2),
+                stringResource(ATMR.strings.ai_src_s3),
+                stringResource(ATMR.strings.ai_src_s4),
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(suggestions) { text ->
+                    ManhwaKit.Chip(text, false) {
+                        question = text
+                        onAsk(text)
+                    }
+                }
+            }
+            when {
+                ai.loading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(stringResource(ATMR.strings.ai_src_thinking), style = MaterialTheme.typography.labelLarge, color = Color.White)
+                }
+                ai.error != null -> Text(
+                    if (ai.error == SourceHubViewModel.NO_KEY) stringResource(ATMR.strings.ai_src_no_key) else stringResource(ATMR.strings.ai_src_failed, ai.error.take(160)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.error,
+                )
+            }
+            ai.answer?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+            }
+            ai.picks.forEachIndexed { index, pick ->
+                AiPickCard(index + 1, pick, state, onOpen, onToggle, onInstall, onUninstall)
+            }
+        }
+    }
+
+    @Composable
+    private fun AiPickCard(
+        number: Int,
+        pick: SourceHubViewModel.AiPick,
+        state: SourceHubViewModel.State,
+        onOpen: (Long) -> Unit,
+        onToggle: (String) -> Unit,
+        onInstall: (Extension.Available) -> Unit,
+        onUninstall: (Long) -> Unit,
+    ) {
+        val colors = MaterialTheme.colorScheme
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glass(RoundedCornerShape(18.dp), alpha = 0.45f)
+                .padding(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("$number", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = colors.primary, modifier = Modifier.width(22.dp))
+                val installed = pick.installed
+                if (installed != null) {
+                    SourceLogo(installed, Modifier.size(38.dp))
+                } else {
+                    Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(colors.primary.copy(alpha = 0.3f))) {
+                        AsyncImage(
+                            model = pick.available?.iconUrl,
+                            contentDescription = null,
+                            placeholder = ColorPainter(Color.Transparent),
+                            error = ColorPainter(Color.Transparent),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(pick.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            languageName(installed?.lang ?: pick.available?.lang.orEmpty()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.7f),
+                            maxLines = 1,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        if (installed != null) {
+                            HealthDot(state.health[installed.id])
+                        } else {
+                            HealthDot(SourceHubViewModel.Health(pick.latencyMs))
+                        }
+                    }
+                }
+            }
+            if (pick.reason.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(pick.reason, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                val installed = pick.installed
+                val available = pick.available
+                if (installed != null) {
+                    val onHome = "${installed.id}" in state.home
+                    ManhwaKit.Chip(
+                        stringResource(if (onHome) ATMR.strings.hub_on_home_btn else ATMR.strings.hub_add_home),
+                        onHome,
+                    ) { onToggle("${installed.id}") }
+                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.Explore, size = 36) { onOpen(installed.id) }
+                    if (state.extensionBySource.containsKey(installed.id)) {
+                        ManhwaKit.IconOrb(MaterialSymbols.Rounded.Delete, size = 36) { onUninstall(installed.id) }
+                    }
+                } else if (available != null) {
+                    val step = state.installing[available.pkgName]
+                    val working = step == InstallStep.Pending || step == InstallStep.Downloading || step == InstallStep.Installing
+                    when {
+                        working -> CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                        step == InstallStep.Installed -> Icon(MaterialSymbols.Rounded.Check, contentDescription = null, tint = colors.primary)
+                        else -> ManhwaKit.NeonButton(stringResource(ATMR.strings.ai_src_install), icon = MaterialSymbols.Rounded.Download) { onInstall(available) }
+                    }
+                }
+            }
         }
     }
 

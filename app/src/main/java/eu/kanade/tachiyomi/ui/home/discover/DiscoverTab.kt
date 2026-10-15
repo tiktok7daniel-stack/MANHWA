@@ -77,6 +77,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -568,7 +569,7 @@ data object DiscoverTab : Tab {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .neonGlow(RoundedCornerShape(24.dp), colors.primary, pulse, 12.dp)
+                .neonGlow(RoundedCornerShape(24.dp), colors.primary, { pulse }, 12.dp)
                 .glass(RoundedCornerShape(24.dp), accent = true, alpha = 0.5f)
                 .clickable(onClick = onOpen)
                 .padding(12.dp),
@@ -1140,6 +1141,7 @@ data object DiscoverTab : Tab {
 
     @Composable
     private fun HeroPlaceholder() {
+        val heroPrimary = MaterialTheme.colorScheme.primary
         val pulse by rememberInfiniteTransition(label = "hero").animateFloat(
             initialValue = 0.25f,
             targetValue = 0.6f,
@@ -1150,11 +1152,10 @@ data object DiscoverTab : Tab {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(470.dp)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(MaterialTheme.colorScheme.primary.copy(alpha = pulse * 0.4f), Ink),
-                    ),
-                ),
+                .drawBehind {
+                    // Read while drawing: the pulse repaints, nothing recomposes
+                    drawRect(Brush.verticalGradient(listOf(heroPrimary.copy(alpha = pulse * 0.4f), Ink)))
+                },
             contentAlignment = Alignment.Center,
         ) {
             CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(32.dp))
@@ -2154,10 +2155,9 @@ data object DiscoverTab : Tab {
                                 scaleX = 0.92f + glow * 0.08f
                                 scaleY = 0.92f + glow * 0.08f
                             }
-                            .background(
-                                Brush.radialGradient(listOf(colors.primary.copy(alpha = glow * 0.6f), Color.Transparent)),
-                                CircleShape,
-                            ),
+                            .drawBehind {
+                                drawCircle(Brush.radialGradient(listOf(colors.primary.copy(alpha = glow * 0.6f), Color.Transparent)))
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
                         Box(

@@ -83,7 +83,7 @@ import mihon.icons.materialsymbols.R as MaterialSymbolsR
 class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory, GraphProvider<AppGraph> {
 
     override val graph: AppGraph by lazy {
-        createGraphFactory<AppGraph.Factory>().create(context = this, isDebugBuild = isDebugBuildType)
+        createGraphFactory<AppGraph.Factory>().create(context = this, isDebugBuild = isDebugBuildType && BuildConfig.DEBUG)
     }
 
     @Inject private lateinit var preferenceStore: PreferenceStore

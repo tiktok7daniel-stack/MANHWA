@@ -129,22 +129,21 @@ fun GlowProgress(fraction: Float, color: Color, modifier: Modifier = Modifier) {
 /** An icon in a glowing round tile; [pulse] makes the glow breathe (the flame of a live streak). */
 @Composable
 fun GlowIcon(icon: ImageVector, color: Color, size: Int = 54, pulse: Boolean = false) {
+    // The breathing value is only read while drawing, so the tile itself never recomposes per frame
     val glow = if (pulse) {
-        val transition = rememberInfiniteTransition(label = "glow")
-        val value by transition.animateFloat(
+        rememberInfiniteTransition(label = "glow").animateFloat(
             initialValue = 0.18f,
             targetValue = 0.42f,
             animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
             label = "glowValue",
         )
-        value
     } else {
-        0.22f
+        null
     }
     Box(
         modifier = Modifier
             .size(size.dp)
-            .neonGlow(CircleShape, color, glow, 12.dp)
+            .neonGlow(CircleShape, color, { glow?.value ?: 0.22f }, 12.dp)
             .clip(CircleShape)
             .background(Brush.radialGradient(listOf(color.copy(alpha = 0.45f), color.copy(alpha = 0.12f))))
             .border(1.dp, color.copy(alpha = 0.6f), CircleShape),

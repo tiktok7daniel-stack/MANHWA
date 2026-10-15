@@ -513,4 +513,23 @@
     <string name="drop_empty">الفصول الجديدة للأعمال اللي في مكتبتك هتظهر هنا أول ما تنزل.</string>
     <string name="fresh_just_now">الآن</string>
     <string name="theme_glass_sub">شكل واحد: زجاج داكن متوهج. اختار لونه، وبيتغير فوراً.</string>
+    <string name="ai_src_title">بحث المصادر بالذكاء الاصطناعي</string>
+    <string name="ai_src_sub">اسأل عن المصادر بس: الأفضل، الشغال، الأسرع</string>
+    <string name="ai_src_hint">مثلاً: أفضل مصادر عربية شغالة للمانهوا</string>
+    <string name="ai_src_ask">اسأل الذكاء الاصطناعي</string>
+    <string name="ai_src_thinking">بيفحص مصادرك والمتاجر…</string>
+    <string name="ai_src_failed">الذكاء الاصطناعي ما قدرش يرد: %1$s</string>
+    <string name="ai_src_no_key">ضيف مفتاح AI في فريق الترجمة الأول، وبعدين اسأل تاني.</string>
+    <string name="ai_src_install">حمّل</string>
+    <string name="ai_src_s1">أفضل مصادر عربية شغالة</string>
+    <string name="ai_src_s2">أسرع مصادر إنجليزي</string>
+    <string name="ai_src_s3">المصادر الرسمية</string>
+    <string name="ai_src_s4">بديل للمصادر الواقفة</string>
+    <string name="hub_auto_update">تحديث المصادر تلقائياً</string>
+    <string name="hub_auto_update_sub">المصادر اللي التطبيق نزّلها بتتحدث لوحدها من غير ما يسألك</string>
+    <string name="hub_update_all">حدّث الكل (%1$d)</string>
+    <string name="hub_updating">بيحدّث المصادر…</string>
+    <string name="hub_uninstall_title">تمسح %1$s؟</string>
+    <string name="hub_uninstall_body">المصادر بتاعته (%1$d) هتتشال من التطبيق والرئيسية. مكتبتك بتفضل زي ما هي.</string>
+    <string name="hub_uninstall_ok">امسح</string>
 </resources>

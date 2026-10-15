@@ -10,7 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -26,40 +29,54 @@ import androidx.compose.ui.unit.dp
  */
 fun Modifier.glass(shape: Shape, accent: Boolean = false, alpha: Float = 0.55f): Modifier = composed {
     val colors = MaterialTheme.colorScheme
-    val fill = Brush.verticalGradient(
-        listOf(
-            colors.surfaceContainerHighest.copy(alpha = alpha + 0.1f),
-            colors.surfaceContainer.copy(alpha = alpha),
-        ),
-    )
-    val sheen = Brush.linearGradient(
-        0f to Color.White.copy(alpha = 0.09f),
-        0.35f to Color.Transparent,
-        1f to Color.Transparent,
-    )
-    val rim = Brush.linearGradient(
-        listOf(
-            Color.White.copy(alpha = if (accent) 0.4f else 0.22f),
-            colors.primary.copy(alpha = if (accent) 0.95f else 0.5f),
-            Color.White.copy(alpha = 0.06f),
-        ),
-    )
+    // Built once per look, not on every recomposition of every card
+    val brushes = remember(colors.primary, colors.surfaceContainerHighest, colors.surfaceContainer, accent, alpha) {
+        Triple(
+            Brush.verticalGradient(
+                listOf(
+                    colors.surfaceContainerHighest.copy(alpha = alpha + 0.1f),
+                    colors.surfaceContainer.copy(alpha = alpha),
+                ),
+            ),
+            Brush.linearGradient(
+                0f to Color.White.copy(alpha = 0.09f),
+                0.35f to Color.Transparent,
+                1f to Color.Transparent,
+            ),
+            Brush.linearGradient(
+                listOf(
+                    Color.White.copy(alpha = if (accent) 0.4f else 0.22f),
+                    colors.primary.copy(alpha = if (accent) 0.95f else 0.5f),
+                    Color.White.copy(alpha = 0.06f),
+                ),
+            ),
+        )
+    }
     this
         .neonGlow(shape, colors.primary, if (accent) 0.22f else 0.1f)
         .clip(shape)
-        .background(fill, shape)
-        .background(sheen, shape)
-        .border(1.dp, rim, shape)
+        .background(brushes.first, shape)
+        .background(brushes.second, shape)
+        .border(1.dp, brushes.third, shape)
 }
 
-/** Soft neon light around [shape], drawn as fading strokes outside the edge. */
+/** Soft neon light around [shape], drawn as fading strokes outside the edge. The outline is cached per size. */
 fun Modifier.neonGlow(shape: Shape, color: Color, strength: Float = 0.18f, spread: Dp = 10.dp): Modifier =
-    drawBehind {
-        if (strength <= 0f) return@drawBehind
+    if (strength <= 0f) this else neonGlow(shape, color, { strength }, spread)
+
+/**
+ * Animated neon light: [strength] is read while drawing only, so a breathing glow redraws the glow alone and
+ * never recomposes the card under it.
+ */
+fun Modifier.neonGlow(shape: Shape, color: Color, strength: () -> Float, spread: Dp = 10.dp): Modifier =
+    drawWithCache {
         val outline = shape.createOutline(size, layoutDirection, this)
         val step = spread.toPx() / 4f
-        for (i in 4 downTo 1) {
-            drawOutline(outline, color.copy(alpha = strength / i), style = Stroke(width = step * i * 2f))
+        val strokes = (4 downTo 1).map { i -> i to Stroke(width = step * i * 2f) }
+        onDrawBehind {
+            val value = strength()
+            if (value <= 0f) return@onDrawBehind
+            strokes.forEach { (i, stroke) -> drawOutline(outline, color.copy(alpha = value / i), style = stroke) }
         }
     }
 
@@ -67,52 +84,52 @@ fun Modifier.neonGlow(shape: Shape, color: Color, strength: Float = 0.18f, sprea
 @Composable
 fun GlassBackdrop(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF030304))
-            .drawBehind {
-                val w = size.width
-                val h = size.height
-                // Ambient red light from the top corner and the bottom
-                drawRect(
-                    Brush.radialGradient(
+    Box(modifier = modifier.fillMaxSize().background(Color(0xFF030304))) {
+        // Its own layer, painted once per size: scrolling the content above never repaints the light
+        Spacer(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer()
+                .drawWithCache {
+                    val w = size.width
+                    val h = size.height
+                    val top = Brush.radialGradient(
                         listOf(primary.copy(alpha = 0.30f), Color.Transparent),
                         center = Offset(w * 0.95f, h * 0.04f),
                         radius = w * 1.05f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
+                    )
+                    val bottom = Brush.radialGradient(
                         listOf(primary.copy(alpha = 0.16f), Color(0xFF3A0610).copy(alpha = 0.12f), Color.Transparent),
                         center = Offset(w * 0.05f, h * 0.92f),
                         radius = w * 1.2f,
-                    ),
-                )
-                // Bokeh
-                Bokeh.forEach { (x, y, r, a) ->
-                    val center = Offset(w * x, h * y)
-                    drawCircle(
-                        Brush.radialGradient(
-                            listOf(primary.copy(alpha = a), primary.copy(alpha = a * 0.35f), Color.Transparent),
-                            center = center,
-                            radius = w * r,
-                        ),
-                        radius = w * r,
-                        center = center,
                     )
-                }
-                // Vignette
-                drawRect(
-                    Brush.radialGradient(
+                    val dots = Bokeh.map { (x, y, r, a) ->
+                        val center = Offset(w * x, h * y)
+                        Triple(
+                            Brush.radialGradient(
+                                listOf(primary.copy(alpha = a), primary.copy(alpha = a * 0.35f), Color.Transparent),
+                                center = center,
+                                radius = w * r,
+                            ),
+                            center,
+                            w * r,
+                        )
+                    }
+                    val vignette = Brush.radialGradient(
                         listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
                         center = Offset(w / 2f, h / 2f),
                         radius = maxOf(w, h) * 0.75f,
-                    ),
-                )
-            },
-        content = content,
-    )
+                    )
+                    onDrawBehind {
+                        drawRect(top)
+                        drawRect(bottom)
+                        dots.forEach { (brush, center, radius) -> drawCircle(brush, radius = radius, center = center) }
+                        drawRect(vignette)
+                    }
+                },
+        )
+        content()
+    }
 }
 
 private data class Dot(val x: Float, val y: Float, val r: Float, val a: Float)

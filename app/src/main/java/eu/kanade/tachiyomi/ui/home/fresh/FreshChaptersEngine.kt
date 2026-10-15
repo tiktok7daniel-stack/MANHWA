@@ -277,7 +277,19 @@ class FreshChaptersEngine(
 
 class FreshChaptersWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        applicationContext.appGraph.freshChaptersEngine.refresh()
+        val graph = applicationContext.appGraph
+        graph.freshChaptersEngine.refresh()
+        // Sources keep themselves up to date too: the stores are checked a few times a day
+        val prefs = graph.sourcePreferences
+        val now = System.currentTimeMillis()
+        if (prefs.autoUpdateExtensions.get() && now - prefs.lastExtensionCheck.get() > EXTENSION_CHECK_MS) {
+            prefs.lastExtensionCheck.set(now)
+            runCatching { graph.extensionManager.checkForUpdates() }
+        }
         return Result.success()
+    }
+
+    private companion object {
+        const val EXTENSION_CHECK_MS = 6 * 60 * 60 * 1000L
     }
 }
