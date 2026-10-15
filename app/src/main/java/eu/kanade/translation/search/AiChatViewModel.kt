@@ -65,6 +65,7 @@ class AiChatViewModel(
     private val translationPreferences: TranslationPreferences,
     private val sourceManager: SourceManager,
     private val sourcePreferences: SourcePreferences,
+    private val adultFilter: eu.kanade.domain.source.service.AdultFilter,
     private val networkToLocalManga: NetworkToLocalManga,
     private val context: Context,
     private val updateManga: UpdateManga,
@@ -226,6 +227,7 @@ class AiChatViewModel(
         val disabledSources = sourcePreferences.disabledSources.get()
         val all = sourceManager.getAll()
             .filter { !it.isLocal() && it.lang in enabledLanguages && "${it.id}" !in disabledSources }
+            .filterNot { adultFilter.hides(it.id, it.name) }
         // The reader's own sources first (home screen and pinned), so one question never searches hundreds of sites
         val preferred = sourcePreferences.homeSources.get() + sourcePreferences.pinnedSources.get()
         val sources = (all.filter { "${it.id}" in preferred } + all.filterNot { "${it.id}" in preferred })

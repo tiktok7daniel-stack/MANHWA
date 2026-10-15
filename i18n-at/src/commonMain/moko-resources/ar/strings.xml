@@ -488,4 +488,15 @@
     <string name="info_dramatic">الصراخ بيتكتب بتحديد عريض عشان يبان قوي، ونوافذ النظام (الحالة، المهام، ليفل أب) بيتحط حواليها زوايا مضيئة زي واجهة الألعاب. النافذة المرسومة في الصورة بتفضل باينة. اقفله لو عايز شكل عادي.</string>
     <string name="th_smart_scroll">تمرير تلقائي ذكي</string>
     <string name="info_smart_scroll">وانت في التمرير التلقائي، السرعة بتهدى لما يكون فيه حوار كتير على الشاشة، وبترجع لسرعتها في الرسومات اللي ملهاش كلام، فما تجريش ورا الفقاعات. وفي وضع الصفحات، الصفحة المليانة كلام بتقعد وقت أطول.</string>
+    <string name="hub_top_manhwa">الأشهر للمانهوا</string>
+    <string name="hub_sort_fame">الأكثر شهرة</string>
+    <string name="hub_sort_speed">الأسرع استجابة</string>
+    <string name="hub_sort_name">أبجدي</string>
+    <string name="hub_rank">الأشهر #%1$d</string>
+    <string name="tier_s">S-Tier</string>
+    <string name="tier_official">رسمي</string>
+    <string name="tier_top">Top Manhwa</string>
+    <string name="tier_popular">مشهور</string>
+    <string name="hub_hide_adult">إخفاء وعزل مصادر +18</string>
+    <string name="hub_hide_adult_sub">المصادر والإضافات والأعمال للكبار ما تظهرش في أي مكان في التطبيق</string>
 </resources>

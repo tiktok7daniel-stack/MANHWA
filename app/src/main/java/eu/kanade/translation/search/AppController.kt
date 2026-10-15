@@ -49,6 +49,7 @@ class AppController(
     private val getLibraryManga: GetLibraryManga,
     private val translationPreferences: TranslationPreferences,
     private val fresh: FreshChaptersEngine,
+    private val adultFilter: eu.kanade.domain.source.service.AdultFilter,
 ) {
 
     /** One thing done, with what the chat should show for it. */
@@ -63,7 +64,7 @@ class AppController(
 
     private suspend fun installedSources(): List<Source> {
         val disabled = sourcePreferences.disabledSources.get()
-        return sourceManager.getAll().filter { !it.isLocal() && it !is StubSource && "${it.id}" !in disabled }
+        return sourceManager.getAll().filter { !it.isLocal() && it !is StubSource && "${it.id}" !in disabled && !adultFilter.hides(it.id, it.name) }
     }
 
     /** The app as the AI sees it, kept short enough for every request. */

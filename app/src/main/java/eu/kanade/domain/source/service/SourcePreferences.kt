@@ -34,6 +34,15 @@ class SourcePreferences(
 
     val disabledSources: Preference<Set<String>> = preferenceStore.getStringSet("hidden_catalogues", emptySet())
 
+    /** MANHWA: keeps +18 sources, extensions and series out of every list (on by default). */
+    val hideAdult: Preference<Boolean> = preferenceStore.getBoolean("manhwa_hide_adult", true)
+
+    /** MANHWA: fame scores the team's AI gave to sources the built-in index doesn't know, as JSON. */
+    val sourceFameAi: Preference<String> = preferenceStore.getString("manhwa_source_fame_ai", "{}")
+
+    /** MANHWA: how the source hub sorts sources: 0 fame, 1 speed, 2 A to Z. */
+    val hubSort: Preference<Int> = preferenceStore.getInt("manhwa_hub_sort", 0)
+
     // MANHWA: sources whose content is gathered on the home screen
     /** Whether the built-in MANHWA extension store was already added on first run. */
     val manhwaBuiltinStore: Preference<Boolean> = preferenceStore.getBoolean("manhwa_builtin_store", false)

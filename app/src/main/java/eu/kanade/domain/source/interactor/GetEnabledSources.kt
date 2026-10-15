@@ -1,6 +1,7 @@
 package eu.kanade.domain.source.interactor
 
 import dev.zacsweers.metro.Inject
+import eu.kanade.domain.source.service.AdultFilter
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -15,6 +16,7 @@ import tachiyomi.source.local.isLocal
 class GetEnabledSources(
     private val repository: SourceRepository,
     private val preferences: SourcePreferences,
+    private val adultFilter: AdultFilter,
 ) {
 
     fun subscribe(): Flow<List<Source>> {
@@ -39,6 +41,7 @@ class GetEnabledSources(
                     toFlatten
                 }
         }
+            .combine(adultFilter.rule()) { sources, adult -> sources.filterNot { adult(it.id, it.name) } }
             .distinctUntilChanged()
     }
 }

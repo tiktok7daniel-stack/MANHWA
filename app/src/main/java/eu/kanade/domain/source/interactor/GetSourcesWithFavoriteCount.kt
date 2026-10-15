@@ -1,6 +1,7 @@
 package eu.kanade.domain.source.interactor
 
 import dev.zacsweers.metro.Inject
+import eu.kanade.domain.source.service.AdultFilter
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -14,6 +15,7 @@ import java.util.Collections
 class GetSourcesWithFavoriteCount(
     private val repository: SourceRepository,
     private val preferences: SourcePreferences,
+    private val adultFilter: AdultFilter,
 ) {
 
     fun subscribe(): Flow<List<Pair<Source, Long>>> {
@@ -21,9 +23,10 @@ class GetSourcesWithFavoriteCount(
             preferences.migrationSortingDirection.changes(),
             preferences.migrationSortingMode.changes(),
             repository.getSourcesWithFavoriteCount(),
-        ) { direction, mode, list ->
+            adultFilter.rule(),
+        ) { direction, mode, list, adult ->
             list
-                .filterNot { it.first.isLocal() }
+                .filterNot { it.first.isLocal() || adult(it.first.id, it.first.name) }
                 .sortedWith(sortFn(direction, mode))
         }
     }

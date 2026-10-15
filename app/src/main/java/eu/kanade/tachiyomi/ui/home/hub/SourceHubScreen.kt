@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,6 +68,11 @@ import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
 import mihon.icons.materialsymbols.rounded.Refresh
+import mihon.icons.materialsymbols.rounded.Shield
+import mihon.icons.materialsymbols.rounded.SortByAlpha
+import mihon.icons.materialsymbols.rounded.Speed
+import mihon.icons.materialsymbols.rounded.Verified
+import mihon.icons.materialsymbols.rounded.VisibilityOff
 import mihon.icons.materialsymbols.roundedfilled.Star
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -87,17 +93,27 @@ class SourceHubScreen : Screen() {
         var health by rememberSaveable { mutableStateOf(0) }
 
         val q = query.trim().lowercase()
-        val installed = state.installed.filter {
+        val top = language == TOP
+        val installed = state.sorted(state.installed).filter {
             (q.isEmpty() || it.name.lowercase().contains(q)) &&
-                (language == null || it.lang == language) &&
+                (language == null || it.lang == language || (top && (SourceFame.score(it.name) ?: 0) >= TOP_SCORE)) &&
                 when (health) {
                     1 -> (state.health[it.id]?.latencyMs ?: -1) >= 0
                     2 -> state.health[it.id]?.latencyMs == -1L
                     else -> true
                 }
         }
-        val addable = state.addable.filter {
-            (q.isEmpty() || it.name.lowercase().contains(q)) && (language == null || it.lang == language)
+        val addable = state.sortedExtensions(state.addable).filter {
+            (q.isEmpty() || it.name.lowercase().contains(q)) &&
+                (language == null || it.lang == language || (top && (SourceFame.score(it.name) ?: 0) >= TOP_SCORE))
+        }
+        // Fame rank of each source inside its language, for the "#1" badges
+        val fameRank = remember(state.installed, state.fameVersion) {
+            state.installed.groupBy { it.lang }.flatMap { (_, list) ->
+                list.filter { SourceFame.score(it.name) != null }
+                    .sortedByDescending { SourceFame.score(it.name) }
+                    .mapIndexed { i, src -> src.id to i + 1 }
+            }.toMap()
         }
         val onHome = state.home.count { id -> state.installed.any { "${it.id}" == id } }
 
@@ -129,19 +145,26 @@ class SourceHubScreen : Screen() {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item { ManhwaKit.Chip(stringResource(ATMR.strings.home_all), language == null) { language = null } }
+                    item { ManhwaKit.Chip(stringResource(ATMR.strings.hub_top_manhwa), language == TOP) { language = TOP } }
                     items(state.languages, key = { it }) { lang ->
                         ManhwaKit.Chip(languageName(lang), language == lang) { language = lang }
                     }
                 }
-                if (!discover) {
-                    Spacer(Modifier.height(8.dp))
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        item { ManhwaKit.Chip(stringResource(ATMR.strings.home_all), health == 0) { health = 0 } }
-                        item { ManhwaKit.Chip("● " + stringResource(ATMR.strings.hub_online), health == 1) { health = 1 } }
-                        item { ManhwaKit.Chip("○ " + stringResource(ATMR.strings.hub_offline), health == 2) { health = 2 } }
+                Spacer(Modifier.height(8.dp))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    item { SortChip(MaterialSymbols.RoundedFilled.Star, stringResource(ATMR.strings.hub_sort_fame), state.sort == SourceHubViewModel.SORT_FAME) { viewModel.setSort(SourceHubViewModel.SORT_FAME) } }
+                    if (!discover) {
+                        item { SortChip(MaterialSymbols.Rounded.Speed, stringResource(ATMR.strings.hub_sort_speed), state.sort == SourceHubViewModel.SORT_SPEED) { viewModel.setSort(SourceHubViewModel.SORT_SPEED) } }
+                    }
+                    item { SortChip(MaterialSymbols.Rounded.SortByAlpha, stringResource(ATMR.strings.hub_sort_name), state.sort == SourceHubViewModel.SORT_NAME) { viewModel.setSort(SourceHubViewModel.SORT_NAME) } }
+                    if (!discover) {
+                        item { Box(Modifier.width(1.dp).height(22.dp).background(Color.White.copy(alpha = 0.2f))) }
+                        item { ManhwaKit.Chip(stringResource(ATMR.strings.hub_online), health == 1) { health = if (health == 1) 0 else 1 } }
+                        item { ManhwaKit.Chip(stringResource(ATMR.strings.hub_offline), health == 2) { health = if (health == 2) 0 else 2 } }
                     }
                 }
                 LazyColumn(
@@ -149,6 +172,7 @@ class SourceHubScreen : Screen() {
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 120.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    item(key = "adult") { AdultSwitch(state.hideAdult, viewModel::setHideAdult) }
                     if (!discover) {
                         installedContent(
                             state = state,
@@ -160,6 +184,7 @@ class SourceHubScreen : Screen() {
                             onClear = { viewModel.setHome(emptySet()) },
                             onMove = viewModel::move,
                             onDiscover = { discover = true },
+                            fameRank = fameRank,
                         )
                     } else {
                         discoverContent(
@@ -190,6 +215,7 @@ class SourceHubScreen : Screen() {
         onClear: () -> Unit,
         onMove: (String, Int) -> Unit,
         onDiscover: () -> Unit,
+        fameRank: Map<Long, Int>,
     ) {
         item(key = "actions") {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -264,6 +290,7 @@ class SourceHubScreen : Screen() {
                             onToggle = onToggle,
                             onPin = onPin,
                             onOpen = onOpen,
+                            rank = fameRank[source.id],
                         )
                     }
                 }
@@ -274,7 +301,7 @@ class SourceHubScreen : Screen() {
             item(key = "row-${row.first().id}") {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     row.forEach { source ->
-                        SourceCard(source, state, Modifier.weight(1f), onToggle, onPin, onOpen)
+                        SourceCard(source, state, Modifier.weight(1f), onToggle, onPin, onOpen, fameRank[source.id])
                     }
                     if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
@@ -346,6 +373,7 @@ class SourceHubScreen : Screen() {
         onToggle: (String) -> Unit,
         onPin: (String) -> Unit,
         onOpen: (Long) -> Unit,
+        rank: Int? = null,
     ) {
         val colors = MaterialTheme.colorScheme
         val id = "${source.id}"
@@ -400,6 +428,7 @@ class SourceHubScreen : Screen() {
                 Spacer(Modifier.width(6.dp))
                 HealthDot(state.health[source.id])
             }
+            FameBadge(source.name, rank)
             val inLibrary = state.libraryBySource[source.id] ?: 0
             if (inLibrary > 0) {
                 Spacer(Modifier.height(4.dp))
@@ -544,6 +573,7 @@ class SourceHubScreen : Screen() {
                         )
                     }
                 }
+                FameBadge(extension.name, null)
                 Text(
                     listOf(languageName(extension.lang), stringResource(ATMR.strings.src_count, extension.sources.size), "v${extension.versionName}")
                         .joinToString(" • "),
@@ -660,6 +690,92 @@ class SourceHubScreen : Screen() {
         }
     }
 
+    @Composable
+    private fun SortChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+        val colors = MaterialTheme.colorScheme
+        val shape = RoundedCornerShape(50)
+        Row(
+            modifier = Modifier
+                .then(
+                    if (selected) {
+                        Modifier.neonGlow(shape, colors.primary, 0.2f, 8.dp).clip(shape).background(ManhwaKit.accentBrush())
+                    } else {
+                        Modifier.glass(shape, alpha = 0.35f)
+                    },
+                )
+                .clickable(onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+        }
+    }
+
+    /** "#1 · S-Tier" style badge from the fame index; nothing for sources nobody knows. */
+    @Composable
+    private fun FameBadge(name: String, rank: Int?) {
+        val tier = SourceFame.tier(name)
+        if (tier == null && (rank == null || rank > 3)) return
+        val colors = MaterialTheme.colorScheme
+        val label = buildList {
+            if (rank != null && rank <= 3) add(stringResource(ATMR.strings.hub_rank, rank))
+            when (tier) {
+                SourceFame.Tier.S -> add(stringResource(ATMR.strings.tier_s))
+                SourceFame.Tier.OFFICIAL -> add(stringResource(ATMR.strings.tier_official))
+                SourceFame.Tier.TOP -> add(stringResource(ATMR.strings.tier_top))
+                SourceFame.Tier.POPULAR -> add(stringResource(ATMR.strings.tier_popular))
+                null -> {}
+            }
+        }.joinToString(" · ")
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(colors.primary.copy(alpha = 0.18f))
+                .border(1.dp, colors.primary.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (tier == SourceFame.Tier.OFFICIAL) MaterialSymbols.Rounded.Verified else MaterialSymbols.RoundedFilled.Star,
+                contentDescription = null,
+                tint = colors.primary,
+                modifier = Modifier.size(12.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+        }
+    }
+
+    /** The +18 isolation switch, shown on top of both lists. */
+    @Composable
+    private fun AdultSwitch(hidden: Boolean, onChange: (Boolean) -> Unit) {
+        val colors = MaterialTheme.colorScheme
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glass(RoundedCornerShape(20.dp), accent = hidden, alpha = 0.4f)
+                .clickable { onChange(!hidden) }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (hidden) MaterialSymbols.Rounded.Shield else MaterialSymbols.Rounded.VisibilityOff,
+                contentDescription = null,
+                tint = colors.primary,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(ATMR.strings.hub_hide_adult), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(stringResource(ATMR.strings.hub_hide_adult_sub), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+            }
+            androidx.compose.material3.Switch(checked = hidden, onCheckedChange = onChange)
+        }
+    }
+
     /** Language code plus its own name, e.g. "KO · 한국어", so every source shows its language clearly. */
     private fun languageName(lang: String): String = when (lang) {
         "all" -> "MULTI"
@@ -668,5 +784,10 @@ class SourceHubScreen : Screen() {
             val name = Locale.forLanguageTag(lang).let { it.getDisplayName(it).replaceFirstChar { c -> c.uppercase() } }
             if (name.isBlank() || name.equals(lang, ignoreCase = true)) lang.uppercase() else "${lang.uppercase()} · $name"
         }
+    }
+
+    private companion object {
+        const val TOP = "__top"
+        const val TOP_SCORE = 85
     }
 }

@@ -55,6 +55,11 @@ object SettingsBrowseScreen : SearchableSettings {
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.pref_category_extensions),
                 preferenceItems = listOf(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = sourcePreferences.hideAdult,
+                        title = stringResource(tachiyomi.i18n.at.ATMR.strings.hub_hide_adult),
+                        subtitle = stringResource(tachiyomi.i18n.at.ATMR.strings.hub_hide_adult_sub),
+                    ),
                     Preference.PreferenceItem.MultiSelectListPreference(
                         preference = sourcePreferences.enabledContentWarnings,
                         entries = mapOf(

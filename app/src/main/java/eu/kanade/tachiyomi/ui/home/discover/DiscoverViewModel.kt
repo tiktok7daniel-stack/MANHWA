@@ -59,6 +59,7 @@ import kotlin.time.Duration.Companion.days
 class DiscoverViewModel(
     private val sourceManager: SourceManager,
     private val sourcePreferences: SourcePreferences,
+    private val adultFilter: eu.kanade.domain.source.service.AdultFilter,
     private val networkToLocalManga: NetworkToLocalManga,
     private val extensionManager: ExtensionManager,
     private val addExtensionStore: AddExtensionStore,
@@ -183,9 +184,13 @@ class DiscoverViewModel(
             sourceManager.sources,
             sourcePreferences.enabledLanguages.changes(),
             sourcePreferences.disabledSources.changes(),
-        ) { sources, languages, disabled ->
+            adultFilter.rule(),
+        ) { sources, languages, disabled, adult ->
             sources
-                .filter { !it.isLocal() && it !is tachiyomi.domain.source.model.StubSource && "${it.id}" !in disabled }
+                .filter {
+                    !it.isLocal() && it !is tachiyomi.domain.source.model.StubSource && "${it.id}" !in disabled &&
+                        !adult(it.id, it.name)
+                }
                 .sortedWith(compareBy<Source>({ it.lang !in languages }, { it.name.lowercase() }))
         }
             .catch { logcat(LogPriority.ERROR, it) }

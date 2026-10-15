@@ -105,7 +105,9 @@ class FreshChaptersEngine(
     suspend fun sources(): List<Source> {
         val ids = sourcePreferences.homeSources.get()
         val order = sourcePreferences.homeSourcesOrder.get().split(',').withIndex().associate { (i, v) -> v to i }
+        val adult = context.appGraph.adultFilter
         return ids.mapNotNull { id -> id.toLongOrNull()?.let { sourceManager.get(it) } }
+            .filterNot { adult.hides(it.id, it.name) }
             .sortedBy { order["${it.id}"] ?: Int.MAX_VALUE }
             .take(MAX_SOURCES)
     }

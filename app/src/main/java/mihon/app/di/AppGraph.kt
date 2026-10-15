@@ -119,6 +119,7 @@ interface AppGraph : ViewModelGraph {
     val extensionStoreRepository: ExtensionStoreRepository
 
     val sourceManager: SourceManager
+    val adultFilter: eu.kanade.domain.source.service.AdultFilter
     val trackerManager: TrackerManager
     val extensionManager: ExtensionManager
     val chapterCache: ChapterCache

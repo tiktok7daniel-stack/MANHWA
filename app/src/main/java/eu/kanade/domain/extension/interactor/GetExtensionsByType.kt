@@ -2,6 +2,7 @@ package eu.kanade.domain.extension.interactor
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.extension.model.Extensions
+import eu.kanade.domain.source.service.AdultFilter
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.combine
 class GetExtensionsByType(
     private val preferences: SourcePreferences,
     private val extensionManager: ExtensionManager,
+    private val adultFilter: AdultFilter,
 ) {
 
     fun subscribe(): Flow<Extensions> {
@@ -22,7 +24,8 @@ class GetExtensionsByType(
             extensionManager.loadedExtensionsFlow,
             extensionManager.notLoadedExtensionsFlow,
             extensionManager.availableExtensionsFlow,
-        ) { enabledLanguages, _loaded, _notLoaded, _available ->
+            preferences.hideAdult.changes(),
+        ) { enabledLanguages, _loaded, _notLoaded, _available, _ ->
             val byName = compareBy<Extension, String>(String.CASE_INSENSITIVE_ORDER) { it.name }
 
             val (loadedUpdates, loaded) = _loaded.partition { it.hasUpdate }
@@ -53,10 +56,10 @@ class GetExtensionsByType(
                 )
 
             Extensions(
-                updates = updates,
-                loaded = loaded.sortedWith(compareBy<Extension.Loaded> { !it.isObsolete }.then(byName)),
-                available = available,
-                notLoaded = notLoaded.sortedWith(byName),
+                updates = updates.filterNot(adultFilter::hides),
+                loaded = loaded.filterNot(adultFilter::hides).sortedWith(compareBy<Extension.Loaded> { !it.isObsolete }.then(byName)),
+                available = available.filterNot(adultFilter::hides),
+                notLoaded = notLoaded.filterNot(adultFilter::hides).sortedWith(byName),
             )
         }
     }

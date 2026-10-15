@@ -547,4 +547,15 @@
     <string name="info_dramatic">Shouts get a heavy outline so they hit, and system windows (status, quests, level up) get glowing corners like a game interface. The window drawn in the art stays visible. Turn it off for a plain look.</string>
     <string name="th_smart_scroll">Smart auto-scroll</string>
     <string name="info_smart_scroll">While auto-scrolling, the speed slows down where there is a lot of dialogue on screen and goes back to full speed over art without text, so you never chase the bubbles. In page mode, a page full of text stays longer.</string>
+    <string name="hub_top_manhwa">Top manhwa</string>
+    <string name="hub_sort_fame">Most famous</string>
+    <string name="hub_sort_speed">Fastest</string>
+    <string name="hub_sort_name">A to Z</string>
+    <string name="hub_rank">#%1$d</string>
+    <string name="tier_s">S-Tier</string>
+    <string name="tier_official">Official</string>
+    <string name="tier_top">Top manhwa</string>
+    <string name="tier_popular">Popular</string>
+    <string name="hub_hide_adult">Hide and isolate +18 sources</string>
+    <string name="hub_hide_adult_sub">Adult sources, extensions and series stay out of the whole app</string>
 </resources>

@@ -8,6 +8,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.source.service.AdultFilter
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
@@ -53,6 +54,7 @@ class SourceHubViewModel(
     private val extensionManager: ExtensionManager,
     private val basePreferences: BasePreferences,
     getLibraryManga: GetLibraryManga,
+    private val adultFilter: AdultFilter,
 ) : ViewModel() {
 
     /** Server check result: [latencyMs] is null while checking, -1 when unreachable. */
@@ -69,7 +71,41 @@ class SourceHubViewModel(
         val installing: Map<String, InstallStep> = emptyMap(),
         val bulk: Pair<Int, Int>? = null,
         val order: List<String> = emptyList(),
+        val sort: Int = SORT_FAME,
+        val hideAdult: Boolean = true,
+        /** Bumped when the AI scored new sources, so lists sort again. */
+        val fameVersion: Int = 0,
+        val learning: Boolean = false,
     ) {
+        /** Fame plus what the reader does with the source: pinned, in the library, fast server. */
+        fun rank(source: Source): Int {
+            val fame = SourceFame.score(source.name) ?: 0
+            val pin = if ("${source.id}" in pinned) 1000 else 0
+            val library = ((libraryBySource[source.id] ?: 0) * 4).coerceAtMost(30)
+            val latency = health[source.id]?.latencyMs
+            val speed = when {
+                latency == null -> 0
+                latency < 0 -> -40
+                latency < 700 -> 8
+                latency < 1800 -> 3
+                else -> 0
+            }
+            return pin + fame + library + speed
+        }
+
+        fun sorted(list: List<Source>): List<Source> = when (sort) {
+            SORT_SPEED -> list.sortedWith(
+                compareBy<Source> { health[it.id]?.latencyMs?.takeIf { ms -> ms >= 0 } ?: Long.MAX_VALUE }.thenBy { it.name.lowercase() },
+            )
+            SORT_NAME -> list.sortedBy { it.name.lowercase() }
+            else -> list.sortedWith(compareByDescending<Source> { rank(it) }.thenBy { it.name.lowercase() })
+        }
+
+        fun sortedExtensions(list: List<Extension.Available>): List<Extension.Available> = when (sort) {
+            SORT_NAME -> list.sortedBy { it.name.lowercase() }
+            else -> list.sortedWith(compareByDescending<Extension.Available> { SourceFame.score(it.name) ?: 0 }.thenBy { it.name.lowercase() })
+        }
+
         /** Home sources in the reader's order (new ones at the end). */
         val homeOrdered: List<Source>
             get() {
@@ -79,8 +115,17 @@ class SourceHubViewModel(
             }
 
         val languages: List<String>
-            get() = (installed.map { it.lang } + addable.map { it.lang }).distinct()
-                .sortedWith(compareBy({ it !in enabledLanguages }, { it }))
+            get() {
+                val priority = SourceFame.languagePriority
+                return (installed.map { it.lang } + addable.map { it.lang }).distinct()
+                    .sortedWith(
+                        compareBy<String>(
+                            { it !in enabledLanguages },
+                            { priority.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } },
+                            { it },
+                        ),
+                    )
+            }
     }
 
     private val _state = MutableStateFlow(State())
@@ -97,18 +142,27 @@ class SourceHubViewModel(
     private var pingJob = kotlinx.coroutines.SupervisorJob(viewModelScope.coroutineContext[kotlinx.coroutines.Job])
 
     init {
+        SourceFame.loadAi(sourcePreferences.sourceFameAi.get())
         combine(
             sourceManager.sources,
             sourcePreferences.disabledSources.changes(),
-        ) { sources, disabled ->
-            sources.filter { !it.isLocal() && it !is StubSource && "${it.id}" !in disabled }
+            adultFilter.rule(),
+        ) { sources, disabled, adult ->
+            sources.filter { !it.isLocal() && it !is StubSource && "${it.id}" !in disabled && !adult(it.id, it.name) }
                 .sortedBy { it.name.lowercase() }
         }
             .catch { logcat(LogPriority.ERROR, it) }
             .onEach { list ->
                 _state.update { it.copy(installed = list) }
                 list.forEach(::checkHealth)
+                learnFame(list.map { it.name })
             }
+            .launchIn(viewModelScope)
+        sourcePreferences.hubSort.changes()
+            .onEach { sort -> _state.update { it.copy(sort = sort) } }
+            .launchIn(viewModelScope)
+        sourcePreferences.hideAdult.changes()
+            .onEach { hide -> _state.update { it.copy(hideAdult = hide) } }
             .launchIn(viewModelScope)
         sourcePreferences.enabledLanguages.changes()
             .onEach { langs -> _state.update { it.copy(enabledLanguages = langs) } }
@@ -128,9 +182,15 @@ class SourceHubViewModel(
                 _state.update { s -> s.copy(libraryBySource = library.groupingBy { it.manga.source }.eachCount()) }
             }
             .launchIn(viewModelScope)
-        combine(extensionManager.availableExtensionsFlow, extensionManager.loadedExtensionsFlow) { available, loaded ->
+        combine(
+            extensionManager.availableExtensionsFlow,
+            extensionManager.loadedExtensionsFlow,
+            sourcePreferences.hideAdult.changes(),
+        ) { available, loaded, _ ->
             val installedPkgs = loaded.map { it.pkgName }.toSet()
-            available.filter { it.pkgName !in installedPkgs }.distinctBy { it.pkgName }.sortedBy { it.name.lowercase() }
+            available.filter { it.pkgName !in installedPkgs && !adultFilter.hides(it) }
+                .distinctBy { it.pkgName }
+                .sortedBy { it.name.lowercase() }
         }
             .catch { logcat(LogPriority.ERROR, it) }
             .onEach { list -> _state.update { it.copy(addable = list) } }
@@ -189,18 +249,56 @@ class SourceHubViewModel(
         sourcePreferences.homeSourcesOrder.set(ids.joinToString(","))
     }
 
-    /** Puts the pinned sources, then the fastest reachable ones in the reader's languages, on the home screen. */
+    fun setSort(sort: Int) = sourcePreferences.hubSort.set(sort)
+
+    fun setHideAdult(hide: Boolean) = sourcePreferences.hideAdult.set(hide)
+
+    /** Lets the team's AI score the sources the built-in index doesn't know, once each. */
+    private fun learnFame(names: List<String>) {
+        if (SourceFame.unknown(names).isEmpty() || _state.value.learning) return
+        _state.update { it.copy(learning = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (SourceFame.learn(names)) {
+                    sourcePreferences.sourceFameAi.set(SourceFame.aiRaw())
+                    _state.update { it.copy(fameVersion = it.fameVersion + 1) }
+                }
+            } finally {
+                _state.update { it.copy(learning = false) }
+            }
+        }
+    }
+
+    /**
+     * AI smart pick: the most famous, fastest sources of each of the reader's languages (the big manhwa languages
+     * first), with pinned ones and the ones the library uses on top, put on the home screen in that order.
+     */
     fun autoPick() {
-        val s = _state.value
-        val candidates = s.installed.filter { it.lang in s.enabledLanguages || it.lang == "all" }.ifEmpty { s.installed }
-        val ranked = candidates.sortedWith(
-            compareBy<Source>(
-                { "${it.id}" !in s.pinned },
-                { -(s.libraryBySource[it.id] ?: 0) },
-                { s.health[it.id]?.latencyMs?.takeIf { ms -> ms >= 0 } ?: Long.MAX_VALUE },
-            ),
-        )
-        setHome(ranked.take(AUTO_PICK).map { "${it.id}" }.toSet())
+        viewModelScope.launch(Dispatchers.IO) {
+            val names = _state.value.installed.map { it.name }
+            if (SourceFame.learn(names)) {
+                sourcePreferences.sourceFameAi.set(SourceFame.aiRaw())
+                _state.update { it.copy(fameVersion = it.fameVersion + 1) }
+            }
+            val s = _state.value
+            val reachable = s.installed.filter { (s.health[it.id]?.latencyMs ?: 0L) >= 0 }
+            val candidates = reachable.filter { it.lang in s.enabledLanguages || it.lang == "all" }.ifEmpty { reachable }
+            val priority = SourceFame.languagePriority
+            val byLanguage = candidates.groupBy { it.lang }
+                .mapValues { (_, list) -> list.sortedByDescending { s.rank(it) } }
+                .toList()
+                .sortedBy { (lang, _) -> priority.indexOf(lang).let { if (it < 0) Int.MAX_VALUE else it } }
+            // Round robin over the languages so each one gets its best sources in
+            val picked = mutableListOf<Source>()
+            var round = 0
+            while (picked.size < AUTO_PICK && byLanguage.any { it.second.size > round }) {
+                byLanguage.forEach { (_, list) -> list.getOrNull(round)?.let { if (picked.size < AUTO_PICK) picked += it } }
+                round++
+            }
+            val ordered = picked.sortedByDescending { s.rank(it) }.map { "${it.id}" }
+            sourcePreferences.homeSources.set(ordered.toSet())
+            sourcePreferences.homeSourcesOrder.set(ordered.joinToString(","))
+        }
     }
 
     fun refreshExtensions() {
@@ -250,9 +348,12 @@ class SourceHubViewModel(
         !step.isCompleted()
     }
 
-    private companion object {
-        const val AUTO_PICK = 6
-        const val PARALLEL_PINGS = 6
-        const val PING_TIMEOUT_S = 6L
+    companion object {
+        const val SORT_FAME = 0
+        const val SORT_SPEED = 1
+        const val SORT_NAME = 2
+        private const val AUTO_PICK = 8
+        private const val PARALLEL_PINGS = 6
+        private const val PING_TIMEOUT_S = 6L
     }
 }
