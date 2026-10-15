@@ -135,6 +135,7 @@ class MangaScreen(
                 }
             },
             downloadProgressProvider = viewModel::getDownloadProgress,
+            translationProgressProvider = viewModel::getTranslationProgress,
             onAddToLibraryClicked = {
                 if (successState.manga.favorite) {
                     viewModel.showRemoveFromLibraryDialog()

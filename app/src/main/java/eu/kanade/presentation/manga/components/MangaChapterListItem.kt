@@ -63,6 +63,8 @@ fun MangaChapterListItem(
     // TachiyomiAT
     translationStateProvider: () -> Translation.State,
     downloadProgressProvider: () -> Int,
+    // MANHWA: stage and real percentage while the chapter is fetched or translated
+    translationProgressProvider: () -> Translation.Progress? = { null },
     downloadErrorProvider: () -> String? = { null },
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
@@ -183,13 +185,35 @@ fun MangaChapterListItem(
                         }
                     }
                 }
+                // MANHWA: what the translation is doing right now, or why it failed
+                val translationState = translationStateProvider()
+                val translationProgress = translationProgressProvider()
+                translationStageLabel(translationState, translationProgress)?.let { label ->
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = if (translationState == Translation.State.ERROR) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            translationStageColor(translationProgress?.stage)
+                        },
+                    )
+                }
             }
             // TachiyomiAT
-            if (downloadStateProvider() == Download.State.DOWNLOADED) {
+            // MANHWA: also while a chapter is fetched to be translated, and when that failed
+            if (
+                downloadStateProvider() == Download.State.DOWNLOADED ||
+                translationProgressProvider() != null ||
+                translationStateProvider() == Translation.State.ERROR
+            ) {
                 ChapterTranslationIndicator(
                     enabled = true,
                     modifier = Modifier.padding(start = 4.dp),
                     translationStateProvider = translationStateProvider,
+                    progressProvider = translationProgressProvider,
                     onClick = { onTranslationClick?.invoke(it) },
                 )
             }

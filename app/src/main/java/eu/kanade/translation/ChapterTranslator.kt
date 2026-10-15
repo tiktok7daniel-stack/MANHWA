@@ -50,6 +50,10 @@ import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
+import eu.kanade.tachiyomi.util.system.cancelNotification
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.sync.withLock
@@ -240,10 +244,22 @@ class ChapterTranslator(
         addToQueue(translation)
     }
 
+    /**
+     * Pages already read (OCR) for chapters that failed later, so "try again" carries on from the translation
+     * instead of reading every page again. Kept only for a few chapters.
+     */
+    private val readCache = object : android.util.LruCache<Long, ReadPages>(4) {}
+
+    private class ReadPages(val pages: Map<String, PageTranslation>, val images: Map<String, PageImage>)
+
+    /** Its own copy of the pages: translating changes the blocks in place, the kept reading must stay as read. */
+    private fun Map<String, PageTranslation>.copied(): MutableMap<String, PageTranslation> =
+        mapValuesTo(mutableMapOf()) { (_, page) -> page.copy(blocks = page.blocks.map { it.copy() }.toMutableList()) }
+
     private suspend fun translateChapter(translation: Translation) {
+        val notificationId = Notifications.ID_NEW_CHAPTERS - 2000 - (translation.chapter.id % 1000).toInt()
         try {
             translation.status = Translation.State.TRANSLATING
-            translation.pageProgress.value = 0 to 0
             // Check if recognizer reinitialization is needed
             if (translation.fromLang != textRecognizer.language) {
                 textRecognizer.close()
@@ -270,57 +286,92 @@ class ChapterTranslator(
                 translation.chapter.url,
                 translation.manga.title,
                 translation.source,
-            )!!
+            ) ?: throw StepFailure(Translation.Note.NOT_DOWNLOADED)
 
-            val pages = mutableMapOf<String, PageTranslation>()
             // Vision engines also get the page images, so they can read what the OCR missed
             val vision = textTranslator.aiPart != null && translationPreferences.translationVision().get()
-            val images = mutableMapOf<String, PageImage>()
-            val tmpFile = translationMangaDir.createFile("tmp")!!
             val streams = getChapterPages(chapterPath)
-            translation.pageProgress.value = 0 to streams.size
-            /**
-             * saving the stream to tmp file cuz i can't get the
-             * BitmapFactory.decodeStream() to work with the stream from .cbz archive
-             */
-            withContext(Dispatchers.IO) {
-                for ((index, entry) in streams.withIndex()) {
-                    val (fileName, streamFn) = entry
-                    coroutineContext.ensureActive()
-                    // One page at a time through the shared gate: the reader's live translation and drawing go first
-                    val pageTranslation = HeavyWork.background<PageTranslation?> {
-                        streamFn().use { tmpFile.openOutputStream().use { out -> it.copyTo(out) } }
-                        val decoded = PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! }
-                            ?: return@background null
-                        try {
-                            // OCR in strips on the decoded page, then the colour behind every line
-                            PageOcr.recognize(textRecognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
-                                PageImageProcessor.prepare(it, decoded)
-                                if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
+            val showProgress = progressNotifier(translation, notificationId)
+
+            // 1. Read the text of every page (25–55%), or carry on from an earlier try
+            val earlier = readCache.get(translation.chapter.id)
+            val pages = earlier?.pages?.copied() ?: mutableMapOf()
+            val images = earlier?.images?.toMutableMap() ?: mutableMapOf()
+            if (earlier == null) {
+                translation.advance(Translation.Stage.READING, 0, streams.size)
+                showProgress()
+                val tmpFile = translationMangaDir.createFile("tmp")!!
+                /**
+                 * saving the stream to tmp file cuz i can't get the
+                 * BitmapFactory.decodeStream() to work with the stream from .cbz archive
+                 */
+                withContext(Dispatchers.IO) {
+                    for ((index, entry) in streams.withIndex()) {
+                        val (fileName, streamFn) = entry
+                        coroutineContext.ensureActive()
+                        // Shown while the reader goes first through the shared gate
+                        translation.note(if (HeavyWork.readerBusy) Translation.Note.READER else null)
+                        // One page at a time through the shared gate: the reader's live translation and drawing go first
+                        val pageTranslation = HeavyWork.background<PageTranslation?> {
+                            streamFn().use { tmpFile.openOutputStream().use { out -> it.copyTo(out) } }
+                            val decoded = PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! }
+                                ?: return@background null
+                            try {
+                                // OCR in strips on the decoded page, then the colour behind every line
+                                PageOcr.recognize(textRecognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
+                                    PageImageProcessor.prepare(it, decoded)
+                                    if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
+                                }
+                            } finally {
+                                decoded.bitmap.recycle()
                             }
-                        } finally {
-                            decoded.bitmap.recycle()
                         }
+                        translation.advance(Translation.Stage.READING, index + 1, streams.size)
+                        showProgress()
+                        if (pageTranslation == null) continue
+                        if (pageTranslation.blocks.isNotEmpty() || fileName in images) pages[fileName] = pageTranslation
                     }
-                    translation.pageProgress.value = (index + 1) to streams.size
-                    if (pageTranslation == null) continue
-                    if (pageTranslation.blocks.isNotEmpty() || fileName in images) pages[fileName] = pageTranslation
                 }
+                tmpFile.delete()
+                readCache.put(translation.chapter.id, ReadPages(pages.copied(), images.toMap()))
             }
-            tmpFile.delete()
+
+            // 2. Plan (55–60%)
+            translation.advance(Translation.Stage.PLANNING)
+            showProgress()
+
+            // 3. Translate (60–92%), batch by batch, never waiting silently
+            val ai = textTranslator.aiPart
             withContext(Dispatchers.IO) {
                 // The series glossary keeps names consistent; new names found are added to it
-                textTranslator.aiPart?.apply {
+                ai?.apply {
                     glossary = glossaryStore.asMap(translation.manga.id)
                     learnTerms = true
                     discoveredTerms.clear()
+                    onBatchDone = { done, total ->
+                        translation.advance(Translation.Stage.TRANSLATING, done, total)
+                        showProgress()
+                    }
+                    onRetry = { error -> translation.note(noteFor(error)) }
                 }
-                // Translate the text in blocks , this mutates the original blocks
-                textTranslator.translate(pages, images)
-                textTranslator.aiPart?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms) }
-                // Bubbles added by the vision model: placed on their real letters, or dropped
-                for ((name, page) in pages) {
-                    if (page.blocks.none { it.needsSnap }) continue
+                translation.advance(Translation.Stage.TRANSLATING)
+                translation.note(if (ai != null) Translation.Note.AI else null)
+                showProgress()
+                try {
+                    // Translate the text in blocks , this mutates the original blocks
+                    withWatchdog(translation) { textTranslator.translate(pages, images) }
+                } finally {
+                    ai?.onBatchDone = null
+                    ai?.onRetry = null
+                }
+                ai?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms) }
+
+                // 4. Review (92–98%): bubbles added by the vision model placed on their real letters, or dropped
+                val toPlace = pages.filterValues { page -> page.blocks.any { it.needsSnap } }
+                translation.advance(Translation.Stage.REVIEWING, 0, toPlace.size)
+                showProgress()
+                for ((i, entry) in toPlace.entries.withIndex()) {
+                    val (name, page) = entry
                     val open = streams.firstOrNull { it.first == name }?.second ?: continue
                     val bytes = runCatching { open().use { it.readBytes() } }.getOrNull() ?: continue
                     HeavyWork.background {
@@ -332,13 +383,27 @@ class ChapterTranslator(
                             }
                         }
                     }
+                    translation.advance(Translation.Stage.REVIEWING, i + 1, toPlace.size)
+                    showProgress()
                 }
                 pages.values.forEach(PageOcr::finish)
                 pages.entries.removeAll { it.value.blocks.isEmpty() }
             }
-            // Serialize the Map and save to translations json file
-            translationMangaDir.createFile(saveFile)!!.openOutputStream().use { Json.encodeToStream(pages, it) }
+
+            // 5. Save (98–100%) and make sure the file is really there before calling the chapter done
+            translation.advance(Translation.Stage.SAVING)
+            showProgress()
+            try {
+                translationMangaDir.createFile(saveFile)!!.openOutputStream().use { Json.encodeToStream(pages, it) }
+            } catch (e: Exception) {
+                throw StepFailure(Translation.Note.SAVE_FAILED, e.message)
+            }
+            val saved = provider.findTranslationFile(translation.chapter.name, translation.chapter.scanlator, translation.manga.title, translation.source)
+            if (saved == null || saved.length() <= 0L) throw StepFailure(Translation.Note.SAVE_FAILED)
+            translation.advance(Translation.Stage.SAVING, 1, 1)
+            readCache.remove(translation.chapter.id)
             translation.status = Translation.State.TRANSLATED
+            context.cancelNotification(notificationId)
             context.notify(
                 Notifications.ID_NEW_CHAPTERS - 1000 - (translation.chapter.id % 1000).toInt(),
                 Notifications.CHANNEL_NEW_CHAPTERS,
@@ -350,10 +415,61 @@ class ChapterTranslator(
                 setContentIntent(NotificationReceiver.openChapterPendingActivity(context, translation.manga, translation.chapter))
             }
         } catch (error: Throwable) {
+            context.cancelNotification(notificationId)
             // Paused or stopped: the queue sets the status itself
             if (error is CancellationException) throw error
+            val failure = error as? StepFailure
+            translation.fail(failure?.note ?: noteFor(error), failure?.detail ?: error.message?.take(160))
             translation.status = Translation.State.ERROR
             logcat(LogPriority.ERROR, error)
+        }
+    }
+
+    /** A step that failed for a known reason, shown to the reader as it is. */
+    private class StepFailure(val note: Translation.Note, val detail: String? = null) : Exception(note.name)
+
+    private fun noteFor(error: Throwable): Translation.Note = when {
+        error is StepFailure -> error.note
+        error is AiTranslator.ApiException && (error.code == 401 || error.code == 403) -> Translation.Note.KEY_INVALID
+        error is AiTranslator.ApiException && error.code == 429 -> Translation.Note.KEY_LIMIT
+        error is java.net.UnknownHostException || error is java.net.ConnectException -> Translation.Note.NO_INTERNET
+        error is java.io.IOException -> Translation.Note.RETRY
+        else -> Translation.Note.OTHER
+    }
+
+    /**
+     * Runs [block], but gives up when the chapter has not moved forward for [STALL_MS]: a call that hangs ends
+     * as a clear failure the reader can retry, never as a spinner that turns forever.
+     */
+    private suspend fun <T> withWatchdog(translation: Translation, block: suspend () -> T): T = coroutineScope {
+        val work = async { block() }
+        while (!work.isCompleted) {
+            withTimeoutOrNull(WATCH_MS) { work.join() }
+            if (!work.isCompleted && System.currentTimeMillis() - translation.progress.value.updatedAt > STALL_MS) {
+                work.cancel()
+                throw StepFailure(Translation.Note.STALLED)
+            }
+        }
+        work.await()
+    }
+
+    /** Shows the chapter's real percentage in a notification, at most once a second, while it translates. */
+    private fun progressNotifier(translation: Translation, id: Int): () -> Unit {
+        var last = 0L
+        return {
+            val now = System.currentTimeMillis()
+            if (now - last >= 1_000L) {
+                last = now
+                val percent = translation.progress.value.percent
+                context.notify(id, Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
+                    setSmallIcon(R.drawable.ic_translate)
+                    setContentTitle(translation.chapter.name)
+                    setContentText("${translation.manga.title} · $percent%")
+                    setProgress(100, percent, false)
+                    setOngoing(true)
+                    setOnlyAlertOnce(true)
+                }
+            }
         }
     }
 
@@ -426,5 +542,11 @@ class ChapterTranslator(
             }
             emptyList()
         }
+    }
+
+    private companion object {
+        /** How often the watchdog looks, and how long without any progress counts as stuck. */
+        const val WATCH_MS = 5_000L
+        const val STALL_MS = 180_000L
     }
 }

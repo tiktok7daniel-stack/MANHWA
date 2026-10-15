@@ -86,6 +86,15 @@ class AiTranslator(
     /** New names and terms the model found, to be saved to the series glossary. */
     val discoveredTerms = LinkedHashMap<String, String>()
 
+    /**
+     * MANHWA: progress for chapters translated from the manga screen: called after every batch with
+     * (batches done, batches). Unset (the reader's live translation) nothing changes.
+     */
+    var onBatchDone: ((Int, Int) -> Unit)? = null
+
+    /** MANHWA: called when a call failed and is about to be tried again, with what went wrong. */
+    var onRetry: ((Throwable) -> Unit)? = null
+
     private fun collectTerms(output: JsonObject) {
         if (!learnTerms) return
         (output[TERMS_KEY] as? JsonObject)?.forEach { (source, value) ->
@@ -98,7 +107,11 @@ class AiTranslator(
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
         val context = ArrayDeque<String>()
-        for (batch in batches(pages)) translateTextBatch(batch, pages, context)
+        val all = batches(pages)
+        for ((i, batch) in all.withIndex()) {
+            translateTextBatch(batch, pages, context)
+            onBatchDone?.invoke(i + 1, all.size)
+        }
     }
 
     /**
@@ -109,7 +122,8 @@ class AiTranslator(
     override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
         if (images.isEmpty()) return translate(pages)
         val context = ArrayDeque<String>()
-        for (batch in visionBatches(pages, images)) {
+        val all = visionBatches(pages, images)
+        for ((i, batch) in all.withIndex()) {
             try {
                 translateVisionBatch(batch, pages, images, context)
             } catch (e: Exception) {
@@ -117,6 +131,7 @@ class AiTranslator(
                 logcat(LogPriority.WARN, e) { "Vision translation failed, falling back to text for $batch" }
                 translateTextBatch(batch.filter { pages[it]!!.blocks.isNotEmpty() }, pages, context)
             }
+            onBatchDone?.invoke(i + 1, all.size)
         }
     }
 
@@ -623,6 +638,7 @@ class AiTranslator(
                 if (switchToFallback(e)) return@repeat
                 if (e is ApiException && e.code in 400..499 && e.code != 408 && e.code != 429) throw e
                 logcat(LogPriority.WARN, e) { "AI translation attempt ${attempt + 1} failed, retrying" }
+                if (e !is CancellationException) onRetry?.invoke(e)
                 delay(wait)
                 wait *= 2
             }

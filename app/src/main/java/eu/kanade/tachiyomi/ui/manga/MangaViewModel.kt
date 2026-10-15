@@ -42,6 +42,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
+import eu.kanade.tachiyomi.data.download.DownloadErrorLog
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
@@ -68,6 +69,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -195,6 +197,31 @@ class MangaViewModel(
 
     // TachiyomiAT: live translation states reported by the translator, overriding the queried ones
     private val translationStates = MutableStateFlow(emptyMap<Long, Translation.State>())
+
+    /** MANHWA: download stage of chapters that are fetched to be translated (before they reach the queue). */
+    private val downloadStage = MutableStateFlow<Map<Long, Translation.Progress>>(emptyMap())
+
+    /** MANHWA: every chapter of this manga in the translation queue, with its stage and real percentage. */
+    private val queueProgress = translationManager.queueState
+        .flatMapLatest { queue ->
+            val mine = queue.filter { it.manga.id == mangaId }
+            if (mine.isEmpty()) {
+                flowOf(emptyMap<Long, Translation.Progress>())
+            } else {
+                combine(mine.map { t -> t.progress.map { t.chapter.id to it } }) { it.toMap() }
+            }
+        }
+
+    /** MANHWA: stage and percentage per chapter, read from the queues themselves (right after leaving and coming back). */
+    val translationProgress: StateFlow<Map<Long, Translation.Progress>> = combine(downloadStage, queueProgress) { d, q -> d + q }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** Shown next to a chapter while it is fetched or translated; null when there is nothing to show. */
+    fun getTranslationProgress(chapterId: Long): Translation.Progress? = translationProgressMap[chapterId]
+
+    private val translationProgressMap = mutableStateMapOf<Long, Translation.Progress>()
+
 
     // Progress ticks often, so only the download indicators that read it recompose instead of every tick rebuilding
     // the chapter list
@@ -334,7 +361,31 @@ class MangaViewModel(
             downloadManager.progressFlow()
                 .filter { it.manga.id == mangaId }
                 .catch { logcat(LogPriority.ERROR, it) }
-                .collect { downloadProgress[it.chapter.id] = it.progress }
+                .collect {
+                    downloadProgress[it.chapter.id] = it.progress
+                    // MANHWA: a chapter fetched to be translated shows its download as the first quarter
+                    if (it.chapter.id in translationManager.translateAfterDownload) {
+                        val pages = it.pages?.size ?: 0
+                        val stage = Translation.Progress(
+                            stage = Translation.Stage.DOWNLOADING,
+                            done = it.downloadedImages,
+                            total = pages,
+                            percent = Translation.Stage.DOWNLOADING.percentAt(it.downloadedImages, pages)
+                                .coerceAtLeast(it.progress * 25 / 100),
+                        )
+                        downloadStage.update { map ->
+                            val old = map[it.chapter.id]
+                            map + (it.chapter.id to stage.copy(percent = maxOf(stage.percent, old?.percent ?: 0), startedAt = old?.startedAt ?: stage.startedAt))
+                        }
+                    }
+                }
+        }
+        // MANHWA: the per-chapter percentages, kept as state so only the rows that change are redrawn
+        viewModelScope.launch {
+            translationProgress.collect { map ->
+                translationProgressMap.keys.retainAll(map.keys)
+                translationProgressMap.putAll(map)
+            }
         }
 
         viewModelScope.launch {
@@ -610,7 +661,16 @@ class MangaViewModel(
         // MANHWA: a chapter waiting to be translated whose download failed or was cancelled won't be translated
         val failed = download.status == Download.State.ERROR || download.status == Download.State.NOT_DOWNLOADED
         if (failed && translationManager.translateAfterDownload.remove(chapterId)) {
+            downloadStage.update { map ->
+                val old = map[chapterId] ?: Translation.Progress(stage = Translation.Stage.DOWNLOADING)
+                map + (chapterId to old.copy(note = Translation.Note.DOWNLOAD_FAILED, detail = DownloadErrorLog.get(download.manga.id, download.chapter.name)))
+            }
             translationStates.update { it + (chapterId to Translation.State.ERROR) }
+        } else if (download.status == Download.State.DOWNLOADED) {
+            // Its translation takes over from here
+            downloadStage.update { it - chapterId }
+        } else if (download.status == Download.State.QUEUE && chapterId in translationManager.translateAfterDownload) {
+            downloadStage.update { map -> if (chapterId in map) map else map + (chapterId to Translation.Progress()) }
         }
     }
 
@@ -780,14 +840,26 @@ class MangaViewModel(
         val chapterId = item.id
         when (action) {
             ChapterTranslationAction.START -> {
-                if (!item.isDownloaded) return
                 translationStates.update { it + (chapterId to Translation.State.QUEUE) }
+                if (!item.isDownloaded) {
+                    // MANHWA: "try again" on a chapter whose download failed: fetched again, then translated
+                    downloadStage.update { it + (chapterId to Translation.Progress()) }
+                    appScope.launch(Dispatchers.IO) {
+                        translationManager.translateAfterDownload += chapterId
+                        downloadManager.downloadChapters(success.manga, listOf(item.chapter))
+                    }
+                    return
+                }
+                downloadStage.update { it - chapterId }
                 viewModelScope.launch(Dispatchers.IO) {
                     translationManager.translateChapter(success.manga, item.chapter)
                 }
             }
             ChapterTranslationAction.CANCEL -> {
                 translationManager.getQueuedTranslationOrNull(chapterId)?.let(translationManager::cancelQueuedTranslation)
+                // A chapter still being fetched to be translated is simply not translated when it arrives
+                translationManager.translateAfterDownload.remove(chapterId)
+                downloadStage.update { it - chapterId }
                 translationStates.update { it + (chapterId to Translation.State.NOT_TRANSLATED) }
             }
             ChapterTranslationAction.DELETE -> {
@@ -801,7 +873,8 @@ class MangaViewModel(
 
     /**
      * Progress of the chapters asked to translate from this screen: how many ended ([done], failed ones
-     * included), the chapter in progress with its page counter, and at the end ([finished]) the result.
+     * included), the chapter in progress with its stage, the real percentage of the chapter ([percent]) and of
+     * all of them ([totalPercent]), and at the end ([finished]) the result.
      */
     data class TranslateBatch(
         val done: Int,
@@ -809,44 +882,33 @@ class MangaViewModel(
         val current: String?,
         val fetching: Boolean,
         val failed: Int = 0,
-        val page: Int = 0,
-        val pages: Int = 0,
+        val progress: Translation.Progress? = null,
+        val percent: Int = 0,
+        val totalPercent: Int = 0,
         val finished: Boolean = false,
     )
 
     private val translateBatchIds = MutableStateFlow<List<Long>>(emptyList())
 
-    /** The chapter of this manga being translated now, with (pages read, pages). */
-    private val translatingPages = translationManager.queueState
-        .flatMapLatest { queue ->
-            val mine = queue.filter { it.manga.id == mangaId }
-            if (mine.isEmpty()) {
-                flowOf<Pair<Long, Pair<Int, Int>>?>(null)
-            } else {
-                combine(mine.map { t -> combine(t.statusFlow, t.pageProgress) { status, pages -> Triple(t.chapter.id, status, pages) } }) { all ->
-                    all.firstOrNull { it.second == Translation.State.TRANSLATING }?.let { it.first to it.third }
-                }
-            }
-        }
-        .distinctUntilChanged()
-
-    val translateBatch: StateFlow<TranslateBatch?> = combine(translateBatchIds, translationStates, translatingPages) { ids, states, working ->
+    val translateBatch: StateFlow<TranslateBatch?> = combine(translateBatchIds, translationStates, translationProgress) { ids, states, progress ->
         if (ids.isEmpty()) return@combine null
         val items = allChapters.orEmpty().associateBy { it.id }
         fun ended(id: Long) = states[id] == Translation.State.TRANSLATED || states[id] == Translation.State.ERROR
         val failed = ids.count { states[it] == Translation.State.ERROR }
         val done = ids.count(::ended)
         // The one working now, else the next one waiting (it may still be downloading)
-        val current = working?.first?.takeIf { it in ids && !ended(it) } ?: ids.firstOrNull { !ended(it) }
-        val pages = working?.takeIf { it.first == current }?.second
+        val current = ids.firstOrNull { !ended(it) && progress[it]?.stage?.let { s -> s != Translation.Stage.QUEUED } == true }
+            ?: ids.firstOrNull { !ended(it) }
+        val chapterPercent = { id: Long -> if (ended(id)) 100 else progress[id]?.percent ?: 0 }
         TranslateBatch(
             done = done,
             total = ids.size,
             current = current?.let { items[it]?.chapter?.name },
             fetching = current != null && items[current]?.isDownloaded == false,
             failed = failed,
-            page = pages?.first ?: 0,
-            pages = pages?.second ?: 0,
+            progress = current?.let { progress[it] },
+            percent = current?.let(chapterPercent) ?: 100,
+            totalPercent = ids.sumOf(chapterPercent) / ids.size,
             finished = done >= ids.size,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -874,6 +936,7 @@ class MangaViewModel(
         val (downloaded, missing) = picked.partition { items[it.id]?.isDownloaded == true }
         translateBatchIds.value = picked.map { it.id }
         translationStates.update { states -> states + picked.associate { it.id to Translation.State.QUEUE } }
+        downloadStage.update { map -> map - picked.map { it.id }.toSet() + missing.associate { it.id to Translation.Progress() } }
         // The queue outlives the screen
         appScope.launch(Dispatchers.IO) {
             missing.forEach { translationManager.translateAfterDownload += it.id }

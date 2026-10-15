@@ -1,5 +1,7 @@
 package eu.kanade.presentation.manga.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,12 +38,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.ManhwaKit
 import eu.kanade.presentation.components.glass
 import eu.kanade.tachiyomi.ui.manga.MangaViewModel
+import eu.kanade.translation.model.Translation
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Translate
 import tachiyomi.domain.chapter.model.Chapter
@@ -74,53 +78,81 @@ fun TranslateChaptersBar(batch: MangaViewModel.TranslateBatch?, onClick: () -> U
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                 )
-                Text(
-                    if (batch == null) {
-                        stringResource(ATMR.strings.tc_subtitle)
-                    } else if (batch.finished) {
-                        val translated = batch.total - batch.failed
+                if (batch == null) {
+                    Text(
+                        stringResource(ATMR.strings.tc_subtitle),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else if (batch.finished) {
+                    val translated = batch.total - batch.failed
+                    Text(
                         if (batch.failed == 0) {
                             stringResource(ATMR.strings.tc_done, translated, batch.total)
                         } else {
                             stringResource(ATMR.strings.tc_done_failed, translated, batch.total, batch.failed)
-                        }
-                    } else if (batch.pages > 0 && !batch.fetching) {
-                        stringResource(
-                            ATMR.strings.tc_progress_pages,
-                            batch.current.orEmpty(),
-                            batch.page,
-                            batch.pages,
-                            batch.done + 1,
-                            batch.total,
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (batch.failed > 0) colors.error else colors.primary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else {
+                    // The chapter in progress with its real percentage, then what it is doing right now
+                    val stageColor = translationStageColor(batch.progress?.stage)
+                    Text(
+                        stringResource(ATMR.strings.tc_progress_percent, batch.current.orEmpty(), batch.percent),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    translationStageLabel(Translation.State.TRANSLATING, batch.progress)?.let { label ->
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = stageColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                    } else {
-                        stringResource(
-                            if (batch.fetching) ATMR.strings.tc_progress_fetching else ATMR.strings.tc_progress,
-                            batch.current.orEmpty(),
-                            batch.done + 1,
-                            batch.total,
+                    }
+                    if (batch.total > 1) {
+                        Text(
+                            stringResource(ATMR.strings.tc_total, (batch.done + 1).coerceAtMost(batch.total), batch.total, batch.totalPercent),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.onSurfaceVariant,
+                            maxLines = 1,
                         )
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = when {
-                        batch == null -> colors.onSurfaceVariant
-                        batch.finished && batch.failed > 0 -> colors.error
-                        else -> colors.primary
-                    },
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    }
+                }
+            }
+            if (batch != null && !batch.finished) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "${batch.totalPercent}%",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.primary,
                 )
             }
         }
         if (batch != null && !batch.finished) {
             Spacer(Modifier.height(10.dp))
+            // The real percentage of all the chapters asked for, filling smoothly
+            val shown by animateFloatAsState(
+                targetValue = batch.totalPercent / 100f,
+                animationSpec = tween(450),
+                label = "batch-percent",
+            )
             LinearProgressIndicator(
-                progress = {
-                    // Finished chapters, plus the share of pages read in the one in progress
-                    val partial = if (batch.pages > 0) batch.page.toFloat() / batch.pages else 0f
-                    ((batch.done + partial) / batch.total.coerceAtLeast(1)).coerceIn(0f, 1f)
-                },
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)),
+                progress = { shown },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),
+                color = colors.primary,
+                trackColor = colors.primary.copy(alpha = 0.15f),
+                strokeCap = StrokeCap.Round,
             )
         }
     }

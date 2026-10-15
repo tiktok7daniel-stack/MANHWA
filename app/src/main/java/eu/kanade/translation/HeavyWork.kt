@@ -19,6 +19,10 @@ object HeavyWork {
 
     @Volatile private var readerQuietAt = 0L
 
+    /** Whether background work is being held back for the reader right now. */
+    val readerBusy: Boolean
+        get() = readerWaiting.get() > 0 || SystemClock.elapsedRealtime() < readerQuietAt
+
     /** Image work for the page the reader shows or is about to show. */
     suspend fun <T> reader(block: suspend () -> T): T {
         readerWaiting.incrementAndGet()

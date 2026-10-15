@@ -1,5 +1,6 @@
 package eu.kanade.presentation.manga
 
+import eu.kanade.translation.model.Translation
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
@@ -93,6 +94,7 @@ fun MangaScreen(
     onTranslateChapter: ((ChapterList.Item, ChapterTranslationAction) -> Unit)? = null, // TachiyomiAT
     translateBar: (@Composable () -> Unit)? = null, // MANHWA: translate chapters from here
     downloadProgressProvider: (chapterId: Long) -> Int,
+    translationProgressProvider: (chapterId: Long) -> Translation.Progress? = { null }, // MANHWA
     onAddToLibraryClicked: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
     onWebViewLongClicked: (() -> Unit)?,
@@ -151,6 +153,7 @@ fun MangaScreen(
             onTranslateChapter = onTranslateChapter,
             translateBar = translateBar,
             downloadProgressProvider = downloadProgressProvider,
+            translationProgressProvider = translationProgressProvider,
             onAddToLibraryClicked = onAddToLibraryClicked,
             onWebViewClicked = onWebViewClicked,
             onWebViewLongClicked = onWebViewLongClicked,
@@ -190,6 +193,7 @@ fun MangaScreen(
             onTranslateChapter = onTranslateChapter,
             translateBar = translateBar,
             downloadProgressProvider = downloadProgressProvider,
+            translationProgressProvider = translationProgressProvider,
             onAddToLibraryClicked = onAddToLibraryClicked,
             onWebViewClicked = onWebViewClicked,
             onWebViewLongClicked = onWebViewLongClicked,
@@ -232,6 +236,7 @@ private fun MangaScreenSmallImpl(
     onTranslateChapter: ((ChapterList.Item, ChapterTranslationAction) -> Unit)? = null, // TachiyomiAT
     translateBar: (@Composable () -> Unit)? = null, // MANHWA: translate chapters from here
     downloadProgressProvider: (chapterId: Long) -> Int,
+    translationProgressProvider: (chapterId: Long) -> Translation.Progress? = { null }, // MANHWA
     onAddToLibraryClicked: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
     onWebViewLongClicked: (() -> Unit)?,
@@ -449,6 +454,7 @@ private fun MangaScreenSmallImpl(
                         onDownloadChapter = onDownloadChapter,
                         onTranslateChapter = onTranslateChapter,
                         downloadProgressProvider = downloadProgressProvider,
+                        translationProgressProvider = translationProgressProvider,
                         onChapterSelected = onChapterSelected,
                         onChapterSwipe = onChapterSwipe,
                     )
@@ -471,6 +477,7 @@ fun MangaScreenLargeImpl(
     onTranslateChapter: ((ChapterList.Item, ChapterTranslationAction) -> Unit)? = null, // TachiyomiAT
     translateBar: (@Composable () -> Unit)? = null, // MANHWA: translate chapters from here
     downloadProgressProvider: (chapterId: Long) -> Int,
+    translationProgressProvider: (chapterId: Long) -> Translation.Progress? = { null }, // MANHWA
     onAddToLibraryClicked: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
     onWebViewLongClicked: (() -> Unit)?,
@@ -681,6 +688,7 @@ fun MangaScreenLargeImpl(
                                 onDownloadChapter = onDownloadChapter,
                                 onTranslateChapter = onTranslateChapter,
                                 downloadProgressProvider = downloadProgressProvider,
+                                translationProgressProvider = translationProgressProvider,
                                 onChapterSelected = onChapterSelected,
                                 onChapterSwipe = onChapterSwipe,
                             )
@@ -744,6 +752,7 @@ private fun LazyListScope.sharedChapterItems(
     onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
     onTranslateChapter: ((ChapterList.Item, ChapterTranslationAction) -> Unit)? = null, // TachiyomiAT
     downloadProgressProvider: (chapterId: Long) -> Int,
+    translationProgressProvider: (chapterId: Long) -> Translation.Progress? = { null }, // MANHWA
     onChapterSelected: (ChapterList.Item, Boolean, Boolean) -> Unit,
     onChapterSwipe: (ChapterList.Item, LibraryPreferences.ChapterSwipeAction) -> Unit,
 ) {
@@ -810,6 +819,7 @@ private fun LazyListScope.sharedChapterItems(
                         null
                     },
                     translationStateProvider = { item.translationState },
+                    translationProgressProvider = { translationProgressProvider(item.id) },
                     onTranslationClick = onTranslateChapter?.let { translate -> { translate(item, it) } },
                     onChapterSwipe = {
                         onChapterSwipe(item, it)
