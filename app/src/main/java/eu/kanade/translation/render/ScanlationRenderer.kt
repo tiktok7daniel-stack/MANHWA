@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import eu.kanade.translation.data.PageImageProcessor
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -553,7 +554,9 @@ object ScanlationRenderer {
             return TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
                 typeface = font
                 if (weight > 0) setFontVariationSettings("'wght' $weight")
-                color = textColorOn(c.bg)
+                // MANHWA: the letters' own colour (red shout, blue system line...) when it reads on the cleaned bubble
+                val own = c.block.textColor
+                color = if (Color.alpha(own) > 0 && PageImageProcessor.contrast(own, c.bg) >= PageImageProcessor.MIN_TEXT_CONTRAST) own else textColorOn(c.bg)
             }
         }
 
@@ -610,9 +613,12 @@ object ScanlationRenderer {
             val kind = set.cleaned.kind
             // MANHWA dramatic style: a shout gets a heavy outline in a contrasting colour, so it hits
             val shout = style.dramatic && kind == BubbleKind.SHOUT
+            // MANHWA: the original letters had an outline: the translation gets the same one
+            val ownStroke = set.cleaned.block.strokeColor.takeIf { it != 0 && Color.alpha(it) > 0 }
             val stroke = when {
                 kind == BubbleKind.SFX || !plain -> size * 0.16f
                 shout -> size * 0.12f
+                ownStroke != null -> size * 0.09f
                 style.outline -> size * 0.07f
                 else -> 0f
             }
@@ -621,7 +627,11 @@ object ScanlationRenderer {
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = stroke
                 paint.strokeJoin = Paint.Join.ROUND
-                paint.color = if (plain && !shout) set.cleaned.bg else outlineFor(fill)
+                paint.color = when {
+                    ownStroke != null && !shout && PageImageProcessor.contrast(ownStroke, fill) >= 2f -> ownStroke
+                    plain && !shout -> set.cleaned.bg
+                    else -> outlineFor(fill)
+                }
                 layout.draw(canvas)
                 paint.style = Paint.Style.FILL
                 paint.color = fill

@@ -29,7 +29,10 @@ class TranslationPreferences(
     fun translationTypeface() = preferenceStore.getInt("manhwa_translation_typeface", 11)
 
     /** Leave sound effects drawn in the art untranslated. */
-    fun translationSkipSfx() = preferenceStore.getBoolean("manhwa_translation_skip_sfx", false)
+    fun translationSkipSfx() = preferenceStore.getBoolean("manhwa_translation_skip_sfx", true)
+
+    /** MANHWA: sound effects were switched to "left as drawn" once for readers from before it was the default. */
+    fun translationSfxMigrated() = preferenceStore.getBoolean("manhwa_translation_sfx_migrated", false)
 
     /** Text size relative to the best fit inside each bubble (0.7 to 1.6). */
     fun translationSizeScale() = preferenceStore.getFloat("manhwa_translation_size_scale", 1f)

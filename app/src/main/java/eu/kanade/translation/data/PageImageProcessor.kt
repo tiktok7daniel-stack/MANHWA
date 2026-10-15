@@ -98,9 +98,140 @@ object PageImageProcessor {
                 val main = colors.groupingBy { it }.eachCount().maxBy { it.value }.key
                 block.bgColor = main
                 block.textColor = if (luminance(main) > 140) Color.BLACK else Color.WHITE
+                // MANHWA: the letters' own colour and outline, so a red shout or a blue system line stays red or blue
+                inkColors(block, bitmap, s, main)
             }
         }
     }
+
+    /**
+     * MANHWA: the colours of the original letters. Pixels clearly unlike the background are the ink; its two main
+     * colours are the fill and, when the second is common enough and sits on the edge of the letters (touching the
+     * background), the outline. A colour that would not read on the cleaned bubble is never used.
+     */
+    private fun inkColors(block: TranslationBlock, bitmap: Bitmap, s: Float, bg: Int) {
+        val count = IntArray(4096)
+        val edge = IntArray(4096)
+        val sumR = LongArray(4096)
+        val sumG = LongArray(4096)
+        val sumB = LongArray(4096)
+        var ink = 0
+        for (line in block.lineBoxes) {
+            val l = (line.x * s).roundToInt().coerceIn(0, bitmap.width - 1)
+            val r = (line.right * s).roundToInt().coerceIn(0, bitmap.width)
+            val t = (line.y * s).roundToInt().coerceIn(0, bitmap.height - 1)
+            val b = (line.bottom * s).roundToInt().coerceIn(0, bitmap.height)
+            val w = r - l
+            val h = b - t
+            if (w < 3 || h < 3 || w.toLong() * h > INK_MAX_PIXELS) continue
+            val lineBg = if (line.bg != 0) line.bg else bg
+            val px = IntArray(w * h)
+            bitmap.getPixels(px, 0, w, l, t, w, h)
+            val isBg = BooleanArray(px.size) { colorDistance(px[it], lineBg) <= LETTER_DISTANCE }
+            for (y in 0 until h) {
+                for (x in 0 until w) {
+                    val i = y * w + x
+                    if (isBg[i]) continue
+                    val p = px[i]
+                    val bin = (Color.red(p) shr 4 shl 8) or (Color.green(p) shr 4 shl 4) or (Color.blue(p) shr 4)
+                    count[bin]++
+                    sumR[bin] += Color.red(p).toLong()
+                    sumG[bin] += Color.green(p).toLong()
+                    sumB[bin] += Color.blue(p).toLong()
+                    ink++
+                    // On the edge of the letters: a background pixel right next to it
+                    val touches = (x > 0 && isBg[i - 1]) || (x < w - 1 && isBg[i + 1]) || (y > 0 && isBg[i - w]) || (y < h - 1 && isBg[i + w])
+                    if (touches) edge[bin]++
+                }
+            }
+        }
+        if (ink < INK_MIN_PIXELS) return
+        fun colorOf(bin: Int): Int {
+            val n = count[bin].coerceAtLeast(1)
+            return Color.rgb((sumR[bin] / n).toInt(), (sumG[bin] / n).toInt(), (sumB[bin] / n).toInt())
+        }
+        val first = count.indices.maxBy { count[it] }
+        val firstColor = colorOf(first)
+        // The second colour: common, and clearly another colour than the first
+        val second = count.indices
+            .filter { it != first && count[it] > 0 && colorDistance(colorOf(it), firstColor) > OUTLINE_DISTANCE }
+            .maxByOrNull { count[it] }
+            ?.takeIf { count[it] >= ink * OUTLINE_SHARE }
+        var fill = firstColor
+        var outline = 0
+        if (second != null) {
+            val secondColor = colorOf(second)
+            val firstEdge = edge[first].toFloat() / count[first]
+            val secondEdge = edge[second].toFloat() / count[second]
+            // The outline is the one lying on the letters' edge
+            if (secondEdge > firstEdge) {
+                outline = secondColor
+            } else {
+                fill = secondColor
+                outline = firstColor
+            }
+        }
+        // Read on the bubble once it is cleaned: otherwise the plain black or white stays
+        if (contrast(fill, bg) >= MIN_TEXT_CONTRAST) block.textColor = fill
+        if (outline != 0 && contrast(outline, block.textColor) >= MIN_OUTLINE_CONTRAST) block.strokeColor = outline
+    }
+
+    /** MANHWA: [block]'s area of the decoded page as a JPEG, a little larger than the text, to be read again. */
+    fun crop(decoded: Decoded, block: TranslationBlock): ByteArray? {
+        val bitmap = decoded.bitmap
+        val s = decoded.scale
+        val padX = block.width * CROP_PAD
+        val padY = block.height * CROP_PAD
+        val l = ((block.x - padX) * s).roundToInt().coerceIn(0, bitmap.width - 1)
+        val t = ((block.y - padY) * s).roundToInt().coerceIn(0, bitmap.height - 1)
+        val r = ((block.x + block.width + padX) * s).roundToInt().coerceIn(l + 1, bitmap.width)
+        val b = ((block.y + block.height + padY) * s).roundToInt().coerceIn(t + 1, bitmap.height)
+        if (r - l < 8 || b - t < 8) return null
+        return runCatching {
+            val part = Bitmap.createBitmap(bitmap, l, t, r - l, b - t)
+            // Small text is enlarged so the model reads every stroke
+            val scaled = if (part.height < CROP_MIN_HEIGHT) {
+                val f = CROP_MIN_HEIGHT.toFloat() / part.height
+                Bitmap.createScaledBitmap(part, (part.width * f).roundToInt(), CROP_MIN_HEIGHT, true).also { if (it !== part) part.recycle() }
+            } else {
+                part
+            }
+            ByteArrayOutputStream().use { out ->
+                scaled.compress(Bitmap.CompressFormat.JPEG, CROP_QUALITY, out)
+                if (scaled !== bitmap) scaled.recycle()
+                out.toByteArray()
+            }
+        }.getOrNull()
+    }
+
+    private fun colorDistance(a: Int, b: Int): Int =
+        abs(Color.red(a) - Color.red(b)) + abs(Color.green(a) - Color.green(b)) + abs(Color.blue(a) - Color.blue(b))
+
+    /** WCAG contrast ratio of two colours (1 to 21). */
+    fun contrast(a: Int, b: Int): Float {
+        val la = relativeLuminance(a)
+        val lb = relativeLuminance(b)
+        return ((max(la, lb) + 0.05) / (min(la, lb) + 0.05)).toFloat()
+    }
+
+    private fun relativeLuminance(c: Int): Double {
+        fun channel(v: Int): Double {
+            val x = v / 255.0
+            return if (x <= 0.03928) x / 12.92 else Math.pow((x + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * channel(Color.red(c)) + 0.7152 * channel(Color.green(c)) + 0.0722 * channel(Color.blue(c))
+    }
+
+    private const val LETTER_DISTANCE = 90
+    private const val OUTLINE_DISTANCE = 120
+    private const val OUTLINE_SHARE = 0.15f
+    private const val INK_MIN_PIXELS = 40
+    private const val INK_MAX_PIXELS = 400_000L
+    const val MIN_TEXT_CONTRAST = 3f
+    private const val MIN_OUTLINE_CONTRAST = 2f
+    private const val CROP_PAD = 0.12f
+    private const val CROP_MIN_HEIGHT = 64
+    private const val CROP_QUALITY = 90
 
     /**
      * The colour right behind the letters of [line]: the most common colour inside the line box and its

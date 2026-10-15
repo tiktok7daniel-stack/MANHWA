@@ -142,6 +142,11 @@ class ChapterTranslator(
         val toLang = TextTranslatorLanguage.fromPref(translationPreferences.translateToLanguage())
         textTranslator = TextTranslators.withoutKeys(translationPreferences)
             .build(translationPreferences, fromLang, toLang)
+        // MANHWA: sound effects are left as drawn by default, also for readers from before it was the default
+        if (!translationPreferences.translationSfxMigrated().get()) {
+            translationPreferences.translationSkipSfx().set(true)
+            translationPreferences.translationSfxMigrated().set(true)
+        }
     }
 
     fun start(): Boolean {
@@ -370,6 +375,10 @@ class ChapterTranslator(
 
             // Vision engines also get the page images, so they can read what the OCR missed
             val vision = textTranslator.aiPart != null && translationPreferences.translationVision().get()
+            // MANHWA: sound effects stay as drawn; unsure readings are cut out to be read again from their image
+            val skipSfx = translationPreferences.translationSkipSfx().get()
+            val canReread = textTranslator is TeamTranslator
+            val unsureCrops = mutableListOf<Triple<String, Int, ByteArray>>()
             val streams = getChapterPages(chapterPath)
             val showProgress = progressNotifier(translation, notificationId)
 
@@ -401,8 +410,16 @@ class ChapterTranslator(
                             try {
                                 // OCR in strips on the decoded page, then the colour behind every line
                                 PageOcr.recognize(recognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
+                                    if (skipSfx) it.blocks.removeAll { b -> b.kind.equals(PageOcr.SFX, ignoreCase = true) }
                                     PageImageProcessor.prepare(it, decoded)
                                     if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
+                                    if (canReread) {
+                                        it.blocks.forEachIndexed { i, b ->
+                                            if (b.ocrConfidence < AiTranslator.UNSURE_OCR && unsureCrops.size < MAX_REREAD) {
+                                                PageImageProcessor.crop(decoded, b)?.let { jpeg -> unsureCrops += Triple(fileName, i, jpeg) }
+                                            }
+                                        }
+                                    }
                                 }
                             } finally {
                                 decoded.bitmap.recycle()
@@ -420,6 +437,19 @@ class ChapterTranslator(
                     }
                 }
                 tmpFile.delete()
+                // MANHWA: bubbles the OCR was not sure of are read again from their own image by a key that sees images
+                if (unsureCrops.isNotEmpty()) {
+                    translation.note(Translation.Note.AI)
+                    val fixed = (textTranslator as? TeamTranslator)?.reread(unsureCrops.mapIndexed { i, c -> "$i" to c.third }).orEmpty()
+                    fixed.forEach { (id, text) ->
+                        val (fileName, index, _) = unsureCrops.getOrNull(id.toIntOrNull() ?: -1) ?: return@forEach
+                        pages[fileName]?.blocks?.getOrNull(index)?.let { block ->
+                            block.text = text
+                            block.ocrConfidence = 1f
+                        }
+                    }
+                    logcat { "Re-read ${fixed.size} of ${unsureCrops.size} unsure bubbles from their image" }
+                }
                 readCache.put(translation.chapter.id, ReadPages(pages.copied(), images.toMap()))
             }
 
@@ -447,6 +477,7 @@ class ChapterTranslator(
                     lessons = lessonStore.forPrompt(translation.manga.id)
                     fitHints = true
                     askSummary = true
+                    this.skipSfx = skipSfx
                     summaries.clear()
                     onBatchDone = { done, total ->
                         translation.advance(Translation.Stage.TRANSLATING, done, total)
@@ -534,6 +565,7 @@ class ChapterTranslator(
                         lessons = ""
                         fitHints = false
                         askSummary = false
+                        this.skipSfx = false
                     }
                 }
                 mergeBack(pages, work, library)
@@ -547,15 +579,19 @@ class ChapterTranslator(
                 recheck(pages, glossaryAfter, translation)
                 translation.advance(Translation.Stage.REVIEWING, 1, 3)
                 showProgress()
-                if (ai != null && translationPreferences.translationTeamAccurate().get()) {
+                // MANHWA smart review: the whole chapter in accurate mode, otherwise only the bubbles that look doubtful
+                val accurate = translationPreferences.translationTeamAccurate().get()
+                val newTerms = ai?.discoveredTerms?.keys?.toSet().orEmpty()
+                val doubts = if (accurate) null else doubtful(pages, glossaryAfter, translation, newTerms)
+                if (ai != null && (accurate || !doubts.isNullOrEmpty())) {
                     translation.note(Translation.Note.AI)
                     // With the team, the review goes to its strongest key and model through the router
                     val team = textTranslator as? TeamTranslator
                     val fixed = runCatching {
                         if (team != null) {
-                            team.asEditor { editor -> edit(editor, pages, translation.manga.id, translation.manga.title) }
+                            team.asEditor { editor -> edit(editor, pages, translation.manga.id, translation.manga.title, doubts) }
                         } else {
-                            edit(ai, pages, translation.manga.id, translation.manga.title)
+                            edit(ai, pages, translation.manga.id, translation.manga.title, doubts)
                         }
                     }
                         .onFailure {
@@ -590,7 +626,7 @@ class ChapterTranslator(
                         showProgress()
                     }
                 }
-                pages.values.forEach(PageOcr::finish)
+                pages.values.forEach { PageOcr.finish(it, keepSfxArt = skipSfx) }
                 pages.entries.removeAll { it.value.blocks.isEmpty() }
             }
 
@@ -611,7 +647,9 @@ class ChapterTranslator(
             // Everything this chapter taught goes into the collection, for every manhwa after it
             if (useLibrary && textTranslator.aiPart != null && !textTranslator.fellBack) {
                 withContext(Dispatchers.IO) {
-                    val lines = pages.values.flatMap { it.blocks }.map { TranslationCollection.Line(it.text, it.translation, it.kind) }
+                    val lines = pages.values.flatMap { it.blocks }
+                        .filter { it.translation.isNotBlank() && !(skipSfx && it.kind.equals(PageOcr.SFX, ignoreCase = true)) }
+                        .map { TranslationCollection.Line(it.text, it.translation, it.kind) }
                     collection.learn(src, tgt, translation.manga.id, glossaryStore.asMap(translation.manga.id), lines, TranslationCollection.Source.TEAM)
                 }
             }
@@ -719,7 +757,8 @@ class ChapterTranslator(
     private suspend fun recheck(pages: MutableMap<String, PageTranslation>, glossary: Map<String, String>, translation: Translation) {
         val latin = translation.toLang.code !in NON_LATIN_TARGETS
         val flagged = pages.mapNotNull { (name, page) ->
-            val bad = page.blocks.filter {
+            // Sound effects are left as drawn on purpose: never "fixed" here
+            val bad = page.blocks.filterNot { it.kind.equals(PageOcr.SFX, ignoreCase = true) }.filter {
                 QualityCheck.check(it.text, it.translation, glossary, latin) != null ||
                     // Far more than fits its (real, detected) bubble: asked again, with the size it has
                     (it.hasBubble && it.translation.length > bubbleCharBudget(it) * OVERFLOW_FACTOR)
@@ -739,24 +778,83 @@ class ChapterTranslator(
         } finally {
             ai?.fitHints = false
         }
-        // A second try that is no better keeps the first one
-        before.forEach { (block, old) -> if (block.translation.isBlank()) block.translation = old }
+        // MANHWA: the second try is kept only when it is better: it passes the check where the first failed, or
+        // fails no worse and fits its bubble better
+        before.forEach { (block, old) ->
+            val new = block.translation
+            val newBad = new.isBlank() || QualityCheck.check(block.text, new, glossary, latin) != null
+            val oldBad = QualityCheck.check(block.text, old, glossary, latin) != null
+            val budget = if (block.hasBubble) bubbleCharBudget(block) * OVERFLOW_FACTOR else Int.MAX_VALUE.toFloat()
+            val better = when {
+                new.isBlank() -> false
+                oldBad && !newBad -> true
+                !oldBad && newBad -> false
+                else -> (new.length <= budget) || new.length < old.length
+            }
+            if (!better) block.translation = old
+        }
+    }
+
+    /**
+     * MANHWA: the bubbles worth a second look by the editor when the whole chapter is not reviewed: still failing the
+     * automatic check, read with low OCR confidence, carrying a name found in this chapter, or longer than their
+     * bubble. Each with why, so the editor looks at the right thing. At most [MAX_DOUBTS].
+     */
+    private fun doubtful(
+        pages: Map<String, PageTranslation>,
+        glossary: Map<String, String>,
+        translation: Translation,
+        newTerms: Set<String>,
+    ): Map<TranslationBlock, String> {
+        val latin = translation.toLang.code !in NON_LATIN_TARGETS
+        val result = LinkedHashMap<TranslationBlock, String>()
+        for (page in pages.values) {
+            for (block in page.blocks) {
+                if (block.translation.isBlank() || block.kind.equals(PageOcr.SFX, ignoreCase = true)) continue
+                val why = when {
+                    QualityCheck.check(block.text, block.translation, glossary, latin) != null -> "failed the automatic check"
+                    block.ocrConfidence < AiTranslator.UNSURE_OCR -> "OCR reading uncertain"
+                    block.hasBubble && block.translation.length > bubbleCharBudget(block) * OVERFLOW_FACTOR -> "too long for its bubble"
+                    newTerms.any { term -> term.length >= 2 && block.text.contains(term, ignoreCase = true) } -> "has a name new in this chapter"
+                    else -> null
+                }
+                if (why != null) result[block] = why
+                if (result.size >= MAX_DOUBTS) return result
+            }
+        }
+        return result
     }
 
     /**
      * MANHWA editor (accurate mode): the team's lead reads the chapter and corrects only what is wrong. Returns
      * the corrected lines, for the collection.
      */
-    private suspend fun edit(ai: AiTranslator, pages: Map<String, PageTranslation>, mangaId: Long, title: String): List<TranslationCollection.Line> {
+    private suspend fun edit(
+        ai: AiTranslator,
+        pages: Map<String, PageTranslation>,
+        mangaId: Long,
+        title: String,
+        only: Map<TranslationBlock, String>? = null,
+    ): List<TranslationCollection.Line> {
         ai.glossary = glossaryStore.asMap(mangaId)
         ai.glossaryNotes = glossaryStore.notes(mangaId)
         ai.storySoFar = glossaryStore.storySoFar(mangaId)
         ai.lessons = lessonStore.forPrompt(mangaId)
         try {
-            val blocks = pages.entries.flatMap { (name, page) -> page.blocks.mapIndexed { i, block -> "$name#$i" to block } }
-                .filter { it.second.translation.isNotBlank() }
+            val all = pages.entries.flatMap { (name, page) -> page.blocks.mapIndexed { i, block -> "$name#$i" to block } }
+            val blocks = all
+                .filter { it.second.translation.isNotBlank() && !it.second.kind.equals(PageOcr.SFX, ignoreCase = true) }
+                .filter { only == null || it.second in only }
                 .toMap()
-            val fixes = ai.review(blocks.mapValues { (_, block) -> block.text to block.translation })
+            // Each line with its kind and the two bubbles before it, so tone and pronouns are judged in context
+            val position = all.withIndex().associate { (i, entry) -> entry.first to i }
+            val context = blocks.mapValues { (id, block) ->
+                val at = position.getValue(id)
+                val before = (maxOf(0, at - 2) until at).map { all[it].second }.filter { it.translation.isNotBlank() }
+                    .map { "${it.text.take(80)} => ${it.translation.take(80)}" }
+                AiTranslator.ReviewContext(kind = block.kind, before = before, why = only?.get(block).orEmpty())
+            }
+            val fixes = ai.review(blocks.mapValues { (_, block) -> block.text to block.translation }, context)
             return fixes.mapNotNull { (id, text) ->
                 val block = blocks[id] ?: return@mapNotNull null
                 // Every fix is a lesson for the next chapters
@@ -892,7 +990,7 @@ class ChapterTranslator(
         }
     }
 
-    private companion object {
+    companion object {
         /** How often the watchdog looks, and how long without any progress counts as stuck. */
         const val WATCH_MS = 5_000L
         const val STALL_MS = 180_000L
@@ -908,6 +1006,12 @@ class ChapterTranslator(
 
         /** A translation this many times longer than its bubble holds is asked again. */
         const val OVERFLOW_FACTOR = 1.8f
+
+        /** Most bubbles the editor looks at again when the whole chapter is not reviewed. */
+        const val MAX_DOUBTS = 40
+
+        /** Most unsure bubbles read again from their image per chapter. */
+        const val MAX_REREAD = 30
 
         /** Target languages not written in Latin letters (English words left in them are a mistake). */
         val NON_LATIN_TARGETS = setOf("ar", "fa", "ur", "he", "ru", "uk", "bg", "el", "hi", "bn", "th", "zh", "ja", "ko")

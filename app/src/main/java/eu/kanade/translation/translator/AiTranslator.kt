@@ -146,6 +146,28 @@ class AiTranslator(
 
     class TermInfo(val kind: String, val gender: String)
 
+    /**
+     * MANHWA: reads the text of bubbles again from their own images (id to JPEG), for readings the OCR is not sure
+     * of. Returns id to the exact source text; an image with no readable text is left out.
+     */
+    suspend fun reread(crops: List<kotlin.Pair<String, ByteArray>>): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        val system = "You read text in comic panels. Each image is one bubble or caption of a ${fromLang.label} comic, after its id. " +
+            "Transcribe exactly the ${fromLang.label} text you see in each image, line breaks as spaces. Do not translate or explain. " +
+            "If an image has no readable text, give \"\". Reply with ONLY a JSON object {\"<id>\": \"<text>\"}."
+        for (chunk in crops.chunked(REREAD_PER_CALL)) {
+            val parts = chunk.flatMap { (id, jpeg) -> listOf(Part.Text("Bubble $id:"), Part.Image(jpeg)) }
+            val reply = withRetry { parse(request(system, parts)) }
+            chunk.forEach { (id, _) ->
+                (reply[id] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }?.let { result[id] = it }
+            }
+        }
+        return result
+    }
+
+    /** MANHWA editor context for one line: its bubble kind, the lines just before it, and why it was flagged. */
+    class ReviewContext(val kind: String = "", val before: List<String> = emptyList(), val why: String = "")
+
     /** MANHWA: what happened in the chapters before (a few lines), given as context. Empty: as before. */
     var storySoFar: String = ""
 
@@ -163,6 +185,12 @@ class AiTranslator(
      * who-speaks-to-whom carry on from page to page and between the team's batches. Empty: as before.
      */
     var recentLines: List<kotlin.Pair<String, String>> = emptyList()
+
+    /**
+     * MANHWA: sound effects drawn as art are not translated: the model gives them "" and the sfx kind, and the
+     * page keeps them exactly as drawn. Off: they are translated briefly, as before.
+     */
+    var skipSfx: Boolean = false
 
     /** MANHWA: also ask a one-line summary of each batch, collected in [summaries]. Off: as before. */
     var askSummary: Boolean = false
@@ -244,41 +272,91 @@ class AiTranslator(
         }
     }
 
+    /**
+     * Text mode. MANHWA: every bubble goes with its own id ("0", "1"...) and comes back under it, so one bubble the
+     * model skips never shifts the others onto the wrong bubbles; the ones still missing are asked again alone.
+     */
     private suspend fun translateTextBatch(
         batch: List<String>,
         pages: MutableMap<String, PageTranslation>,
         context: ArrayDeque<String>,
     ) {
         if (batch.isEmpty()) return
-        val input = buildJsonObject {
-            batch.forEach { name ->
-                putJsonArray(name) {
-                    pages[name]!!.blocks.forEach {
-                        add(if (useDrafts && it.translation.isNotBlank()) "${it.text} $DRAFT_MARK ${it.translation}" else it.text)
-                    }
+        var todo: Map<String, List<Int>> = batch.associateWith { name -> pages[name]!!.blocks.indices.toList() }
+        val done = HashMap<String, HashMap<Int, String>>()
+        val kinds = HashMap<String, HashMap<Int, String>>()
+        for (attempt in 0..MISSING_RETRIES) {
+            if (todo.values.all { it.isEmpty() }) break
+            val input = textInput(todo, pages)
+            val output = withRetry { parse(request(systemPrompt(vision = false), listOf(Part.Text(userPrompt(input, context))))) }
+            // Terms and the summary come from the full batch only, not from a retry of a few bubbles
+            if (attempt == 0) collectTerms(output)
+            val kindsOut = output[KINDS_KEY] as? JsonObject
+            todo = todo.mapValues { (name, ids) ->
+                val got = byId(output[name])
+                val gotKinds = byId(kindsOut?.get(name))
+                ids.filter { id ->
+                    gotKinds[id]?.takeIf { it.isNotBlank() }?.let { kinds.getOrPut(name) { HashMap() }[id] = it }
+                    val text = got[id]
+                    if (text != null) done.getOrPut(name) { HashMap() }[id] = text
+                    text == null
                 }
             }
-            if (fitHints) {
-                putJsonObject(LIMITS_KEY) {
-                    batch.forEach { name -> putJsonArray(name) { pages[name]!!.blocks.forEach { add(bubbleCharBudget(it)) } } }
-                }
-            }
+            val missing = todo.values.sumOf { it.size }
+            if (missing > 0 && attempt < MISSING_RETRIES) logcat(LogPriority.WARN) { "$missing bubbles missing from the reply, asking them again" }
         }
-        val output = withRetry { parse(request(systemPrompt(vision = false), listOf(Part.Text(userPrompt(input, context))))) }
-        collectTerms(output)
-        val kinds = output[KINDS_KEY] as? JsonObject
         for (name in batch) {
             val page = pages[name]!!
-            val translated = (output[name] as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull }
-            val pageKinds = (kinds?.get(name) as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull }
             page.blocks.forEachIndexed { i, block ->
-                block.translation = translated?.getOrNull(i)?.takeIf { it.isNotBlank() }
-                    ?.let { TextSanitizer.clean(it, block.text, toLang) } ?: block.text
-                pageKinds?.getOrNull(i)?.let { block.kind = it }
-                context.remember(block.translation)
+                kinds[name]?.get(i)?.let { block.kind = it }
+                val text = done[name]?.get(i)
+                val sfx = block.kind.equals(SFX_KIND, ignoreCase = true)
+                block.translation = when {
+                    // A sound effect left as drawn: no translation, nothing erased
+                    text.isNullOrBlank() && skipSfx && sfx -> ""
+                    text.isNullOrBlank() -> block.text
+                    else -> TextSanitizer.clean(text, block.text, toLang)
+                }
+                if (block.translation.isNotBlank()) context.remember(block.translation)
             }
             page.blocks = page.blocks.filterNot { it.translation.contains(WATERMARK) }.toMutableList()
         }
+    }
+
+    /** The text-mode request for the bubbles [todo] of each page, by id, with their sizes and the unsure readings. */
+    private fun textInput(todo: Map<String, List<Int>>, pages: Map<String, PageTranslation>): JsonObject = buildJsonObject {
+        todo.forEach { (name, ids) ->
+            if (ids.isEmpty()) return@forEach
+            val blocks = pages[name]!!.blocks
+            putJsonObject(name) {
+                ids.forEach { i ->
+                    val block = blocks[i]
+                    put("$i", if (useDrafts && block.translation.isNotBlank()) "${block.text} $DRAFT_MARK ${block.translation}" else block.text)
+                }
+            }
+        }
+        if (fitHints) {
+            putJsonObject(LIMITS_KEY) {
+                todo.forEach { (name, ids) ->
+                    if (ids.isEmpty()) return@forEach
+                    val blocks = pages[name]!!.blocks
+                    putJsonObject(name) { ids.forEach { i -> put("$i", bubbleCharBudget(blocks[i])) } }
+                }
+            }
+        }
+        // MANHWA: readings the OCR is not sure of, to be rebuilt from the context before translating
+        val unsure = todo.mapValues { (name, ids) -> ids.filter { pages[name]!!.blocks[it].ocrConfidence < UNSURE_OCR } }
+            .filterValues { it.isNotEmpty() }
+        if (unsure.isNotEmpty()) {
+            putJsonObject(UNSURE_KEY) { unsure.forEach { (name, ids) -> putJsonArray(name) { ids.forEach { add("$it") } } } }
+        }
+    }
+
+    /** A page of the reply: id to text, from the id object asked for, or a plain list in order from older models. */
+    private fun byId(value: kotlinx.serialization.json.JsonElement?): Map<Int, String> = when (value) {
+        is JsonObject -> value.mapNotNull { (key, v) -> key.trim().toIntOrNull()?.let { id -> (v as? JsonPrimitive)?.contentOrNull?.let { id to it } } }.toMap()
+        is JsonArray -> value.mapIndexedNotNull { i, v -> (v as? JsonPrimitive)?.contentOrNull?.let { i to it } }.toMap()
+        else -> emptyMap()
     }
 
     private suspend fun translateVisionBatch(
@@ -335,6 +413,7 @@ class AiTranslator(
                     // without a translation so its lines are still erased with that bubble (PageOcr.finish)
                     translation.isNullOrBlank() -> {
                         block.translation = ""
+                        bubble.string("kind")?.let { block.kind = it }
                         kept += block
                     }
                     else -> {
@@ -468,7 +547,10 @@ class AiTranslator(
      * corrects (wrong meaning, a name not as in the glossary, a gender that does not match the character,
      * awkward wording), as id to the corrected translation.
      */
-    suspend fun review(lines: Map<String, kotlin.Pair<String, String>>): Map<String, String> {
+    suspend fun review(
+        lines: Map<String, kotlin.Pair<String, String>>,
+        context: Map<String, ReviewContext> = emptyMap(),
+    ): Map<String, String> {
         if (lines.isEmpty()) return emptyMap()
         val system = buildString {
             appendLine("You are the final editor of a ${fromLang.label} comic translated into ${toLang.label}. Reply with JSON only.")
@@ -490,6 +572,12 @@ class AiTranslator(
                     putJsonObject(id) {
                         put("src", pair.first)
                         put("tr", pair.second)
+                        // MANHWA: what kind of bubble it is and what was said just before, to judge tone and pronouns
+                        context[id]?.let { ctx ->
+                            if (ctx.kind.isNotBlank()) put("kind", ctx.kind)
+                            if (ctx.before.isNotEmpty()) put("before", ctx.before.joinToString(" / "))
+                            if (ctx.why.isNotBlank()) put("check", ctx.why)
+                        }
                     }
                 }
             }
@@ -497,6 +585,9 @@ class AiTranslator(
                 appendLine("Check every translation against its source, in order (they are consecutive bubbles of the chapter).")
                 appendLine("Fix only real problems: wrong meaning, names not as in the glossary, verbs/pronouns that do not match")
                 appendLine("the character's gender, unnatural or too literal wording, text left untranslated. Keep good lines as they are.")
+                appendLine("\"kind\" is the bubble type (shout, thought, system...), \"before\" the bubbles just before it: keep the speaker's voice")
+                appendLine("and tone, and pronouns consistent with them. \"check\" says why a line was flagged: look at it closely; if the")
+                appendLine("source itself looks misread by OCR, translate what it most likely says.")
                 appendLine("Reply as {\"fixes\": {\"<id>\": \"<corrected translation>\"}} with only the lines you changed ({} if none).")
                 append(input.toString())
             }
@@ -576,18 +667,25 @@ class AiTranslator(
             appendLine()
             appendLine("Rules:")
             appendLine("1. Return every OCR id. Read the image to correct the OCR text. If an entry is not real text (art, noise), set its translation to \"\".")
-            appendLine("   In \"missed\", add only speech bubbles, captions or meaningful sound effects that the OCR did not list, with a tight box_2d in that slice.")
+            if (skipSfx) {
+                appendLine("   In \"missed\", add only speech bubbles or captions that the OCR did not list (never sound effects), with a tight box_2d in that slice.")
+            } else {
+                appendLine("   In \"missed\", add only speech bubbles, captions or meaningful sound effects that the OCR did not list, with a tight box_2d in that slice.")
+            }
         } else {
-            appendLine("Source language: ${fromLang.label}. Input is a JSON object: keys are page image names,")
-            appendLine("values are the OCR'd speech bubbles of that page in reading order.")
+            appendLine("Source language: ${fromLang.label}. Input is a JSON object: keys are page image names, values are the")
+            appendLine("OCR'd bubbles of that page in reading order, as an object of bubble id -> source text.")
             appendLine()
             appendLine("Rules:")
-            appendLine("1. Reply with ONLY a JSON object with exactly the same page keys (plus \"$TERMS_KEY\" and \"$KINDS_KEY\" when asked), and the same number of strings per key in the same order.")
+            appendLine("1. Reply with ONLY a JSON object with exactly the same page keys (plus \"$TERMS_KEY\" and \"$KINDS_KEY\" when asked); each page is an object")
+            appendLine("   of bubble id -> translation with EVERY id of the input, never merged, skipped or renumbered: {\"page\": {\"0\": \"...\", \"1\": \"...\"}}.")
+            appendLine("   \"$UNSURE_KEY\", when present, lists per page the ids whose OCR reading is uncertain: rebuild the intended words from the")
+            appendLine("   neighbouring bubbles, the scene and the glossary before translating them. Do not output it.")
         }
         appendLine("0. kind of each bubble is one of: speech, shout (yelling, battle cries), thought (inner voice, whisper),")
         appendLine("   narration (captions), system (game/status windows, notifications), sfx (sound effects).")
         if (!vision) {
-            appendLine("   In text mode add a top-level key \"$KINDS_KEY\" with the same page keys, listing the kind of every bubble in order.")
+            appendLine("   In text mode add a top-level key \"$KINDS_KEY\" with the same page keys, each an object of bubble id -> kind.")
         }
         appendLine("2. Write natural, fluent $target the way a skilled human localizer would: keep each character's voice, tone and emotion, adapt idioms, and keep lines short enough to fit a speech bubble.")
         if (fitHints) {
@@ -601,7 +699,12 @@ class AiTranslator(
         }
         appendLine("3. OCR text can be noisy or split mid-sentence: use the neighbouring bubbles to recover the intended meaning and silently fix obvious OCR mistakes.")
         appendLine("4. Keep names of people, places, sects and techniques consistent across the chapter and with the glossary.")
-        appendLine("5. Translate sound effects briefly; keep strings made only of punctuation or symbols unchanged.")
+        if (skipSfx) {
+            appendLine("5. Sound effects drawn as art (onomatopoeia: bangs, booms, whooshes, heartbeats) are NOT translated: give them \"\" and the kind sfx.")
+            appendLine("   Spoken interjections inside a speech bubble are dialogue, not sound effects. Keep strings made only of punctuation or symbols unchanged.")
+        } else {
+            appendLine("5. Translate sound effects briefly; keep strings made only of punctuation or symbols unchanged.")
+        }
         appendLine("6. Replace watermarks, scanlation credits, site names and URLs with exactly \"$WATERMARK\".")
         if (toLang == TextTranslatorLanguage.ARABIC) {
             appendLine("7. Use clear Modern Standard Arabic suited to comics, with Arabic punctuation (، ؟ !).")
@@ -618,7 +721,7 @@ class AiTranslator(
         } else {
             appendLine("   put window titles, ranks and skill names in [ ].")
         }
-        appendLine("   sfx: one short sound word.")
+        appendLine(if (skipSfx) "   sfx: \"\" (left as drawn)." else "   sfx: one short sound word.")
         appendLine("9. Once a skill, rank, title or item has a translation in these pages or the glossary, use exactly the same one every time.")
         if (useDrafts) {
             appendLine()
@@ -948,7 +1051,7 @@ class AiTranslator(
         }
     }
 
-    private companion object {
+    companion object {
         const val DRAFT_MARK = "|||"
         val FALLBACK_MODELS = mapOf(
             Provider.GEMINI to listOf("gemini-flash-latest", "gemini-flash-lite-latest"),
@@ -972,6 +1075,13 @@ class AiTranslator(
 
         const val REVIEW_LINES = 120
         const val KINDS_KEY = "_kinds"
+        const val UNSURE_KEY = "_unsure"
+        const val SFX_KIND = "sfx"
+
+        /** Below this OCR confidence a reading is called uncertain (and re-read from the image when a key can). */
+        const val UNSURE_OCR = 0.6f
+        private const val MISSING_RETRIES = 1
+        private const val REREAD_PER_CALL = 12
         const val MAX_GLOSSARY = 200
         const val WATERMARK = "RTMTH"
         const val BATCH_LINES = 120

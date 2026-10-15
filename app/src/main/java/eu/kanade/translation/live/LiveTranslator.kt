@@ -34,6 +34,7 @@ import eu.kanade.translation.translator.GoogleTranslator
 import eu.kanade.translation.translator.TextTranslator
 import eu.kanade.translation.translator.TextTranslatorLanguage
 import eu.kanade.translation.translator.TextTranslators
+import eu.kanade.translation.ChapterTranslator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -417,11 +418,14 @@ class LiveTranslator(
             val stream = page.stream ?: return null
             val bytes = stream().use { it.readBytes() }
             val images = mutableMapOf<String, PageImage>()
+            // MANHWA: sound effects stay as drawn, neither translated nor erased
+            val skipSfx = preferences.translationSkipSfx().get()
             val result: PageTranslation = HeavyWork.reader<PageTranslation?> {
                 val decoded = PageImageProcessor.decode { ByteArrayInputStream(bytes) } ?: return@reader null
                 try {
                     // OCR ran on the downscaled bitmap (in strips for tall pages); boxes go back to the real page size
                     PageOcr.recognize(ocr, decoded.bitmap).rescaled(1f / decoded.scale).also {
+                        if (skipSfx) it.blocks.removeAll { b -> b.kind.equals(PageOcr.SFX, ignoreCase = true) }
                         PageImageProcessor.prepare(it, decoded)
                         if (engine.aiPart != null && preferences.translationVision().get()) {
                             images[KEY] = PageImageProcessor.tiles(decoded)
@@ -458,6 +462,9 @@ class LiveTranslator(
                 glossaryNotes = id?.let(glossaryStore::notes).orEmpty()
                 lessons = id?.let(lessonStore::forPrompt).orEmpty()
                 fitHints = true
+                // MANHWA: the story so far too, as for whole chapters
+                storySoFar = id?.let(glossaryStore::storySoFar).orEmpty()
+                this.skipSfx = skipSfx
             }
             val work = if (known.isEmpty()) result else result.copy(blocks = result.blocks.filterTo(mutableListOf()) { it !in known })
             val map = mutableMapOf(KEY to work)
@@ -471,11 +478,31 @@ class LiveTranslator(
             }
             try {
                 if (work.blocks.isNotEmpty() || known.isEmpty()) engine.translate(map, images)
+                // MANHWA quick check: bubbles left untranslated, too long or missing a glossary name are asked once
+                // more; the new answer stays only when it passes where the first did not
+                val checkGlossary = id?.let(glossaryStore::asMap).orEmpty()
+                val latin = to.code !in ChapterTranslator.NON_LATIN_TARGETS
+                val bad = work.blocks.filter {
+                    it.translation.isNotBlank() && !it.kind.equals(PageOcr.SFX, ignoreCase = true) &&
+                        eu.kanade.translation.team.QualityCheck.check(it.text, it.translation, checkGlossary, latin) != null
+                }
+                if (bad.isNotEmpty() && engine.aiPart != null) {
+                    val before = bad.associateWith { it.translation }
+                    runCatching { engine.translate(mutableMapOf(KEY to work.copy(blocks = bad.toMutableList()))) }
+                        .onFailure { if (it is CancellationException) throw it }
+                    before.forEach { (block, old) ->
+                        val fixed = block.translation.isNotBlank() &&
+                            eu.kanade.translation.team.QualityCheck.check(block.text, block.translation, checkGlossary, latin) == null
+                        if (!fixed) block.translation = old
+                    }
+                }
             } finally {
                 engine.aiPart?.apply {
                     glossaryNotes = emptyMap()
                     lessons = ""
                     fitHints = false
+                    storySoFar = ""
+                    this.skipSfx = false
                 }
             }
             if (known.isNotEmpty()) {
@@ -501,7 +528,7 @@ class LiveTranslator(
                 }
             }
             // One translation per place: duplicates and empty pieces merged, nothing drawn twice
-            PageOcr.finish(result)
+            PageOcr.finish(result, keepSfxArt = skipSfx)
             editStore.restore(result, "l${page.chapter.chapter.id}", "${page.index}")
             if (id != null) engine.aiPart?.let { glossaryStore.merge(id, it.discoveredTerms) }
             // MANHWA: what this page taught goes into the collection too
@@ -511,7 +538,7 @@ class LiveTranslator(
                     to.name,
                     id,
                     glossaryStore.asMap(id),
-                    result.blocks.map { TranslationCollection.Line(it.text, it.translation, it.kind) },
+                    result.blocks.filter { it.translation.isNotBlank() }.map { TranslationCollection.Line(it.text, it.translation, it.kind) },
                     TranslationCollection.Source.TEAM,
                 )
             }

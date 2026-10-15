@@ -63,6 +63,19 @@ class TeamTranslator(
      */
     @Volatile private var recent: List<kotlin.Pair<String, String>> = emptyList()
 
+    /**
+     * MANHWA: in a chapter, the lines of every finished page by its place in the chapter. A batch gets the lines of
+     * the pages right BEFORE it as context, never those of later pages that happened to finish first.
+     */
+    private val pageLines = java.util.concurrent.ConcurrentHashMap<Int, List<kotlin.Pair<String, String>>>()
+
+    private fun linesOf(page: PageTranslation): List<kotlin.Pair<String, String>> = page.blocks
+        .filter { it.translation.isNotBlank() && it.text.isNotBlank() }
+        .map { it.text to it.translation }
+
+    private fun contextBefore(position: Int): List<kotlin.Pair<String, String>> =
+        pageLines.filterKeys { it < position }.toSortedMap().values.flatten().takeLast(RECENT_LINES)
+
     private fun remember(translated: Collection<PageTranslation>) {
         val lines = translated.flatMap { page -> page.blocks }
             .filter { it.translation.isNotBlank() && it.text.isNotBlank() }
@@ -79,7 +92,10 @@ class TeamTranslator(
     override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
         fellBack = false
         learnt = emptyMap()
-        if (lane != AiRouter.Lane.LIVE) recent = emptyList()
+        if (lane != AiRouter.Lane.LIVE) {
+            recent = emptyList()
+            pageLines.clear()
+        }
         if (pages.isEmpty()) return
         // The page being read with more than one key: the keys race when the first one is slow
         if (lane == AiRouter.Lane.LIVE && members.size > 1) return translateRacing(pages, images)
@@ -137,6 +153,7 @@ class TeamTranslator(
                         while (true) {
                             val batch = take(member, vision) ?: break
                             val translator = store.translatorFor(member, fromLang, toLang, lane).also(::shareSettings)
+                            if (lane != AiRouter.Lane.LIVE) translator.recentLines = contextBefore(batch.pages.minOf { order.getValue(it) })
                             val part = batch.pages.associateWithTo(mutableMapOf()) { pages.getValue(it) }
                             val partImages = if (vision) images.filterKeys { it in batch.pages } else emptyMap()
                             val started = System.currentTimeMillis()
@@ -166,6 +183,7 @@ class TeamTranslator(
                                 if (ok) {
                                     gather(translator, summaries, batch.pages.minOf { order.getValue(it) })
                                     remember(part.values)
+                                    part.forEach { (name, page) -> pageLines[order.getValue(name)] = linesOf(page) }
                                     onPagesDone?.invoke(part.toMap())
                                     done++
                                     lead.onBatchDone?.invoke(done, total)
@@ -306,6 +324,7 @@ class TeamTranslator(
         translator.fitHints = lead.fitHints
         translator.askSummary = lead.askSummary
         translator.useDrafts = lead.useDrafts
+        translator.skipSfx = lead.skipSfx
         // With other keys around, a busy key hands its batch over at once instead of waiting
         translator.fastFail = members.size > 1
     }
@@ -330,6 +349,22 @@ class TeamTranslator(
             editor.lessons = lead.lessons
             block(editor)
         }
+
+    /**
+     * MANHWA: bubbles the OCR is not sure of, read again from their own image by a key that sees images. Returns id to
+     * the corrected source text; empty when no key can read images or the call failed (the OCR reading stays).
+     */
+    suspend fun reread(crops: List<kotlin.Pair<String, ByteArray>>): Map<String, String> {
+        if (crops.isEmpty()) return emptyMap()
+        return runCatching {
+            store.router.ask(
+                AiRouter.Lane.CHAPTER,
+                fromLang,
+                toLang,
+                prefer = { store.analysis.value[it.id]?.vision == true },
+            ) { reader -> reader.reread(crops) }
+        }.onFailure { if (it is CancellationException) throw it }.getOrDefault(emptyMap())
+    }
 
     override fun close() {
         lead.close()

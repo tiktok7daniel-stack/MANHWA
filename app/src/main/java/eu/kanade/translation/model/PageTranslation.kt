@@ -38,6 +38,10 @@ data class TranslationBlock(
     // Bubble background sampled from the page (ARGB, 0 = unknown) and a readable text colour on top of it
     var bgColor: Int = 0,
     var textColor: Int = 0xFF000000.toInt(),
+    // MANHWA: the colour of the original letters' outline (ARGB, 0 = none): the translation gets it too
+    var strokeColor: Int = 0,
+    // MANHWA: how sure the OCR is of this reading (0..1, 1 for translations saved before it was kept)
+    var ocrConfidence: Float = 1f,
     // Bubble kind from the AI: speech, shout, thought, narration, system or sfx ("" = unknown)
     var kind: String = "",
     // The speech bubble around the text, found from the page pixels (page pixels, 0 = none found)

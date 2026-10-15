@@ -373,15 +373,19 @@ private class Typesetter(
             val bg = Color(block.bgColor.takeIf { it != 0 } ?: 0xFFFFFFFF.toInt()).copy(alpha = 1f)
             val fg = Color(block.textColor)
             val shout = dramatic && plan.kind == BubbleKind.SHOUT
+            // MANHWA: the original letters' outline colour, kept on the translation
+            val ownStroke = block.strokeColor.takeIf { it != 0 }?.let { Color(it) }
             val stroke = when {
                 plan.kind == BubbleKind.SFX -> size * 0.18f
                 shout -> size * 0.12f
+                ownStroke != null -> size * 0.09f
                 outline -> size * 0.08f
                 else -> 0f
             }
             val outlineColor = when {
                 // A shout stands out in the colour opposite to its letters
                 shout -> if (fg.luminance() > 0.5f) Color.Black else Color.White
+                ownStroke != null -> ownStroke
                 fg.luminance() > 0.5f -> Color.Black.copy(alpha = 0.75f)
                 else -> bg.copy(alpha = 0.95f)
             }

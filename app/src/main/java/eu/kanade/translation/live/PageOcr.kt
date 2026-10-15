@@ -49,16 +49,44 @@ object PageOcr {
             if (top + sh >= h) break
             top += sh - overlap
         }
-        return PageTranslation(mergeLines(found, w.toFloat()), w.toFloat(), h.toFloat())
+        return PageTranslation(markSfx(mergeLines(found, w.toFloat())), w.toFloat(), h.toFloat())
     }
 
     fun toPageTranslation(blocks: List<Text.TextBlock>, width: Int, height: Int): PageTranslation =
-        PageTranslation(mergeLines(toBlocks(blocks), width.toFloat()), width.toFloat(), height.toFloat())
+        PageTranslation(markSfx(mergeLines(toBlocks(blocks), width.toFloat())), width.toFloat(), height.toFloat())
+
+    /**
+     * MANHWA: marks sound effects drawn as art (huge letters, one short word, or a known onomatopoeia) with the
+     * sfx kind before anything is translated, so they can be left exactly as drawn.
+     */
+    private fun markSfx(blocks: MutableList<TranslationBlock>): MutableList<TranslationBlock> {
+        val heights = blocks.map { it.lineHeight() }.sorted()
+        val median = if (heights.size >= SFX_MIN_BLOCKS) heights[heights.size / 2] else 0f
+        blocks.forEach { if (looksLikeSfx(it, median)) it.kind = SFX }
+        return blocks
+    }
+
+    /** Whether [block] is a sound effect: a known onomatopoeia, or one short word in letters far bigger than the page's text. */
+    fun looksLikeSfx(block: TranslationBlock, medianLineHeight: Float): Boolean {
+        val compact = block.text.filterNot { it.isWhitespace() }
+        if (compact.isEmpty() || compact.length > SFX_MAX_CHARS) return false
+        if (block.text.trim().contains(' ') || compact.any { it in SENTENCE_MARKS }) return false
+        val letters = compact.filter { it.isLetter() }
+        if (letters.isEmpty()) return false
+        if (KNOWN_SFX.matches(letters.lowercase())) return true
+        // Hangul made only of the syllables sound effects are built from (쾅, 쿵쾅, 두근두근...)
+        if (letters.length <= 6 && letters.all { it in SFX_SYLLABLES } && letters.any { it in SFX_STRONG }) return true
+        // Short katakana with a small tsu or a long mark (ドン, バッ, ゴゴゴ...)
+        if (letters.length <= 6 && letters.all { it in '゠'..'ヿ' } && (letters.any { it == 'ッ' || it == 'ー' } || letters.toSet().size < letters.length)) return true
+        return medianLineHeight > 0f && block.lineHeight() > medianLineHeight * SFX_SIZE_FACTOR && letters.length <= SFX_BIG_CHARS
+    }
 
     private fun read(recognizer: TextRecognizer, bitmap: Bitmap): List<Text.TextBlock> =
         recognizer.recognize(InputImage.fromBitmap(bitmap, 0)).textBlocks.filter { it.boundingBox != null && it.text.length > 1 }
 
     private fun toBlocks(blocks: List<Text.TextBlock>): List<TranslationBlock> = blocks.mapNotNull { block ->
+        // MANHWA: the least sure line decides how sure the bubble is (a misread word spoils the whole line)
+        val confidence = block.lines.mapNotNull { line -> runCatching { line.confidence }.getOrNull()?.takeIf { it > 0f } }.minOrNull() ?: 1f
         val bounds = block.boundingBox ?: return@mapNotNull null
         val lines = block.lines.mapNotNull { line ->
             line.boundingBox?.let { LineBox(it.left.toFloat(), it.top.toFloat(), it.width().toFloat(), it.height().toFloat()) }
@@ -76,6 +104,7 @@ object PageOcr {
             x = bounds.left.toFloat(),
             y = bounds.top.toFloat(),
             lines = lines,
+            ocrConfidence = confidence,
         )
     }
 
@@ -138,6 +167,7 @@ object PageOcr {
             width = max(a.x + a.width, b.x + b.width) - left,
             height = max(a.y + a.height, b.y + b.height) - top,
             lines = (first.lineBoxes + second.lineBoxes).sortedBy { it.y },
+            ocrConfidence = min(a.ocrConfidence, b.ocrConfidence),
         )
     }
 
@@ -170,9 +200,10 @@ object PageOcr {
      * next to it) gives its lines to that bubble so they are erased too; boxes that overlap another one
      * (IoU over 0.15, or mostly inside it) are dropped and only the larger, merged one is drawn.
      */
-    fun finish(page: PageTranslation) {
-        // Bubbles from the vision model whose letters could not be found on the page are never drawn
-        val blocks = page.blocks.filterNot { it.needsSnap }.toMutableList()
+    fun finish(page: PageTranslation, keepSfxArt: Boolean = false) {
+        // Bubbles from the vision model whose letters could not be found on the page are never drawn, and
+        // (MANHWA) sound effects left untranslated stay as drawn: neither drawn over nor erased
+        val blocks = page.blocks.filterNot { it.needsSnap || (keepSfxArt && it.kind.equals(SFX, ignoreCase = true)) }.toMutableList()
         // 1. Empty pieces: erased with the nearest translated bubble, or dropped
         val empty = blocks.filter { it.translation.isBlank() }
         blocks.removeAll(empty)
@@ -255,4 +286,22 @@ object PageOcr {
     private const val MAX_HEIGHT = 0.6f
     private const val MAX_LINES = 12
     private const val NMS_IOU = 0.15f
+
+    const val SFX = "sfx"
+    private const val SFX_MIN_BLOCKS = 3
+    private const val SFX_MAX_CHARS = 10
+    private const val SFX_BIG_CHARS = 6
+    private const val SFX_SIZE_FACTOR = 2.2f
+    private val SENTENCE_MARKS = setOf('.', ',', '?', '"', '\'', ':', ';', '。', '、', '？', '…', '「', '」', '(', ')')
+    private val KNOWN_SFX = Regex(
+        "(boom|bam|bang|crash|thud|thump|whoosh|swish|swoosh|slash|click|clack|crack|snap|drip|buzz|rumble|shing|clang|" +
+            "zing|pow|wham|smash|splash|crunch|creak|thunk|whack|fwoosh|vroom|zap|ding|dong|tap|knock|grr+|kaboom|ba-?dump|" +
+            "badump|thwack)+!*",
+    )
+    /** Syllables almost only found in sound effects: at least one must be there (keeps words like 파악 out). */
+    private val SFX_STRONG = "쾅쿵퍽휙쉭탁툭펑콰쨍슉찰칵철컥꽈띵똑뚝쩍척칙쯧헉훅탕팡빵삐뎅쏴촤쫙짹두근".toSet()
+    private val SFX_SYLLABLES = (
+        "쾅쿵퍽휙쉭탁툭펑콰광앙두근철컥찰칵쨍슉휘익파앗직우지끈빠쿠궁덜털썩청꽈당부르지잉띵똑뚝드륵화번쩍스윽슥휭쏴짝팍빡뻑" +
+            "쿠웅쾅쩍척착칙쯧흡헉훅휴흑덜컹쿵탕팡빵삐릭딩동뎅쨍그랑와장창우르릉쿠르릉콰르릉쏴아촤악쫙짹"
+        ).toSet()
 }
