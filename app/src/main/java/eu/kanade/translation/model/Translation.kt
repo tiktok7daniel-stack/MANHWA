@@ -47,14 +47,13 @@ data class Translation(
     fun advance(stage: Stage, done: Int = 0, total: Int = 0) {
         _progress.update { old ->
             val percent = stage.percentAt(done, total).coerceAtLeast(old.percent)
-            Progress(
-                stage,
-                done,
-                total,
-                percent,
+            old.copy(
+                stage = stage,
+                done = done,
+                total = total,
+                percent = percent,
                 note = null,
-                library = old.library,
-                startedAt = old.startedAt,
+                detail = null,
                 updatedAt = System.currentTimeMillis(),
             )
         }
@@ -68,6 +67,11 @@ data class Translation(
     /** Share (0–100) of the chapter's lines that came straight from the translation collection. */
     fun fromLibrary(percent: Int) {
         _progress.update { it.copy(library = percent) }
+    }
+
+    /** How the chapter was split for the team (see [Plan]). */
+    fun planned(plan: Plan) {
+        _progress.update { it.copy(plan = plan) }
     }
 
     fun fail(reason: Note, detail: String?) {
@@ -99,6 +103,22 @@ data class Translation(
         }
     }
 
+    /**
+     * The chapter as the team saw it: its pages, how many are heavy, normal or light, how many needed nothing
+     * (no text, or every line came from the collection), the calls it takes, the keys working and the time it
+     * should take.
+     */
+    data class Plan(
+        val pages: Int,
+        val heavy: Int,
+        val normal: Int,
+        val light: Int,
+        val skipped: Int,
+        val requests: Int,
+        val keys: Int,
+        val estimateMs: Long,
+    )
+
     /** What the chapter is waiting on, or why it failed. */
     enum class Note { AI, RETRY, KEY_LIMIT, KEY_INVALID, READER, NO_INTERNET, STALLED, DOWNLOAD_FAILED, NOT_DOWNLOADED, SAVE_FAILED, OTHER }
 
@@ -113,6 +133,8 @@ data class Translation(
         val detail: String? = null,
         /** Share (0–100) of the lines written straight from the translation collection. */
         val library: Int = 0,
+        /** How the team split the chapter, once it did. */
+        val plan: Plan? = null,
         val startedAt: Long = System.currentTimeMillis(),
         /** Last time real work moved forward. */
         val updatedAt: Long = System.currentTimeMillis(),

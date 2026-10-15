@@ -54,4 +54,13 @@ class TranslationPreferences(
 
     /** Largest size of the translation collection on storage, in megabytes (0 = no limit). */
     fun translationCollectionLimitMb() = preferenceStore.getInt("manhwa_translation_collection_limit_mb", 1024)
+
+    /** Chapters translated from the manga screen use the translation team (when it has keys). */
+    fun translationTeamEnabled() = preferenceStore.getBoolean("manhwa_translation_team_enabled", true)
+
+    /** The team's keys, as JSON (see TeamStore). */
+    fun translationTeamMembers() = preferenceStore.getString("manhwa_translation_team_members", "[]")
+
+    /** What the last analysis found out about each key, as JSON (see TeamStore). */
+    fun translationTeamAnalysis() = preferenceStore.getString("manhwa_translation_team_analysis", "{}")
 }

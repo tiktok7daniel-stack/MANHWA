@@ -148,6 +148,12 @@ object SettingsTranslationScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(ATMR.strings.pref_group_advanced),
             preferenceItems = persistentListOf(
+                // MANHWA: the translation team: any number of keys working together on chapters
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(ATMR.strings.team_open),
+                    subtitle = stringResource(ATMR.strings.team_open_summary),
+                    onClick = { navigator.push(eu.kanade.translation.team.TranslationTeamScreen()) },
+                ),
                 // MANHWA: the translation collection, shared by every manhwa
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(ATMR.strings.col_open),

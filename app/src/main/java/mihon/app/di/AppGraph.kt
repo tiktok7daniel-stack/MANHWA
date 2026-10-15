@@ -100,6 +100,7 @@ interface AppGraph : ViewModelGraph {
     val translationManager: TranslationManager
     val glossaryStore: GlossaryStore
     val translationCollection: eu.kanade.translation.collection.TranslationCollection
+    val teamStore: eu.kanade.translation.team.TeamStore
     val translationEditStore: eu.kanade.translation.edit.TranslationEditStore
     val freshChaptersEngine: eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine
 

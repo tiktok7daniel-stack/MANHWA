@@ -106,6 +106,15 @@ class AiTranslator(
     val summaries = mutableListOf<String>()
 
     /**
+     * MANHWA team: a busy or failing call is handed back at once instead of being retried and moved to a
+     * lighter model here, so the team can give the work to another key. Off: as before.
+     */
+    var fastFail: Boolean = false
+
+    /** The model this translator uses now (it can change when a retired model is replaced). */
+    val currentModel: String get() = model
+
+    /**
      * MANHWA: progress for chapters translated from the manga screen: called after every batch with
      * (batches done, batches). Unset (the reader's live translation) nothing changes.
      */
@@ -687,6 +696,8 @@ class AiTranslator(
                     replaced++
                     return@repeat
                 }
+                // MANHWA team: no waiting here, the team hands the work to another key at once
+                if (fastFail) throw e
                 if (switchToFallback(e)) return@repeat
                 if (e is ApiException && e.code in 400..499 && e.code != 408 && e.code != 429) throw e
                 logcat(LogPriority.WARN, e) { "AI translation attempt ${attempt + 1} failed, retrying" }

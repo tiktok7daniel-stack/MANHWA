@@ -172,6 +172,16 @@ private fun failureText(note: Translation.Note) = when (note) {
     else -> ATMR.strings.tp_failed_other
 }
 
+/** The team's plan for a chapter, in two short lines ("18 pages: 4 heavy…", "5 calls · 3 keys · about 1:10"). */
+@Composable
+fun translationPlanLines(progress: Translation.Progress?): List<String> {
+    val plan = progress?.plan ?: return emptyList()
+    return listOf(
+        stringResource(ATMR.strings.tp_plan, plan.pages, plan.heavy, plan.normal, plan.light, plan.skipped),
+        stringResource(ATMR.strings.tp_plan_calls, plan.requests, plan.keys, formatDuration(plan.estimateMs)),
+    )
+}
+
 private fun formatDuration(ms: Long): String {
     val seconds = (ms / 1000).coerceAtLeast(0)
     return "%d:%02d".format(seconds / 60, seconds % 60)
@@ -252,6 +262,9 @@ private fun ProgressRing(
                 onClick = {},
                 enabled = false,
             )
+            translationPlanLines(progress).forEach { line ->
+                DropdownMenuItem(text = { Text(text = line) }, onClick = {}, enabled = false)
+            }
             if (progress != null && !queued) {
                 val elapsed = now - progress.startedAt
                 val left = if (percent in 5..99) elapsed * (100 - percent) / percent else null

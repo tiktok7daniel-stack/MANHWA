@@ -52,4 +52,4 @@ class HybridTranslator(
 
 /** The AI part of an engine, if any: the engine itself, or the AI pass of the hybrid engine. */
 val TextTranslator.aiPart: AiTranslator?
-    get() = this as? AiTranslator ?: (this as? HybridTranslator)?.ai
+    get() = this as? AiTranslator ?: (this as? HybridTranslator)?.ai ?: (this as? TeamTranslator)?.lead

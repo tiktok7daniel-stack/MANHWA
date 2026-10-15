@@ -18,6 +18,9 @@ import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.translation.collection.TextKey
 import eu.kanade.translation.collection.TranslationCollection
 import eu.kanade.translation.data.PageImage
+import eu.kanade.translation.team.ChapterPlanner
+import eu.kanade.translation.team.TeamStore
+import eu.kanade.translation.translator.TeamTranslator
 import java.util.Collections
 import java.util.IdentityHashMap
 import eu.kanade.translation.data.PageImageProcessor
@@ -84,6 +87,7 @@ class ChapterTranslator(
     private val translationPreferences: TranslationPreferences,
     private val glossaryStore: GlossaryStore,
     private val collection: TranslationCollection,
+    private val teamStore: TeamStore,
 ) {
 
     private val translationMutex = kotlinx.coroutines.sync.Mutex()
@@ -249,6 +253,28 @@ class ChapterTranslator(
         addToQueue(translation)
     }
 
+    /** What [textTranslator] was built for; a different signature means it has to be built again. */
+    private var builtFor = ""
+
+    /** MANHWA: the team's keys when the team is on and has some, otherwise the engine chosen in the settings. */
+    private fun teamMembers(): List<TeamStore.Member> =
+        if (translationPreferences.translationTeamEnabled().get()) teamStore.active() else emptyList()
+
+    private fun translatorSignature(translation: Translation): String {
+        val team = teamMembers().joinToString(",") { "${it.id}:${it.model}:${it.key.hashCode()}" }
+        return "${translation.fromLang}|${translation.toLang}|${translationPreferences.translationEngine().get()}|$team"
+    }
+
+    private fun buildTranslator(translation: Translation): TextTranslator {
+        val team = teamMembers()
+        return if (team.isNotEmpty()) {
+            TeamTranslator(translation.fromLang, translation.toLang, teamStore, team)
+        } else {
+            TextTranslators.fromPref(translationPreferences.translationEngine())
+                .build(translationPreferences, translation.fromLang, translation.toLang)
+        }
+    }
+
     /**
      * Pages already read (OCR) for chapters that failed later, so "try again" carries on from the translation
      * instead of reading every page again. Kept only for a few chapters.
@@ -270,13 +296,14 @@ class ChapterTranslator(
                 textRecognizer.close()
                 textRecognizer = TextRecognizer(translation.fromLang)
             }
-            // Check if translator reinitialization is needed
-            if (translation.fromLang != textTranslator.fromLang || translation.toLang != textTranslator.toLang) {
+            // Check if translator reinitialization is needed: other languages, another engine, or the team changed
+            val signature = translatorSignature(translation)
+            if (signature != builtFor) {
                 withContext(Dispatchers.IO) {
                     textTranslator.close()
                 }
-                textTranslator = TextTranslators.fromPref(translationPreferences.translationEngine())
-                    .build(translationPreferences, translation.fromLang, translation.toLang)
+                textTranslator = buildTranslator(translation)
+                builtFor = signature
             }
             // Directory where translations for a manga is stored
             val translationMangaDir = provider.getMangaDir(translation.manga.title, translation.source)
@@ -380,6 +407,21 @@ class ChapterTranslator(
                     if (rest.isEmpty()) null else name to page.copy(blocks = rest.toMutableList())
                 }.toMap(mutableMapOf())
                 val workImages = images.filterKeys { it in work }
+                // The team's plan for this chapter: what is heavy, how many calls, how long
+                (textTranslator as? TeamTranslator)?.onPlan = { plan, keys ->
+                    translation.planned(
+                        Translation.Plan(
+                            pages = streams.size,
+                            heavy = plan.count(ChapterPlanner.Level.HEAVY),
+                            normal = plan.count(ChapterPlanner.Level.NORMAL),
+                            light = plan.count(ChapterPlanner.Level.LIGHT),
+                            skipped = (streams.size - plan.levels.size).coerceAtLeast(0),
+                            requests = plan.batches.size,
+                            keys = keys,
+                            estimateMs = ChapterPlanner.estimateMs(plan, keys),
+                        ),
+                    )
+                }
                 translation.advance(Translation.Stage.TRANSLATING)
                 translation.note(if (ai != null && work.isNotEmpty()) Translation.Note.AI else null)
                 showProgress()

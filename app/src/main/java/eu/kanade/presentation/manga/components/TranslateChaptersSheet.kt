@@ -128,6 +128,9 @@ fun TranslateChaptersBar(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    translationPlanLines(batch.progress).firstOrNull()?.let { plan ->
+                        Text(plan, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant, maxLines = 1)
+                    }
                     if (batch.total > 1) {
                         Text(
                             stringResource(ATMR.strings.tc_total, (batch.done + 1).coerceAtMost(batch.total), batch.total, batch.totalPercent),
