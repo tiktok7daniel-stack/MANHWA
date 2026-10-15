@@ -295,7 +295,7 @@ object ScanlationRenderer {
             if (share < PLAIN_SHARE && residual > SMOOTH_RESIDUAL) {
                 // A busy drawing behind the text (speed lines, art): rebuilt from the area's edges
                 if (boxWhenBusy) rebuildFromEdges(px, w, h)?.let { bitmap.setPixels(it, 0, w, l, t, w, h) }
-                return averageOf(ring.ifEmpty { px }) to false
+                return averageOf(if (ring.isEmpty()) px else ring) to false
             }
             val modelAt = IntArray(n) { solved.at((it % w).toDouble(), (it / w).toDouble()) }
             // Groups of ink: one that reaches the edge is the outline or the drawing and is kept, unless most of
