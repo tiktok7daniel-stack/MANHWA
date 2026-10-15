@@ -114,6 +114,24 @@ class GlossaryStore(private val context: Context) {
 
     private fun storyFile(mangaId: Long) = File(File(context.filesDir, "story").apply { mkdirs() }, "$mangaId.json")
 
+    /** Every kept chapter summary, oldest first. */
+    fun story(mangaId: Long): List<ChapterSummary> = runCatching {
+        storyFile(mangaId).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<ChapterSummary>>(it) }
+    }.getOrNull().orEmpty()
+
+    /** Terms from a backup: the ones not known here are added; known ones keep theirs, only filling what they lack. */
+    fun importEntries(mangaId: Long, entries: List<Entry>) {
+        if (entries.isEmpty()) return
+        update(mangaId) { list ->
+            val known = list.associateBy { it.source.lowercase() }
+            val filled = list.map { entry ->
+                val other = entries.firstOrNull { it.source.equals(entry.source, ignoreCase = true) } ?: return@map entry
+                entry.copy(kind = entry.kind.ifBlank { other.kind }, gender = entry.gender.ifBlank { other.gender }, note = entry.note.ifBlank { other.note })
+            }
+            filled + entries.filter { it.source.isNotBlank() && it.source.lowercase() !in known }
+        }
+    }
+
     /** The last chapters' summaries, oldest first, to give the translator the story so far. */
     fun storySoFar(mangaId: Long): String = runCatching {
         storyFile(mangaId).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<ChapterSummary>>(it) }

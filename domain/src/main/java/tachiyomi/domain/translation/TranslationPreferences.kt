@@ -69,4 +69,7 @@ class TranslationPreferences(
 
     /** Accurate mode: after the team translates, its lead reviews the chapter and fixes what is wrong. */
     fun translationTeamAccurate() = preferenceStore.getBoolean("manhwa_translation_team_accurate", false)
+
+    /** While a chapter is read, the next one is translated in the background (off unless the reader turns it on). */
+    fun translationPretranslateNext() = preferenceStore.getBoolean("manhwa_translation_pretranslate_next", false)
 }

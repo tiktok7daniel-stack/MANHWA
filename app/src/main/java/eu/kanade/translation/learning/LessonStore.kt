@@ -115,6 +115,17 @@ class LessonStore(
         return (listOf(GLOBAL) + ids.filter { it != GLOBAL }).distinct().map { it to book(it) }
     }
 
+    /** Adds a backup's lessons and rules to [mangaId]'s (nothing here is removed). */
+    @Synchronized
+    fun mergeBook(mangaId: Long, other: Book, title: String) {
+        if (other.lessons.isEmpty() && other.rules.isEmpty()) return
+        val book = book(mangaId)
+        val lessons = (book.lessons + other.lessons.filter { o -> book.lessons.none { it.source == o.source && it.origin == o.origin } })
+            .sortedBy { it.at }
+            .takeLast(MAX_LESSONS)
+        write(mangaId, book.copy(lessons = lessons, rules = (book.rules + other.rules).distinct().take(MAX_RULES), title = book.title.ifBlank { title }))
+    }
+
     fun setRules(mangaId: Long, rules: List<String>) {
         write(mangaId, book(mangaId).copy(rules = rules.map { it.trim() }.filter { it.isNotBlank() }.take(MAX_RULES)))
     }

@@ -148,6 +148,12 @@ object SettingsTranslationScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(ATMR.strings.pref_group_advanced),
             preferenceItems = persistentListOf(
+                // MANHWA: the next chapter translated in the background while this one is read
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = prefs.translationPretranslateNext(),
+                    title = stringResource(ATMR.strings.pref_pretranslate_next),
+                    subtitle = stringResource(ATMR.strings.pref_pretranslate_next_summary),
+                ),
                 // MANHWA: the translation team: any number of keys working together on chapters
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(ATMR.strings.team_open),

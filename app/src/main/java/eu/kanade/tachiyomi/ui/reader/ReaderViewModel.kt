@@ -97,6 +97,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.isLocal
+import tachiyomi.domain.translation.TranslationPreferences
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -133,6 +134,7 @@ class ReaderViewModel(
     private val coverCache: CoverCache,
     private val chapterCache: ChapterCache,
     private val downloadCache: DownloadCache,
+    private val translationPreferences: TranslationPreferences,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -568,8 +570,38 @@ class ReaderViewModel(
         if (inDownloadRange) {
             downloadNextChapters()
         }
+        // MANHWA: halfway through, the next chapter starts translating in the background (setting, off by default)
+        if (page.number.toDouble() / pages.size > 0.5) {
+            pretranslateNextChapter()
+        }
 
         eventChannel.trySend(Event.PageChanged)
+    }
+
+    /** The next chapter already asked to be translated ahead, so it is asked once. */
+    private var pretranslatedChapterId: Long? = null
+
+    /**
+     * MANHWA: translates the next chapter from the manga screen's queue while this one is read, so it opens
+     * translated. It is fetched first when it is not downloaded. Its image work waits for the reader
+     * ([eu.kanade.translation.HeavyWork]), so reading stays smooth.
+     */
+    private fun pretranslateNextChapter() {
+        if (!translationPreferences.translationPretranslateNext().get()) return
+        val manga = manga ?: return
+        if (manga.isLocal()) return
+        val next = state.value.viewerChapters?.nextChapter?.chapter ?: return
+        if (pretranslatedChapterId == next.id) return
+        pretranslatedChapterId = next.id
+        appScope.launch(Dispatchers.IO) {
+            val downloaded = downloadManager.isChapterDownloaded(next.name, next.scanlator, next.url, manga.title, manga.source)
+            if (downloaded) {
+                translationManager.translateChapter(manga, next)
+            } else {
+                translationManager.translateAfterDownload += next.id
+                downloadManager.downloadChapters(manga, listOf(next))
+            }
+        }
     }
 
     private fun downloadNextChapters() {

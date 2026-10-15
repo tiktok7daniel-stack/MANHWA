@@ -393,6 +393,7 @@ class ChapterTranslator(
                     discoveredDetails.clear()
                     storySoFar = glossaryStore.storySoFar(translation.manga.id)
                     lessons = lessonStore.forPrompt(translation.manga.id)
+                    fitHints = true
                     askSummary = true
                     summaries.clear()
                     onBatchDone = { done, total ->
@@ -467,6 +468,7 @@ class ChapterTranslator(
                         richTerms = false
                         storySoFar = ""
                         lessons = ""
+                        fitHints = false
                         askSummary = false
                     }
                 }
@@ -645,7 +647,11 @@ class ChapterTranslator(
     private suspend fun recheck(pages: MutableMap<String, PageTranslation>, glossary: Map<String, String>, translation: Translation) {
         val latin = translation.toLang.code !in NON_LATIN_TARGETS
         val flagged = pages.mapNotNull { (name, page) ->
-            val bad = page.blocks.filter { QualityCheck.check(it.text, it.translation, glossary, latin) != null }
+            val bad = page.blocks.filter {
+                QualityCheck.check(it.text, it.translation, glossary, latin) != null ||
+                    // Far more than fits its (real, detected) bubble: asked again, with the size it has
+                    (it.hasBubble && it.translation.length > AiTranslator.charBudget(it) * OVERFLOW_FACTOR)
+            }
             if (bad.isEmpty()) null else name to page.copy(blocks = bad.toMutableList())
         }.toMap(mutableMapOf())
         if (flagged.isEmpty()) return
@@ -653,8 +659,14 @@ class ChapterTranslator(
         // The chapter's plan stays the one shown, not this small second pass
         (textTranslator as? TeamTranslator)?.onPlan = null
         val before = flagged.values.flatMap { it.blocks }.associateWith { it.translation }
-        runCatching { withWatchdog(translation) { textTranslator.translate(flagged) } }
-            .onFailure { if (it is CancellationException) throw it }
+        val ai = textTranslator.aiPart
+        ai?.fitHints = true
+        try {
+            runCatching { withWatchdog(translation) { textTranslator.translate(flagged) } }
+                .onFailure { if (it is CancellationException) throw it }
+        } finally {
+            ai?.fitHints = false
+        }
         // A second try that is no better keeps the first one
         before.forEach { (block, old) -> if (block.translation.isBlank()) block.translation = old }
     }
@@ -821,6 +833,9 @@ class ChapterTranslator(
 
         /** Below this many lines the chapter is too short to scout. */
         const val SCOUT_MIN_LINES = 8
+
+        /** A translation this many times longer than its bubble holds is asked again. */
+        const val OVERFLOW_FACTOR = 1.8f
 
         /** Target languages not written in Latin letters (English words left in them are a mistake). */
         val NON_LATIN_TARGETS = setOf("ar", "fa", "ur", "he", "ru", "uk", "bg", "el", "hi", "bn", "th", "zh", "ja", "ko")

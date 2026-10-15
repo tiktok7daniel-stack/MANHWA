@@ -100,6 +100,12 @@ class AiTranslator(
     /** MANHWA: what happened in the chapters before (a few lines), given as context. Empty: as before. */
     var storySoFar: String = ""
 
+    /**
+     * MANHWA: every bubble is sent with how many characters fit it, so translations come out the right length
+     * instead of shrinking the text. Off: as before.
+     */
+    var fitHints: Boolean = false
+
     /** MANHWA: rules and corrections learnt from earlier chapters, to follow. Empty: as before. */
     var lessons: String = ""
 
@@ -195,6 +201,11 @@ class AiTranslator(
                     pages[name]!!.blocks.forEach {
                         add(if (useDrafts && it.translation.isNotBlank()) "${it.text} $DRAFT_MARK ${it.translation}" else it.text)
                     }
+                }
+            }
+            if (fitHints) {
+                putJsonObject(LIMITS_KEY) {
+                    batch.forEach { name -> putJsonArray(name) { pages[name]!!.blocks.forEach { add(charBudget(it)) } } }
                 }
             }
         }
@@ -295,6 +306,7 @@ class AiTranslator(
             put("id", id)
             put("ocr", block.text)
             if (useDrafts && block.translation.isNotBlank()) put("draft", block.translation)
+            if (fitHints) put("max", charBudget(block))
             if (tile != null && page.imgWidth > 0) {
                 put("slice", tileIndex)
                 putJsonArray("box_2d") {
@@ -493,6 +505,15 @@ class AiTranslator(
             appendLine("   In text mode add a top-level key \"$KINDS_KEY\" with the same page keys, listing the kind of every bubble in order.")
         }
         appendLine("2. Write natural, fluent $target the way a skilled human localizer would: keep each character's voice, tone and emotion, adapt idioms, and keep lines short enough to fit a speech bubble.")
+        if (fitHints) {
+            appendLine(
+                if (vision) {
+                    "   Each bubble has \"max\": about how many characters fit it. Stay within it when you can (shorter wording, same meaning)."
+                } else {
+                    "   \"$LIMITS_KEY\" is not text to translate: it gives, per page, about how many characters fit each bubble. Stay within it when you can (shorter wording, same meaning). Do not output it."
+                },
+            )
+        }
         appendLine("3. OCR text can be noisy or split mid-sentence: use the neighbouring bubbles to recover the intended meaning and silently fix obvious OCR mistakes.")
         appendLine("4. Keep names of people, places, sects and techniques consistent across the chapter and with the glossary.")
         appendLine("5. Translate sound effects briefly; keep strings made only of punctuation or symbols unchanged.")
@@ -828,6 +849,20 @@ class AiTranslator(
         const val TERMS_KEY = "_terms"
         const val SUMMARY_KEY = "_summary"
         const val SCOUT_MAX_CHARS = 12_000
+        const val LIMITS_KEY = "_limits"
+
+        /**
+         * About how many characters of translation fit [block]: its bubble (or its text box) divided by the
+         * size of one letter of the original, with room for line spacing.
+         */
+        fun charBudget(block: TranslationBlock): Int {
+            val area = if (block.hasBubble) block.bubbleW * block.bubbleH * 0.7f else block.width * block.height * 1.25f
+            val letter = (block.symWidth.coerceAtLeast(1f)) * (block.symHeight.coerceAtLeast(1f)) * 1.6f
+            return (area / letter).toInt().coerceIn(MIN_BUDGET, MAX_BUDGET)
+        }
+
+        private const val MIN_BUDGET = 6
+        private const val MAX_BUDGET = 400
         const val REVIEW_LINES = 120
         const val KINDS_KEY = "_kinds"
         const val MAX_GLOSSARY = 200

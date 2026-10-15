@@ -1,5 +1,7 @@
 package eu.kanade.translation.learning
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,7 +37,10 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import tachiyomi.core.common.i18n.stringResource
 import kotlinx.coroutines.withContext
 import mihon.app.di.appGraph
 import tachiyomi.i18n.at.ATMR
@@ -59,6 +66,32 @@ class LessonsScreen : Screen() {
         LaunchedEffect(revision) {
             books = withContext(Dispatchers.IO) { store.books() }
         }
+        val scope = rememberCoroutineScope()
+        val backup = remember { KnowledgeBackup(context.appGraph.glossaryStore, store) }
+        val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch(Dispatchers.IO) {
+                val count = runCatching {
+                    val library = context.appGraph.getFavorites.await()
+                    context.contentResolver.openOutputStream(uri)!!.use { backup.export(library, it) }
+                }.getOrNull()
+                withContext(Dispatchers.Main) {
+                    context.toast(if (count != null) context.stringResource(ATMR.strings.lessons_exported, count) else context.stringResource(ATMR.strings.col_failed))
+                }
+            }
+        }
+        val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch(Dispatchers.IO) {
+                val count = runCatching {
+                    val library = context.appGraph.getFavorites.await()
+                    context.contentResolver.openInputStream(uri)!!.use { backup.import(library, it) }
+                }.getOrNull()
+                withContext(Dispatchers.Main) {
+                    context.toast(if (count != null) context.stringResource(ATMR.strings.lessons_imported, count) else context.stringResource(ATMR.strings.col_failed))
+                }
+            }
+        }
 
         Scaffold(
             topBar = {
@@ -73,6 +106,16 @@ class LessonsScreen : Screen() {
                 contentPadding = contentPadding + PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { exportLauncher.launch("manhwa_knowledge.json") }) {
+                            Text(stringResource(ATMR.strings.lessons_export))
+                        }
+                        OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }) {
+                            Text(stringResource(ATMR.strings.lessons_import))
+                        }
+                    }
+                }
                 item {
                     Text(
                         stringResource(ATMR.strings.lessons_intro),

@@ -346,4 +346,10 @@
     <string name="lessons_by_you">✏️ تصحيحك</string>
     <string name="lessons_by_editor">🧐 المحرر</string>
     <string name="lessons_rules_hint">قاعدة في كل سطر. الفريق هيمشي عليها في كل فصل.</string>
+    <string name="pref_pretranslate_next">ترجم الفصل اللي بعده مسبقاً</string>
+    <string name="pref_pretranslate_next_summary">وإنت في نص الفصل، الفصل اللي بعده بيتحمّل ويتترجم في الخلفية، فيفتح مترجم على طول. بيصرف طلبات AI زيادة.</string>
+    <string name="lessons_export">تصدير القاموس والدروس</string>
+    <string name="lessons_import">استيراد</string>
+    <string name="lessons_exported">اتحفظت معرفة %1$d مانهوا</string>
+    <string name="lessons_imported">اتضافت معرفة %1$d مانهوا</string>
 </resources>

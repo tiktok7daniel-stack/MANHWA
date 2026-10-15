@@ -164,6 +164,7 @@ class TeamTranslator(
         translator.richTerms = lead.richTerms
         translator.storySoFar = lead.storySoFar
         translator.lessons = lead.lessons
+        translator.fitHints = lead.fitHints
         translator.askSummary = lead.askSummary
         translator.useDrafts = lead.useDrafts
         // With other keys around, a busy key hands its batch over at once instead of waiting

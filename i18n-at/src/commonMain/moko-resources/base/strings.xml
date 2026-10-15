@@ -406,4 +406,10 @@
     <string name="lessons_by_you">✏️ Your correction</string>
     <string name="lessons_by_editor">🧐 Editor</string>
     <string name="lessons_rules_hint">One rule per line. The team follows them in every chapter.</string>
+    <string name="pref_pretranslate_next">Translate the next chapter ahead</string>
+    <string name="pref_pretranslate_next_summary">Halfway through a chapter, the next one is downloaded and translated in the background, so it opens translated. Uses more AI requests.</string>
+    <string name="lessons_export">Export glossaries and lessons</string>
+    <string name="lessons_import">Import</string>
+    <string name="lessons_exported">Saved the knowledge of %1$d manhwa</string>
+    <string name="lessons_imported">Added the knowledge of %1$d manhwa</string>
 </resources>
