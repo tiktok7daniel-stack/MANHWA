@@ -154,6 +154,12 @@ object SettingsTranslationScreen : SearchableSettings {
                     subtitle = stringResource(ATMR.strings.team_open_summary),
                     onClick = { navigator.push(eu.kanade.translation.team.TranslationTeamScreen()) },
                 ),
+                // MANHWA: what the team learnt from corrections
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(ATMR.strings.lessons_open),
+                    subtitle = stringResource(ATMR.strings.lessons_open_summary),
+                    onClick = { navigator.push(eu.kanade.translation.learning.LessonsScreen()) },
+                ),
                 // MANHWA: the translation collection, shared by every manhwa
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(ATMR.strings.col_open),

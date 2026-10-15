@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.translation.collection.TextKey
 import eu.kanade.translation.collection.TranslationCollection
 import eu.kanade.translation.data.PageImage
+import eu.kanade.translation.learning.LessonStore
 import eu.kanade.translation.team.ChapterPlanner
 import eu.kanade.translation.team.QualityCheck
 import eu.kanade.translation.team.TeamStore
@@ -89,6 +90,7 @@ class ChapterTranslator(
     private val glossaryStore: GlossaryStore,
     private val collection: TranslationCollection,
     private val teamStore: TeamStore,
+    private val lessonStore: LessonStore,
 ) {
 
     private val translationMutex = kotlinx.coroutines.sync.Mutex()
@@ -390,6 +392,7 @@ class ChapterTranslator(
                     richTerms = true
                     discoveredDetails.clear()
                     storySoFar = glossaryStore.storySoFar(translation.manga.id)
+                    lessons = lessonStore.forPrompt(translation.manga.id)
                     askSummary = true
                     summaries.clear()
                     onBatchDone = { done, total ->
@@ -463,6 +466,7 @@ class ChapterTranslator(
                         glossaryNotes = emptyMap()
                         richTerms = false
                         storySoFar = ""
+                        lessons = ""
                         askSummary = false
                     }
                 }
@@ -479,7 +483,7 @@ class ChapterTranslator(
                 showProgress()
                 if (ai != null && translationPreferences.translationTeamAccurate().get()) {
                     translation.note(Translation.Note.AI)
-                    val fixed = runCatching { edit(ai, pages, translation.manga.id) }
+                    val fixed = runCatching { edit(ai, pages, translation.manga.id, translation.manga.title) }
                         .onFailure {
                             if (it is CancellationException) throw it
                             logcat(LogPriority.WARN, it) { "Editor failed, keeping the team's translation" }
@@ -528,6 +532,8 @@ class ChapterTranslator(
             if (saved == null || saved.length() <= 0L) throw StepFailure(Translation.Note.SAVE_FAILED)
             translation.advance(Translation.Stage.SAVING, 1, 1)
             readCache.remove(translation.chapter.id)
+            // Enough new lessons: the lead turns them into short rules for the next chapters
+            textTranslator.aiPart?.let { lead -> lessonStore.compressIfDue(translation.manga.id, lead) }
             // Everything this chapter taught goes into the collection, for every manhwa after it
             if (useLibrary) {
                 withContext(Dispatchers.IO) {
@@ -657,10 +663,11 @@ class ChapterTranslator(
      * MANHWA editor (accurate mode): the team's lead reads the chapter and corrects only what is wrong. Returns
      * the corrected lines, for the collection.
      */
-    private suspend fun edit(ai: AiTranslator, pages: Map<String, PageTranslation>, mangaId: Long): List<TranslationCollection.Line> {
+    private suspend fun edit(ai: AiTranslator, pages: Map<String, PageTranslation>, mangaId: Long, title: String): List<TranslationCollection.Line> {
         ai.glossary = glossaryStore.asMap(mangaId)
         ai.glossaryNotes = glossaryStore.notes(mangaId)
         ai.storySoFar = glossaryStore.storySoFar(mangaId)
+        ai.lessons = lessonStore.forPrompt(mangaId)
         try {
             val blocks = pages.entries.flatMap { (name, page) -> page.blocks.mapIndexed { i, block -> "$name#$i" to block } }
                 .filter { it.second.translation.isNotBlank() }
@@ -668,12 +675,15 @@ class ChapterTranslator(
             val fixes = ai.review(blocks.mapValues { (_, block) -> block.text to block.translation })
             return fixes.mapNotNull { (id, text) ->
                 val block = blocks[id] ?: return@mapNotNull null
+                // Every fix is a lesson for the next chapters
+                lessonStore.add(mangaId, LessonStore.Lesson(block.text, block.translation, text, LessonStore.Origin.EDITOR.name), title)
                 block.translation = text
                 TranslationCollection.Line(block.text, text, block.kind)
             }
         } finally {
             ai.glossaryNotes = emptyMap()
             ai.storySoFar = ""
+            ai.lessons = ""
         }
     }
 

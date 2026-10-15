@@ -67,6 +67,7 @@ class TranslationCollectionScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         val scope = rememberCoroutineScope()
         val collection = remember { context.appGraph.translationCollection }
+        val lessons = remember { context.appGraph.lessonStore }
         val prefs = remember { context.appGraph.translationPreferences }
         val enabled by prefs.translationCollection().collectAsState()
         val limitMb by prefs.translationCollectionLimitMb().collectAsState()
@@ -250,7 +251,19 @@ class TranslationCollectionScreen : Screen() {
                     TextButton(
                         onClick = {
                             scope.launch(Dispatchers.IO) {
-                                if (text.trim() != entry.translation) collection.edit(entry.id, text)
+                                if (text.trim() != entry.translation) {
+                                    collection.edit(entry.id, text)
+                                    // The reader's correction is a lesson for every manhwa
+                                    lessons.add(
+                                        eu.kanade.translation.learning.LessonStore.GLOBAL,
+                                        eu.kanade.translation.learning.LessonStore.Lesson(
+                                            entry.text,
+                                            entry.translation,
+                                            text.trim(),
+                                            eu.kanade.translation.learning.LessonStore.Origin.USER.name,
+                                        ),
+                                    )
+                                }
                                 if (sensitive != entry.sensitive) collection.setSensitive(entry.id, sensitive)
                                 refresh++
                             }

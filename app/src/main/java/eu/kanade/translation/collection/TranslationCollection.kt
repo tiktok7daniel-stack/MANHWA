@@ -353,6 +353,21 @@ class TranslationCollection(private val context: Context) {
         cache.evictAll()
     }
 
+    /**
+     * The reader changed how a term is translated ([old] to [new]): every saved line with that term takes the new
+     * translation (the reader's own corrections stay as they are).
+     */
+    fun replaceTerm(source: String, old: String, new: String) {
+        if (source.isBlank() || old.isBlank() || new.isBlank() || old == new) return
+        runCatching {
+            db.execSQL(
+                "UPDATE segments SET translation = REPLACE(translation, ?, ?) WHERE user = 0 AND original LIKE ? AND translation LIKE ?",
+                arrayOf<Any>(old, new, "%$source%", "%$old%"),
+            )
+            cache.evictAll()
+        }.onFailure { logcat(LogPriority.WARN, it) { "Could not update the collection for a term" } }
+    }
+
     fun setSensitive(id: Long, sensitive: Boolean) {
         db.update("segments", ContentValues().apply { put("sensitive", if (sensitive) 1 else 0) }, "id = ?", arrayOf(id.toString()))
         cache.evictAll()

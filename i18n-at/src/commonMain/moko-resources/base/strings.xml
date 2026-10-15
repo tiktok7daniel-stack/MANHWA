@@ -393,4 +393,17 @@
     <string name="team_mode_accurate">🎯 Accurate</string>
     <string name="team_mode_fast_summary">Scout + translators + collection + automatic check.</string>
     <string name="team_mode_accurate_summary">As fast, and the lead reviews the whole chapter and fixes mistakes (one more call per chapter).</string>
+    <string name="lessons_title">🧠 What the team learnt</string>
+    <string name="lessons_open">🧠 What the team learnt</string>
+    <string name="lessons_open_summary">The rules the team follows, from your corrections and the editor\'s</string>
+    <string name="lessons_intro">Every correction, yours or the editor\'s, becomes a lesson sent with the next chapters; every 10 lessons the lead writes them as short rules. You can rewrite the rules or remove any lesson.</string>
+    <string name="lessons_empty">No lessons yet. Correct a line in the collection, edit a glossary term, or turn on accurate mode.</string>
+    <string name="lessons_global">Whole app</string>
+    <string name="lessons_edit_rules">Edit rules</string>
+    <string name="lessons_rules">Rules</string>
+    <string name="lessons_no_rules">No rules yet; they are written by themselves after 10 corrections.</string>
+    <string name="lessons_corrections">Corrections (%1$d)</string>
+    <string name="lessons_by_you">✏️ Your correction</string>
+    <string name="lessons_by_editor">🧐 Editor</string>
+    <string name="lessons_rules_hint">One rule per line. The team follows them in every chapter.</string>
 </resources>

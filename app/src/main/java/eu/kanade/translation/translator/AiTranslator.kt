@@ -100,6 +100,9 @@ class AiTranslator(
     /** MANHWA: what happened in the chapters before (a few lines), given as context. Empty: as before. */
     var storySoFar: String = ""
 
+    /** MANHWA: rules and corrections learnt from earlier chapters, to follow. Empty: as before. */
+    var lessons: String = ""
+
     /** MANHWA: also ask a one-line summary of each batch, collected in [summaries]. Off: as before. */
     var askSummary: Boolean = false
 
@@ -409,6 +412,7 @@ class AiTranslator(
                 }
             }
             if (storySoFar.isNotBlank()) appendLine("Story so far: ${storySoFar.trim()}")
+            if (lessons.isNotBlank()) appendLine("Learnt from earlier corrections (follow them):\n${lessons.trim()}")
             if (instructions.isNotBlank()) appendLine("Reader's instructions: ${instructions.trim()}")
         }
         val fixes = mutableMapOf<String, String>()
@@ -518,6 +522,11 @@ class AiTranslator(
             appendLine()
             appendLine("Story so far (earlier chapters, for context only):")
             appendLine(storySoFar.trim())
+        }
+        if (lessons.isNotBlank()) {
+            appendLine()
+            appendLine("Learnt from corrections of earlier translations (always follow these):")
+            appendLine(lessons.trim())
         }
         if (learnTerms) {
             appendLine()

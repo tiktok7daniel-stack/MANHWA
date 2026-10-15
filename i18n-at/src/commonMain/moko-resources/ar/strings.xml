@@ -333,4 +333,17 @@
     <string name="team_mode_accurate">🎯 دقيق</string>
     <string name="team_mode_fast_summary">الكشّاف + المترجمين + المكتبة + الفحص الآلي.</string>
     <string name="team_mode_accurate_summary">زي السريع، وفوقه القائد بيراجع الفصل كله ويصلّح الغلط (طلب زيادة لكل فصل).</string>
+    <string name="lessons_title">🧠 اللي اتعلمه الفريق</string>
+    <string name="lessons_open">🧠 اللي اتعلمه الفريق</string>
+    <string name="lessons_open_summary">القواعد اللي الفريق بيمشي عليها، من تصحيحاتك وتصحيحات المحرر</string>
+    <string name="lessons_intro">كل تصحيح، سواء منك أو من المحرر، بيتحول لدرس بيتبعت مع الفصول الجاية. وكل 10 دروس، القائد بيكتبها كقواعد قصيرة. تقدر تعدّل القواعد أو تمسح أي درس.</string>
+    <string name="lessons_empty">لسه مفيش دروس. صحّح أي جملة في المكتبة، أو عدّل كلمة في القاموس، أو شغّل الوضع الدقيق.</string>
+    <string name="lessons_global">التطبيق كله</string>
+    <string name="lessons_edit_rules">تعديل القواعد</string>
+    <string name="lessons_rules">القواعد</string>
+    <string name="lessons_no_rules">لسه ما اتكتبتش قواعد. بتتكتب لوحدها بعد 10 تصحيحات.</string>
+    <string name="lessons_corrections">التصحيحات (%1$d)</string>
+    <string name="lessons_by_you">✏️ تصحيحك</string>
+    <string name="lessons_by_editor">🧐 المحرر</string>
+    <string name="lessons_rules_hint">قاعدة في كل سطر. الفريق هيمشي عليها في كل فصل.</string>
 </resources>
