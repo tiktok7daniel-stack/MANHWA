@@ -27,8 +27,24 @@ import java.util.concurrent.ConcurrentHashMap
 @SingleIn(AppScope::class)
 class GlossaryStore(private val context: Context) {
 
+    /**
+     * A term and its translation. MANHWA: also what it is ([kind]: character, skill, place, title, group, item),
+     * a character's [gender] (male/female, so Arabic verbs and pronouns agree) and a short [note] (how they speak).
+     * Glossaries saved before have none of these and load as they are.
+     */
     @Serializable
-    data class Entry(val source: String, val translation: String, val edited: Boolean = false)
+    data class Entry(
+        val source: String,
+        val translation: String,
+        val edited: Boolean = false,
+        val kind: String = "",
+        val gender: String = "",
+        val note: String = "",
+    )
+
+    /** What happened in a chapter, in a sentence or three, kept to give the next chapters their context. */
+    @Serializable
+    data class ChapterSummary(val chapter: String, val summary: String)
 
     /** A term whose translation the reader changed: shown translations are updated right away. */
     data class Edit(val mangaId: Long, val source: String, val oldTranslation: String, val newTranslation: String)
@@ -48,14 +64,65 @@ class GlossaryStore(private val context: Context) {
     /** source term -> translation, for the translator prompt. */
     fun asMap(mangaId: Long): Map<String, String> = get(mangaId).associate { it.source to it.translation }
 
-    /** Adds terms found by the AI without touching entries that already exist. */
-    fun merge(mangaId: Long, terms: Map<String, String>) {
-        if (terms.isEmpty()) return
+    /**
+     * Adds terms found by the AI without touching entries that already exist. MANHWA: [details] (kind and
+     * gender) fill in what an entry does not know yet, but never change what the reader edited.
+     */
+    fun merge(mangaId: Long, terms: Map<String, String>, details: Map<String, Pair<String, String>> = emptyMap()) {
+        if (terms.isEmpty() && details.isEmpty()) return
         update(mangaId) { list ->
             val known = list.map { it.source.lowercase() }.toSet()
-            list + terms.filter { (s, t) -> s.isNotBlank() && t.isNotBlank() && s.lowercase() !in known }
-                .map { (s, t) -> Entry(s.trim(), t.trim()) }
+            val completed = list.map { entry ->
+                val (kind, gender) = details.entries.firstOrNull { it.key.equals(entry.source, ignoreCase = true) }?.value ?: return@map entry
+                if (entry.edited) return@map entry
+                entry.copy(kind = entry.kind.ifBlank { kind }, gender = entry.gender.ifBlank { gender })
+            }
+            completed + terms.filter { (s, t) -> s.isNotBlank() && t.isNotBlank() && s.lowercase() !in known }
+                .map { (s, t) ->
+                    val (kind, gender) = details[s] ?: ("" to "")
+                    Entry(s.trim(), t.trim(), kind = kind, gender = gender)
+                }
         }
+    }
+
+    /** MANHWA: what each term is, for the translator ("character, female, speaks coldly"); only terms that say something. */
+    fun notes(mangaId: Long): Map<String, String> = get(mangaId).mapNotNull { entry ->
+        val parts = listOfNotNull(
+            entry.kind.takeIf { it.isNotBlank() },
+            entry.gender.takeIf { it.isNotBlank() },
+            entry.note.takeIf { it.isNotBlank() },
+        )
+        if (parts.isEmpty()) null else entry.source to parts.joinToString(", ")
+    }.toMap()
+
+    /** MANHWA: sets what a term is and how a character speaks; it counts as the reader's own edit. */
+    fun describe(mangaId: Long, source: String, kind: String, gender: String, note: String) {
+        update(mangaId) { list ->
+            list.map {
+                if (it.source.equals(source, ignoreCase = true)) it.copy(kind = kind.trim(), gender = gender.trim(), note = note.trim(), edited = true) else it
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- story so far
+
+    private fun storyFile(mangaId: Long) = File(File(context.filesDir, "story").apply { mkdirs() }, "$mangaId.json")
+
+    /** The last chapters' summaries, oldest first, to give the translator the story so far. */
+    fun storySoFar(mangaId: Long): String = runCatching {
+        storyFile(mangaId).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<ChapterSummary>>(it) }
+    }.getOrNull().orEmpty().takeLast(STORY_CHAPTERS).joinToString("\n") { "${it.chapter}: ${it.summary}" }
+
+    /** Keeps [summary] for [chapter] (the latest few chapters only). */
+    @Synchronized
+    fun addChapterSummary(mangaId: Long, chapter: String, summary: String) {
+        if (summary.isBlank()) return
+        runCatching {
+            val file = storyFile(mangaId)
+            val list = file.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<ChapterSummary>>(it) }.orEmpty()
+            val next = (list.filterNot { it.chapter == chapter } + ChapterSummary(chapter, summary.take(600))).takeLast(STORY_KEEP)
+            file.writeText(json.encodeToString(next))
+        }.onFailure { logcat(LogPriority.WARN, it) }
     }
 
     fun put(mangaId: Long, source: String, translation: String) {
@@ -80,6 +147,11 @@ class GlossaryStore(private val context: Context) {
     private fun load(mangaId: Long): List<Entry> = runCatching {
         file(mangaId).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<Entry>>(it) }
     }.onFailure { logcat(LogPriority.WARN, it) }.getOrNull().orEmpty()
+
+    private companion object {
+        const val STORY_CHAPTERS = 3
+        const val STORY_KEEP = 10
+    }
 
     @Synchronized
     private fun update(mangaId: Long, change: (List<Entry>) -> List<Entry>) {

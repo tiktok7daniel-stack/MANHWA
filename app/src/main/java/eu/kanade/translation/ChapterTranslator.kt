@@ -358,6 +358,13 @@ class ChapterTranslator(
                     glossary = glossaryStore.asMap(translation.manga.id)
                     learnTerms = true
                     discoveredTerms.clear()
+                    // MANHWA smart glossary: who each name is (gender, how they speak) and the story so far
+                    glossaryNotes = glossaryStore.notes(translation.manga.id)
+                    richTerms = true
+                    discoveredDetails.clear()
+                    storySoFar = glossaryStore.storySoFar(translation.manga.id)
+                    askSummary = true
+                    summaries.clear()
                     onBatchDone = { done, total ->
                         translation.advance(Translation.Stage.TRANSLATING, done, total)
                         showProgress()
@@ -377,18 +384,29 @@ class ChapterTranslator(
                 translation.note(if (ai != null && work.isNotEmpty()) Translation.Note.AI else null)
                 showProgress()
                 val draftsBefore = ai?.useDrafts ?: false
+                var chapterSummary = ""
+                var termDetails = emptyMap<String, Pair<String, String>>()
                 try {
                     // Suggestions from the collection go to the AI as drafts to follow or fix
                     if (library.hinted > 0) ai?.useDrafts = true
                     // Translate the text in blocks , this mutates the original blocks
                     if (work.isNotEmpty()) withWatchdog(translation) { textTranslator.translate(work, workImages) }
                 } finally {
-                    ai?.useDrafts = draftsBefore
-                    ai?.onBatchDone = null
-                    ai?.onRetry = null
+                    chapterSummary = ai?.summaries?.takeLast(SUMMARY_LINES)?.joinToString(" ").orEmpty()
+                    termDetails = ai?.discoveredDetails?.mapValues { (_, info) -> info.kind to info.gender }.orEmpty()
+                    ai?.apply {
+                        useDrafts = draftsBefore
+                        onBatchDone = null
+                        onRetry = null
+                        glossaryNotes = emptyMap()
+                        richTerms = false
+                        storySoFar = ""
+                        askSummary = false
+                    }
                 }
                 mergeBack(pages, work, library)
-                ai?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms) }
+                ai?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms, termDetails) }
+                glossaryStore.addChapterSummary(translation.manga.id, translation.chapter.name, chapterSummary)
 
                 // 4. Review (92–98%): bubbles added by the vision model placed on their real letters, or dropped
                 val toPlace = pages.filterValues { page -> page.blocks.any { it.needsSnap } }
@@ -658,5 +676,8 @@ class ChapterTranslator(
 
         /** Lines up to this long that repeat inside a chapter are translated once. */
         const val REPEAT_MAX_LENGTH = 40
+
+        /** Sentences kept as a chapter's summary for the next chapters. */
+        const val SUMMARY_LINES = 3
     }
 }

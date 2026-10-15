@@ -86,6 +86,25 @@ class AiTranslator(
     /** New names and terms the model found, to be saved to the series glossary. */
     val discoveredTerms = LinkedHashMap<String, String>()
 
+    /** MANHWA: what each glossary term is (kind, gender, how they speak), shown next to it. Empty: as before. */
+    var glossaryNotes: Map<String, String> = emptyMap()
+
+    /** MANHWA: ask new terms with their kind and gender too (collected in [discoveredDetails]). Off: as before. */
+    var richTerms: Boolean = false
+
+    /** MANHWA: kind and gender of the new terms, by source term. */
+    val discoveredDetails = LinkedHashMap<String, TermInfo>()
+
+    class TermInfo(val kind: String, val gender: String)
+
+    /** MANHWA: what happened in the chapters before (a few lines), given as context. Empty: as before. */
+    var storySoFar: String = ""
+
+    /** MANHWA: also ask a one-line summary of each batch, collected in [summaries]. Off: as before. */
+    var askSummary: Boolean = false
+
+    val summaries = mutableListOf<String>()
+
     /**
      * MANHWA: progress for chapters translated from the manga screen: called after every batch with
      * (batches done, batches). Unset (the reader's live translation) nothing changes.
@@ -96,11 +115,22 @@ class AiTranslator(
     var onRetry: ((Throwable) -> Unit)? = null
 
     private fun collectTerms(output: JsonObject) {
+        if (askSummary) {
+            (output[SUMMARY_KEY] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }?.let { summaries += it.take(300) }
+        }
         if (!learnTerms) return
         (output[TERMS_KEY] as? JsonObject)?.forEach { (source, value) ->
-            val translation = (value as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+            // A plain translation, or (rich terms) {"t": translation, "kind": ..., "gender": ...}
+            val details = value as? JsonObject
+            val translation = (details?.get("t") ?: value).let { (it as? JsonPrimitive)?.contentOrNull }?.trim().orEmpty()
             if (source.isNotBlank() && translation.isNotBlank() && glossary.keys.none { it.equals(source, ignoreCase = true) }) {
                 discoveredTerms[source.trim()] = translation
+                if (details != null) {
+                    discoveredDetails[source.trim()] = TermInfo(
+                        kind = (details["kind"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty(),
+                        gender = (details["gender"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty(),
+                    )
+                }
             }
         }
     }
@@ -382,13 +412,35 @@ class AiTranslator(
         if (glossary.isNotEmpty()) {
             appendLine()
             appendLine("Series glossary. Always translate these exactly like this:")
-            glossary.entries.take(MAX_GLOSSARY).forEach { (source, translation) -> appendLine("- $source => $translation") }
+            glossary.entries.take(MAX_GLOSSARY).forEach { (source, translation) ->
+                val note = glossaryNotes[source]
+                appendLine(if (note.isNullOrBlank()) "- $source => $translation" else "- $source => $translation ($note)")
+            }
+            if (glossaryNotes.isNotEmpty()) {
+                appendLine("Use each character's gender for every verb, pronoun and adjective that refers to them, and keep how they speak.")
+            }
+        }
+        if (storySoFar.isNotBlank()) {
+            appendLine()
+            appendLine("Story so far (earlier chapters, for context only):")
+            appendLine(storySoFar.trim())
         }
         if (learnTerms) {
             appendLine()
             appendLine("Also add a top-level key \"$TERMS_KEY\" (next to the page keys) with up to 12 NEW proper nouns and terms")
             appendLine("from these pages that are not in the glossary: character names, skills, ranks, titles, sects, places,")
-            appendLine("items. Format: {\"$TERMS_KEY\": {\"<source term as written>\": \"<your translation>\"}}. Use {} if none.")
+            if (richTerms) {
+                appendLine("items. Format: {\"$TERMS_KEY\": {\"<source term as written>\": {\"t\": \"<your translation>\", \"kind\":")
+                appendLine("\"character|skill|place|title|group|item\", \"gender\": \"male|female|\"}}}. Gender only for characters, when")
+                appendLine("the pages make it clear. Use {} if none.")
+            } else {
+                appendLine("items. Format: {\"$TERMS_KEY\": {\"<source term as written>\": \"<your translation>\"}}. Use {} if none.")
+            }
+        }
+        if (askSummary) {
+            appendLine()
+            appendLine("Also add a top-level key \"$SUMMARY_KEY\" with one short sentence in English: what happens in these pages")
+            appendLine("(who, to whom, what). It is kept as context for the next chapters.")
         }
         if (instructions.isNotBlank()) {
             appendLine()
@@ -668,6 +720,7 @@ class AiTranslator(
             Provider.OPENROUTER to listOf("openrouter/auto"),
         )
         const val TERMS_KEY = "_terms"
+        const val SUMMARY_KEY = "_summary"
         const val KINDS_KEY = "_kinds"
         const val MAX_GLOSSARY = 200
         const val WATERMARK = "RTMTH"
