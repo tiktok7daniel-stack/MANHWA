@@ -304,7 +304,8 @@ class TranslationHubScreen : Screen() {
                                 info = stringResource(ATMR.strings.info_smart_scroll),
                                 checked = smartScroll,
                                 onChange = { prefs.translationSmartScroll().set(it) },
-                            )                            HubDivider()
+                            )
+                            HubDivider()
                             HubSwitchRow(
                                 icon = MaterialSymbols.Rounded.AutoAwesome,
                                 title = stringResource(ATMR.strings.th_dramatic),
