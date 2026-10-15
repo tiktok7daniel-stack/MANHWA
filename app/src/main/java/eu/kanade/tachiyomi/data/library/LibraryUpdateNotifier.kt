@@ -47,6 +47,7 @@ class LibraryUpdateNotifier(
     private val context: Context,
     private val securityPreferences: SecurityPreferences,
     private val sourceManager: SourceManager,
+    private val favoriteDrops: eu.kanade.tachiyomi.ui.home.fresh.FavoriteDrops,
 ) {
 
     private val percentFormatter = NumberFormat.getPercentInstance().apply {
@@ -221,16 +222,12 @@ class LibraryUpdateNotifier(
             setAutoCancel(true)
         }
 
-        // Per-manga notification
-        if (!securityPreferences.hideNotificationContent.get()) {
-            context.notify(
-                updates.map { (manga, chapters) ->
-                    NotificationManagerCompat.NotificationWithIdAndTag(
-                        manga.id.hashCode(),
-                        createNewChaptersNotification(manga, chapters),
-                    )
-                },
-            )
+        // Per-manga: the MANHWA favorite drop (heads-up with the cover, read now, translate), the in-app banner
+        // and the bell's archive. Chapters already announced by the home sync are not announced twice.
+        val notify = !securityPreferences.hideNotificationContent.get()
+        updates.forEach { (manga, chapters) ->
+            val sourceName = sourceManager.getOrStub(manga.source).name
+            runCatching { favoriteDrops.post(manga, chapters.toList(), sourceName, notify = notify) }
         }
     }
 

@@ -9,15 +9,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import eu.kanade.presentation.browse.components.BaseSourceItem
+import eu.kanade.presentation.browse.components.GlowHeader
+import eu.kanade.presentation.components.ManhwaKit
+import eu.kanade.presentation.components.neonGlow
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import eu.kanade.tachiyomi.util.system.LocaleHelper
@@ -34,7 +40,6 @@ import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.plus
 import tachiyomi.source.local.isLocal
 
@@ -98,12 +103,7 @@ private fun SourceHeader(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    Text(
-        text = LocaleHelper.getSourceDisplayName(language, context),
-        modifier = modifier
-            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
-        style = MaterialTheme.typography.header,
-    )
+    GlowHeader(text = LocaleHelper.getSourceDisplayName(language, context), modifier = modifier)
 }
 
 @Composable
@@ -121,14 +121,20 @@ private fun SourceItem(
         onLongClickItem = { onLongClickItem(source) },
         action = {
             if (source.supportsLatest) {
-                TextButton(onClick = { onClickItem(source, Listing.Latest) }) {
-                    Text(
-                        text = stringResource(MR.strings.latest),
-                        style = LocalTextStyle.current.copy(
-                            color = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                }
+                val shape = RoundedCornerShape(50)
+                Text(
+                    text = stringResource(MR.strings.latest),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .neonGlow(shape, MaterialTheme.colorScheme.primary, 0.25f, 8.dp)
+                        .clip(shape)
+                        .background(ManhwaKit.accentBrush())
+                        .clickable { onClickItem(source, Listing.Latest) }
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                )
             }
             SourcePinButton(
                 isPinned = Pin.Pinned in source.pin,

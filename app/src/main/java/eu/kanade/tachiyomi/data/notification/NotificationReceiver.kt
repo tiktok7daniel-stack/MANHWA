@@ -95,6 +95,18 @@ class NotificationReceiver : BroadcastReceiver() {
                 }
             }
             // Download manga chapters
+            ACTION_TRANSLATE_CHAPTER -> {
+                context.cancelNotification(intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1))
+                val url = intent.getStringArrayExtra(EXTRA_CHAPTER_URL)?.firstOrNull() ?: return
+                val mangaId = intent.getLongExtra(EXTRA_MANGA_ID, -1)
+                if (mangaId > -1) {
+                    launchAsync {
+                        val manga = getManga.await(mangaId) ?: return@launchAsync
+                        val chapter = getChapter.await(url, mangaId) ?: return@launchAsync
+                        context.appGraph.translationManager.translateChapter(manga, chapter)
+                    }
+                }
+            }
             ACTION_DOWNLOAD_CHAPTER -> {
                 val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
                 if (notificationId > -1) {
@@ -225,6 +237,7 @@ class NotificationReceiver : BroadcastReceiver() {
 
         private const val ACTION_MARK_AS_READ = "$ID.$NAME.MARK_AS_READ"
         private const val ACTION_DOWNLOAD_CHAPTER = "$ID.$NAME.ACTION_DOWNLOAD_CHAPTER"
+        private const val ACTION_TRANSLATE_CHAPTER = "$ID.$NAME.ACTION_TRANSLATE_CHAPTER"
 
         private const val ACTION_OPEN_ENTRY = "$ID.$NAME.ACTION_OPEN_ENTRY"
 
@@ -442,6 +455,22 @@ class NotificationReceiver : BroadcastReceiver() {
          * @param context context of application
          * @param manga manga of chapter
          */
+        /** MANHWA: queues [chapter] for translation (it downloads what it needs) from a notification. */
+        internal fun translateChapterPendingBroadcast(context: Context, manga: Manga, chapter: Chapter): PendingIntent {
+            val newIntent = Intent(context, NotificationReceiver::class.java).apply {
+                action = ACTION_TRANSLATE_CHAPTER
+                putExtra(EXTRA_CHAPTER_URL, arrayOf(chapter.url))
+                putExtra(EXTRA_MANGA_ID, manga.id)
+                putExtra(EXTRA_NOTIFICATION_ID, manga.id.hashCode())
+            }
+            return PendingIntent.getBroadcast(
+                context,
+                manga.id.hashCode() + 7,
+                newIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
         internal fun downloadChaptersPendingBroadcast(
             context: Context,
             manga: Manga,

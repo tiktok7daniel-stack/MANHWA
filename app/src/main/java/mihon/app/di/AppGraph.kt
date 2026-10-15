@@ -108,6 +108,7 @@ interface AppGraph : ViewModelGraph {
     val getMangaById: tachiyomi.domain.manga.interactor.GetManga
     val translationEditStore: eu.kanade.translation.edit.TranslationEditStore
     val freshChaptersEngine: eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine
+    val favoriteDrops: eu.kanade.tachiyomi.ui.home.fresh.FavoriteDrops
 
     val crashLogUtil: CrashLogUtil
 

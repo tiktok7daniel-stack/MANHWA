@@ -108,17 +108,36 @@ class FreshChaptersScreen : Screen() {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item { ManhwaKit.Chip(stringResource(ATMR.strings.fresh_all), tab == "all") { tab = "all" } }
+                    item { ManhwaKit.Chip(stringResource(ATMR.strings.drop_tab, state.drops.size), tab == "fav") { tab = "fav" } }
                     item { ManhwaKit.Chip(stringResource(ATMR.strings.fresh_library, state.library.size), tab == "lib") { tab = "lib" } }
                     items(sourceIds) { id ->
                         val count = state.items.count { it.sourceId == id }
                         ManhwaKit.Chip("${state.names[id] ?: id} · $count", tab == "$id") { tab = "$id" }
                     }
                 }
+                tachiyomi.presentation.core.components.material.PullRefresh(
+                    refreshing = state.running,
+                    enabled = true,
+                    onRefresh = viewModel::refresh,
+                    modifier = Modifier.weight(1f),
+                ) {
                 LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    if (tab == "lib") {
+                    if (tab == "fav") {
+                        if (state.drops.isEmpty()) item { Empty(stringResource(ATMR.strings.drop_empty)) }
+                        items(state.drops, key = { "d${it.mangaId}|${it.chapterId}" }) { drop ->
+                            ChapterItem(
+                                cover = MangaCover(drop.mangaId, 0L, true, drop.thumbnail, null),
+                                title = drop.title,
+                                chapter = drop.chapterName,
+                                detail = listOf(relative(drop.at), drop.sourceName).filter { it.isNotBlank() }.joinToString(" • "),
+                                onClick = { openReader(drop.mangaId, drop.chapterId) },
+                            )
+                        }
+                    } else if (tab == "lib") {
                         if (state.library.isEmpty()) item { Empty(stringResource(ATMR.strings.fresh_empty)) }
                         items(state.library, key = { "l${it.chapterId}" }) { update ->
                             ChapterItem(
@@ -144,6 +163,7 @@ class FreshChaptersScreen : Screen() {
                             )
                         }
                     }
+                }
                 }
             }
         }
@@ -187,8 +207,16 @@ class FreshChaptersScreen : Screen() {
         }
     }
 
-    private fun relative(millis: Long): String =
-        if (millis <= 0L) "" else DateUtils.getRelativeTimeSpanString(millis, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+    @Composable
+    private fun relative(millis: Long): String = when {
+        millis <= 0L -> ""
+        System.currentTimeMillis() - millis < JUST_NOW_MS -> stringResource(ATMR.strings.fresh_just_now)
+        else -> DateUtils.getRelativeTimeSpanString(millis, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+    }
+
+    private companion object {
+        const val JUST_NOW_MS = 60_000L
+    }
 }
 
 @Inject
@@ -196,6 +224,7 @@ class FreshChaptersScreen : Screen() {
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class FreshChaptersViewModel(
     private val engine: FreshChaptersEngine,
+    favoriteDrops: FavoriteDrops,
     sourceManager: SourceManager,
     getUpdates: GetUpdates,
 ) : ViewModel() {
@@ -205,6 +234,7 @@ class FreshChaptersViewModel(
         val library: List<UpdatesWithRelations> = emptyList(),
         val names: Map<Long, String> = emptyMap(),
         val running: Boolean = false,
+        val drops: List<FavoriteDrops.Drop> = emptyList(),
     )
 
     private val _state = MutableStateFlow(State())
@@ -220,6 +250,9 @@ class FreshChaptersViewModel(
         getUpdates.subscribe(read = false, after = Clock.System.now() - 30.days)
             .catch { }
             .onEach { list -> _state.update { it.copy(library = list.take(200)) } }
+            .launchIn(viewModelScope)
+        favoriteDrops.archive
+            .onEach { list -> _state.update { it.copy(drops = list) } }
             .launchIn(viewModelScope)
         if (engine.isStale()) refresh()
     }

@@ -48,6 +48,9 @@ object Notifications {
     const val ID_NEW_CHAPTERS = -301
     const val GROUP_NEW_CHAPTERS = "eu.kanade.tachiyomi.NEW_CHAPTERS"
 
+    /** MANHWA: new chapters of the reader's favorites, heads-up with the cover. */
+    const val CHANNEL_FAVORITE_DROPS = "manhwa_favorite_drops"
+
     /**
      * Notification channel and ids used by the backup/restore system.
      */
@@ -132,6 +135,10 @@ object Notifications {
                 },
                 buildNotificationChannel(CHANNEL_NEW_CHAPTERS, IMPORTANCE_DEFAULT) {
                     setName(context.stringResource(MR.strings.channel_new_chapters))
+                },
+                buildNotificationChannel(CHANNEL_FAVORITE_DROPS, NotificationManagerCompat.IMPORTANCE_HIGH) {
+                    setName(context.stringResource(tachiyomi.i18n.at.ATMR.strings.drop_channel))
+                    setShowBadge(true)
                 },
                 buildNotificationChannel(CHANNEL_DOWNLOADER_PROGRESS, IMPORTANCE_LOW) {
                     setName(context.stringResource(MR.strings.channel_progress))

@@ -39,6 +39,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.browse.components.BaseBrowseItem
+import eu.kanade.presentation.browse.components.GlowHeader
 import eu.kanade.presentation.browse.components.ExtensionIcon
 import eu.kanade.presentation.browse.components.ExtensionPill
 import eu.kanade.presentation.browse.components.label
@@ -71,7 +72,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
-import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.plus
 
 @Composable
@@ -345,8 +345,11 @@ private fun ExtensionItemContent(
             text = extension.name,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            color = androidx.compose.ui.graphics.Color.White,
         )
+        eu.kanade.presentation.browse.components.SourceFameTag(extension.name)
 
         if (store != null) {
             Text(
@@ -528,18 +531,8 @@ private fun ExtensionHeader(
     modifier: Modifier = Modifier,
     action: @Composable RowScope.() -> Unit = {},
 ) {
-    Row(
-        modifier = modifier.padding(horizontal = MaterialTheme.padding.medium),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .weight(1f),
-            style = MaterialTheme.typography.header,
-        )
-        action()
+    GlowHeader(text = text, modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) { action() }
     }
 }
 

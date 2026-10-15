@@ -98,6 +98,7 @@ import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isBenchmarkBuildType
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
 import eu.kanade.tachiyomi.util.system.updaterEnabled
+import eu.kanade.tachiyomi.ui.home.fresh.FavoriteDropBanner
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -290,6 +291,9 @@ class MainActivity : BaseActivity() {
                                     .background(MaterialTheme.colorScheme.surfaceContainer),
                             )
                         }
+
+                        // MANHWA: a new chapter of a favorite slides down over any screen
+                        FavoriteDropBanner()
 
                         // MANHWA LEGENDS opening, on cold start only
                         if (showIntro) {

@@ -558,4 +558,17 @@
     <string name="tier_popular">Popular</string>
     <string name="hub_hide_adult">Hide and isolate +18 sources</string>
     <string name="hub_hide_adult_sub">Adult sources, extensions and series stay out of the whole app</string>
+    <string name="history_count">%1$d series read</string>
+    <string name="history_chapter">Ch. %1$s</string>
+    <string name="history_resume">Resume</string>
+    <string name="drop_channel">New chapters of your favorites</string>
+    <string name="drop_badge">New chapter from your favorites!</string>
+    <string name="drop_text">Chapter %1$s of your favorite %2$s is out now on %3$s!</string>
+    <string name="drop_text_hidden">A new chapter of one of your favorites is out</string>
+    <string name="drop_more">and %1$d more</string>
+    <string name="drop_read_now">Read now</string>
+    <string name="drop_translate">Translate and download</string>
+    <string name="drop_tab">Favorites · %1$d</string>
+    <string name="drop_empty">New chapters of the series in your library will show up here the moment they come out.</string>
+    <string name="fresh_just_now">Just now</string>
 </resources>

@@ -499,4 +499,17 @@
     <string name="tier_popular">مشهور</string>
     <string name="hub_hide_adult">إخفاء وعزل مصادر +18</string>
     <string name="hub_hide_adult_sub">المصادر والإضافات والأعمال للكبار ما تظهرش في أي مكان في التطبيق</string>
+    <string name="history_count">%1$d عمل اتقرا</string>
+    <string name="history_chapter">فصل %1$s</string>
+    <string name="history_resume">كمّل</string>
+    <string name="drop_channel">فصول جديدة من مانهواتك المفضلة</string>
+    <string name="drop_badge">فصل جديد من مانهواتك المفضلة!</string>
+    <string name="drop_text">نزل الآن الفصل %1$s من مانهواتك المفضلة %2$s على %3$s!</string>
+    <string name="drop_text_hidden">نزل فصل جديد من مانهواتك المفضلة</string>
+    <string name="drop_more">و%1$d كمان</string>
+    <string name="drop_read_now">اقرأ الآن</string>
+    <string name="drop_translate">ترجم وحمّل الفصل</string>
+    <string name="drop_tab">المفضلة · %1$d</string>
+    <string name="drop_empty">الفصول الجديدة للأعمال اللي في مكتبتك هتظهر هنا أول ما تنزل.</string>
+    <string name="fresh_just_now">الآن</string>
 </resources>

@@ -63,6 +63,8 @@ class FreshChaptersEngine(
     private val syncChaptersWithSource: SyncChaptersWithSource,
     private val getChapterByUrlAndMangaId: GetChapterByUrlAndMangaId,
     private val getManga: GetManga,
+    private val favoriteDrops: FavoriteDrops,
+    private val getChapter: tachiyomi.domain.chapter.interactor.GetChapter,
 ) {
 
     @Serializable
@@ -77,8 +79,16 @@ class FreshChaptersEngine(
         val uploadedAt: Long = 0L,
         val foundAt: Long = 0L,
     ) {
-        /** When it came out: the source's date, or when MANHWA first saw it. */
-        val sortTime: Long get() = if (uploadedAt > 0L) uploadedAt else foundAt
+        /**
+         * When it came out: the source's date, or when MANHWA first saw it. Many sources only give the day, so a
+         * chapter seen the same day is placed at the moment it was seen, which puts real drops on top at once.
+         */
+        val sortTime: Long
+            get() = when {
+                uploadedAt <= 0L -> foundAt
+                foundAt > uploadedAt && foundAt - uploadedAt < DAY_ONLY_WINDOW_MS && isDayOnly(uploadedAt) -> foundAt
+                else -> uploadedAt
+            }
     }
 
     data class Snapshot(val items: List<Item> = emptyList(), val updatedAt: Long = 0L, val running: Boolean = false)
@@ -112,31 +122,38 @@ class FreshChaptersEngine(
             .take(MAX_SOURCES)
     }
 
-    /** Checks every home source for new chapters. Returns how many new chapters were found. */
+    /**
+     * Checks every home source for new chapters, all at once. Each source's chapters show up in the feed the moment
+     * that source answers, without waiting for the slow ones. Returns how many new chapters were found.
+     */
     suspend fun refresh(): Int = withContext(Dispatchers.IO) {
         if (mutex.isLocked) return@withContext 0
         mutex.withLock {
             _state.update { it.copy(running = true) }
             try {
                 val previous = _state.value.items.associateBy { it.key() }
+                val firstRun = previous.isEmpty()
                 val now = System.currentTimeMillis()
                 val gate = Semaphore(PARALLEL)
-                val found = coroutineScope {
-                    sources().map { source -> async { gate.withPermit { scan(source) } } }.awaitAll()
-                }.flatten()
-                var fresh = 0
-                val merged = found.map { item ->
-                    val old = previous[item.key()]
-                    if (old == null) fresh++
-                    item.copy(foundAt = old?.foundAt ?: now)
+                val results = java.util.concurrent.ConcurrentHashMap<Long, List<Item>>()
+                coroutineScope {
+                    sources().map { source ->
+                        async {
+                            gate.withPermit {
+                                results[source.id] = scan(source)
+                                // Live: what this source found is shown right away
+                                val (items, _) = merge(previous, results, now)
+                                _state.update { it.copy(items = items) }
+                            }
+                        }
+                    }.awaitAll()
                 }
-                // Keep what other sources found before, so one failing source does not empty the feed
-                val scanned = found.map { it.sourceId }.toSet()
-                val kept = previous.values.filter { it.sourceId !in scanned && now - it.foundAt < KEEP_MS }
-                val items = (merged + kept).distinctBy { it.key() }.sortedByDescending { it.sortTime }.take(MAX_ITEMS)
+                val (items, newOnes) = merge(previous, results, now)
                 _state.value = Snapshot(items, now)
                 runCatching { file.writeText(json.encodeToString(Stored(items, now))) }
-                fresh
+                // A new chapter of a favorite is announced at once (banner, notification, bell)
+                if (!firstRun) announceFavorites(newOnes)
+                newOnes.size
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 logcat(LogPriority.ERROR, e)
@@ -146,6 +163,36 @@ class FreshChaptersEngine(
             }
         }
     }
+
+    /** The feed after this scan: what was found (keeping when each was first seen) plus the other sources' recent finds. */
+    private fun merge(previous: Map<String, Item>, results: Map<Long, List<Item>>, now: Long): Pair<List<Item>, List<Item>> {
+        val newOnes = mutableListOf<Item>()
+        val merged = results.values.flatten().map { item ->
+            val old = previous[item.key()]
+            val withTime = item.copy(foundAt = old?.foundAt ?: now)
+            if (old == null) newOnes += withTime
+            withTime
+        }
+        // Keep what other sources found before, so one failing source does not empty the feed
+        val kept = previous.values.filter { it.sourceId !in results.keys && now - it.foundAt < KEEP_MS }
+        val items = (merged + kept).distinctBy { it.key() }.sortedByDescending { it.sortTime }.take(MAX_ITEMS)
+        return items to newOnes
+    }
+
+    private suspend fun announceFavorites(newOnes: List<Item>) {
+        newOnes.groupBy { it.mangaId }.forEach { (mangaId, items) ->
+            runCatching {
+                val manga = getManga.await(mangaId)?.takeIf { it.favorite } ?: return@runCatching
+                val chapters = items.mapNotNull { item ->
+                    open(item)?.let { (_, chapterId) -> getChapterById(chapterId) }
+                }
+                val sourceName = sourceManager.get(items.first().sourceId)?.name.orEmpty()
+                favoriteDrops.post(manga, chapters, sourceName, notify = true)
+            }
+        }
+    }
+
+    private suspend fun getChapterById(id: Long) = getChapter.await(id)
 
     private suspend fun scan(source: Source): List<Item> {
         val page = withTimeoutOrNull(TIMEOUT_MS) {
@@ -205,16 +252,25 @@ class FreshChaptersEngine(
         private const val PARALLEL = 4
         private const val TIMEOUT_MS = 20_000L
         private const val MAX_ITEMS = 300
-        private const val STALE_MS = 30 * 60 * 1000L
+        private const val STALE_MS = 2 * 60 * 1000L
+        private const val DAY_ONLY_WINDOW_MS = 36 * 60 * 60 * 1000L
+        private const val WORK_INTERVAL_MIN = 15L
+
+        /** A date with no time of day (midnight here or in UTC): the source only knows the day. */
+        private fun isDayOnly(millis: Long): Boolean {
+            if (millis % (24 * 60 * 60 * 1000L) == 0L) return true
+            val calendar = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+            return calendar.get(java.util.Calendar.HOUR_OF_DAY) == 0 && calendar.get(java.util.Calendar.MINUTE) == 0
+        }
         private const val KEEP_MS = 7 * 24 * 60 * 60 * 1000L
         private const val WORK_NAME = "manhwa_fresh_chapters"
 
-        /** Hourly background check while the phone is online. */
+        /** Background check every 15 minutes (the shortest Android allows) while the phone is online. */
         fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<FreshChaptersWorker>(1, TimeUnit.HOURS)
+            val request = PeriodicWorkRequestBuilder<FreshChaptersWorker>(WORK_INTERVAL_MIN, TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
-            context.workManager.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+            context.workManager.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
     }
 }
