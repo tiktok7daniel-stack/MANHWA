@@ -17,6 +17,9 @@ open class ReaderPage(
 
     open lateinit var chapter: ReaderChapter
 
+    /** MANHWA: the page's name in the saved translation file (its image file or archive entry), when known. */
+    var translationKey: String? = null
+
     private val _translationFlow = MutableStateFlow(translation)
 
     /** The page's translation; live translation can set it while the page is on screen. */

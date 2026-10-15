@@ -29,8 +29,6 @@ import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.translation.translator.AiTranslator
-import eu.kanade.translation.translator.aiPart
-import eu.kanade.translation.translator.TextTranslators
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -174,11 +172,7 @@ class AiChatViewModel(
     }
 
     private fun buildAi(): AiTranslator {
-        val engine = TextTranslators.fromPref(translationPreferences.translationEngine())
-        val keyMissing = translationPreferences.translationEngineApiKey().get().isBlank() &&
-            engine != TextTranslators.OPENAI
-        if (!engine.isAi || keyMissing) throw AiSearchAssistant.NotConfiguredException()
-        return engine.build(translationPreferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
+        return eu.kanade.translation.translator.appAi() ?: throw AiSearchAssistant.NotConfiguredException()
     }
 
     /** Looks on the web for the sites that publish the series, when the reader's sources don't have it. */
@@ -202,11 +196,7 @@ class AiChatViewModel(
 
     /** Asks the AI what the reader means: a short answer in their language plus titles to search for. */
     private suspend fun understand(request: String): Triple<String, List<String>, List<JsonObject>> {
-        val engine = TextTranslators.fromPref(translationPreferences.translationEngine())
-        val keyMissing = translationPreferences.translationEngineApiKey().get().isBlank() &&
-            engine != TextTranslators.OPENAI
-        if (!engine.isAi || keyMissing) throw AiSearchAssistant.NotConfiguredException()
-        val ai = engine.build(translationPreferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
+        val ai = buildAi()
         try {
             val state = runCatching { controller.snapshot() }.getOrDefault("")
             val prompt = buildString {

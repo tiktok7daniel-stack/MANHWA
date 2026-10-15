@@ -11,8 +11,6 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.translation.search.AiSearchAssistant
 import eu.kanade.translation.translator.AiTranslator
-import eu.kanade.translation.translator.aiPart
-import eu.kanade.translation.translator.TextTranslators
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -74,10 +72,7 @@ class HomeIntelligence(
 
     @Volatile private var alertsCache: Pair<Long, List<SourceAlert>>? = null
 
-    fun aiConfigured(): Boolean {
-        val engine = TextTranslators.fromPref(translationPreferences.translationEngine())
-        return engine.isAi && (translationPreferences.translationEngineApiKey().get().isNotBlank() || engine == TextTranslators.OPENAI)
-    }
+    fun aiConfigured(): Boolean = eu.kanade.translation.translator.appAiConfigured()
 
     /** Cached recommendations, restored without any network call. */
     suspend fun cachedRecommendations(): List<Recommendation> {
@@ -110,7 +105,7 @@ class HomeIntelligence(
                 "- ${item.manga.title} [${item.manga.genre.orEmpty().take(5).joinToString()}] read ${item.readCount}/${item.totalChapters}"
             }
         val language = Locale.getDefault().getDisplayLanguage(Locale.ENGLISH)
-        val ai = TextTranslators.fromPref(translationPreferences.translationEngine()).build(translationPreferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
+        val ai = eu.kanade.translation.translator.appAi() ?: throw AiSearchAssistant.NotConfiguredException()
         val reply = try {
             ai.askJson(
                 system = """

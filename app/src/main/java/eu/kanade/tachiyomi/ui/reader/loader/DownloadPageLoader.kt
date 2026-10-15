@@ -79,6 +79,7 @@ internal class DownloadPageLoader(
                 context.contentResolver.openInputStream(page.uri ?: Uri.EMPTY)!!
             }.apply {
                 translation = translations[fileName]
+                translationKey = fileName
                 status = Page.State.Ready
             }
         }

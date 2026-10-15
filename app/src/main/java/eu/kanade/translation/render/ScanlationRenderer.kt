@@ -185,7 +185,8 @@ object ScanlationRenderer {
                 // One bad bubble never costs the whole page its translation
                 try {
                     clean(block, kind)
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
+                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
                     logcat(LogPriority.WARN, e) { "Skipped a bubble that could not be cleaned" }
                     null
                 }
@@ -215,7 +216,8 @@ object ScanlationRenderer {
                 size = (size * set.cleaned.block.userFont).coerceAtLeast(MIN_TEXT_PX * s)
                 try {
                     typeset(set, size)
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
+                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
                     logcat(LogPriority.WARN, e) { "Skipped a bubble that could not be typeset" }
                 }
             }

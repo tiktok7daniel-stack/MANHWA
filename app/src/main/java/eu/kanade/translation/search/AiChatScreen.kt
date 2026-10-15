@@ -1,5 +1,6 @@
 package eu.kanade.translation.search
 
+import mihon.icons.materialsymbols.rounded.Check
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import android.content.Intent
@@ -261,7 +262,14 @@ class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
                     Box(
                         modifier = Modifier.size(20.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
                         contentAlignment = Alignment.Center,
-                    ) { Text("✓", color = Color.White, style = MaterialTheme.typography.labelSmall) }
+                    ) {
+                    androidx.compose.material3.Icon(
+                        mihon.icons.materialsymbols.MaterialSymbols.Rounded.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    }
                     Spacer(Modifier.width(10.dp))
                     Text(line, style = MaterialTheme.typography.bodyMedium)
                 }

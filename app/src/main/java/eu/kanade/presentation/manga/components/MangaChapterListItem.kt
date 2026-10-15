@@ -188,19 +188,7 @@ fun MangaChapterListItem(
                 // MANHWA: what the translation is doing right now, or why it failed
                 val translationState = translationStateProvider()
                 val translationProgress = translationProgressProvider()
-                translationStageLabel(translationState, translationProgress)?.let { label ->
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = if (translationState == Translation.State.ERROR) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            translationStageColor(translationProgress?.stage)
-                        },
-                    )
-                }
+                TranslationStageLine(translationState, translationProgress, MaterialTheme.typography.labelSmall)
             }
             // TachiyomiAT
             // MANHWA: also while a chapter is fetched to be translated, and when that failed

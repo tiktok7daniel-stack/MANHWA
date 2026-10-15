@@ -12,10 +12,12 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
 import eu.kanade.translation.translator.AiTranslator
 import eu.kanade.translation.translator.TextTranslatorLanguage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -55,6 +57,8 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         val enabled: Boolean = true,
         /** Requests a day the key may make (Gemini tells nothing), 0 = a default by model. */
         val dailyLimit: Int = 0,
+        /** Server address for OpenAI-compatible keys (empty = the provider's own). */
+        val baseUrl: String = "",
     ) {
         val providerEnum: AiTranslator.Provider
             get() = AiTranslator.Provider.entries.firstOrNull { it.name == provider } ?: AiTranslator.Provider.GEMINI
@@ -175,7 +179,26 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     }
 
     /** The strongest active member: the team's editor and scout. */
-    fun lead(): Member? = active().maxByOrNull { strength(it.id) }
+    fun lead(): Member? {
+        val ready = active()
+        // A lead that is resting right now hands over to the next strongest key
+        return (ready.filterNot { _health.value[it.id]?.resting == true }.ifEmpty { ready }).maxByOrNull { strength(it.id) }
+    }
+
+    /**
+     * The team's lead as a translator, for the app's other AI features (search, chat, home, descriptions).
+     * Null when the team has no working key. The caller closes it.
+     */
+    fun leadTranslator(
+        from: TextRecognizerLanguage = TextRecognizerLanguage.fromPref(prefs.translateFromLanguage()),
+        to: TextTranslatorLanguage = TextTranslatorLanguage.fromPref(prefs.translateToLanguage()),
+    ): AiTranslator? = lead()?.let { translatorFor(it, from, to) }
+
+    /** Keys never checked (or changed since) are checked now, one after the other. */
+    suspend fun analyzeUnchecked() = withContext(Dispatchers.IO) {
+        _members.value.filter { it.enabled && it.key.isNotBlank() && _analysis.value[it.id] == null && it.id !in analyzing }
+            .forEach { analyze(it) }
+    }
 
     fun reportSuccess(id: String, latencyMs: Long) {
         _health.update { map ->
@@ -210,7 +233,11 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         provider = member.providerEnum,
         apiKey = member.key,
         model = member.model,
-        baseUrl = if (member.providerEnum == AiTranslator.Provider.OPENAI_COMPATIBLE) prefs.translationEngineBaseUrl().get().trim() else "",
+        baseUrl = when {
+            member.baseUrl.isNotBlank() -> member.baseUrl.trim()
+            member.providerEnum == AiTranslator.Provider.OPENAI_COMPATIBLE -> prefs.translationEngineBaseUrl().get().trim()
+            else -> ""
+        },
         maxOutputTokens = prefs.translationEngineMaxOutputTokens().get().toIntOrNull() ?: 16000,
         temperature = prefs.translationEngineTemperature().get().toFloatOrNull() ?: 0.4f,
         instructions = prefs.translationInstructions().get(),
@@ -241,7 +268,14 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
      * Tries [member] with a tiny translation: does it answer (and why not), how fast, with which model, and
      * whether it reads images. Saves and returns what it found.
      */
-    suspend fun analyze(member: Member): Analysis {
+    suspend fun analyze(member: Member): Analysis = withContext(Dispatchers.IO) { analyzeNow(member) }
+
+    /** The models [member]'s key may use, read from its provider off the main thread. */
+    suspend fun fetchModels(member: Member): List<String> = withContext(Dispatchers.IO) {
+        translatorFor(member, TextRecognizerLanguage.ENGLISH, TextTranslatorLanguage.ENGLISH).listModels()
+    }
+
+    private suspend fun analyzeNow(member: Member): Analysis {
         analyzing += member.id
         _analyzingIds.value = analyzing.toSet()
         val result = try {
@@ -297,6 +331,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             val k = key.trim()
             return when {
                 k.startsWith("sk-ant") -> AiTranslator.Provider.CLAUDE
+                k.startsWith("gsk_") -> AiTranslator.Provider.GROQ
                 k.startsWith("sk-or") -> AiTranslator.Provider.OPENROUTER
                 k.startsWith("sk-") -> AiTranslator.Provider.OPENAI_COMPATIBLE
                 else -> AiTranslator.Provider.GEMINI
@@ -309,6 +344,8 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
                 AiTranslator.Provider.GEMINI, AiTranslator.Provider.CLAUDE -> true
                 AiTranslator.Provider.OPENROUTER -> listOf("gemini", "claude", "gpt-4o", "gpt-4.1", "gpt-5", "vision", "vl", "pixtral", "llama-4").any { it in m }
                 AiTranslator.Provider.OPENAI_COMPATIBLE -> listOf("gpt-4o", "gpt-4.1", "gpt-5", "vision", "vl").any { it in m }
+                AiTranslator.Provider.GROQ -> listOf("vision", "llama-4", "scout", "maverick").any { it in m }
+                AiTranslator.Provider.DEEPSEEK -> false
             }
         }
 

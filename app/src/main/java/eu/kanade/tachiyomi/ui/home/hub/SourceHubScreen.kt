@@ -662,7 +662,7 @@ class SourceHubScreen : Screen() {
 
     /** Language code plus its own name, e.g. "KO · 한국어", so every source shows its language clearly. */
     private fun languageName(lang: String): String = when (lang) {
-        "all" -> "🌐 MULTI"
+        "all" -> "MULTI"
         "" -> "?"
         else -> {
             val name = Locale.forLanguageTag(lang).let { it.getDisplayName(it).replaceFirstChar { c -> c.uppercase() } }

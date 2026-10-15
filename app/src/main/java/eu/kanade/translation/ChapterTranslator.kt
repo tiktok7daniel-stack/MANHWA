@@ -32,6 +32,7 @@ import eu.kanade.translation.live.PageOcr.rescaled
 import eu.kanade.translation.data.TranslationProvider
 import eu.kanade.translation.translator.AiTranslator
 import eu.kanade.translation.translator.aiPart
+import eu.kanade.translation.translator.fellBack
 import eu.kanade.translation.translator.bubbleCharBudget
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.model.Translation
@@ -77,6 +78,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.translation.TranslationPreferences
 import tachiyomi.i18n.at.ATMR
+import java.io.IOException
 import java.io.InputStream
 import kotlin.math.abs
 
@@ -130,7 +132,7 @@ class ChapterTranslator(
         val fromLang = TextRecognizerLanguage.fromPref(translationPreferences.translateFromLanguage())
         val toLang = TextTranslatorLanguage.fromPref(translationPreferences.translateToLanguage())
         textRecognizer = TextRecognizer(fromLang)
-        textTranslator = TextTranslators.fromPref(translationPreferences.translationEngine())
+        textTranslator = TextTranslators.withoutKeys(translationPreferences)
             .build(translationPreferences, fromLang, toLang)
     }
 
@@ -208,10 +210,12 @@ class ChapterTranslator(
     }
 
     private fun CoroutineScope.launchTranslationJob(translation: Translation) = launchIO {
+        var reported = false
         try {
             // One chapter at a time: the recognizer, translator and glossary are shared
             translationMutex.withLock { translateChapter(translation) }
             finish(translation.manga, translation.chapter, translation.status)
+            reported = true
             if (translation.status == Translation.State.TRANSLATED) {
                 removeFromQueue(translation)
             }
@@ -223,8 +227,36 @@ class ChapterTranslator(
             logcat(LogPriority.ERROR, e)
             translation.status = Translation.State.ERROR
             finish(translation.manga, translation.chapter, Translation.State.ERROR)
+            reported = true
             stop()
+        } finally {
+            // Stopped from outside (removed from the queue, the reader took the chapter over): the chapter's
+            // ring must still end, never spin forever
+            if (!reported) finish(translation.manga, translation.chapter, translation.status)
         }
+    }
+
+    /**
+     * MANHWA: the translation is written next to its final name, flushed to the disk, and only then renamed, so
+     * a crash or a closed app mid-save never leaves a half-written file that would open as a broken chapter.
+     */
+    private fun saveAtomically(dir: UniFile, name: String, pages: Map<String, PageTranslation>) {
+        val partName = "$name.part"
+        dir.findFile(partName)?.delete()
+        val part = dir.createFile(partName) ?: throw IOException("Could not create $partName")
+        val path = part.uri.takeIf { it.scheme == "file" }?.path
+        if (path != null) {
+            java.io.FileOutputStream(path).use { out ->
+                Json.encodeToStream(pages, out)
+                out.flush()
+                out.fd.sync()
+            }
+        } else {
+            part.openOutputStream().use { Json.encodeToStream(pages, it) }
+        }
+        if (part.length() <= 0L) throw IOException("Nothing was written")
+        dir.findFile(name)?.delete()
+        if (!part.renameTo(name)) throw IOException("Could not rename $partName")
     }
 
     private fun cancelTranslatorJob() {
@@ -247,7 +279,7 @@ class ChapterTranslator(
         }
         val fromLang = TextRecognizerLanguage.fromPref(translationPreferences.translateFromLanguage())
         val toLang = TextTranslatorLanguage.fromPref(translationPreferences.translateToLanguage())
-        val engine = TextTranslators.fromPref(translationPreferences.translationEngine())
+        val engine = if (teamMembers().isNotEmpty()) null else TextTranslators.withoutKeys(translationPreferences)
         if (engine == TextTranslators.MLKIT && !TextTranslatorLanguage.mlkitSupportedLanguages().contains(toLang)) {
             // A toast from a background thread closes the app: it is shown on the main thread
             withContext(Dispatchers.Main) { context.toast(ATMR.strings.error_mlkit_language_unsupported) }
@@ -260,13 +292,15 @@ class ChapterTranslator(
     /** What [textTranslator] was built for; a different signature means it has to be built again. */
     private var builtFor = ""
 
-    /** MANHWA: the team's keys when the team is on and has some, otherwise the engine chosen in the settings. */
-    private fun teamMembers(): List<TeamStore.Member> =
-        if (translationPreferences.translationTeamEnabled().get()) teamStore.active() else emptyList()
+    /** MANHWA: the team's working keys; with none, the engine chosen for "no keys". */
+    private fun teamMembers(): List<TeamStore.Member> = teamStore.active()
 
     private fun translatorSignature(translation: Translation): String {
-        val team = teamMembers().joinToString(",") { "${it.id}:${it.model}:${it.key.hashCode()}" }
-        return "${translation.fromLang}|${translation.toLang}|${translationPreferences.translationEngine().get()}|$team"
+        val team = teamMembers().joinToString(",") { "${it.id}:${it.model}:${it.key.hashCode()}:${it.baseUrl}" }
+        val style = with(translationPreferences) {
+            "${translationInstructions().get().hashCode()}:${translationEngineTemperature().get()}:${translationEngineMaxOutputTokens().get()}"
+        }
+        return "${translation.fromLang}|${translation.toLang}|${translationPreferences.translationEngine().get()}|$style|$team"
     }
 
     private fun buildTranslator(translation: Translation): TextTranslator {
@@ -274,7 +308,7 @@ class ChapterTranslator(
         return if (team.isNotEmpty()) {
             TeamTranslator(translation.fromLang, translation.toLang, teamStore, team)
         } else {
-            TextTranslators.fromPref(translationPreferences.translationEngine())
+            TextTranslators.withoutKeys(translationPreferences)
                 .build(translationPreferences, translation.fromLang, translation.toLang)
         }
     }
@@ -347,8 +381,10 @@ class ChapterTranslator(
                         coroutineContext.ensureActive()
                         // Shown while the reader goes first through the shared gate
                         translation.note(if (HeavyWork.readerBusy) Translation.Note.READER else null)
-                        // One page at a time through the shared gate: the reader's live translation and drawing go first
-                        val pageTranslation = HeavyWork.background<PageTranslation?> {
+                        // One page at a time through the shared gate: the reader's live translation and drawing go first.
+                        // A page that can't be read (broken image, out of memory) is skipped; the chapter goes on.
+                        val pageTranslation = try {
+                            HeavyWork.background<PageTranslation?> {
                             streamFn().use { tmpFile.openOutputStream().use { out -> it.copyTo(out) } }
                             val decoded = PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! }
                                 ?: return@background null
@@ -361,6 +397,11 @@ class ChapterTranslator(
                             } finally {
                                 decoded.bitmap.recycle()
                             }
+                            }
+                        } catch (e: Throwable) {
+                            if (e is CancellationException) throw e
+                            logcat(LogPriority.WARN, e) { "Page $fileName could not be read, skipping it" }
+                            null
                         }
                         translation.advance(Translation.Stage.READING, index + 1, streams.size)
                         showProgress()
@@ -527,7 +568,7 @@ class ChapterTranslator(
             translation.advance(Translation.Stage.SAVING)
             showProgress()
             try {
-                translationMangaDir.createFile(saveFile)!!.openOutputStream().use { Json.encodeToStream(pages, it) }
+                saveAtomically(translationMangaDir, saveFile, pages)
             } catch (e: Exception) {
                 throw StepFailure(Translation.Note.SAVE_FAILED, e.message)
             }
@@ -538,7 +579,7 @@ class ChapterTranslator(
             // Enough new lessons: the lead turns them into short rules for the next chapters
             textTranslator.aiPart?.let { lead -> lessonStore.compressIfDue(translation.manga.id, lead) }
             // Everything this chapter taught goes into the collection, for every manhwa after it
-            if (useLibrary) {
+            if (useLibrary && textTranslator.aiPart != null && !textTranslator.fellBack) {
                 withContext(Dispatchers.IO) {
                     val lines = pages.values.flatMap { it.blocks }.map { TranslationCollection.Line(it.text, it.translation, it.kind) }
                     collection.learn(src, tgt, translation.manga.id, glossaryStore.asMap(translation.manga.id), lines, TranslationCollection.Source.TEAM)

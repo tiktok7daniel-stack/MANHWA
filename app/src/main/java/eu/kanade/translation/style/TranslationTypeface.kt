@@ -39,7 +39,7 @@ enum class BubbleKind { SPEECH, SHOUT, THOUGHT, NARRATION, SYSTEM, SFX;
 /** Typefaces for translated bubbles. Arabic families are OFL fonts bundled with the app. */
 @OptIn(ExperimentalTextApi::class)
 enum class TranslationTypeface(val label: String, val arabic: Boolean) {
-    AUTO("✦ تلقائي حسب الفقاعة / Auto", true),
+    AUTO("تلقائي حسب الفقاعة / Auto", true),
     CAIRO("Cairo", true),
     LALEZAR("Lalezar", true),
     CHANGA("Changa", true),
@@ -50,7 +50,7 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
     ANIME_ACE("Anime Ace", false),
     MANGA_MASTER("Manga Master BB", false),
     COMIC("Comic Font", false),
-    SMART("✦ متناسق: Cairo + Lalezar للصراخ / Consistent", true),
+    SMART("متناسق: Cairo + Lalezar للصراخ / Consistent", true),
     ;
 
     /** The family for a bubble of [kind]; Auto picks a matching style for every kind. */

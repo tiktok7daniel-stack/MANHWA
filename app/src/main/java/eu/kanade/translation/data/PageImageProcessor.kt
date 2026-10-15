@@ -37,6 +37,8 @@ object PageImageProcessor {
     class Decoded(val bitmap: Bitmap, val scale: Float)
 
     /** Decodes a page downscaled to about [TARGET_WIDTH] pixels wide. [open] must return a fresh stream. */
+    private const val MAX_SAMPLE = 16
+
     fun decode(open: () -> InputStream): Decoded? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         open().use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -45,13 +47,27 @@ object PageImageProcessor {
         while (bounds.outWidth / (sample * 2) >= TARGET_WIDTH) sample *= 2
         // Very tall webtoon strips: also keep the whole bitmap within a safe memory budget
         while (bounds.outWidth.toLong() / sample * (bounds.outHeight.toLong() / sample) > MAX_PIXELS) sample *= 2
-        val options = BitmapFactory.Options().apply {
-            inSampleSize = sample
-            // Half the memory of ARGB: tall webtoon strips keep more detail for the OCR
-            inPreferredConfig = Bitmap.Config.RGB_565
+        // MANHWA: when the app is short of memory, a smaller copy is read instead of running out
+        val runtime = Runtime.getRuntime()
+        val free = runtime.maxMemory() - (runtime.totalMemory() - runtime.freeMemory())
+        while (sample < MAX_SAMPLE && bounds.outWidth.toLong() / sample * (bounds.outHeight.toLong() / sample) * 2 > free / 3) sample *= 2
+        // Out of memory anyway: once more at half the size before giving up on the page
+        repeat(2) { attempt ->
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = sample
+                // Half the memory of ARGB: tall webtoon strips keep more detail for the OCR
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            try {
+                val bitmap = open().use { BitmapFactory.decodeStream(it, null, options) } ?: return null
+                return Decoded(bitmap, bitmap.width.toFloat() / bounds.outWidth)
+            } catch (e: OutOfMemoryError) {
+                if (attempt == 1) return null
+                System.gc()
+                sample *= 2
+            }
         }
-        val bitmap = open().use { BitmapFactory.decodeStream(it, null, options) } ?: return null
-        return Decoded(bitmap, bitmap.width.toFloat() / bounds.outWidth)
+        return null
     }
 
     /** Horizontal and vertical erase margins for a line [h] page pixels tall. */

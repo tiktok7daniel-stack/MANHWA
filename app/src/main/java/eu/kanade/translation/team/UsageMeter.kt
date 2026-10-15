@@ -104,6 +104,10 @@ class UsageMeter(private val store: Preference<String>) {
     /** OpenRouter's credit left on the key, as a percentage of its limit (keys without a limit: unknown). */
     suspend fun refreshOpenRouter(member: TeamStore.Member) {
         if (member.providerEnum != AiTranslator.Provider.OPENROUTER) return
+        // Asked at most once a minute: the reader translates page by page
+        val now = System.currentTimeMillis()
+        if (now - (lastRefresh[member.id] ?: 0L) < REFRESH_EVERY_MS) return
+        lastRefresh[member.id] = now
         val left = withContext(Dispatchers.IO) {
             runCatching {
                 val request = Request.Builder()
@@ -123,12 +127,15 @@ class UsageMeter(private val store: Preference<String>) {
         put(member.id, current(member.id).copy(reportedLeft = left))
     }
 
+    private val lastRefresh = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
     fun forget(id: String) {
         _usage.update { it - id }
         store.set(json.encodeToString(_usage.value))
     }
 
     companion object {
+        private const val REFRESH_EVERY_MS = 60_000L
         private val client = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build()
 
         /** Google resets Gemini's daily quota at midnight Pacific time. */
@@ -155,7 +162,9 @@ class UsageMeter(private val store: Preference<String>) {
             val (remaining, limit) = when (provider) {
                 AiTranslator.Provider.CLAUDE ->
                     headers["anthropic-ratelimit-requests-remaining"] to headers["anthropic-ratelimit-requests-limit"]
-                AiTranslator.Provider.OPENAI_COMPATIBLE, AiTranslator.Provider.OPENROUTER ->
+                AiTranslator.Provider.OPENAI_COMPATIBLE, AiTranslator.Provider.OPENROUTER,
+                AiTranslator.Provider.GROQ, AiTranslator.Provider.DEEPSEEK,
+                ->
                     headers["x-ratelimit-remaining-requests"] to headers["x-ratelimit-limit-requests"]
                 AiTranslator.Provider.GEMINI -> return null
             }

@@ -61,18 +61,45 @@ class AiTranslator(
         OPENROUTER("google/gemini-2.5-flash", "https://openrouter.ai/api/v1"),
         OPENAI_COMPATIBLE("gpt-4o-mini", "https://api.openai.com/v1"),
         CLAUDE("claude-opus-5-5", "https://api.anthropic.com/v1"),
+
+        /** MANHWA: Groq and DeepSeek speak the OpenAI protocol, each on its own server. */
+        GROQ("llama-3.3-70b-versatile", "https://api.groq.com/openai/v1"),
+        DEEPSEEK("deepseek-chat", "https://api.deepseek.com/v1"),
+        ;
+
+        /** Uses the OpenAI chat/completions protocol. */
+        val openAiLike: Boolean get() = this == OPENROUTER || this == OPENAI_COMPATIBLE || this == GROQ || this == DEEPSEEK
+
+        /** Well-known models to pick from by hand (the key's own list can be fetched too). */
+        val suggestedModels: List<String>
+            get() = when (this) {
+                GEMINI -> listOf("gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite", "gemini-flash-latest")
+                OPENROUTER -> listOf(
+                    "google/gemini-2.5-flash",
+                    "google/gemini-2.5-pro",
+                    "deepseek/deepseek-chat",
+                    "openai/gpt-4o-mini",
+                    "anthropic/claude-sonnet-4.5",
+                    "meta-llama/llama-3.3-70b-instruct",
+                    "openrouter/auto",
+                )
+                OPENAI_COMPATIBLE -> listOf("gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1")
+                CLAUDE -> listOf("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5")
+                GROQ -> listOf("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "qwen/qwen3-32b")
+                DEEPSEEK -> listOf("deepseek-chat", "deepseek-reasoner")
+            }
     }
 
     @Volatile private var model = model.ifBlank { provider.defaultModel }
     private val baseUrl = baseUrl.ifBlank { provider.defaultBaseUrl }.trimEnd('/')
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.MINUTES)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .build()
+    /** One connection pool for every translator: no socket is ever closed from the caller's thread. */
+    private val client = SHARED_CLIENT
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     /** The series glossary (source term -> translation) every translation must follow. */
     var glossary: Map<String, String> = emptyMap()
@@ -217,7 +244,8 @@ class AiTranslator(
             val translated = (output[name] as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull }
             val pageKinds = (kinds?.get(name) as? JsonArray)?.map { (it as? JsonPrimitive)?.contentOrNull }
             page.blocks.forEachIndexed { i, block ->
-                block.translation = translated?.getOrNull(i)?.takeIf { it.isNotBlank() } ?: block.text
+                block.translation = translated?.getOrNull(i)?.takeIf { it.isNotBlank() }
+                    ?.let { TextSanitizer.clean(it, block.text, toLang) } ?: block.text
                 pageKinds?.getOrNull(i)?.let { block.kind = it }
                 context.remember(block.translation)
             }
@@ -283,7 +311,7 @@ class AiTranslator(
                     }
                     else -> {
                         bubble.string("text")?.takeIf { it.isNotBlank() }?.let { block.text = it }
-                        block.translation = translation
+                        block.translation = TextSanitizer.clean(translation, block.text, toLang)
                         bubble.string("kind")?.let { block.kind = it }
                         kept += block
                     }
@@ -454,7 +482,36 @@ class AiTranslator(
     }
 
     /** Whether this engine can search the web (Gemini, Claude and OpenRouter can). */
-    val canSearchWeb: Boolean get() = provider != Provider.OPENAI_COMPATIBLE
+    val canSearchWeb: Boolean get() = provider == Provider.GEMINI || provider == Provider.CLAUDE || provider == Provider.OPENROUTER
+
+    /**
+     * MANHWA: the models this key may use, read from the provider (always off the main thread). Sorted, with
+     * the provider's own default first when it is there.
+     */
+    suspend fun listModels(): List<String> = withContext(Dispatchers.IO) {
+        val (url, headers) = when (provider) {
+            Provider.GEMINI -> "$baseUrl/models?pageSize=200" to mapOf("x-goog-api-key" to apiKey)
+            Provider.CLAUDE -> "$baseUrl/models?limit=100" to mapOf("x-api-key" to apiKey, "anthropic-version" to "2023-06-01")
+            else -> "$baseUrl/models" to mapOf("Authorization" to "Bearer $apiKey")
+        }
+        val request = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.get().build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body.string()
+            if (!response.isSuccessful) throw ApiException(response.code, text.take(500))
+            val root = json.parseToJsonElement(text).jsonObject
+            val list = (root["data"] as? JsonArray ?: root["models"] as? JsonArray).orEmpty().mapNotNull { element ->
+                val o = element as? JsonObject ?: return@mapNotNull null
+                if (provider == Provider.GEMINI) {
+                    val methods = (o["supportedGenerationMethods"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                    if (methods != null && "generateContent" !in methods) return@mapNotNull null
+                    o.string("name")?.removePrefix("models/")
+                } else {
+                    o.string("id")
+                }
+            }.distinct().sorted()
+            list.sortedByDescending { it == provider.defaultModel }
+        }
+    }
 
     /** Same as [askJson] but the model may search the web first. */
     suspend fun askJsonWithWeb(system: String, prompt: String): JsonObject =
@@ -625,12 +682,13 @@ class AiTranslator(
                 },
                 mapOf("x-goog-api-key" to apiKey),
             )
-            Provider.OPENROUTER, Provider.OPENAI_COMPATIBLE -> Triple(
+            Provider.OPENROUTER, Provider.OPENAI_COMPATIBLE, Provider.GROQ, Provider.DEEPSEEK -> Triple(
                 "$baseUrl/chat/completions",
                 buildJsonObject {
                     put("model", if (web && provider == Provider.OPENROUTER) "$model:online" else model)
                     put("temperature", temperature)
-                    put("max_tokens", maxOutputTokens)
+                    // DeepSeek refuses answers longer than 8K tokens
+                    put("max_tokens", if (provider == Provider.DEEPSEEK) maxOutputTokens.coerceAtMost(8192) else maxOutputTokens)
                     putJsonArray("messages") {
                         addJsonObject {
                             put("role", "system")
@@ -741,7 +799,7 @@ class AiTranslator(
                 )
             parts.joinToString("") { (it as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull.orEmpty() }
         }
-        Provider.OPENROUTER, Provider.OPENAI_COMPATIBLE -> {
+        Provider.OPENROUTER, Provider.OPENAI_COMPATIBLE, Provider.GROQ, Provider.DEEPSEEK -> {
             val message = (((root["choices"] as? JsonArray)?.firstOrNull() as? JsonObject)?.get("message") as? JsonObject)
             (message?.get("content") as? JsonPrimitive)?.contentOrNull ?: throw IOException("The AI returned no text")
         }
@@ -826,8 +884,9 @@ class AiTranslator(
     }
 
     override fun close() {
-        client.dispatcher.executorService.shutdown()
-        client.connectionPool.evictAll()
+        // MANHWA: the client is shared, so nothing is shut down here. Closing its connections used to write to
+        // the network from whatever thread called close(), which on the main thread failed every key check
+        // with NetworkOnMainThreadException.
     }
 
     class ApiException(val code: Int, body: String) : IOException("HTTP $code: ${readable(body)}") {
@@ -844,8 +903,18 @@ class AiTranslator(
         const val DRAFT_MARK = "|||"
         val FALLBACK_MODELS = mapOf(
             Provider.GEMINI to listOf("gemini-flash-latest", "gemini-flash-lite-latest"),
-            Provider.OPENROUTER to listOf("openrouter/auto"),
+            Provider.OPENROUTER to listOf("google/gemini-2.5-flash-lite", "openrouter/auto"),
+            Provider.GROQ to listOf("llama-3.1-8b-instant"),
+            Provider.OPENAI_COMPATIBLE to listOf("gpt-4o-mini"),
         )
+
+        /** Shared by every translator; idle connections close on OkHttp's own thread. */
+        private val SHARED_CLIENT: OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.MINUTES)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
         const val TERMS_KEY = "_terms"
         const val SUMMARY_KEY = "_summary"
         const val SCOUT_MAX_CHARS = 12_000

@@ -56,8 +56,6 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.translation.search.AiChatScreen
 import eu.kanade.translation.translator.AiTranslator
-import eu.kanade.translation.translator.aiPart
-import eu.kanade.translation.translator.TextTranslators
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -111,8 +109,7 @@ class AiLibraryOrganizerViewModel(
     /** Asks the AI to split the whole library into categories; shows them as a preview. */
     fun organize(instruction: String, noAiMessage: String, failedMessage: String) {
         if (_state.value.working) return
-        val engine = TextTranslators.fromPref(translationPreferences.translationEngine())
-        if (!engine.isAi) {
+        if (!eu.kanade.translation.translator.appAiConfigured()) {
             _state.update { it.copy(message = noAiMessage) }
             return
         }
@@ -130,7 +127,7 @@ class AiLibraryOrganizerViewModel(
                     "${m.id}|${m.title}|${m.genre.orEmpty().take(6).joinToString(",")}|$status|read ${item.readCount}/${item.totalChapters}"
                 }
                 val language = Locale.getDefault().getDisplayLanguage(Locale.ENGLISH)
-                val ai = engine.build(translationPreferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
+                val ai = eu.kanade.translation.translator.appAi() ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
                 val reply = try {
                     ai.askJson(
                         system = """

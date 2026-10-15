@@ -119,15 +119,7 @@ fun TranslateChaptersBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    translationStageLabel(Translation.State.TRANSLATING, batch.progress)?.let { label ->
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = stageColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    TranslationStageLine(Translation.State.TRANSLATING, batch.progress, MaterialTheme.typography.labelMedium, stageColor)
                     translationPlanLines(batch.progress).firstOrNull()?.let { plan ->
                         Text(plan, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant, maxLines = 1)
                     }

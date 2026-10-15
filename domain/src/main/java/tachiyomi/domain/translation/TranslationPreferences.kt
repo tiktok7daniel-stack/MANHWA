@@ -55,9 +55,6 @@ class TranslationPreferences(
     /** Largest size of the translation collection on storage, in megabytes (0 = no limit). */
     fun translationCollectionLimitMb() = preferenceStore.getInt("manhwa_translation_collection_limit_mb", 1024)
 
-    /** Chapters translated from the manga screen use the translation team (when it has keys). */
-    fun translationTeamEnabled() = preferenceStore.getBoolean("manhwa_translation_team_enabled", true)
-
     /** The team's keys, as JSON (see TeamStore). */
     fun translationTeamMembers() = preferenceStore.getString("manhwa_translation_team_members", "[]")
 
@@ -73,9 +70,6 @@ class TranslationPreferences(
     /** While a chapter is read, the next one is translated in the background (off unless the reader turns it on). */
     fun translationPretranslateNext() = preferenceStore.getBoolean("manhwa_translation_pretranslate_next", false)
 
-    /**
-     * The translation team and the collection also inside the reader (live translation). Off by default:
-     * live translation then works exactly as before.
-     */
-    fun translationTeamInReader() = preferenceStore.getBoolean("manhwa_translation_team_in_reader", false)
+    /** Inside the reader, a quick Google draft shows first and the team's translation replaces it. */
+    fun translationQuickDraft() = preferenceStore.getBoolean("manhwa_translation_quick_draft", true)
 }

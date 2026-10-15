@@ -190,7 +190,7 @@ object SettingsMainScreen : Screen() {
             titleRes = ATMR.strings.pref_category_translations,
             subtitleRes = ATMR.strings.pref_translation_summary,
             icon = MaterialSymbols.Rounded.Translate,
-            screen = SettingsTranslationScreen,
+            screen = eu.kanade.translation.settings.TranslationHubScreen(),
         ),
         Item(
             titleRes = MR.strings.pref_category_tracking,

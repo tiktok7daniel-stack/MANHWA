@@ -102,7 +102,6 @@ import coil3.compose.AsyncImage
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.GlassBackdrop
 import eu.kanade.presentation.components.glass
-import eu.kanade.presentation.more.settings.screen.SettingsTranslationScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.ui.home.hub.SourceHubScreen
 import eu.kanade.tachiyomi.ui.home.smart.SmartDownloadScreen
@@ -135,6 +134,7 @@ import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Home
 import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Menu
+import mihon.icons.materialsymbols.rounded.MilitaryTech
 import mihon.icons.materialsymbols.rounded.Notifications
 import mihon.icons.materialsymbols.rounded.Schedule
 import mihon.icons.materialsymbols.rounded.Search
@@ -168,6 +168,9 @@ data object DiscoverTab : Tab {
         )
 
     private val Ink = Color(0xFF050507)
+
+    /** Manhwa level cards shown on the home dashboard (the rest are behind "View all"). */
+    private const val DASHBOARD_LEVELS = 3
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -230,6 +233,10 @@ data object DiscoverTab : Tab {
                         },
                         MenuEntry(MaterialSymbols.Rounded.QueryStats, stringResource(ATMR.strings.wrapped_title)) {
                             closeDrawerThen { navigator.push(WrappedScreen()) }
+                        },
+                        // MANHWA: everything about translation, one tap from the menu
+                        MenuEntry(MaterialSymbols.Rounded.Translate, stringResource(ATMR.strings.th_title)) {
+                            closeDrawerThen { navigator.push(eu.kanade.translation.settings.TranslationHubScreen()) }
                         },
                         MenuEntry(MaterialSymbols.Rounded.Settings, stringResource(ATMR.strings.home_settings)) {
                             closeDrawerThen { navigator.push(SettingsScreen()) }
@@ -296,7 +303,25 @@ data object DiscoverTab : Tab {
 
                         // Dashboard
                         item(key = "dashboard") {
-                            Dashboard(stats = state.stats, newCount = state.newInLibrary.size)
+                            Dashboard(
+                                stats = state.stats,
+                                newCount = state.newInLibrary.size,
+                                game = state.game,
+                                onViewAll = { navigator.push(eu.kanade.tachiyomi.ui.home.stats.ReadingDashboardScreen()) },
+                                onOpen = { id -> navigator.push(MangaScreen(id)) },
+                                onContinue = { id ->
+                                    scope.launch {
+                                        val chapter = runCatching { viewModel.nextChapter(id) }.getOrNull()
+                                        if (chapter != null) {
+                                            context.startActivity(
+                                                eu.kanade.tachiyomi.ui.reader.ReaderActivity.newIntent(context, chapter.mangaId, chapter.id),
+                                            )
+                                        } else {
+                                            navigator.push(MangaScreen(id))
+                                        }
+                                    }
+                                },
+                            )
                         }
 
                         // Quick toggles
@@ -411,7 +436,7 @@ data object DiscoverTab : Tab {
                                     state = state,
                                     onOpen = openManga,
                                     onRetry = viewModel::refreshRecommendations,
-                                    onSetup = { navigator.push(SettingsTranslationScreen) },
+                                    onSetup = { navigator.push(eu.kanade.translation.team.TranslationTeamScreen()) },
                                 )
                             }
 
@@ -1401,13 +1426,22 @@ data object DiscoverTab : Tab {
     }
 
     @Composable
-    private fun Dashboard(stats: DiscoverViewModel.Stats, newCount: Int) {
+    private fun Dashboard(
+        stats: DiscoverViewModel.Stats,
+        newCount: Int,
+        game: eu.kanade.tachiyomi.ui.home.stats.ReadingProgressEngine.Snapshot?,
+        onViewAll: () -> Unit,
+        onOpen: (Long) -> Unit,
+        onContinue: (Long) -> Unit,
+    ) {
         val colors = MaterialTheme.colorScheme
         val total = stats.week.sum()
-        val streak = stats.week.reversed().takeWhile { it > 0 }.size
+        // MANHWA: the real streak from the whole reading history (the week alone stopped at 7 days)
+        val streak = game?.streak?.days ?: stats.week.reversed().takeWhile { it > 0 }.size
         Section(
             title = stringResource(ATMR.strings.home_dashboard),
             subtitle = stringResource(ATMR.strings.home_dashboard_sub),
+            onSeeAll = onViewAll,
         ) {
             Column(
                 modifier = Modifier
@@ -1451,6 +1485,30 @@ data object DiscoverTab : Tab {
                 StatTile(MaterialSymbols.Rounded.LocalLibrary, "${stats.libraryCount}", stringResource(ATMR.strings.home_in_library), Modifier.weight(1f))
                 StatTile(MaterialSymbols.RoundedFilled.Bolt, "$newCount", stringResource(ATMR.strings.home_new_count), Modifier.weight(1f))
                 StatTile(MaterialSymbols.RoundedFilled.Whatshot, "$streak", stringResource(ATMR.strings.home_streak), Modifier.weight(1f))
+            }
+            // MANHWA reading game: hunter rank, streak stages and the level of the manhwa being read
+            if (game != null) {
+                Spacer(Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    eu.kanade.tachiyomi.ui.home.stats.HunterCard(game.hunter, game.totalChapters)
+                    eu.kanade.tachiyomi.ui.home.stats.StreakCard(game.streak)
+                    game.series.take(DASHBOARD_LEVELS).forEach { series ->
+                        eu.kanade.tachiyomi.ui.home.stats.SeriesLevelCard(
+                            series = series,
+                            onOpen = { onOpen(series.manga.id) },
+                            onContinue = { onContinue(series.manga.id) },
+                        )
+                    }
+                    eu.kanade.presentation.components.ManhwaKit.GhostButton(
+                        text = stringResource(ATMR.strings.game_view_all),
+                        icon = MaterialSymbols.Rounded.MilitaryTech,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onViewAll,
+                    )
+                }
             }
         }
     }

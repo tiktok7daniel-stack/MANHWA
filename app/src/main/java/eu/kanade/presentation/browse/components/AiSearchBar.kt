@@ -1,5 +1,6 @@
 package eu.kanade.presentation.browse.components
 
+import mihon.icons.materialsymbols.rounded.AutoAwesome
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -54,11 +55,17 @@ fun AiSearchBar(
                 selected = true,
                 onClick = onAiSearch,
                 enabled = state !is AiSearchState.Loading,
-                label = { Text("✦ " + stringResource(ATMR.strings.ai_search)) },
+                label = { Text(stringResource(ATMR.strings.ai_search)) },
                 leadingIcon = if (state is AiSearchState.Loading) {
                     { CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp) }
                 } else {
-                    null
+                    {
+                        androidx.compose.material3.Icon(
+                            mihon.icons.materialsymbols.MaterialSymbols.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                 },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = colors.primary,

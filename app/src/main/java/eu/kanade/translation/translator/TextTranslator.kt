@@ -76,6 +76,10 @@ enum class TextTranslators(val label: String, val needsApiKey: Boolean = false) 
     companion object {
         private val AI_ENGINES = setOf(GEMINI, OPENROUTER, OPENAI, CLAUDE, HYBRID)
 
+        /** MANHWA: the AI is the translation team; without a working key, ML Kit when chosen, Google otherwise. */
+        fun withoutKeys(pref: TranslationPreferences): TextTranslators =
+            if (fromPref(pref.translationEngine()) == MLKIT) MLKIT else GOOGLE
+
         fun fromPref(pref: Preference<Int>): TextTranslators {
             var translator = entries.getOrNull(pref.get())
             if (translator == null) {

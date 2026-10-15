@@ -66,6 +66,7 @@ class DiscoverViewModel(
     private val getFavorites: GetFavorites,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val fresh: eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine,
+    private val readingProgress: eu.kanade.tachiyomi.ui.home.stats.ReadingProgressEngine,
     context: android.content.Context,
     getUpdates: GetUpdates,
     getHistory: GetHistory,
@@ -106,6 +107,8 @@ class DiscoverViewModel(
         val sourceFilter: Long? = null,
         val refreshing: Boolean = false,
         val stats: Stats = Stats(),
+        /** MANHWA: streak, hunter rank and the level of every manhwa read. */
+        val game: eu.kanade.tachiyomi.ui.home.stats.ReadingProgressEngine.Snapshot? = null,
         val recommendations: List<HomeIntelligence.Recommendation> = emptyList(),
         val recsLoading: Boolean = false,
         /** Null when fine, otherwise why recommendations could not be made. */
@@ -216,6 +219,7 @@ class DiscoverViewModel(
             .onEach { list ->
                 val distinct = list.distinctBy { h -> h.mangaId }
                 _state.update { it.copy(continueReading = distinct.take(15), stats = it.stats.withHistory(list)) }
+                loadGame()
                 distinct.firstOrNull()?.let { loadProgress(it.mangaId) }
             }
             .launchIn(viewModelScope)
@@ -254,6 +258,21 @@ class DiscoverViewModel(
         viewModelScope.launch(Dispatchers.IO) { fresh.refresh() }
         viewModelScope.launch(Dispatchers.IO) { loadLibraryCount() }
     }
+
+    private var gameJob: kotlinx.coroutines.Job? = null
+
+    /** The reading game again after reading changed; a newer reload replaces one still running. */
+    private fun loadGame() {
+        gameJob?.cancel()
+        gameJob = viewModelScope.launch(Dispatchers.IO) {
+            runCatching { readingProgress.load() }
+                .onSuccess { game -> _state.update { it.copy(game = game) } }
+                .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it else logcat(LogPriority.ERROR, it) }
+        }
+    }
+
+    /** The next chapter to read in [mangaId], for the level cards' continue button. */
+    suspend fun nextChapter(mangaId: Long) = readingProgress.nextChapter(mangaId)
 
     private suspend fun loadLibraryCount() {
         val count = runCatching { getFavorites.await().size }.getOrNull() ?: return

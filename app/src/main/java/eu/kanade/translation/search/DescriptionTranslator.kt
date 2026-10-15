@@ -27,10 +27,8 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.glass
 import eu.kanade.translation.translator.AiTranslator
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
-import eu.kanade.translation.translator.aiPart
 import eu.kanade.translation.translator.GoogleTranslator
 import eu.kanade.translation.translator.TextTranslatorLanguage
-import eu.kanade.translation.translator.TextTranslators
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -126,13 +124,10 @@ fun DescriptionTranslator(description: String?, modifier: Modifier = Modifier) {
 
 /** Translates with the AI when possible; if it is not set up, busy or failing, Google Translate does it. */
 private suspend fun translate(prefs: TranslationPreferences, text: String): String? = withContext(Dispatchers.IO) {
-    val engine = TextTranslators.fromPref(prefs.translationEngine())
-    val built = engine.build(prefs)
-    val ai = built.aiPart
+    val ai = eu.kanade.translation.translator.appAi()
     val target = TextTranslatorLanguage.fromPref(prefs.translateToLanguage())
     val google = GoogleTranslator(TextRecognizerLanguage.ENGLISH, target)
     if (ai == null) {
-        built.close()
         return@withContext google.translateText(text).ifBlank { null }
     }
     try {
@@ -146,6 +141,6 @@ private suspend fun translate(prefs: TranslationPreferences, text: String): Stri
         if (e is CancellationException) throw e
         google.translateText(text).ifBlank { throw e }
     } finally {
-        built.close()
+        ai.close()
     }
 }

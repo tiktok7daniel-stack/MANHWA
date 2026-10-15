@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,6 +44,9 @@ import kotlinx.coroutines.launch
 import tachiyomi.core.common.i18n.stringResource
 import kotlinx.coroutines.withContext
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Check
+import mihon.icons.materialsymbols.rounded.Close
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -154,20 +158,8 @@ class LessonsScreen : Screen() {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
                                         Text(lesson.source, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(
-                                            "✗ ${lesson.wrong}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.error,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                        Text(
-                                            "✓ ${lesson.right}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
+                                        MarkedLine(MaterialSymbols.Rounded.Close, lesson.wrong, MaterialTheme.colorScheme.error, 1)
+                                        MarkedLine(MaterialSymbols.Rounded.Check, lesson.right, MaterialTheme.colorScheme.primary, 2)
                                         Text(
                                             stringResource(
                                                 if (lesson.origin == LessonStore.Origin.USER.name) ATMR.strings.lessons_by_you else ATMR.strings.lessons_by_editor,
@@ -212,6 +204,16 @@ class LessonsScreen : Screen() {
                 },
                 dismissButton = { TextButton(onClick = { editing = null }) { Text(stringResource(ATMR.strings.col_cancel)) } },
             )
+        }
+    }
+
+    /** A line of a lesson with its mark: what was wrong, or what is right. */
+    @Composable
+    private fun MarkedLine(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, color: androidx.compose.ui.graphics.Color, lines: Int) {
+        Row(verticalAlignment = Alignment.Top) {
+            androidx.compose.material3.Icon(icon, contentDescription = null, tint = color, modifier = Modifier.padding(top = 2.dp).size(14.dp))
+            androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 4.dp))
+            Text(text, style = MaterialTheme.typography.bodySmall, color = color, maxLines = lines, overflow = TextOverflow.Ellipsis)
         }
     }
 

@@ -50,7 +50,13 @@ class TeamTranslator(
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) = translate(pages, emptyMap())
 
+    /** True when some of the last pages had to be translated by Google (no key could do them). */
+    @Volatile var fellBack = false
+        private set
+
     override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
+        fellBack = false
+        learnt = emptyMap()
         if (pages.isEmpty()) return
         val slots = members.associateWith { slotsFor(it) }
         val plan = ChapterPlanner.plan(
@@ -142,6 +148,7 @@ class TeamTranslator(
         // What no key could do (all of them failed or left): Google, so the chapter still ends translated
         val rest = leftOver + queue
         if (rest.isNotEmpty()) {
+            fellBack = true
             val google = GoogleTranslator(fromLang, toLang)
             for (batch in rest) {
                 runCatching { google.translate(batch.pages.associateWithTo(mutableMapOf()) { pages.getValue(it) }) }
@@ -156,9 +163,13 @@ class TeamTranslator(
         members.forEach { store.usage.refreshOpenRouter(it) }
     }
 
+    /** New names the keys found so far in this chapter (a copy, replaced under the team's lock). */
+    @Volatile private var learnt: Map<String, String> = emptyMap()
+
     /** What the chapter translator set on [lead], given to a key's translator for one batch. */
     private fun shareSettings(translator: AiTranslator) {
-        translator.glossary = lead.glossary
+        // The glossary plus the names other keys found in earlier batches, so every key writes them the same way
+        translator.glossary = learnt + lead.glossary
         translator.learnTerms = lead.learnTerms
         translator.glossaryNotes = lead.glossaryNotes
         translator.richTerms = lead.richTerms
@@ -174,6 +185,7 @@ class TeamTranslator(
     /** What a key found while translating a batch, gathered on [lead] (called under the team's lock). */
     private fun gather(translator: AiTranslator, summaries: MutableMap<Int, MutableList<String>>, position: Int) {
         translator.discoveredTerms.forEach { (source, translation) -> lead.discoveredTerms.putIfAbsent(source, translation) }
+        learnt = LinkedHashMap(lead.discoveredTerms)
         translator.discoveredDetails.forEach { (source, info) -> lead.discoveredDetails.putIfAbsent(source, info) }
         if (translator.summaries.isNotEmpty()) summaries.getOrPut(position) { mutableListOf() } += translator.summaries
     }
@@ -205,7 +217,7 @@ class TeamTranslator(
     companion object {
         private val STOP = Any()
         private val WAIT = Any()
-        private const val WAIT_MS = 400L
+        private const val WAIT_MS = 150L
         private const val MAX_ATTEMPTS = 3
         private const val BATCH_TIMEOUT_MS = 150_000L
         private const val REFERENCE_POINTS = 8f

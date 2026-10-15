@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -36,7 +38,14 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.translation.model.Translation
 import kotlinx.coroutines.delay
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Error
+import mihon.icons.materialsymbols.rounded.QueryStats
+import mihon.icons.materialsymbols.rounded.Save
+import mihon.icons.materialsymbols.rounded.Schedule
+import mihon.icons.materialsymbols.rounded.Search
+import mihon.icons.materialsymbols.rounded.Translate
+import mihon.icons.materialsymbols.rounded.Verified
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.components.material.IconButtonTokens
@@ -82,6 +91,45 @@ fun ChapterTranslationIndicator(
 }
 
 private enum class Kind { IDLE, WORKING, DONE, FAILED }
+
+/** MANHWA: the icon of what the translation is doing (no emoji in the text, a clean vector icon beside it). */
+fun translationStageIcon(state: Translation.State, progress: Translation.Progress?): ImageVector = when {
+    state == Translation.State.ERROR -> MaterialSymbols.Rounded.Error
+    progress == null || progress.stage == Translation.Stage.QUEUED -> MaterialSymbols.Rounded.Schedule
+    progress.note != null && progress.note != Translation.Note.AI -> MaterialSymbols.Rounded.Schedule
+    else -> when (progress.stage) {
+        Translation.Stage.QUEUED -> MaterialSymbols.Rounded.Schedule
+        Translation.Stage.DOWNLOADING -> MaterialSymbols.Rounded.Download
+        Translation.Stage.READING -> MaterialSymbols.Rounded.Search
+        Translation.Stage.PLANNING -> MaterialSymbols.Rounded.QueryStats
+        Translation.Stage.TRANSLATING -> MaterialSymbols.Rounded.Translate
+        Translation.Stage.REVIEWING -> MaterialSymbols.Rounded.Verified
+        Translation.Stage.SAVING -> MaterialSymbols.Rounded.Save
+    }
+}
+
+/** The stage line: a small icon in the stage's colour, then the stage text. Nothing when there is nothing to say. */
+@Composable
+fun TranslationStageLine(
+    state: Translation.State,
+    progress: Translation.Progress?,
+    style: androidx.compose.ui.text.TextStyle,
+    color: Color? = null,
+) {
+    val label = translationStageLabel(state, progress) ?: return
+    val tint = color ?: if (state == Translation.State.ERROR) MaterialTheme.colorScheme.error else translationStageColor(progress?.stage)
+    androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            translationStageIcon(state, progress),
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(with(androidx.compose.ui.platform.LocalDensity.current) { style.fontSize.toDp() * 1.25f }),
+        )
+        androidx.compose.foundation.layout.Spacer(Modifier.width(4.dp))
+        Text(label, style = style, color = tint, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
 
 /** The colour of a stage: downloading, reading, translating and finishing each look different. */
 @Composable

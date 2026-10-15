@@ -16,8 +16,8 @@ class HybridTranslator(
     override val fromLang: TextRecognizerLanguage,
     override val toLang: TextTranslatorLanguage,
     private val google: GoogleTranslator,
-    /** Null when no AI key is set: then this is plain Google Translate. */
-    val ai: AiTranslator?,
+    /** The AI pass (one key or the whole team). Null when there is no key: then this is plain Google Translate. */
+    val ai: TextTranslator?,
 ) : TextTranslator {
 
     /** Called with the Google drafts before the AI pass, so they can be shown right away. */
@@ -25,7 +25,12 @@ class HybridTranslator(
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) = translate(pages, emptyMap())
 
+    /** True when the last AI pass failed and the Google draft was kept. */
+    @Volatile var fellBack = false
+        private set
+
     override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
+        fellBack = false
         // 1. Fast draft
         runCatching { google.translate(pages) }
             .onFailure { if (it is CancellationException) throw it }
@@ -33,15 +38,17 @@ class HybridTranslator(
         val ai = ai ?: return
         // 2. AI correction with full page context; drafts are kept if it fails
         val drafts = pages.mapValues { (_, page) -> page.blocks.map { it.copy() } }
+        val brain = ai.aiPart
         try {
-            ai.useDrafts = true
+            brain?.useDrafts = true
             ai.translate(pages, images)
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
             logcat(LogPriority.WARN, e) { "AI pass failed, keeping the Google draft" }
+            fellBack = true
             drafts.forEach { (name, blocks) -> pages[name]?.blocks = blocks.toMutableList() }
         } finally {
-            ai.useDrafts = false
+            brain?.useDrafts = false
         }
     }
 
@@ -52,4 +59,12 @@ class HybridTranslator(
 
 /** The AI part of an engine, if any: the engine itself, or the AI pass of the hybrid engine. */
 val TextTranslator.aiPart: AiTranslator?
-    get() = this as? AiTranslator ?: (this as? HybridTranslator)?.ai ?: (this as? TeamTranslator)?.lead
+    get() = this as? AiTranslator ?: (this as? HybridTranslator)?.ai?.aiPart ?: (this as? TeamTranslator)?.lead
+
+/** MANHWA: the last translation is (partly) Google's because the AI could not do it; such lines are not learnt. */
+val TextTranslator.fellBack: Boolean
+    get() = when (this) {
+        is HybridTranslator -> this.fellBack || (ai?.fellBack == true)
+        is TeamTranslator -> this.fellBack
+        else -> false
+    }

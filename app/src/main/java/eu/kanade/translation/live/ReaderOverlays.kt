@@ -1,5 +1,6 @@
 package eu.kanade.translation.live
 
+import mihon.icons.materialsymbols.rounded.Check
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -493,7 +494,14 @@ fun GlossarySheet(
                                     changed = true
                                 },
                             contentAlignment = Alignment.Center,
-                        ) { Text("✓", color = Color.White, fontWeight = FontWeight.Black) }
+                        ) {
+                    androidx.compose.material3.Icon(
+                        mihon.icons.materialsymbols.MaterialSymbols.Rounded.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp),
+                    )
+                        }
                     }
                     Box(
                         modifier = Modifier

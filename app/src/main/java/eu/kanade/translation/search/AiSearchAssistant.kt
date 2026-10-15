@@ -1,8 +1,7 @@
 package eu.kanade.translation.search
 
 import eu.kanade.translation.translator.AiTranslator
-import eu.kanade.translation.translator.aiPart
-import eu.kanade.translation.translator.TextTranslators
+import eu.kanade.translation.translator.appAi
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -10,18 +9,14 @@ import tachiyomi.domain.translation.TranslationPreferences
 
 /**
  * Turns a free-form request ("revenge manhwa where the MC sees colours", a half-remembered title, a title in
- * another script) into the titles a source is most likely to index, using the AI engine set up for translation.
+ * another script) into the titles a source is most likely to index, using the translation team's lead key.
  */
 class AiSearchAssistant(private val preferences: TranslationPreferences) {
 
     class NotConfiguredException : IllegalStateException("No AI engine configured")
 
     suspend fun suggestQueries(request: String): List<String> {
-        val engine = TextTranslators.fromPref(preferences.translationEngine())
-        if (!engine.isAi || preferences.translationEngineApiKey().get().isBlank() && engine != TextTranslators.OPENAI) {
-            throw NotConfiguredException()
-        }
-        val ai = engine.build(preferences).aiPart ?: throw eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException()
+        val ai = appAi() ?: throw NotConfiguredException()
         try {
             val reply = ai.askJson(SYSTEM, request.trim())
             return (reply["queries"] as? JsonArray).orEmpty()
