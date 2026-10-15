@@ -172,6 +172,7 @@ data object DiscoverTab : Tab {
 
     /** Manhwa level cards shown on the home dashboard (the rest are behind "View all"). */
     private const val DASHBOARD_LEVELS = 3
+    private const val LEVEL_UP_SHOWN_MS = 8_000L
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -1509,9 +1510,32 @@ data object DiscoverTab : Tab {
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    // Levels that went up today, celebrated first
-                    game.series.filter { it.leveledUpAt > 0 }.sortedByDescending { it.leveledUpAt }.take(2).forEach { series ->
-                        eu.kanade.tachiyomi.ui.home.stats.LevelUpBanner(series, onClick = { details = series })
+                    // A level that went up shows like a notification: a few seconds, then it fades away for good
+                    val levelUps = game.series.filter { it.leveledUpAt > 0 }.sortedByDescending { it.leveledUpAt }.take(2)
+                    val levelUpIds = levelUps.map { it.manga.id }
+                    val levelContext = androidx.compose.ui.platform.LocalContext.current
+                    var hiddenLevelUps by remember { mutableStateOf(emptySet<Long>()) }
+                    LaunchedEffect(levelUpIds) {
+                        if (levelUpIds.isEmpty()) return@LaunchedEffect
+                        // Seen once is enough: it won't come back next time the home screen opens
+                        runCatching { levelContext.appGraph.readingProgressEngine.acknowledgeLevelUps(levelUpIds) }
+                        kotlinx.coroutines.delay(LEVEL_UP_SHOWN_MS)
+                        hiddenLevelUps = hiddenLevelUps + levelUpIds
+                    }
+                    levelUps.forEach { series ->
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = series.manga.id !in hiddenLevelUps,
+                            enter = androidx.compose.animation.fadeIn(),
+                            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(),
+                        ) {
+                            eu.kanade.tachiyomi.ui.home.stats.LevelUpBanner(
+                                series,
+                                onClick = {
+                                    details = series
+                                    hiddenLevelUps = hiddenLevelUps + series.manga.id
+                                },
+                            )
+                        }
                     }
                     eu.kanade.tachiyomi.ui.home.stats.HunterCard(game.hunter, game.totalChapters)
                     eu.kanade.tachiyomi.ui.home.stats.StreakCard(game.streak)

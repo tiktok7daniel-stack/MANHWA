@@ -30,7 +30,7 @@ class ReadingProgressEngine(
 
     /** The level a manhwa had when last seen, and when it last went up (0: never seen going up). */
     @kotlinx.serialization.Serializable
-    private data class Seen(val level: Int, val upAt: Long = 0)
+    private data class Seen(val level: Int, val upAt: Long = 0, val shown: Boolean = false)
 
     private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
@@ -48,15 +48,25 @@ class ReadingProgressEngine(
             val before = seen[key]
             seen[key] = when {
                 before == null -> Seen(s.level.level)
-                s.level.level > before.level -> Seen(s.level.level, now)
+                s.level.level > before.level -> Seen(s.level.level, now, shown = false)
                 else -> before.copy(level = s.level.level)
             }
         }
         sourcePreferences.manhwaSeenLevels.set(json.encodeToString<Map<String, Seen>>(seen.toMap()))
         return seen.mapNotNull { (key, value) ->
             val id = key.toLongOrNull() ?: return@mapNotNull null
-            if (value.upAt > 0 && now - value.upAt < CELEBRATE_MS) id to value.upAt else null
+            if (value.upAt > 0 && !value.shown && now - value.upAt < CELEBRATE_MS) id to value.upAt else null
         }.toMap()
+    }
+
+    /** The level-ups of [mangaIds] were shown: they leave the home screen and don't come back for that level. */
+    suspend fun acknowledgeLevelUps(mangaIds: Collection<Long>) = withContext(Dispatchers.IO) {
+        if (mangaIds.isEmpty()) return@withContext
+        val seen = runCatching {
+            json.decodeFromString<Map<String, Seen>>(sourcePreferences.manhwaSeenLevels.get())
+        }.getOrDefault(emptyMap()).toMutableMap()
+        mangaIds.forEach { id -> seen["$id"]?.let { seen["$id"] = it.copy(shown = true) } }
+        sourcePreferences.manhwaSeenLevels.set(json.encodeToString<Map<String, Seen>>(seen.toMap()))
     }
 
     data class Series(
