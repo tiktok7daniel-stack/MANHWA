@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.home.hub
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -203,6 +204,8 @@ class SourceHubScreen : Screen() {
                                 autoUpdate = state.autoUpdate,
                                 updates = state.updatable.size,
                                 updating = state.updating,
+                                queue = state.updateQueue,
+                                steps = state.installing,
                                 onAutoUpdate = viewModel::setAutoUpdate,
                                 onUpdateAll = viewModel::updateAll,
                             )
@@ -833,7 +836,15 @@ class SourceHubScreen : Screen() {
 
     /** Auto-update switch for the sources, with "Update all" when updates wait. */
     @Composable
-    private fun UpdatesCard(autoUpdate: Boolean, updates: Int, updating: Boolean, onAutoUpdate: (Boolean) -> Unit, onUpdateAll: () -> Unit) {
+    private fun UpdatesCard(
+        autoUpdate: Boolean,
+        updates: Int,
+        updating: Boolean,
+        queue: List<Extension.Loaded>,
+        steps: Map<String, InstallStep>,
+        onAutoUpdate: (Boolean) -> Unit,
+        onUpdateAll: () -> Unit,
+    ) {
         val colors = MaterialTheme.colorScheme
         Column(
             modifier = Modifier
@@ -853,6 +864,27 @@ class SourceHubScreen : Screen() {
                 }
                 androidx.compose.material3.Switch(checked = autoUpdate, onCheckedChange = onAutoUpdate)
             }
+            if (queue.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    stringResource(ATMR.strings.hub_updating_count, queue.size),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.primary,
+                )
+                Spacer(Modifier.height(6.dp))
+                // The list of what updates now: each source shows its step, then leaves when it is done
+                Column(
+                    modifier = Modifier.animateContentSize(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    queue.forEach { extension ->
+                        androidx.compose.runtime.key(extension.pkgName) {
+                            UpdateRow(extension, steps[extension.pkgName])
+                        }
+                    }
+                }
+            }
             if (updates > 0 || updating) {
                 Spacer(Modifier.height(10.dp))
                 if (updating) {
@@ -868,6 +900,72 @@ class SourceHubScreen : Screen() {
                         MaterialSymbols.Rounded.Download,
                         onUpdateAll,
                     )
+                }
+            }
+        }
+    }
+
+    /** One source in the live update list, sliding in when it joins and showing its step until it is done. */
+    @Composable
+    private fun UpdateRow(extension: Extension.Loaded, step: InstallStep?) {
+        val colors = MaterialTheme.colorScheme
+        val appear = remember { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
+        androidx.compose.animation.AnimatedVisibility(
+            visibleState = appear,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+        ) {
+            val done = step == InstallStep.Installed
+            val failed = step == InstallStep.Error
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glass(RoundedCornerShape(14.dp), accent = done, alpha = 0.35f)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val icon = extension.sources.firstOrNull()
+                Box(
+                    modifier = Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(colors.primary.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(extension.name.take(1).uppercase(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = Color.White)
+                    if (icon != null) {
+                        AsyncImage(
+                            model = InstalledSourceIcon(icon.id),
+                            contentDescription = null,
+                            placeholder = ColorPainter(Color.Transparent),
+                            error = ColorPainter(Color.Transparent),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(extension.name, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        stringResource(
+                            when (step) {
+                                InstallStep.Downloading -> ATMR.strings.hub_step_downloading
+                                InstallStep.Installing -> ATMR.strings.hub_step_installing
+                                InstallStep.Installed -> ATMR.strings.hub_step_done
+                                InstallStep.Error -> ATMR.strings.hub_step_failed
+                                else -> ATMR.strings.hub_step_waiting
+                            },
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = when {
+                            done -> colors.primary
+                            failed -> colors.error
+                            else -> Color.White.copy(alpha = 0.6f)
+                        },
+                    )
+                }
+                when {
+                    done -> Icon(MaterialSymbols.Rounded.Check, contentDescription = null, tint = colors.primary, modifier = Modifier.size(20.dp))
+                    failed -> Icon(MaterialSymbols.Rounded.Close, contentDescription = null, tint = colors.error, modifier = Modifier.size(20.dp))
+                    step == InstallStep.Downloading || step == InstallStep.Installing ->
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else -> Box(Modifier.size(8.dp).background(Color.White.copy(alpha = 0.3f), CircleShape))
                 }
             }
         }

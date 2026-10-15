@@ -591,4 +591,10 @@
     <string name="hub_uninstall_title">Remove %1$s?</string>
     <string name="hub_uninstall_body">Its %1$d sources leave the app and the home screen. Your library keeps its series.</string>
     <string name="hub_uninstall_ok">Remove</string>
+    <string name="hub_updating_count">Updating now · %1$d</string>
+    <string name="hub_step_waiting">Waiting</string>
+    <string name="hub_step_downloading">Downloading the update…</string>
+    <string name="hub_step_installing">Installing…</string>
+    <string name="hub_step_done">Updated</string>
+    <string name="hub_step_failed">Could not update, try again later</string>
 </resources>

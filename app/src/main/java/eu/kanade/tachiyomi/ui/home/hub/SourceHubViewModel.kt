@@ -98,6 +98,8 @@ class SourceHubViewModel(
         val extensionBySource: Map<Long, Extension.Loaded> = emptyMap(),
         val autoUpdate: Boolean = true,
         val updating: Boolean = false,
+        /** Sources being updated now, in order; each leaves the list a moment after it is done. */
+        val updateQueue: List<Extension.Loaded> = emptyList(),
         val ai: AiSearch = AiSearch(),
     ) {
         /** Installed extensions with an update waiting. */
@@ -168,6 +170,17 @@ class SourceHubViewModel(
         .followRedirects(true)
         .build()
     private val pingGate = Semaphore(PARALLEL_PINGS)
+
+    // Declared before init: the server checks it starts write here at once
+    /** Server checks land in batches (a few times a second) instead of one screen update per source. */
+    private val pendingHealth = java.util.concurrent.ConcurrentHashMap<Long, Health>()
+
+    @Volatile
+    private var flushJob: kotlinx.coroutines.Job? = null
+
+    private val privateLock = Any()
+    private var privateInstalls = 0
+    private var savedInstaller: BasePreferences.ExtensionInstaller? = null
 
     /** One check per host: multi-language extensions share a host for dozens of sources. */
     private val hostLatency = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<Long>>()
@@ -249,16 +262,27 @@ class SourceHubViewModel(
         if (_state.value.updating) return
         val queue = _state.value.updatable
         if (queue.isEmpty()) return
-        _state.update { it.copy(updating = true) }
+        _state.update { s ->
+            s.copy(
+                updating = true,
+                updateQueue = queue,
+                installing = s.installing + queue.associate { it.pkgName to InstallStep.Pending },
+            )
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val done = extensionManager.autoUpdate(queue)
-                queue.filter { it.pkgName !in done }.forEach { extension ->
+                // One after another: private ones update silently, system ones go through Android's prompt
+                queue.forEach { extension ->
                     runCatching {
                         extensionManager.updateExtension(extension)
                             .untilDone()
                             .catch { emit(InstallStep.Error) }
                             .collect { step -> _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to step)) } }
+                    }
+                    // Seen done for a moment, then it leaves the list
+                    launch {
+                        kotlinx.coroutines.delay(DONE_SHOWN_MS)
+                        _state.update { s -> s.copy(updateQueue = s.updateQueue.filter { it.pkgName != extension.pkgName }) }
                     }
                 }
             } finally {
@@ -400,9 +424,6 @@ class SourceHubViewModel(
         }
     }
 
-    /** Server checks land in batches (a few times a second) instead of one screen update per source. */
-    private val pendingHealth = java.util.concurrent.ConcurrentHashMap<Long, Health>()
-    private var flushJob: kotlinx.coroutines.Job? = null
 
     private fun flushHealthSoon() {
         if (flushJob?.isActive == true) return
@@ -539,9 +560,6 @@ class SourceHubViewModel(
         }
     }
 
-    private val privateLock = Any()
-    private var privateInstalls = 0
-    private var savedInstaller: BasePreferences.ExtensionInstaller? = null
 
     /** Switches to the private installer while any install of this screen runs, then puts the reader's choice back. */
     private fun beginPrivate() = synchronized(privateLock) {
@@ -577,6 +595,7 @@ class SourceHubViewModel(
         private const val AUTO_PICK = 8
         private const val MAX_AI_CATALOG = 250
         private const val HEALTH_BATCH_MS = 350L
+        private const val DONE_SHOWN_MS = 1_200L
         const val NO_KEY = "no_key"
         private const val PARALLEL_PINGS = 6
         private const val PING_TIMEOUT_S = 6L

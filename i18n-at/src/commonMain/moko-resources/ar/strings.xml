@@ -532,4 +532,10 @@
     <string name="hub_uninstall_title">تمسح %1$s؟</string>
     <string name="hub_uninstall_body">المصادر بتاعته (%1$d) هتتشال من التطبيق والرئيسية. مكتبتك بتفضل زي ما هي.</string>
     <string name="hub_uninstall_ok">امسح</string>
+    <string name="hub_updating_count">بيتحدث دلوقتي · %1$d</string>
+    <string name="hub_step_waiting">مستني دوره</string>
+    <string name="hub_step_downloading">بينزّل التحديث…</string>
+    <string name="hub_step_installing">بيثبّت…</string>
+    <string name="hub_step_done">اتحدث</string>
+    <string name="hub_step_failed">ما اتحدثش، جرّب تاني بعدين</string>
 </resources>
