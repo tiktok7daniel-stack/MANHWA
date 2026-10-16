@@ -66,6 +66,14 @@ fun StudySheet(page: PageTranslation?, title: String, onDismiss: () -> Unit) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(b.text, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
                         Text(b.translation, color = Color.White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        // Who wrote it: the phone, a key, the library
+                        val by = when (b.by) {
+                            "local" -> stringResource(ATMR.strings.by_local)
+                            "team" -> stringResource(ATMR.strings.by_team)
+                            "library" -> stringResource(ATMR.strings.by_library)
+                            else -> ""
+                        }
+                        if (by.isNotEmpty()) Text(by, color = Color.White.copy(alpha = 0.45f), style = MaterialTheme.typography.labelSmall)
                     }
                     Spacer(Modifier.width(8.dp))
                     Icon(

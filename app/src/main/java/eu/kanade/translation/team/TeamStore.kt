@@ -43,6 +43,9 @@ import kotlin.math.roundToInt
 @SingleIn(AppScope::class)
 class TeamStore(private val context: Context, private val prefs: TranslationPreferences) {
 
+    /** The reader's own Arabic, for translators built outside [translatorFor] (the phone's model). */
+    fun styleInstruction(to: TextTranslatorLanguage): String = eu.kanade.translation.style.StyleProfile.instruction(prefs, to.name)
+
     /** The app, for parts of the team that need it (the on-device AI fallback). */
     val appContext: Context get() = context
 

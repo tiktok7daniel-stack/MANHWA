@@ -665,6 +665,19 @@ class ChapterTranslator(
                         )
                     }
                 }
+                // MANHWA orchestra: the phone judges the lines two keys did equally well (free); the reader may still choose
+                if (consensus.ties.isNotEmpty() && eu.kanade.translation.orchestra.OrchestraStore.active(context)) {
+                    val style = eu.kanade.translation.style.StyleProfile.instruction(translationPreferences, translation.toLang.name)
+                    var judged = 0
+                    consensus.ties.forEach { (source, kept, other) ->
+                        val verdict = runCatching { eu.kanade.translation.orchestra.LocalJudge.pick(context, source, kept, other, style, glossaryAfter) }.getOrNull()
+                        if (verdict == 2) {
+                            pages.values.flatMap { it.blocks }.firstOrNull { it.text == source && it.translation == kept }?.translation = other
+                        }
+                        if (verdict != null) judged++
+                    }
+                    eu.kanade.translation.orchestra.OrchestraStore.record(context, judged = judged)
+                }
                 // MANHWA quality badge: where the lines came from and what is still doubtful
                 runCatching {
                     val stillDoubtful = doubtful(pages, glossaryAfter, translation, emptySet()).keys.map { it.text }.take(20)

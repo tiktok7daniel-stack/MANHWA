@@ -100,7 +100,8 @@ object WhatsNew {
 
     val features: List<Feature>
         get() = listOf(
-            // Build 39: the five big ones first
+            // Build 39: the five big ones first, the orchestra that joins them
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_orchestra_t, ATMR.strings.wn_orchestra_b),
             Feature(MaterialSymbols.Rounded.Psychology, ATMR.strings.wn_local_t, ATMR.strings.wn_local_b),
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_clean_t, ATMR.strings.wn_clean_b),
             Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_brain_t, ATMR.strings.wn_brain_b),

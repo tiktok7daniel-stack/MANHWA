@@ -147,4 +147,16 @@ class TranslationPreferences(
 
     /** One work, all sources: a dead source or a missing chapter is read from another source by itself. */
     fun translationUnifiedSources() = preferenceStore.getBoolean("manhwa_translation_unified_sources", true)
+
+    /** The hybrid orchestra: the on-device models and the team's keys work on every chapter together. */
+    fun translationOrchestra() = preferenceStore.getBoolean("manhwa_translation_orchestra", true)
+
+    /** A second on-device model that judges between two translations (empty: the main one judges). */
+    fun translationLocalJudgePath() = preferenceStore.getString("manhwa_translation_local_judge_path", "")
+
+    /** The reader's own Hugging Face token, only to download gated models they accepted (kept on the phone). */
+    fun translationHfToken() = preferenceStore.getString("manhwa_translation_hf_token", "")
+
+    /** What the orchestra did (lines by the phone, by the keys, judgements), as JSON (see OrchestraStats). */
+    fun translationOrchestraStats() = preferenceStore.getString("manhwa_translation_orchestra_stats", "{}")
 }

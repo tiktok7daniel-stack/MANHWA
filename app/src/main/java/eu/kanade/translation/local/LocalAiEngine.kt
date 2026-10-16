@@ -40,6 +40,17 @@ object LocalAiEngine {
 
     fun available(context: Context): Boolean = runCatching { modelFile(context) != null }.getOrDefault(false)
 
+    /** The second model chosen as judge, when there is one (else the main model judges). */
+    fun judgeFile(context: Context): File? {
+        val path = context.appGraph.translationPreferences.translationLocalJudgePath().get()
+        return path.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.isFile && it.length() > MIN_MODEL_BYTES }
+    }
+
+    /** Uses a model already on the phone (downloaded from the catalogue) as the main model. */
+    fun use(context: Context, file: File) {
+        context.appGraph.translationPreferences.translationLocalModelPath().set(file.absolutePath)
+    }
+
     /** Copies the model the reader picked into the app; returns its size, or throws when it is not a model. */
     suspend fun import(context: Context, uri: Uri): Long = withContext(Dispatchers.IO) {
         val name = uri.lastPathSegment.orEmpty().substringAfterLast('/')
@@ -70,8 +81,8 @@ object LocalAiEngine {
     }
 
     /** One answer from the model; null when there is no model or it failed. */
-    suspend fun generate(context: Context, prompt: String): String? = withContext(Dispatchers.Default) {
-        val file = modelFile(context) ?: return@withContext null
+    suspend fun generate(context: Context, prompt: String, model: File? = null): String? = withContext(Dispatchers.Default) {
+        val file = model?.takeIf { it.isFile } ?: modelFile(context) ?: return@withContext null
         gate.withLock {
             runCatching {
                 val llm = engine?.takeIf { loadedPath == file.absolutePath } ?: run {

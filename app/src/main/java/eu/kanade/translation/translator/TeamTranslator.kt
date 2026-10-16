@@ -2,6 +2,7 @@ package eu.kanade.translation.translator
 
 import eu.kanade.translation.data.PageImage
 import eu.kanade.translation.model.PageTranslation
+import eu.kanade.translation.model.TranslationBlock
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
 import eu.kanade.translation.style.BubbleKind
 import eu.kanade.translation.team.AiRouter
@@ -97,6 +98,16 @@ class TeamTranslator(
             pageLines.clear()
         }
         if (pages.isEmpty()) return
+        // MANHWA hybrid orchestra: the model on the phone and the keys play the chapter together
+        if (lane != AiRouter.Lane.LIVE && !orchestrating && eu.kanade.translation.orchestra.OrchestraStore.active(store.appContext)) {
+            orchestrating = true
+            try {
+                orchestrate(pages, images)
+            } finally {
+                orchestrating = false
+            }
+            return
+        }
         // The page being read with more than one key: the keys race when the first one is slow
         if (lane == AiRouter.Lane.LIVE && members.size > 1) return translateRacing(pages, images)
         // Calls the keys can run at once now (they grow while the keys keep up, see AiRouter.report)
@@ -303,6 +314,75 @@ class TeamTranslator(
             runCatching { fallbackTranslator().translate(pages) }.onFailure { if (it is CancellationException) throw it }
         }
         Unit
+    }
+
+    @Volatile private var orchestrating = false
+
+    /**
+     * MANHWA hybrid orchestra: the phone drafts every line at once (free); short plain lines keep the phone's
+     * line, the rest goes to the keys with the phone's draft to improve (far fewer tokens than from zero); every
+     * line a key rewrote is kept as an example the phone follows next time.
+     */
+    private suspend fun orchestrate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
+        val context = store.appContext
+        val drafter = eu.kanade.translation.local.LocalAiTranslator(
+            context,
+            fromLang,
+            toLang,
+            instructions = store.styleInstruction(toLang),
+            glossary = lead.glossary,
+        )
+        val blocks = pages.values.flatMap { it.blocks }.filter { it.text.isNotBlank() && it.translation.isBlank() }
+        val drafts = runCatching { drafter.draftLines(blocks.map { it.text }) }
+            .onFailure { if (it is CancellationException) throw it }
+            .getOrNull()
+        if (drafts == null) {
+            // The phone could not play this time: the keys do it all as before
+            translate(pages, images)
+            return
+        }
+        val terms = lead.glossary.keys
+        // By identity: a line's translation changes while it is in these (its hash would change too)
+        val toTeam: MutableSet<TranslationBlock> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+        val drafted = java.util.IdentityHashMap<TranslationBlock, String>()
+        var local = 0
+        blocks.forEachIndexed { i, block ->
+            val draft = drafts.getOrNull(i)
+            val route = eu.kanade.translation.orchestra.OrchestraRules.route(block.text, draft.orEmpty(), block.kind, terms, draft != null)
+            if (route == eu.kanade.translation.orchestra.OrchestraRules.Route.LOCAL && draft != null) {
+                block.translation = draft
+                block.by = "local"
+                local++
+            } else {
+                if (draft != null) {
+                    block.translation = draft
+                    drafted[block] = draft
+                }
+                toTeam += block
+            }
+        }
+        if (toTeam.isNotEmpty()) {
+            // Only the pages with lines left go to the keys, holding only those lines (the same objects)
+            val rest = pages.mapNotNull { (name, page) ->
+                val left = page.blocks.filter { it in toTeam }
+                if (left.isEmpty()) null else name to page.copy(blocks = left.toMutableList())
+            }.toMap(LinkedHashMap())
+            val draftsBefore = lead.useDrafts
+            lead.useDrafts = drafted.isNotEmpty() || draftsBefore
+            try {
+                translate(rest, images.filterKeys { it in rest })
+            } finally {
+                lead.useDrafts = draftsBefore
+            }
+            toTeam.forEach { if (it.by.isBlank()) it.by = if (fellBack) "fallback" else "team" }
+            // The phone learns from what the keys changed
+            val corrected = drafted.mapNotNull { (block, draft) ->
+                val final = block.translation.trim()
+                if (final.isBlank() || final == draft || fellBack) null else eu.kanade.translation.orchestra.OrchestraStore.Example(block.text, draft, final)
+            }
+            eu.kanade.translation.orchestra.OrchestraStore.learn(context, corrected)
+        }
+        eu.kanade.translation.orchestra.OrchestraStore.record(context, local = local, team = toTeam.size)
     }
 
     /** What translates when no key can: the on-device AI (with the series glossary) when there is one, else Google. */

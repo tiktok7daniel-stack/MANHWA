@@ -51,6 +51,8 @@ data class TranslationBlock(
     var bubbleH: Float = 0f,
     // Oval bubble (true) or a box such as a caption or a system window (false)
     var bubbleRound: Boolean = true,
+    // MANHWA orchestra: who wrote this translation ("local" model on the phone, "team" key, "library"), empty when unknown
+    var by: String = "",
     // The reader's own adjustments: move, box size and text size of this bubble
     var userDx: Float = 0f,
     var userDy: Float = 0f,

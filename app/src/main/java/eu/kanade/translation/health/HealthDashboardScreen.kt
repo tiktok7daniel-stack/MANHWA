@@ -170,6 +170,17 @@ class HealthDashboardScreen : Screen() {
                                 Line(stringResource(ATMR.strings.health_library_line, s.lines.toInt(), s.templates.toInt(), Formatter.formatShortFileSize(context, s.bytes)))
                             }
                             Line(stringResource(ATMR.strings.health_freed, Formatter.formatShortFileSize(context, freed)))
+                            // MANHWA orchestra: what the phone did today with the keys
+                            val orchestra = remember { eu.kanade.translation.orchestra.OrchestraStore.stats(context) }
+                            Line(
+                                stringResource(
+                                    ATMR.strings.orchestra_today,
+                                    orchestra.localLines,
+                                    orchestra.teamLines,
+                                    eu.kanade.translation.orchestra.OrchestraRules.callsSaved(orchestra.localLines),
+                                    orchestra.judged,
+                                ),
+                            )
                         }
                     }
                     // Organizer

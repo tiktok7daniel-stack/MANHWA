@@ -16,6 +16,7 @@ import eu.kanade.translation.translator.ArabicGrammarEngine
 import eu.kanade.translation.translator.ArabicTransliterator
 import eu.kanade.translation.brain.BrainRules
 import eu.kanade.translation.brain.SeriesBrain
+import eu.kanade.translation.orchestra.OrchestraRules
 import eu.kanade.translation.style.StyleProfile
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
@@ -318,5 +319,42 @@ class FiveFeaturesTest {
         eu.kanade.translation.local.LocalAiRules.usable("Hello", "Hello", "ar") shouldBe false
         eu.kanade.translation.local.LocalAiRules.usable("Hello", "Hello friend", "ar") shouldBe false
         eu.kanade.translation.local.LocalAiRules.usable("Hello", "", "ar") shouldBe false
+    }
+}
+
+class OrchestraTest {
+    @Test
+    fun `short plain lines stay with the phone, the rest goes to the keys`() {
+        OrchestraRules.route("What?!", "إيه؟!", "", emptyList(), draftUsable = true) shouldBe OrchestraRules.Route.LOCAL
+        OrchestraRules.route("Let's go.", "يلا بينا.", "speech", emptyList(), draftUsable = true) shouldBe OrchestraRules.Route.LOCAL
+        OrchestraRules.route("What?!", "", "", emptyList(), draftUsable = false) shouldBe OrchestraRules.Route.TEAM
+        OrchestraRules.route("Jinwoo, run!", "اجري!", "", listOf("Jinwoo"), draftUsable = true) shouldBe OrchestraRules.Route.TEAM
+        OrchestraRules.route("[Level 3]", "[المستوى 3]", "system", emptyList(), draftUsable = true) shouldBe OrchestraRules.Route.TEAM
+        OrchestraRules.route("I never thought that you would betray me like this", "x", "", emptyList(), draftUsable = true) shouldBe OrchestraRules.Route.TEAM
+    }
+
+    @Test
+    fun `the phone sits out when hot, low or saving battery`() {
+        OrchestraRules.deviceOk(80, charging = false, powerSave = false, thermal = 0) shouldBe true
+        OrchestraRules.deviceOk(10, charging = false, powerSave = false, thermal = 0) shouldBe false
+        OrchestraRules.deviceOk(10, charging = true, powerSave = false, thermal = 0) shouldBe true
+        OrchestraRules.deviceOk(80, charging = false, powerSave = true, thermal = 0) shouldBe false
+        OrchestraRules.deviceOk(80, charging = true, powerSave = false, thermal = 3) shouldBe false
+        OrchestraRules.callsSaved(0) shouldBe 0
+        OrchestraRules.callsSaved(13) shouldBe 2
+    }
+
+    @Test
+    fun `judge, tutor and model shelf`() {
+        eu.kanade.translation.orchestra.JudgeRules.parse("2") shouldBe 2
+        eu.kanade.translation.orchestra.JudgeRules.parse("The better one is 1.") shouldBe 1
+        eu.kanade.translation.orchestra.JudgeRules.parse("both") shouldBe null
+        val ex = listOf(
+            eu.kanade.translation.orchestra.OrchestraStore.Example("Run away now", "اهرب الآن", "اهرب حالًا!"),
+            eu.kanade.translation.orchestra.OrchestraStore.Example("The gate opened", "البوابة فتحت", "انفتحت البوابة"),
+        )
+        eu.kanade.translation.orchestra.TutorRules.closest(ex, listOf("The gate is closing"), 1).map { it.source } shouldBe listOf("The gate opened")
+        eu.kanade.translation.local.CatalogRules.bestFile(listOf("README.md", "model_q8.task", "model_int4.task")) shouldBe "model_int4.task"
+        eu.kanade.translation.local.CatalogRules.bestFile(listOf("README.md")) shouldBe null
     }
 }

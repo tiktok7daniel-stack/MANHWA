@@ -87,6 +87,11 @@ fun LocalAiPanel(modifier: Modifier = Modifier) {
                 eu.kanade.translation.team.openInBrowser(context, MODELS_PAGE)
             }
         }
+        // MANHWA model shelf and the hybrid orchestra
+        val navigator = cafe.adriel.voyager.navigator.LocalNavigator.current
+        ManhwaKit.NeonButton(stringResource(ATMR.strings.models_title), icon = MaterialSymbols.Rounded.Download, modifier = Modifier.fillMaxWidth()) {
+            navigator?.push(LocalModelsScreen())
+        }
         if (file != null) {
             ManhwaKit.GhostButton(stringResource(ATMR.strings.local_ai_remove), icon = MaterialSymbols.Rounded.Delete, modifier = Modifier.fillMaxWidth()) {
                 scope.launch {
