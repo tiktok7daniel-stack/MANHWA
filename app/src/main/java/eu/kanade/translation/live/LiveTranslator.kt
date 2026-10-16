@@ -1,5 +1,6 @@
 package eu.kanade.translation.live
 
+import mihon.app.di.appGraph
 import android.util.LruCache
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -190,8 +191,8 @@ class LiveTranslator(
                 savedChapter = chapterPages.any { it.translation != null }
                 heldFor = null
                 synchronized(fromPartial) { fromPartial.clear() }
-                if (!savedChapter) handOver(page.chapter.chapter.id)
                 pages = chapterPages
+                if (!savedChapter) handOver(page.chapter.chapter.id, page.chapter.chapter.name, page.chapter.chapter.scanlator)
                 forced = false
                 restoreFromCache(chapterPages)
             }
@@ -219,6 +220,8 @@ class LiveTranslator(
         fun translateNow() {
             forced = true
             paused = false
+            // The reader asked for it now: no more waiting on the manga screen's job
+            heldFor = null
             synchronized(failed) { failed.clear() }
             lastError = null
             if (!readerPreferences.showTranslations.get()) readerPreferences.showTranslations.set(true)
@@ -229,6 +232,7 @@ class LiveTranslator(
         /** Tries the pages that failed again (after a network or API problem). */
         fun retry() {
             synchronized(failed) { failed.clear() }
+            heldFor = null
             resetEngine = true
             paused = false
             lastError = null
@@ -290,24 +294,55 @@ class LiveTranslator(
 
         private fun canWork(): Boolean =
             active() && !paused && readerPreferences.showTranslations.get() &&
-                lastError == null && heldFor == null && (!savedChapter || forced)
+                lastError == null && heldFor == null && !checkingSaved && (!savedChapter || forced)
 
         /**
          * MANHWA: the chapter just opened is in the manga screen's translation queue. Still waiting or fetching
          * its pages: that job stops and the reader translates it here, page by page. Already translating: the
          * reader waits for it (no chapter is translated twice) and shows it as soon as it is saved.
          */
-        private fun handOver(chapterId: Long?) {
+        private fun handOver(chapterId: Long?, name: String, scanlator: String?) {
             chapterId ?: return
-            val queued = translationManager.getQueuedTranslationOrNull(chapterId) ?: return
+            val queued = translationManager.getQueuedTranslationOrNull(chapterId)
+            if (queued == null) {
+                // Not queued: it may have been translated and saved after its pages were loaded (or it is read
+                // online). Looked for before translating anything, so a saved chapter is never paid for twice.
+                lookForSaved(chapterId, name, scanlator)
+                return
+            }
             if (queued.status == Translation.State.ERROR) return
             val stage = queued.progress.value.stage
-            if (stage >= Translation.Stage.TRANSLATING) {
+            // Waited for only while it really runs: a paused or waiting chapter is translated here instead
+            if (queued.status == Translation.State.TRANSLATING && stage >= Translation.Stage.TRANSLATING) {
                 heldFor = queued
                 // Batches already done before the chapter was opened
                 translationManager.partial.value[chapterId]?.let { ready -> scope.launch { putPages(ready, replacePartial = false) } }
             } else {
                 translationManager.cancelQueuedTranslation(queued)
+            }
+        }
+
+        /** True while the saved file of the chapter just opened is looked for: nothing is translated meanwhile. */
+        @Volatile private var checkingSaved = false
+
+        private fun lookForSaved(chapterId: Long, name: String, scanlator: String?) {
+            checkingSaved = true
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val graph = teamStore.appContext.appGraph
+                    val manga = mangaId()?.let { graph.getMangaById.await(it) } ?: return@launch
+                    val source = graph.sourceManager.get(manga.source) ?: return@launch
+                    val saved = runCatching { translationManager.getChapterTranslation(name, scanlator, manga.title, source) }.getOrDefault(emptyMap())
+                    // Still the chapter on screen
+                    if (saved.isNotEmpty() && pages.firstOrNull()?.chapter?.chapter?.id == chapterId) {
+                        putPages(saved, replacePartial = true)
+                        savedChapter = true
+                    }
+                } finally {
+                    checkingSaved = false
+                    publish()
+                    wake.trySend(Unit)
+                }
             }
         }
 

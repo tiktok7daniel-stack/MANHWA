@@ -989,8 +989,15 @@ private fun PhoneMemberCard(onOpen: () -> Unit) {
     val orchestra by prefs.translationOrchestra().collectPreference()
     val path by prefs.translationLocalModelPath().collectPreference()
     val inactive by prefs.translationInactiveModels().collectPreference()
-    val lineup = remember(path, inactive) { eu.kanade.translation.local.PhoneEnsemble.lineup(context) }
-    val playing = remember(path, orchestra) { eu.kanade.translation.orchestra.OrchestraStore.active(context) }
+    // Read off the main thread (it asks the system about downloads and memory)
+    val lineupState by androidx.compose.runtime.produceState<eu.kanade.translation.local.PhoneEnsemble.Lineup?>(null, path, inactive) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { eu.kanade.translation.local.PhoneEnsemble.lineup(context) }
+    }
+    val playing by androidx.compose.runtime.produceState(false, path, orchestra) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { eu.kanade.translation.orchestra.OrchestraStore.active(context) }
+    }
+    // A plain value, so the checks below hold for it
+    val lineup = lineupState
     val (text, color) = when {
         lineup == null -> stringResource(ATMR.strings.team_phone_none) to Color(0xFFFFB020)
         !orchestra -> stringResource(ATMR.strings.team_phone_off) to Color.White.copy(alpha = 0.6f)

@@ -51,7 +51,10 @@ import tachiyomi.presentation.core.i18n.stringResource
 fun BrainButton(mangaId: Long, title: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val brainStore = remember { context.appGraph.seriesBrain }
-    val brain by remember(mangaId, title) { brainStore.flow(mangaId, title) }.collectAsState()
+    // The brain's file is read off the main thread the first time, then followed as it learns
+    val brain by androidx.compose.runtime.produceState(SeriesBrain.Brain(), mangaId, title) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { brainStore.flow(mangaId, title) }.collect { value = it }
+    }
     var open by rememberSaveable { mutableStateOf(false) }
     if (brain.entities.isEmpty() && brain.events.isEmpty()) return
     Row(

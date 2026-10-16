@@ -1,5 +1,7 @@
 package eu.kanade.translation.orchestra
 
+import eu.kanade.translation.writeTextAtomic
+import eu.kanade.translation.readTextAtomic
 import android.content.Context
 import android.os.PowerManager
 import eu.kanade.translation.ChapterPrefetchManager
@@ -73,14 +75,14 @@ object OrchestraStore {
 
     @Synchronized
     fun examples(context: Context): List<Example> =
-        runCatching { json.decodeFromString<List<Example>>(tutorFile(context).readText()) }.getOrDefault(emptyList())
+        runCatching { json.decodeFromString<List<Example>>(tutorFile(context).readTextAtomic()) }.getOrDefault(emptyList())
 
     /** Keeps the lines where a key rewrote the phone's draft: the phone sees them as examples next time. */
     @Synchronized
     fun learn(context: Context, corrected: List<Example>) {
         if (corrected.isEmpty()) return
         val next = (examples(context).filterNot { e -> corrected.any { it.source == e.source } } + corrected).takeLast(MAX_EXAMPLES)
-        runCatching { tutorFile(context).writeText(json.encodeToString(next)) }
+        runCatching { tutorFile(context).writeTextAtomic(json.encodeToString(next)) }
     }
 
     /** The examples most like [lines] (shared words), for the phone's prompt. */

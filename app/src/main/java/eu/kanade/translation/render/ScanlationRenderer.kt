@@ -163,7 +163,7 @@ object ScanlationRenderer {
         try {
             val scale = bitmap.width / (if (page.imgWidth > 0f) page.imgWidth else bounds.outWidth.toFloat())
             Studio(context, bitmap, scale, style).draw(page)
-            return ByteArrayOutputStream(bytes.size + bytes.size / 4).use {
+            return ByteArrayOutputStream((bytes.size / 3).coerceAtLeast(64 * 1024)).use {
                 bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it)
                 it.toByteArray()
             }

@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.ui.library.ai
 
+import eu.kanade.translation.writeTextAtomic
+import eu.kanade.translation.readTextAtomic
+import eu.kanade.translation.existsAtomic
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -112,7 +115,7 @@ class LibraryOrganizer(
     private var watching = false
 
     init {
-        runCatching { logFile.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<Placed>>(it) } }
+        runCatching { logFile.takeIf { it.existsAtomic() }?.readTextAtomic()?.let { json.decodeFromString<List<Placed>>(it) } }
             .getOrNull()
             ?.let { _log.value = it }
     }
@@ -455,7 +458,7 @@ class LibraryOrganizer(
     }
 
     private fun saveLog() {
-        runCatching { logFile.writeText(json.encodeToString(_log.value)) }
+        runCatching { logFile.writeTextAtomic(json.encodeToString(_log.value)) }
     }
 
     // endregion

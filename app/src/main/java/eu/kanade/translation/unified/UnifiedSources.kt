@@ -1,5 +1,7 @@
 package eu.kanade.translation.unified
 
+import eu.kanade.translation.writeTextAtomic
+import eu.kanade.translation.readTextAtomic
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -77,12 +79,12 @@ class UnifiedSources(
     val all: StateFlow<Map<Long, Links>> = _all.asStateFlow()
 
     private fun load(): Map<Long, Links> = runCatching {
-        json.decodeFromString<Map<String, Links>>(file.readText()).mapNotNull { (k, v) -> k.toLongOrNull()?.let { it to v } }.toMap()
+        json.decodeFromString<Map<String, Links>>(file.readTextAtomic()).mapNotNull { (k, v) -> k.toLongOrNull()?.let { it to v } }.toMap()
     }.getOrDefault(emptyMap())
 
     private fun save(map: Map<Long, Links>) {
         _all.value = map
-        runCatching { file.writeText(json.encodeToString(map.mapKeys { it.key.toString() })) }
+        runCatching { file.writeTextAtomic(json.encodeToString(map.mapKeys { it.key.toString() })) }
     }
 
     fun linksOf(mangaId: Long): List<Link> = _all.value[mangaId]?.links.orEmpty()

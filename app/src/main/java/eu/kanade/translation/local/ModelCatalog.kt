@@ -112,6 +112,8 @@ object ModelCatalog {
                         DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PENDING, DownloadManager.STATUS_PAUSED ->
                             return Status.Downloading(if (total > 0) (done * 100 / total).toInt() else 0)
                         DownloadManager.STATUS_FAILED -> return Status.Failed("Download failed (${c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))})")
+                        // Done: the download is not asked about again
+                        DownloadManager.STATUS_SUCCESSFUL -> p.edit().remove("id:${model.repo}").apply()
                     }
                 }
             }

@@ -1,5 +1,8 @@
 package eu.kanade.translation.learning
 
+import eu.kanade.translation.writeTextAtomic
+import eu.kanade.translation.readTextAtomic
+import eu.kanade.translation.existsAtomic
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -85,12 +88,12 @@ class LessonStore(
 
     @Synchronized
     fun book(mangaId: Long): Book = runCatching {
-        file(mangaId).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<Book>(it) }
+        file(mangaId).takeIf { it.existsAtomic() }?.readTextAtomic()?.let { json.decodeFromString<Book>(it) }
     }.onFailure { logcat(LogPriority.WARN, it) }.getOrNull() ?: Book()
 
     @Synchronized
     private fun write(mangaId: Long, book: Book) {
-        runCatching { file(mangaId).writeText(json.encodeToString(book)) }.onFailure { logcat(LogPriority.ERROR, it) }
+        runCatching { file(mangaId).writeTextAtomic(json.encodeToString(book)) }.onFailure { logcat(LogPriority.ERROR, it) }
         _revision.value++
     }
 
@@ -126,10 +129,12 @@ class LessonStore(
         write(mangaId, book.copy(lessons = lessons, rules = (book.rules + other.rules).distinct().take(MAX_RULES), title = book.title.ifBlank { title }))
     }
 
+    @Synchronized
     fun setRules(mangaId: Long, rules: List<String>) {
         write(mangaId, book(mangaId).copy(rules = rules.map { it.trim() }.filter { it.isNotBlank() }.take(MAX_RULES)))
     }
 
+    @Synchronized
     fun removeLesson(mangaId: Long, lesson: Lesson) {
         val book = book(mangaId)
         write(mangaId, book.copy(lessons = book.lessons - lesson))

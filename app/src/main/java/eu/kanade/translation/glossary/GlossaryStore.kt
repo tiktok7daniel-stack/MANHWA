@@ -1,5 +1,8 @@
 package eu.kanade.translation.glossary
 
+import eu.kanade.translation.writeTextAtomic
+import eu.kanade.translation.readTextAtomic
+import eu.kanade.translation.existsAtomic
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -84,7 +87,7 @@ class GlossaryStore(private val context: Context) {
 
     private val works: MutableMap<Long, String> by lazy {
         ConcurrentHashMap(
-            runCatching { json.decodeFromString<Map<String, String>>(worksFile().readText()) }.getOrDefault(emptyMap())
+            runCatching { json.decodeFromString<Map<String, String>>(worksFile().readTextAtomic()) }.getOrDefault(emptyMap())
                 .mapNotNull { (k, v) -> k.toLongOrNull()?.let { it to v } }.toMap(),
         )
     }
@@ -93,11 +96,12 @@ class GlossaryStore(private val context: Context) {
      * Notes that [mangaId] (a series in the library) is the work called [title], so other sources of the same
      * work share its dictionary. Only library series are registered.
      */
+    @Synchronized
     fun registerWork(mangaId: Long, title: String) {
         val key = WorkIdentity.key(title)
         if (key.length < WorkIdentity.MIN_KEY || works[mangaId] == key) return
         works[mangaId] = key
-        runCatching { worksFile().writeText(json.encodeToString(works.mapKeys { it.key.toString() })) }
+        runCatching { worksFile().writeTextAtomic(json.encodeToString(works.mapKeys { it.key.toString() })) }
     }
 
     /** Other series of the same work (another source), newest registered last. */
@@ -158,7 +162,7 @@ class GlossaryStore(private val context: Context) {
 
     /** Every kept chapter summary, oldest first. */
     fun story(mangaId: Long): List<ChapterSummary> = runCatching {
-        storyFile(mangaId).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<ChapterSummary>>(it) }
+        storyFile(mangaId).takeIf { it.existsAtomic() }?.readTextAtomic()?.let { json.decodeFromString<List<ChapterSummary>>(it) }
     }.getOrNull().orEmpty()
 
     /** Terms from a backup: the ones not known here are added; known ones keep theirs, only filling what they lack. */
@@ -188,9 +192,9 @@ class GlossaryStore(private val context: Context) {
         if (summary.isBlank()) return
         runCatching {
             val file = storyFile(mangaId)
-            val list = file.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<ChapterSummary>>(it) }.orEmpty()
+            val list = file.takeIf { it.existsAtomic() }?.readTextAtomic()?.let { json.decodeFromString<List<ChapterSummary>>(it) }.orEmpty()
             val next = (list.filterNot { it.chapter == chapter } + ChapterSummary(chapter, summary.take(600), number)).takeLast(STORY_KEEP)
-            file.writeText(json.encodeToString(next))
+            file.writeTextAtomic(json.encodeToString(next))
         }.onFailure { logcat(LogPriority.WARN, it) }
     }
 
@@ -214,7 +218,7 @@ class GlossaryStore(private val context: Context) {
     }
 
     private fun load(mangaId: Long): List<Entry> = runCatching {
-        file(mangaId).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<Entry>>(it) }
+        file(mangaId).takeIf { it.existsAtomic() }?.readTextAtomic()?.let { json.decodeFromString<List<Entry>>(it) }
     }.onFailure { logcat(LogPriority.WARN, it) }.getOrNull().orEmpty()
 
     private companion object {
@@ -228,6 +232,6 @@ class GlossaryStore(private val context: Context) {
         val flow = state(mangaId)
         val next = change(flow.value).sortedBy { it.source.lowercase() }
         flow.value = next
-        runCatching { file(mangaId).writeText(json.encodeToString(next)) }.onFailure { logcat(LogPriority.ERROR, it) }
+        runCatching { file(mangaId).writeTextAtomic(json.encodeToString(next)) }.onFailure { logcat(LogPriority.ERROR, it) }
     }
 }

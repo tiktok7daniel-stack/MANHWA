@@ -218,9 +218,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
         // MANHWA: series added to the library sort themselves into their categories
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || getProcessName() == packageName) {
-            graph.libraryOrganizer.watch()
-            // MANHWA: the bundled phrasebook goes into the translation collection once, off the main thread
+            // MANHWA: the bundled phrasebook goes into the translation collection once, and the organizer (which
+            // pulls in the sources and the library database) starts, all off the main thread
             scope.launch(Dispatchers.IO) {
+                runCatching { graph.libraryOrganizer.watch() }
                 runCatching { eu.kanade.translation.collection.Phrasebook.seedIfNeeded(this@App, graph.translationCollection) }
             }
         }

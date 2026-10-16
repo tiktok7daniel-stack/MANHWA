@@ -179,7 +179,8 @@ class WebtoonPageHolder(
                         PageTranslationDisplay.of(frame.context, page.translationFlow).collectLatest { display ->
                             removeTranslationsView()
                             var tries = 0
-                            while (!setImage(display) && tries++ < BAKE_RETRIES) delay(BAKE_RETRY_MS)
+                            // A retry shows the page again only when the translation could be drawn in this time
+                            while (!setImage(display, firstTry = tries == 0) && tries++ < BAKE_RETRIES) delay(BAKE_RETRY_MS)
                         }
                     }
                     is Page.State.Error -> setError(state.error)
@@ -219,7 +220,7 @@ class WebtoonPageHolder(
      * Called when the page is ready.
      */
     /** Shows the page; false when its translation should have been drawn in but could not be yet. */
-    private suspend fun setImage(display: PageTranslationDisplay): Boolean {
+    private suspend fun setImage(display: PageTranslationDisplay, firstTry: Boolean = true): Boolean {
         progressIndicator.setProgress(0)
 
         val streamFn = page?.stream ?: return true
@@ -235,10 +236,12 @@ class WebtoonPageHolder(
                     ?.takeIf { wanted }
                     ?.let { ScanlationRenderer.bake(frame.context, buffer, it) }
                 bakedOk = !wanted || translated != null || display.translation?.blocks?.none { it.translation.isNotBlank() } == true
+                // Still not drawn on a retry: the page on screen stays as it is (no flicker, no second decode)
+                if (!firstTry && !bakedOk) return@withContext null
                 val source = process(translated ?: buffer)
                 val isAnimated = ImageUtil.isAnimatedAndSupported(source)
                 Pair(source, isAnimated)
-            }
+            } ?: return false
             withContext(Dispatchers.Main) {
                 frame.setImage(
                     source,

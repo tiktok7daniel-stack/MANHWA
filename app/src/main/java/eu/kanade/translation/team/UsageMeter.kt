@@ -63,13 +63,16 @@ class UsageMeter(private val store: Preference<String>) {
         return if (u.day == today()) u else Usage(reportedLeft = u.reportedLeft)
     }
 
-    private fun put(id: String, usage: Usage) {
+    /** One change at a time: parallel calls of one key never lose each other's count. */
+    private val lock = Any()
+
+    private fun put(id: String, usage: Usage) = synchronized(lock) {
         _usage.update { it + (id to usage) }
         store.set(json.encodeToString(_usage.value))
     }
 
     /** Every answer of [member]'s key: counted, and read for what the provider says is left. */
-    fun record(member: TeamStore.Member, code: Int, headers: Headers, errorBody: String) {
+    fun record(member: TeamStore.Member, code: Int, headers: Headers, errorBody: String) = synchronized(lock) {
         val old = current(member.id)
         var next = old.copy(
             day = today(),
@@ -124,12 +127,12 @@ class UsageMeter(private val store: Preference<String>) {
                 }
             }.getOrNull()
         } ?: return
-        put(member.id, current(member.id).copy(reportedLeft = left))
+        synchronized(lock) { put(member.id, current(member.id).copy(reportedLeft = left)) }
     }
 
     private val lastRefresh = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
-    fun forget(id: String) {
+    fun forget(id: String) = synchronized(lock) {
         _usage.update { it - id }
         store.set(json.encodeToString(_usage.value))
     }

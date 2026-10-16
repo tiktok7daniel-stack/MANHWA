@@ -67,18 +67,15 @@ fun BoxScope.FavoriteDropBanner() {
     val drops = remember { context.appGraph.favoriteDrops }
     var current by remember { mutableStateOf<FavoriteDrops.Drop?>(null) }
     var visible by remember { mutableStateOf(false) }
-    val queue = remember { ArrayDeque<FavoriteDrops.Drop>() }
+    // Drops wait their turn here; the banner sleeps until one arrives (no polling while nothing comes)
+    val queue = remember { kotlinx.coroutines.channels.Channel<FavoriteDrops.Drop>(kotlinx.coroutines.channels.Channel.UNLIMITED) }
 
     LaunchedEffect(drops) {
-        drops.live.collect { queue.addLast(it) }
+        drops.live.collect { queue.trySend(it) }
     }
     LaunchedEffect(drops) {
         while (true) {
-            val next = queue.removeFirstOrNull()
-            if (next == null) {
-                delay(POLL_MS)
-                continue
-            }
+            val next = queue.receive()
             current = next
             visible = true
             var shown = 0L

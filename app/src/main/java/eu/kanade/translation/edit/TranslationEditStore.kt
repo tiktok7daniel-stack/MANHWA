@@ -1,5 +1,8 @@
 package eu.kanade.translation.edit
 
+import eu.kanade.translation.writeTextAtomic
+import eu.kanade.translation.readTextAtomic
+import eu.kanade.translation.existsAtomic
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -56,6 +59,7 @@ class TranslationEditStore(private val context: Context) {
 
     private val json = Json { ignoreUnknownKeys = true }
     private val chapters = ConcurrentHashMap<String, MutableMap<String, List<BlockEdit>>>()
+    private val writer = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     private fun dir() = File(context.filesDir, "translation_edits").apply { mkdirs() }
 
@@ -63,8 +67,8 @@ class TranslationEditStore(private val context: Context) {
 
     private fun chapter(chapter: String): MutableMap<String, List<BlockEdit>> = chapters.getOrPut(chapter) {
         runCatching {
-            file(chapter).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<Map<String, List<BlockEdit>>>(it) }
-        }.getOrNull().orEmpty().toMutableMap()
+            file(chapter).takeIf { it.existsAtomic() }?.readTextAtomic()?.let { json.decodeFromString<Map<String, List<BlockEdit>>>(it) }
+        }.getOrNull().orEmpty().let { ConcurrentHashMap(it) }
     }
 
     /** Gives [page] its saved place ([chapter] and [page key][pageKey]) and applies the saved adjustments. */
@@ -95,8 +99,12 @@ class TranslationEditStore(private val context: Context) {
         }
         val map = chapter(chapter)
         if (edits.isEmpty()) map.remove(pageKey) else map[pageKey] = edits
-        runCatching { file(chapter).writeText(json.encodeToString(map.toMap())) }
-            .onFailure { logcat(LogPriority.ERROR, it) }
+        // Written off the screen's thread, one save after the other (the newest always lands last)
+        val snapshot = map.toMap()
+        writer.execute {
+            runCatching { file(chapter).writeTextAtomic(json.encodeToString(snapshot)) }
+                .onFailure { logcat(LogPriority.ERROR, it) }
+        }
         _revision.value++
     }
 }

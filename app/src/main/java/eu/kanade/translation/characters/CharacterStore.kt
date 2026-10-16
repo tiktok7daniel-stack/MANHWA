@@ -1,5 +1,8 @@
 package eu.kanade.translation.characters
 
+import eu.kanade.translation.writeTextAtomic
+import eu.kanade.translation.readTextAtomic
+import eu.kanade.translation.existsAtomic
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -93,11 +96,11 @@ class CharacterStore(
     private fun file(key: String) = File(dir(), "$key.json")
 
     fun cached(title: String): Cast? = runCatching {
-        file(WorkIdentity.key(title).ifBlank { return null }).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<Cast>(it) }
+        file(WorkIdentity.key(title).ifBlank { return null }).takeIf { it.existsAtomic() }?.readTextAtomic()?.let { json.decodeFromString<Cast>(it) }
     }.getOrNull()
 
     private fun save(cast: Cast) {
-        runCatching { file(cast.workKey).writeText(json.encodeToString(cast)) }
+        runCatching { file(cast.workKey).writeTextAtomic(json.encodeToString(cast)) }
     }
 
     /** The cast of [title] (series [mangaId]): the week's copy, or AniList now, or the glossary. */

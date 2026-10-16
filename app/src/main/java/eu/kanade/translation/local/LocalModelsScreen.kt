@@ -1,5 +1,7 @@
 package eu.kanade.translation.local
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,18 +83,27 @@ class LocalModelsScreen : Screen() {
         val ram = remember { ModelCatalog.ramGb(context) }
         val arabic = Locale.getDefault().language == "ar"
         // Download progress moves on by itself
-        LaunchedEffect(Unit) {
-            while (true) {
-                delay(1_000)
-                tick++
-            }
-        }
-        val stats = remember(tick / 5) { OrchestraStore.stats(context) }
-        // MANHWA phone ensemble: who drafts, who rereads, who judges, and how many keys play with them
         val inactive by prefs.translationInactiveModels().collectPreference()
         val size by prefs.translationEnsembleSize().collectPreference()
-        val lineup = remember(tick / 5, mainPath, judgePath, inactive, size) { PhoneEnsemble.lineup(context) }
-        val keys = remember(tick / 5) { context.appGraph.teamStore.active().size }
+        // Everything that asks the system (downloads, memory, files) is read off the main thread: every second
+        // while a model downloads, every 10 seconds otherwise
+        var statuses by remember { mutableStateOf<Map<String, ModelCatalog.Status>>(emptyMap()) }
+        var lineupState by remember { mutableStateOf<PhoneEnsemble.Lineup?>(null) }
+        var stats by remember { mutableStateOf(OrchestraStore.Stats()) }
+        var keys by remember { mutableIntStateOf(0) }
+        LaunchedEffect(tick, mainPath, judgePath, inactive, size) {
+            while (true) {
+                withContext(Dispatchers.IO) {
+                    statuses = ModelCatalog.models.associate { it.repo to ModelCatalog.status(context, it) }
+                    lineupState = PhoneEnsemble.lineup(context)
+                    stats = OrchestraStore.stats(context)
+                    keys = context.appGraph.teamStore.active().size
+                }
+                delay(if (statuses.values.any { it is ModelCatalog.Status.Downloading }) 1_000 else 10_000)
+            }
+        }
+        // A plain value, so the checks below hold for it
+        val lineup = lineupState
         val gatedText = stringResource(ATMR.strings.models_gated)
         val missingText = stringResource(ATMR.strings.models_not_found)
         val bottom = WindowInsets.navigationBars.asPaddingValues()
@@ -171,7 +182,7 @@ class LocalModelsScreen : Screen() {
                         }
                     }
                     items(ModelCatalog.models, key = { it.repo }) { model ->
-                        val status = remember(tick, model.repo) { ModelCatalog.status(context, model) }
+                        val status = statuses[model.repo] ?: ModelCatalog.Status.NotDownloaded
                         val ready = (status as? ModelCatalog.Status.Ready)?.file
                         val isMain = ready != null && ready.absolutePath == mainPath
                         val isJudge = ready != null && ready.absolutePath == judgePath
@@ -233,6 +244,7 @@ class LocalModelsScreen : Screen() {
                                                     }
                                                 },
                                             )
+                                            tick++
                                         }
                                     }
                                     else -> Unit

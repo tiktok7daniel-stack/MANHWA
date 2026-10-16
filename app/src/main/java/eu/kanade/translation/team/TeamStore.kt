@@ -182,6 +182,14 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         json.decodeFromString<Map<String, Analysis>>(prefs.translationTeamAnalysis().get())
     }.getOrDefault(emptyMap())
 
+    /** Every change to the keys goes through here: two threads never write over each other's change. */
+    private val membersLock = Any()
+
+    private fun mutate(change: (List<Member>) -> List<Member>) = synchronized(membersLock) { save(change(_members.value)) }
+
+    private fun mutateAnalysis(change: (Map<String, Analysis>) -> Map<String, Analysis>) =
+        synchronized(membersLock) { saveAnalysis(change(_analysis.value)) }
+
     private fun save(list: List<Member>) {
         _members.value = list
         prefs.translationTeamMembers().set(json.encodeToString(list))
@@ -200,27 +208,27 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             model = model.trim(),
             site = if (provider == null) KeySites.forKey(key)?.id.orEmpty() else "",
         )
-        save(_members.value + member)
+        mutate { list -> list + member }
         return member
     }
 
     fun update(member: Member) {
-        save(_members.value.map { if (it.id == member.id) member else it })
+        mutate { list -> list.map { if (it.id == member.id) member else it } }
         // A changed key or model is a different member: what was learnt about it no longer holds
-        saveAnalysis(_analysis.value - member.id)
+        mutateAnalysis { map -> map - member.id }
         _health.update { it - member.id }
         keyHealth.forget(member.id)
     }
 
     fun setEnabled(id: String, enabled: Boolean) {
-        save(_members.value.map { if (it.id == id) it.copy(enabled = enabled) else it })
+        mutate { list -> list.map { if (it.id == id) it.copy(enabled = enabled) else it } }
     }
 
     fun remove(id: String) {
         usage.forget(id)
         keyHealth.forget(id)
-        save(_members.value.filterNot { it.id == id })
-        saveAnalysis(_analysis.value - id)
+        mutate { list -> list.filterNot { it.id == id } }
+        mutateAnalysis { map -> map - id }
         _health.update { it - id }
     }
 
@@ -319,26 +327,26 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         val status = keyHealth.failure(id, problem, error.message)
         // A key the provider refused twice in a row (wrong or revoked) is out until it is checked again
         if (status == ModelHealthManager.Status.DISABLED) {
-            saveAnalysis(_analysis.value + (id to Analysis(ok = false, error = error.message?.take(160))))
+            mutateAnalysis { map -> map + (id to Analysis(ok = false, error = error.message?.take(160))) }
         }
     }
 
     /** MANHWA: the answer limit the site reported for [id]'s model, kept so no call asks for more again. */
     private fun setLimit(id: String, limit: Int) {
-        save(_members.value.map { if (it.id == id) it.copy(maxOutput = limit) else it })
+        mutate { list -> list.map { if (it.id == id) it.copy(maxOutput = limit) else it } }
         keyHealth.edit(id) { it.copy(maxTokens = limit) }
     }
 
     private fun setContextLimit(id: String, limit: Int?) {
         if (limit == null) return
-        save(_members.value.map { if (it.id == id) it.copy(contextLimit = limit) else it })
+        mutate { list -> list.map { if (it.id == id) it.copy(contextLimit = limit) else it } }
         keyHealth.edit(id) { it.copy(contextLimit = limit) }
     }
 
     /** [dead] is not open to [id]: remembered, a model chosen by hand that died goes back to automatic. */
     private fun markDead(id: String, dead: String, next: String) {
-        save(
-            _members.value.map {
+        mutate { list ->
+            list.map {
                 if (it.id != id) {
                     it
                 } else {
@@ -349,8 +357,8 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
                         deadModels = (it.deadModels + dead).distinct().takeLast(20),
                     )
                 }
-            },
-        )
+            }
+        }
         keyHealth.edit(id) { it.copy(model = next, status = ModelHealthManager.Status.ACTIVE.name) }
     }
 
@@ -409,7 +417,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
     /** Saves the automatic model of [id] without forgetting what was learnt about the key. */
     private fun setAutoModel(id: String, model: String) {
-        save(_members.value.map { if (it.id == id) it.copy(autoModel = model, modelCheckedAt = System.currentTimeMillis()) else it })
+        mutate { list -> list.map { if (it.id == id) it.copy(autoModel = model, modelCheckedAt = System.currentTimeMillis()) else it } }
     }
 
     /**
@@ -431,7 +439,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         )
         keyHealth.edit(member.id) { it.copy(models = models.take(200), lastChecked = System.currentTimeMillis()) }
         if (manualGone) logcat(LogPriority.WARN) { "Model ${member.model} is gone from ${member.displayName}, back to automatic ($best)" }
-        save(_members.value.map { if (it.id == member.id) updated else it })
+        mutate { list -> list.map { if (it.id == member.id) updated else it } }
         updated
     }
 
@@ -465,7 +473,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
                     ?: original.baseUrl.takeIf { it.isNotBlank() }?.let { KeySites.byUrl(it)?.id }
                     ?: ""
             }
-            var member = if (site != original.site) original.copy(site = site).also { m -> save(_members.value.map { if (it.id == m.id) m else it }) } else original
+            var member = if (site != original.site) original.copy(site = site).also { m -> mutate { list -> list.map { if (it.id == m.id) m else it } } } else original
             // 2–3. The live models and the best of them
             member = refreshModel(member)
             // 4. A tiny real request: heals the answer limit and a dead model by itself
@@ -602,7 +610,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             val fixed = refreshModel(member)
             if (fixed.autoModel != member.autoModel || fixed.model != member.model) return analyzeNow(fixed, healed = true)
         }
-        saveAnalysis(_analysis.value + (member.id to result))
+        mutateAnalysis { map -> map + (member.id to result) }
         _health.update { it - member.id }
         return result
     }

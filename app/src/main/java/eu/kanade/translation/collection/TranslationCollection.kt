@@ -510,6 +510,19 @@ class TranslationCollection(private val context: Context) {
 
     /** Copies the whole collection to [target] (a backup, or to move it to another phone). */
     fun exportTo(target: java.io.OutputStream) {
+        // A whole, consistent copy even while chapters are translating (Android 11+: SQLite writes it itself)
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            val tmp = File(context.cacheDir, "collection_export.db").apply { delete() }
+            try {
+                db.execSQL("VACUUM INTO ?", arrayOf(tmp.path))
+                tmp.inputStream().use { it.copyTo(target) }
+                return
+            } catch (e: Exception) {
+                logcat(LogPriority.WARN, e) { "VACUUM INTO failed, copying the file" }
+            } finally {
+                tmp.delete()
+            }
+        }
         runCatching { db.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
         context.getDatabasePath(DB_NAME).inputStream().use { it.copyTo(target) }
     }
@@ -525,6 +538,9 @@ class TranslationCollection(private val context: Context) {
             val before = db.compileStatement("SELECT COUNT(*) FROM segments").simpleQueryForLong()
             db.execSQL("ATTACH DATABASE ? AS other", arrayOf(tmp.path))
             try {
+                // All or nothing: a crash half-way leaves the collection as it was
+                db.beginTransaction()
+                try {
                 db.execSQL(
                     """INSERT OR IGNORE INTO segments(src, tgt, key, original, translation, arabic, kind, confidence, uses, mangas, last_manga, sensitive, user, last_used)
                        SELECT src, tgt, key, original, translation, arabic, kind, confidence, uses, mangas, last_manga, sensitive, user, last_used FROM other.segments""",
@@ -533,6 +549,10 @@ class TranslationCollection(private val context: Context) {
                     """UPDATE segments SET translation = (SELECT o.translation FROM other.segments o WHERE o.src = segments.src AND o.tgt = segments.tgt AND o.key = segments.key), user = 1
                        WHERE user = 0 AND EXISTS (SELECT 1 FROM other.segments o WHERE o.src = segments.src AND o.tgt = segments.tgt AND o.key = segments.key AND o.user = 1)""",
                 )
+                    db.setTransactionSuccessful()
+                } finally {
+                    db.endTransaction()
+                }
             } finally {
                 db.execSQL("DETACH DATABASE other")
             }

@@ -1,5 +1,7 @@
 package eu.kanade.translation.brain
 
+import eu.kanade.translation.writeTextAtomic
+import eu.kanade.translation.readTextAtomic
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -83,12 +85,12 @@ class SeriesBrain(private val context: Context) {
     fun get(mangaId: Long, title: String): Brain = state(keyOf(title, mangaId)).value
 
     private fun state(key: String) = cache.getOrPut(key) {
-        MutableStateFlow(runCatching { json.decodeFromString<Brain>(file(key).readText()) }.getOrDefault(Brain()))
+        MutableStateFlow(runCatching { json.decodeFromString<Brain>(file(key).readTextAtomic()) }.getOrDefault(Brain()))
     }
 
     private fun save(key: String, brain: Brain) {
         state(key).value = brain
-        runCatching { file(key).writeText(json.encodeToString(brain)) }.onFailure { logcat(LogPriority.WARN, it) }
+        runCatching { file(key).writeTextAtomic(json.encodeToString(brain)) }.onFailure { logcat(LogPriority.WARN, it) }
     }
 
     /** The facts the translator gets for a chapter: who is who and what they are now, up to [chapter]. */
@@ -112,7 +114,7 @@ class SeriesBrain(private val context: Context) {
         if (number >= 0 && number in brain.learnt) return
         if (!appAiConfigured()) {
             // Without a key the timeline still grows from the translation's own summary
-            if (summary.isNotBlank()) save(key, BrainRules.addEvent(brain, Event(number, chapterName, summary.take(MAX_EVENT)), number))
+            if (summary.isNotBlank()) synchronized(lockOf(key)) { save(key, BrainRules.addEvent(get(mangaId, title), Event(number, chapterName, summary.take(MAX_EVENT)), number)) }
             return
         }
         val known = brain.entities.take(60).joinToString("; ") { "${it.name} (${it.type}${if (it.details.isNotBlank()) ": " + it.details.take(60) else ""})" }
@@ -146,8 +148,15 @@ class SeriesBrain(private val context: Context) {
             Relation(o.str("a") ?: return@mapNotNull null, o.str("b") ?: return@mapNotNull null, o.str("kind") ?: return@mapNotNull null, number)
         }
         val event = reply.str("event")?.ifBlank { null } ?: summary.take(MAX_EVENT)
-        save(key, BrainRules.merge(get(mangaId, title), entities, relations, Event(number, chapterName, event), number))
+        // Several chapters learn at once: only this last step is one at a time per work, so none is lost
+        synchronized(lockOf(key)) {
+            save(key, BrainRules.merge(get(mangaId, title), entities, relations, Event(number, chapterName, event), number))
+        }
     }
+
+    private val locks = java.util.concurrent.ConcurrentHashMap<String, Any>()
+
+    private fun lockOf(key: String): Any = locks.getOrPut(key) { Any() }
 
     /** Answers a question about the work with only what is known up to [readUpTo] (no spoilers). */
     suspend fun ask(mangaId: Long, title: String, readUpTo: Double, question: String): String = withContext(Dispatchers.IO) {

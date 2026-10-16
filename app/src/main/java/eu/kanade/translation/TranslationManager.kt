@@ -1,5 +1,7 @@
 package eu.kanade.translation
 
+import tachiyomi.core.common.util.system.logcat
+import logcat.LogPriority
 import java.util.concurrent.ConcurrentHashMap
 import mihon.app.di.appGraph
 import android.content.Context
@@ -193,9 +195,12 @@ class TranslationManager(
         file: UniFile,
     ): Map<String, PageTranslation> {
         try {
-            return Json.decodeFromStream<Map<String, PageTranslation>>(file.openInputStream())
-        } catch (e: Exception) {
+            return file.openInputStream().use { Json.decodeFromStream<Map<String, PageTranslation>>(it) }
+        } catch (e: kotlinx.serialization.SerializationException) {
+            // Only a file that is really broken is removed (a passing read error keeps a good translation)
             file.delete()
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN, e) { "Translation file could not be read now" }
         }
         return emptyMap()
     }
@@ -281,18 +286,9 @@ class TranslationManager(
     }
 
     private fun removeFromTranslationQueue(chapter: Chapter) {
-        val wasRunning = translator.isRunning
-        if (wasRunning) {
-            translator.pause()
-        }
+        // Only that chapter's job stops (the queue's flow drops it); the others keep their progress
         translator.removeFromQueue(chapter)
-        if (wasRunning) {
-            if (queueState.value.isEmpty()) {
-                translator.stop()
-            } else if (queueState.value.isNotEmpty()) {
-                translator.start()
-            }
-        }
+        if (translator.isRunning && queueState.value.isEmpty()) translator.stop()
     }
 
     /** Translation file names that exist for [manga], so many chapters can be checked with one directory listing. */

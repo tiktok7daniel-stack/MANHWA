@@ -151,6 +151,7 @@ class ChapterTranslator(
         }
     }
 
+    @Synchronized
     fun start(): Boolean {
         if (isRunning || queueState.value.isEmpty()) {
             return false
@@ -163,6 +164,7 @@ class ChapterTranslator(
         return pending.isNotEmpty()
     }
 
+    @Synchronized
     fun stop(reason: String? = null) {
         cancelTranslatorJob()
         queueState.value.filter { it.status == Translation.State.TRANSLATING }
@@ -174,10 +176,15 @@ class ChapterTranslator(
         isPaused = false
     }
 
+    @Synchronized
     fun pause() {
         cancelTranslatorJob()
         queueState.value.filter { it.status == Translation.State.TRANSLATING }
-            .forEach { it.status = Translation.State.QUEUE }
+            .forEach {
+                it.status = Translation.State.QUEUE
+                // Shows it waits again, keeping how far it got
+                it.requeue()
+            }
         isPaused = true
     }
 
@@ -186,6 +193,7 @@ class ChapterTranslator(
         internalClearQueue()
     }
 
+    @Synchronized
     private fun launchTranslatorJob() {
         if (isRunning) return
 
@@ -341,7 +349,12 @@ class ChapterTranslator(
      * Pages already read (OCR) for chapters that failed later, so "try again" carries on from the translation
      * instead of reading every page again. Kept only for a few chapters.
      */
-    private val readCache = object : android.util.LruCache<Long, ReadPages>(4) {}
+    private val readCache = object : android.util.LruCache<Long, ReadPages>(READ_CACHE_BYTES) {
+        // Sized by the page slices kept for vision keys (a long webtoon chapter can hold tens of MB of them)
+        override fun sizeOf(key: Long, value: ReadPages): Int =
+            (value.images.values.sumOf { p -> p.tiles.sumOf { it.jpeg.size.toLong() } } + READ_PAGE_TEXT_BYTES * value.pages.size)
+                .coerceIn(1L, Int.MAX_VALUE.toLong()).toInt()
+    }
 
     private class ReadPages(val pages: Map<String, PageTranslation>, val images: Map<String, PageImage>)
 
@@ -1056,7 +1069,8 @@ class ChapterTranslator(
                     }.toList()
             }
         } else {
-            return chapterPath.listFiles()!!.filter { ImageUtil.isImage(it.name) }.map { entry ->
+            return chapterPath.listFiles()!!.filter { ImageUtil.isImage(it.name) }
+                .sortedWith { f1, f2 -> f1.name.orEmpty().compareToCaseInsensitiveNaturalOrder(f2.name.orEmpty()) }.map { entry ->
                 Pair(entry.name!!) { entry.openInputStream() }
             }.toList()
         }
@@ -1067,9 +1081,14 @@ class ChapterTranslator(
     }
 
     private fun addToQueue(translation: Translation) {
-        translation.status = Translation.State.QUEUE
-        _queueState.update {
-            it + translation
+        // Checked and added in one step: two callers at once never queue the same chapter twice
+        _queueState.update { queue ->
+            if (queue.any { it.chapter.id == translation.chapter.id && it.status != Translation.State.ERROR }) {
+                queue
+            } else {
+                translation.status = Translation.State.QUEUE
+                queue.filterNot { it.chapter.id == translation.chapter.id } + translation
+            }
         }
     }
 
@@ -1122,6 +1141,8 @@ class ChapterTranslator(
         const val WATCH_MS = 5_000L
         const val STALL_MS = 180_000L
         const val JUDGE_BUDGET_MS = 45_000L
+        private const val READ_CACHE_BYTES = 24 * 1024 * 1024
+        private const val READ_PAGE_TEXT_BYTES = 4 * 1024L
 
         /** Lines up to this long that repeat inside a chapter are translated once. */
         const val REPEAT_MAX_LENGTH = 40

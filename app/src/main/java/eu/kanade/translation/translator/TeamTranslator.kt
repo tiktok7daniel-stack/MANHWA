@@ -135,6 +135,13 @@ class TeamTranslator(
             while (true) {
                 val outcome: Any? = lock.withLock {
                     if (queue.isEmpty()) return@withLock if (inFlight == 0) STOP else WAIT
+                    // Every key resting for a while and nothing in flight: no more waiting, what is left goes
+                    // to the fallback (the phone's model or Google) so the chapter still ends translated
+                    if (inFlight == 0 && allRestingLong()) {
+                        leftOver += queue
+                        queue.clear()
+                        return@withLock STOP
+                    }
                     if (store.health.value[member.id]?.resting == true) return@withLock WAIT
                     if (members.none { it.id == member.id } || store.active().none { it.id == member.id }) return@withLock STOP
                     // The router's permit, taken only when free: no batch is held by a worker that can't start it
@@ -149,7 +156,11 @@ class TeamTranslator(
                 }
                 when (outcome) {
                     STOP -> return null
-                    WAIT -> delay(WAIT_MS)
+                    WAIT -> {
+                        // Waiting on a busy or resting key is still work in progress for the chapter
+                        lead.onAlive?.invoke()
+                        delay(WAIT_MS)
+                    }
                     else -> return outcome as ChapterPlanner.Batch
                 }
             }
@@ -414,6 +425,16 @@ class TeamTranslator(
             } finally {
                 lead.useDrafts = draftsBefore
             }
+            // The keys may have changed the pages' bubble lists (a watermark dropped, a missed bubble added):
+            // carried back to the real pages, the phone's lines staying in their place
+            rest.forEach { (name, copy) ->
+                val page = pages[name] ?: return@forEach
+                val kept: MutableSet<TranslationBlock> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+                kept += copy.blocks
+                val before: MutableSet<TranslationBlock> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+                before += page.blocks
+                page.blocks = (page.blocks.filter { it !in toTeam || it in kept } + copy.blocks.filter { it !in before }).toMutableList()
+            }
             toTeam.forEach { if (it.by.isBlank()) it.by = if (fellBack) "fallback" else "team" }
             // The phone learns from what the keys changed
             val corrected = drafted.mapNotNull { (block, draft) ->
@@ -424,10 +445,20 @@ class TeamTranslator(
         }
     }
 
+    /** Every key of the team rests for longer than [LONG_REST_MS] (or is out): waiting for them is pointless. */
+    private fun allRestingLong(): Boolean {
+        val now = System.currentTimeMillis()
+        val health = store.health.value
+        val active = store.active().map { it.id }.toSet()
+        return members.all { m -> m.id !in active || (health[m.id]?.restingUntil ?: 0L) - now > LONG_REST_MS }
+    }
+
     /** What translates when no key can: the on-device AI (with the series glossary) when there is one, else Google. */
     private fun fallbackTranslator(): TextTranslator =
         if (eu.kanade.translation.local.LocalAiEngine.available(store.appContext)) {
             eu.kanade.translation.local.LocalAiTranslator(store.appContext, fromLang, toLang, glossary = lead.glossary)
+                // The phone can be slow: it tells the chapter it is moving after every few lines
+                .also { it.onBatchDone = { _, _ -> lead.onAlive?.invoke() } }
         } else {
             GoogleTranslator(fromLang, toLang)
         }
@@ -510,6 +541,9 @@ class TeamTranslator(
 
         /** How long the strong phone model may reread the lines the phone keeps. */
         private const val POLISH_BUDGET_MS = 30_000L
+
+        /** Keys resting longer than this are not waited for: the fallback takes what is left. */
+        private const val LONG_REST_MS = 45_000L
         private const val MAX_ATTEMPTS = 3
         private const val MAX_RACERS = 2
         private const val RECENT_LINES = 30

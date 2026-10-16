@@ -1,5 +1,7 @@
 package eu.kanade.translation.study
 
+import eu.kanade.translation.writeTextAtomic
+import eu.kanade.translation.readTextAtomic
 import android.content.Context
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -16,17 +18,17 @@ class StudyList(context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Synchronized
-    fun all(): List<Item> = runCatching { json.decodeFromString<List<Item>>(file.readText()) }.getOrDefault(emptyList())
+    fun all(): List<Item> = runCatching { json.decodeFromString<List<Item>>(file.readTextAtomic()) }.getOrDefault(emptyList())
 
     @Synchronized
     fun add(item: Item) {
         val next = (all().filterNot { it.original == item.original } + item).takeLast(MAX)
-        runCatching { file.writeText(json.encodeToString(next)) }
+        runCatching { file.writeTextAtomic(json.encodeToString(next)) }
     }
 
     @Synchronized
     fun remove(original: String) {
-        runCatching { file.writeText(json.encodeToString(all().filterNot { it.original == original })) }
+        runCatching { file.writeTextAtomic(json.encodeToString(all().filterNot { it.original == original })) }
     }
 
     fun contains(original: String) = all().any { it.original == original }

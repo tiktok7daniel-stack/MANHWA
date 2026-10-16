@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.ui.main
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -98,6 +101,8 @@ fun ManhwaIntro(started: Boolean, onFinished: () -> Unit, modifier: Modifier = M
     val shock = remember { Animatable(0f) }
     val sweep = remember { Animatable(-0.5f) }
     val exit = remember { Animatable(0f) }
+    // A tap skips the opening (the app is already ready underneath)
+    var skipped by remember { mutableStateOf(false) }
 
     LaunchedEffect(started) {
         // The clock starts once the system splash is gone, so the whole opening is seen
@@ -113,7 +118,10 @@ fun ManhwaIntro(started: Boolean, onFinished: () -> Unit, modifier: Modifier = M
         sweep.animateTo(1.5f, tween(620, easing = CubicBezierEasing(0.45f, 0f, 0.25f, 1f)))
         delay(80)
         exit.animateTo(1f, tween(420, easing = CubicBezierEasing(0.55f, 0f, 0.8f, 0.4f)))
-        onFinished()
+        if (!skipped) {
+            skipped = true
+            onFinished()
+        }
     }
 
     // One clock for the motes and the pulse, read only in the draw phase
@@ -149,6 +157,14 @@ fun ManhwaIntro(started: Boolean, onFinished: () -> Unit, modifier: Modifier = M
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    if (!skipped) {
+                        skipped = true
+                        finish()
+                    }
+                }
+            }
             .graphicsLayer { alpha = 1f - exit.value * exit.value },
         contentAlignment = Alignment.Center,
     ) {

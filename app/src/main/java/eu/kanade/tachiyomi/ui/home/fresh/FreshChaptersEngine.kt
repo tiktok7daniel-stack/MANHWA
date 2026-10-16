@@ -268,7 +268,8 @@ class FreshChaptersEngine(
         /** Background check every 15 minutes (the shortest Android allows) while the phone is online. */
         fun schedule(context: Context) {
             val request = PeriodicWorkRequestBuilder<FreshChaptersWorker>(WORK_INTERVAL_MIN, TimeUnit.MINUTES)
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                // Not on a low battery: the check every 15 minutes waits until the phone has charge again
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).setRequiresBatteryNotLow(true).build())
                 .build()
             context.workManager.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
