@@ -224,8 +224,8 @@ class HistoryViewModel(
                     moveMangaToCategory(manga.id, defaultCategory)
                 }
 
-                // Automatic 'Default' or no categories
-                defaultCategoryId == 0L || categories.isEmpty() -> {
+                // Automatic 'Default', no categories, or the MANHWA organizer places it by itself
+                defaultCategoryId == 0L || categories.isEmpty() || libraryPreferences.autoOrganize.get() -> {
                     val result = updateManga.awaitUpdateFavorite(manga.id, true)
                     if (!result) return@launch
                     moveMangaToCategory(manga.id, null)

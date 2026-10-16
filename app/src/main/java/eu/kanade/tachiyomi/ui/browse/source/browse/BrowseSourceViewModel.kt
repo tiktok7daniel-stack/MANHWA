@@ -268,8 +268,8 @@ class BrowseSourceViewModel(
                     changeMangaFavorite(manga)
                 }
 
-                // Automatic 'Default' or no categories
-                defaultCategoryId == 0 || categories.isEmpty() -> {
+                // Automatic 'Default', no categories, or the MANHWA organizer places it by itself
+                defaultCategoryId == 0 || categories.isEmpty() || libraryPreferences.autoOrganize.get() -> {
                     moveMangaToCategories(manga)
 
                     changeMangaFavorite(manga)

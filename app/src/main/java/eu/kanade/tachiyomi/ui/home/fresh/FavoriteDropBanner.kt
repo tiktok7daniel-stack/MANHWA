@@ -128,7 +128,7 @@ private fun DropCard(drop: FavoriteDrops.Drop, onRead: () -> Unit, onClose: () -
     ) {
         Box(
             modifier = Modifier
-                .size(width = 62.dp, height = 88.dp)
+                .size(width = 50.dp, height = 70.dp)
                 .neonGlow(RoundedCornerShape(12.dp), colors.primary, 0.35f, 10.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .border(1.dp, colors.primary.copy(alpha = 0.7f), RoundedCornerShape(12.dp)),
@@ -168,7 +168,7 @@ private fun DropCard(drop: FavoriteDrops.Drop, onRead: () -> Unit, onClose: () -
             ManhwaKit.NeonButton(
                 text = stringResource(ATMR.strings.drop_read_now),
                 icon = MaterialSymbols.RoundedFilled.PlayArrow,
-                modifier = Modifier.height(36.dp),
+                modifier = Modifier.height(32.dp),
                 onClick = onRead,
             )
         }

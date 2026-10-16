@@ -214,6 +214,9 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         }
 
         initializeMigrator()
+
+        // MANHWA: series added to the library sort themselves into their categories
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || getProcessName() == packageName) graph.libraryOrganizer.watch()
     }
 
     private fun initializeMigrator() {

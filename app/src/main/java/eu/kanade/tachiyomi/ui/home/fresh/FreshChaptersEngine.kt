@@ -279,6 +279,7 @@ class FreshChaptersWorker(context: Context, params: WorkerParameters) : Coroutin
     override suspend fun doWork(): Result {
         val graph = applicationContext.appGraph
         graph.freshChaptersEngine.refresh()
+        runCatching { graph.libraryOrganizer.catchUp() }
         // Sources keep themselves up to date too: the stores are checked a few times a day
         val prefs = graph.sourcePreferences
         val now = System.currentTimeMillis()

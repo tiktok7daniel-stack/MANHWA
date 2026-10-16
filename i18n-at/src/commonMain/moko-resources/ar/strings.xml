@@ -503,10 +503,10 @@
     <string name="history_chapter">فصل %1$s</string>
     <string name="history_resume">كمّل</string>
     <string name="drop_channel">فصول جديدة من مانهواتك المفضلة</string>
-    <string name="drop_badge">فصل جديد من مانهواتك المفضلة!</string>
-    <string name="drop_text">نزل الآن الفصل %1$s من مانهواتك المفضلة %2$s على %3$s!</string>
-    <string name="drop_text_hidden">نزل فصل جديد من مانهواتك المفضلة</string>
-    <string name="drop_more">و%1$d كمان</string>
+    <string name="drop_badge">فصل جديد من مفضلتك</string>
+    <string name="drop_text">نزل الفصل %1$s من %2$s على %3$s</string>
+    <string name="drop_text_hidden">نزل فصل جديد لعمل من مفضلتك</string>
+    <string name="drop_more">و%1$d فصول كمان</string>
     <string name="drop_read_now">اقرأ الآن</string>
     <string name="drop_translate">ترجم وحمّل الفصل</string>
     <string name="drop_tab">المفضلة · %1$d</string>
@@ -538,4 +538,16 @@
     <string name="hub_step_installing">بيثبّت…</string>
     <string name="hub_step_done">اتحدث</string>
     <string name="hub_step_failed">ما اتحدثش، جرّب تاني بعدين</string>
+    <string name="org_auto_title">يرتب لوحده</string>
+    <string name="org_auto">رتّب الإضافات الجديدة تلقائياً</string>
+    <string name="org_auto_sub">أول ما تدوس قلب على أي عمل، يدخل الفئة المناسبة له على طول، من غير ما يسألك.</string>
+    <string name="org_auto_completed">انقل الأعمال المكتملة لفئة \"مكتملة\" تلقائياً</string>
+    <string name="org_scheme">تقسيمتك المحفوظة</string>
+    <string name="org_scheme_sub">الإضافات الجديدة بتمشي على التقسيمة دي</string>
+    <string name="org_scheme_clear">امسح التقسيمة</string>
+    <string name="org_log">اترتبت لوحدها</string>
+    <string name="org_undo">تراجع</string>
+    <string name="org_local">اترتبت بخريطة التصنيفات اللي جوه التطبيق. ضيف مفتاح AI في الفريق عشان الترتيب يبقى أذكى.</string>
+    <string name="org_placed">اترتبت %1$s في %2$s</string>
+    <string name="org_placed_many">%1$d أعمال جديدة اترتبت في فئاتها</string>
 </resources>

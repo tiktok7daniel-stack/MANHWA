@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.library.ai
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -55,30 +57,24 @@ import eu.kanade.presentation.components.glass
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.translation.search.AiChatScreen
-import eu.kanade.translation.translator.AiTranslator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.longOrNull
 import logcat.LogPriority
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.AutoAwesome
+import mihon.icons.materialsymbols.rounded.Autorenew
+import mihon.icons.materialsymbols.rounded.Category
+import mihon.icons.materialsymbols.rounded.Undo
 import mihon.icons.materialsymbols.rounded.Verified
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.category.interactor.CreateCategoryWithName
-import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.SetMangaCategories
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetLibraryManga
-import tachiyomi.domain.translation.TranslationPreferences
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
-import java.util.Locale
+import tachiyomi.presentation.core.util.collectAsState
 
 /** Sorts the library into categories with AI, or collects the completed series, after a preview. */
 @Inject
@@ -86,72 +82,63 @@ import java.util.Locale
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class AiLibraryOrganizerViewModel(
     private val getLibraryManga: GetLibraryManga,
-    private val getCategories: GetCategories,
-    private val createCategoryWithName: CreateCategoryWithName,
-    private val setMangaCategories: SetMangaCategories,
-    private val translationPreferences: TranslationPreferences,
+    private val organizer: LibraryOrganizer,
+    private val libraryPreferences: LibraryPreferences,
 ) : ViewModel() {
-
-    data class Group(val name: String, val mangaIds: List<Long>)
 
     data class State(
         val working: Boolean = false,
-        val preview: List<Group> = emptyList(),
+        val preview: List<LibraryOrganizer.Group> = emptyList(),
         val message: String? = null,
         val keepExisting: Boolean = true,
+        val scheme: List<LibraryOrganizer.SchemeCategory> = emptyList(),
     )
 
-    private val _state = MutableStateFlow(State())
+    private val _state = MutableStateFlow(State(scheme = organizer.scheme()))
     val state = _state.asStateFlow()
 
+    val log = organizer.log
+    val autoOrganize = libraryPreferences.autoOrganize
+    val autoCompletedMove = libraryPreferences.autoCompletedMove
+
+    /** The last instruction the reader gave, so the field starts with it. */
+    fun lastInstruction(): String = libraryPreferences.organizerInstruction.get()
+
     fun setKeepExisting(keep: Boolean) = _state.update { it.copy(keepExisting = keep) }
+
+    fun setAutoOrganize(on: Boolean) {
+        // Turned back on: only what is added from now on, not everything added while it was off
+        if (on && !autoOrganize.get()) libraryPreferences.autoOrganizeSince.set(System.currentTimeMillis())
+        autoOrganize.set(on)
+    }
+
+    fun setAutoCompletedMove(on: Boolean) = autoCompletedMove.set(on)
+
+    fun clearScheme() {
+        organizer.clearScheme()
+        _state.update { it.copy(scheme = emptyList()) }
+    }
+
+    fun undo(entry: LibraryOrganizer.Placed) = organizer.undo(entry)
 
     /** Asks the AI to split the whole library into categories; shows them as a preview. */
     fun organize(instruction: String, noAiMessage: String, failedMessage: String) {
         if (_state.value.working) return
-        if (!eu.kanade.translation.translator.appAiConfigured()) {
-            _state.update { it.copy(message = noAiMessage) }
-            return
-        }
         _state.update { it.copy(working = true, message = null, preview = emptyList()) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val library = getLibraryManga.await().take(MAX_SERIES)
-                val list = library.joinToString("\n") { item ->
-                    val m = item.manga
-                    val status = when (m.status.toInt()) {
-                        SManga.ONGOING -> "ongoing"
-                        SManga.COMPLETED, SManga.PUBLISHING_FINISHED -> "completed"
-                        else -> "unknown"
-                    }
-                    "${m.id}|${m.title}|${m.genre.orEmpty().take(6).joinToString(",")}|$status|read ${item.readCount}/${item.totalChapters}"
+                // Without a key the built-in genre map still sorts the library
+                val groups = if (eu.kanade.translation.translator.appAiConfigured()) {
+                    organizer.organizeAll(instruction)
+                } else {
+                    organizer.organizeAllLocally()
                 }
-                val language = Locale.getDefault().getDisplayLanguage(Locale.ENGLISH)
-                val reply = eu.kanade.translation.translator.appAsk(eu.kanade.translation.team.AiRouter.Lane.CHAT) { ai ->
-                    ai.askJson(
-                        system = """
-                            You organize a reader's comic library (manga, manhwa, manhua) into clear categories.
-                            Make 4 to 10 categories with short names in $language (for example: Action & System,
-                            Fantasy, Romance, Korean manhwa, Reading now, Completed). Every series must go in at least one
-                            category and at most two. Follow the reader's instruction when given.
-                            Reply with ONLY: {"categories":[{"name":"...","ids":[123,456]}]}
-                        """.trimIndent(),
-                        prompt = buildString {
-                            if (instruction.isNotBlank()) appendLine("Reader's instruction: ${instruction.trim()}")
-                            appendLine("Library (id|title|genres|status|progress):")
-                            append(list)
-                        },
-                    )
+                val message = when {
+                    groups.isEmpty() -> failedMessage
+                    !eu.kanade.translation.translator.appAiConfigured() -> noAiMessage
+                    else -> null
                 }
-                val valid = library.map { it.manga.id }.toSet()
-                val groups = (reply["categories"] as? JsonArray).orEmpty().mapNotNull { element ->
-                    val obj = element as? JsonObject ?: return@mapNotNull null
-                    val name = (obj["name"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
-                    val ids = (obj["ids"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.longOrNull }
-                        .filter { it in valid }.distinct()
-                    Group(name, ids).takeIf { name.isNotEmpty() && ids.isNotEmpty() }
-                }
-                _state.update { it.copy(working = false, preview = groups, message = if (groups.isEmpty()) failedMessage else null) }
+                _state.update { it.copy(working = false, preview = groups, message = message) }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 logcat(LogPriority.ERROR, e)
@@ -168,7 +155,7 @@ class AiLibraryOrganizerViewModel(
             val done = getLibraryManga.await()
                 .filter { it.manga.status.toInt() == SManga.COMPLETED || it.manga.status.toInt() == SManga.PUBLISHING_FINISHED }
                 .map { it.manga.id }
-            val applied = apply(listOf(Group(categoryName, done)), keepExisting = true)
+            val applied = organizer.apply(listOf(LibraryOrganizer.Group(categoryName, done)), keepExisting = true, remember = false)
             _state.update { it.copy(working = false, message = doneMessage(applied)) }
         }
     }
@@ -178,35 +165,11 @@ class AiLibraryOrganizerViewModel(
         if (groups.isEmpty() || _state.value.working) return
         _state.update { it.copy(working = true) }
         viewModelScope.launch(Dispatchers.IO) {
-            val applied = apply(groups, _state.value.keepExisting)
-            _state.update { it.copy(working = false, preview = emptyList(), message = doneMessage(applied)) }
+            val applied = organizer.apply(groups, _state.value.keepExisting)
+            _state.update {
+                it.copy(working = false, preview = emptyList(), message = doneMessage(applied), scheme = organizer.scheme())
+            }
         }
-    }
-
-    /** Creates missing categories, then sets each series' categories. Returns how many series changed. */
-    private suspend fun apply(groups: List<Group>, keepExisting: Boolean): Int {
-        if (groups.all { it.mangaIds.isEmpty() }) return 0
-        val existing = getCategories.await().filterNot { it.isSystemCategory }
-        groups.map { it.name }.distinct().forEach { name ->
-            if (existing.none { it.name.equals(name, ignoreCase = true) }) createCategoryWithName.await(name)
-        }
-        val byName = getCategories.await().filterNot { it.isSystemCategory }.associateBy { it.name.lowercase() }
-        val assigned = HashMap<Long, MutableSet<Long>>()
-        groups.forEach { group ->
-            val categoryId = byName[group.name.lowercase()]?.id ?: return@forEach
-            group.mangaIds.forEach { assigned.getOrPut(it) { mutableSetOf() } += categoryId }
-        }
-        val library = getLibraryManga.await().associateBy { it.manga.id }
-        assigned.forEach { (mangaId, ids) ->
-            val current = library[mangaId]?.categories.orEmpty().filter { it != 0L }
-            val result = if (keepExisting) (current + ids).distinct() else ids.toList()
-            setMangaCategories.await(mangaId, result)
-        }
-        return assigned.size
-    }
-
-    private companion object {
-        const val MAX_SERIES = 400
     }
 }
 
@@ -218,8 +181,11 @@ class AiLibraryOrganizerScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = metroViewModel<AiLibraryOrganizerViewModel>()
         val state by viewModel.state.collectAsState()
-        var instruction by rememberSaveable { mutableStateOf("") }
-        val noAi = stringResource(ATMR.strings.recs_setup)
+        var instruction by rememberSaveable { mutableStateOf(viewModel.lastInstruction()) }
+        val log by viewModel.log.collectAsState()
+        val autoOrganize by viewModel.autoOrganize.collectAsState()
+        val autoCompleted by viewModel.autoCompletedMove.collectAsState()
+        val noAi = stringResource(ATMR.strings.org_local)
         val failed = stringResource(ATMR.strings.org_failed)
         val completedName = stringResource(ATMR.strings.org_completed_category)
         val doneTemplate = stringResource(ATMR.strings.org_done)
@@ -289,6 +255,97 @@ class AiLibraryOrganizerScreen : Screen() {
                             ) { viewModel.collectCompleted(completedName) { doneTemplate.replace("%d", "$it") } }
                         }
                     }
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .glass(RoundedCornerShape(24.dp), alpha = 0.45f)
+                                .padding(16.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(MaterialSymbols.Rounded.Autorenew, contentDescription = null, tint = colors.primary, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    stringResource(ATMR.strings.org_auto_title),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = colors.primary,
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            SwitchRow(stringResource(ATMR.strings.org_auto), autoOrganize, viewModel::setAutoOrganize)
+                            Text(
+                                stringResource(ATMR.strings.org_auto_sub),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.6f),
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            SwitchRow(stringResource(ATMR.strings.org_auto_completed), autoCompleted, viewModel::setAutoCompletedMove)
+                        }
+                    }
+                    if (state.scheme.isNotEmpty()) {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .glass(RoundedCornerShape(24.dp), alpha = 0.4f)
+                                    .padding(16.dp),
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(MaterialSymbols.Rounded.Category, contentDescription = null, tint = colors.primary, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(stringResource(ATMR.strings.org_scheme), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                                        Text(stringResource(ATMR.strings.org_scheme_sub), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                    }
+                                    Text(
+                                        stringResource(ATMR.strings.org_scheme_clear),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colors.primary,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .clickable(onClick = viewModel::clearScheme)
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    )
+                                }
+                                state.scheme.forEach { category ->
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(category.name, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                                    if (category.about.isNotBlank()) {
+                                        Text(category.about, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (log.isNotEmpty()) {
+                        item { ManhwaKit.SectionTitle(stringResource(ATMR.strings.org_log), null) }
+                        items(log.take(MAX_LOG_SHOWN), key = { "${it.mangaId}-${it.at}" }) { entry ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .glass(RoundedCornerShape(18.dp), alpha = 0.4f)
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(entry.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(entry.categories.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .clickable { viewModel.undo(entry) }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(MaterialSymbols.Rounded.Undo, contentDescription = null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(ATMR.strings.org_undo), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
+                                }
+                            }
+                        }
+                    }
                     if (state.working) {
                         item {
                             Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -324,13 +381,17 @@ class AiLibraryOrganizerScreen : Screen() {
                                     .padding(14.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    group.name,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.White,
-                                    modifier = Modifier.weight(1f),
-                                )
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        group.name,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White,
+                                    )
+                                    if (group.about.isNotBlank()) {
+                                        Text(group.about, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                    }
+                                }
                                 Text(
                                     "${group.mangaIds.size}",
                                     style = MaterialTheme.typography.titleSmall,
@@ -374,3 +435,18 @@ class AiLibraryOrganizerScreen : Screen() {
         }
     }
 }
+
+@Composable
+private fun SwitchRow(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.weight(1f))
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = colors.primary, checkedThumbColor = Color.White),
+        )
+    }
+}
+
+private const val MAX_LOG_SHOWN = 12

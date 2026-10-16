@@ -294,6 +294,8 @@ class MainActivity : BaseActivity() {
 
                         // MANHWA: a new chapter of a favorite slides down over any screen
                         FavoriteDropBanner()
+                        // MANHWA: where the organizer just put a series the reader added
+                        eu.kanade.tachiyomi.ui.library.ai.AutoOrganizeBanner()
 
                         // MANHWA LEGENDS opening, on cold start only
                         if (showIntro) {

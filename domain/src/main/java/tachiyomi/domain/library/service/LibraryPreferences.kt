@@ -129,6 +129,17 @@ class LibraryPreferences(
 
     val defaultCategory: Preference<Int> = preferenceStore.getInt(DEFAULT_CATEGORY_PREF_KEY, -1)
 
+    // MANHWA organizer: new favorites sort themselves into the reader's categories
+    val autoOrganize: Preference<Boolean> = preferenceStore.getBoolean("manhwa_auto_organize", true)
+
+    val autoOrganizeSince: Preference<Long> = preferenceStore.getLong(Preference.appStateKey("manhwa_auto_organize_since"), 0L)
+
+    val autoCompletedMove: Preference<Boolean> = preferenceStore.getBoolean("manhwa_auto_completed_move", true)
+
+    val organizerScheme: Preference<String> = preferenceStore.getString("manhwa_organizer_scheme", "")
+
+    val organizerInstruction: Preference<String> = preferenceStore.getString("manhwa_organizer_instruction", "")
+
     val lastUsedCategory: Preference<Int> = preferenceStore.getInt(Preference.appStateKey("last_used_category"), 0)
 
     val categoryTabs: Preference<Boolean> = preferenceStore.getBoolean("display_category_tabs", true)

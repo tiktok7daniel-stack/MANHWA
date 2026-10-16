@@ -565,7 +565,7 @@
     <string name="drop_badge">New chapter from your favorites!</string>
     <string name="drop_text">Chapter %1$s of your favorite %2$s is out now on %3$s!</string>
     <string name="drop_text_hidden">A new chapter of one of your favorites is out</string>
-    <string name="drop_more">and %1$d more</string>
+    <string name="drop_more">and %1$d more chapters</string>
     <string name="drop_read_now">Read now</string>
     <string name="drop_translate">Translate and download</string>
     <string name="drop_tab">Favorites · %1$d</string>
@@ -597,4 +597,16 @@
     <string name="hub_step_installing">Installing…</string>
     <string name="hub_step_done">Updated</string>
     <string name="hub_step_failed">Could not update, try again later</string>
+    <string name="org_auto_title">Sorts itself</string>
+    <string name="org_auto">Sort new series by myself</string>
+    <string name="org_auto_sub">Tap the heart on any series and it goes straight into the right categories, no question asked.</string>
+    <string name="org_auto_completed">Move finished series to Completed</string>
+    <string name="org_scheme">Your categories scheme</string>
+    <string name="org_scheme_sub">New series follow this scheme</string>
+    <string name="org_scheme_clear">Forget scheme</string>
+    <string name="org_log">Sorted by itself</string>
+    <string name="org_undo">Undo</string>
+    <string name="org_local">Sorted with the built-in genre map. Add an AI key in the team for a smarter sort.</string>
+    <string name="org_placed">Sorted %1$s into %2$s</string>
+    <string name="org_placed_many">%1$d new series sorted into their categories</string>
 </resources>

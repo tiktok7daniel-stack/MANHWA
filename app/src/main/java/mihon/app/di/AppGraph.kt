@@ -109,6 +109,7 @@ interface AppGraph : ViewModelGraph {
     val translationEditStore: eu.kanade.translation.edit.TranslationEditStore
     val freshChaptersEngine: eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine
     val favoriteDrops: eu.kanade.tachiyomi.ui.home.fresh.FavoriteDrops
+    val libraryOrganizer: eu.kanade.tachiyomi.ui.library.ai.LibraryOrganizer
 
     val crashLogUtil: CrashLogUtil
 

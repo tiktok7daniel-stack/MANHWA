@@ -1,0 +1,447 @@
+package eu.kanade.tachiyomi.ui.library.ai
+
+import android.content.Context
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.translation.team.AiRouter
+import eu.kanade.translation.translator.appAiConfigured
+import eu.kanade.translation.translator.appAsk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
+import logcat.LogPriority
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.category.interactor.CreateCategoryWithName
+import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.interactor.SetMangaCategories
+import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.i18n.at.ATMR
+import java.io.File
+import java.util.Locale
+
+/**
+ * MANHWA library organizer: sorts the library into professional manhwa categories (system and leveling,
+ * regression, murim, isekai, romance...) with the team's AI, remembers the scheme the reader approved, and puts
+ * every series added to the library into it by itself, without asking. Without a key a built-in genre map does it.
+ */
+@Inject
+@SingleIn(AppScope::class)
+class LibraryOrganizer(
+    private val context: Context,
+    private val getLibraryManga: GetLibraryManga,
+    private val getCategories: GetCategories,
+    private val createCategoryWithName: CreateCategoryWithName,
+    private val setMangaCategories: SetMangaCategories,
+    private val sourceManager: SourceManager,
+    private val preferences: LibraryPreferences,
+) {
+
+    data class Group(val name: String, val mangaIds: List<Long>, val about: String = "")
+
+    @Serializable
+    data class SchemeCategory(val name: String, val about: String = "")
+
+    /** One series the organizer placed by itself; [previous] lets the reader undo it. */
+    @Serializable
+    data class Placed(
+        val mangaId: Long,
+        val title: String,
+        val categories: List<String>,
+        val previous: List<Long>,
+        val at: Long = System.currentTimeMillis(),
+    )
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val mutex = Mutex()
+    private val logFile get() = File(context.filesDir, "auto_organize_log.json")
+
+    private val _placed = MutableSharedFlow<List<Placed>>(extraBufferCapacity = 8)
+
+    /** Series placed by the automatic organizer, as it happens, for the in-app banner. */
+    val placed: SharedFlow<List<Placed>> = _placed.asSharedFlow()
+
+    private val _log = MutableStateFlow<List<Placed>>(emptyList())
+
+    /** The latest automatic placements, newest first. */
+    val log: StateFlow<List<Placed>> = _log.asStateFlow()
+
+    /** Ids already handled by the watcher in this run of the app. */
+    private val handled = HashSet<Long>()
+
+    @Volatile
+    private var watching = false
+
+    init {
+        runCatching { logFile.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<Placed>>(it) } }
+            .getOrNull()
+            ?.let { _log.value = it }
+    }
+
+    fun scheme(): List<SchemeCategory> =
+        runCatching { json.decodeFromString<List<SchemeCategory>>(preferences.organizerScheme.get()) }.getOrDefault(emptyList())
+
+    fun clearScheme() = preferences.organizerScheme.set("")
+
+    private fun language(): String = Locale.getDefault().getDisplayLanguage(Locale.ENGLISH)
+
+    private val arabic get() = Locale.getDefault().language == "ar"
+
+    // region Whole library
+
+    /**
+     * Splits the whole library into categories. Big libraries go in batches: the first one draws the scheme, the
+     * next ones fill the same categories so names never come back twice under another spelling.
+     */
+    suspend fun organizeAll(instruction: String): List<Group> {
+        val library = getLibraryManga.await()
+        if (library.isEmpty()) return emptyList()
+        preferences.organizerInstruction.set(instruction.trim())
+        val existing = userCategories().map { it.name }
+        val merged = LinkedHashMap<String, Group>()
+        val batches = library.chunked(BATCH)
+        batches.forEachIndexed { index, batch ->
+            val known = merged.values.map { SchemeCategory(it.name, it.about) }
+            val lines = describe(batch)
+            val reply = appAsk(AiRouter.Lane.REVIEW) { ai ->
+                ai.askJson(
+                    system = librarianRules() + "\n" + if (index == 0 || known.isEmpty()) {
+                        """
+                        Draw the categories for this library: 5 to 12 of them, short names (1 to 3 words) in ${language()}.
+                        ${if (existing.isNotEmpty()) "The reader already has these categories, keep using the ones that fit: ${existing.joinToString(", ")}." else ""}
+                        Give each category a one line "about" telling what goes in it.
+                        Reply with ONLY: {"categories":[{"name":"...","about":"...","ids":[123,456]}]}
+                        """.trimIndent()
+                    } else {
+                        """
+                        Use these categories (name: about):
+                        ${known.joinToString("\n") { "- ${it.name}: ${it.about}" }}
+                        Add a new category only when a series fits none of them.
+                        Reply with ONLY: {"categories":[{"name":"...","about":"...","ids":[123,456]}]}
+                        """.trimIndent()
+                    },
+                    prompt = buildString {
+                        if (instruction.isNotBlank()) appendLine("Reader's instruction (follow it first): ${instruction.trim()}")
+                        appendLine("Library, one series per line (id|title|genres|origin|status|progress|author|story):")
+                        append(lines)
+                    },
+                )
+            }
+            parseGroups(reply, batch.map { it.manga.id }.toSet()).forEach { group ->
+                val key = group.name.lowercase()
+                val old = merged[key]
+                merged[key] = if (old == null) group else old.copy(mangaIds = (old.mangaIds + group.mangaIds).distinct())
+            }
+        }
+        return merged.values.toList()
+    }
+
+    /** No AI at all: the built-in genre map, for the whole library. */
+    suspend fun organizeAllLocally(): List<Group> = localGroups(getLibraryManga.await())
+
+    /**
+     * Creates the missing categories, then sets each series' categories, and remembers the scheme for the
+     * automatic organizer. Returns how many series changed.
+     */
+    suspend fun apply(groups: List<Group>, keepExisting: Boolean, remember: Boolean = true): Int {
+        if (groups.all { it.mangaIds.isEmpty() }) return 0
+        val assigned = assign(groups)
+        val library = getLibraryManga.await().associateBy { it.manga.id }
+        assigned.forEach { (mangaId, ids) ->
+            val current = library[mangaId]?.categories.orEmpty().filter { it != 0L }
+            val result = if (keepExisting) (current + ids).distinct() else ids.toList()
+            setMangaCategories.await(mangaId, result)
+        }
+        if (remember) {
+            val saved = scheme().associateBy { it.name.lowercase() }.toMutableMap()
+            groups.forEach { g -> saved[g.name.lowercase()] = SchemeCategory(g.name, g.about.ifBlank { saved[g.name.lowercase()]?.about.orEmpty() }) }
+            preferences.organizerScheme.set(json.encodeToString(saved.values.toList()))
+        }
+        return assigned.size
+    }
+
+    /** Category ids for each series of [groups], creating the categories that don't exist yet. */
+    private suspend fun assign(groups: List<Group>): Map<Long, Set<Long>> {
+        val existing = userCategories()
+        groups.map { it.name }.distinctBy { it.lowercase() }.forEach { name ->
+            if (existing.none { it.name.equals(name, ignoreCase = true) }) createCategoryWithName.await(name)
+        }
+        val byName = userCategories().associateBy { it.name.lowercase() }
+        val assigned = HashMap<Long, MutableSet<Long>>()
+        groups.forEach { group ->
+            val categoryId = byName[group.name.lowercase()]?.id ?: return@forEach
+            group.mangaIds.forEach { assigned.getOrPut(it) { mutableSetOf() } += categoryId }
+        }
+        return assigned
+    }
+
+    private suspend fun userCategories() = getCategories.await().filterNot { it.isSystemCategory }
+
+    // endregion
+
+    // region Automatic
+
+    /** Starts watching the library: each series added to it is placed in its categories a moment later. */
+    @OptIn(FlowPreview::class)
+    fun watch() {
+        if (watching) return
+        watching = true
+        if (preferences.autoOrganizeSince.get() == 0L) preferences.autoOrganizeSince.set(System.currentTimeMillis())
+        scope.launch {
+            getLibraryManga.subscribe()
+                .debounce(SETTLE_MS)
+                .collect { library -> runCatching { catchUp(library) }.onFailure { logcat(LogPriority.WARN, it) } }
+        }
+    }
+
+    /** Places the series added since the last run, and moves the finished ones. Safe to call any time. */
+    suspend fun catchUp(current: List<LibraryManga>? = null) = mutex.withLock {
+        if (!preferences.autoOrganize.get()) return@withLock
+        val library = current ?: getLibraryManga.await()
+        val since = preferences.autoOrganizeSince.get()
+        val default = preferences.defaultCategory.get().toLong()
+        val fresh = library.filter { item ->
+            val at = item.manga.favoriteAt?.toEpochMilliseconds() ?: 0L
+            val mine = item.categories.filter { it != 0L }
+            // Only series nobody placed yet: no category, or just the reader's default one
+            at > since && item.manga.id !in handled && (mine.isEmpty() || mine == listOf(default))
+        }
+        if (fresh.isNotEmpty()) {
+            place(fresh)
+            handled += fresh.map { it.manga.id }
+            preferences.autoOrganizeSince.set(fresh.maxOf { it.manga.favoriteAt?.toEpochMilliseconds() ?: 0L }.coerceAtLeast(since))
+        }
+        if (preferences.autoCompletedMove.get()) moveCompleted(library)
+    }
+
+    private suspend fun place(items: List<LibraryManga>) {
+        val groups = runCatching { if (appAiConfigured()) placeWithAi(items) else emptyList() }
+            .onFailure { logcat(LogPriority.WARN, it) }
+            .getOrDefault(emptyList())
+            .ifEmpty { localGroups(items) }
+        if (groups.isEmpty()) return
+        val before = items.associate { it.manga.id to it.categories.filter { c -> c != 0L } }
+        val assigned = assign(groups)
+        val names = userCategories().associate { it.id to it.name }
+        val placed = assigned.mapNotNull { (mangaId, ids) ->
+            val item = items.firstOrNull { it.manga.id == mangaId } ?: return@mapNotNull null
+            val previous = before[mangaId].orEmpty()
+            setMangaCategories.await(mangaId, (previous + ids).distinct())
+            Placed(mangaId, item.manga.title, ids.mapNotNull { names[it] }, previous)
+        }
+        if (placed.isEmpty()) return
+        _log.value = (placed + _log.value).take(MAX_LOG)
+        saveLog()
+        _placed.tryEmit(placed)
+    }
+
+    private suspend fun placeWithAi(items: List<LibraryManga>): List<Group> {
+        val scheme = scheme().ifEmpty { userCategories().map { SchemeCategory(it.name) } }
+        val instruction = preferences.organizerInstruction.get()
+        val reply = appAsk(AiRouter.Lane.BACKGROUND) { ai ->
+            ai.askJson(
+                system = librarianRules() + "\n" + """
+                    The reader just added these series to the library. Put each one in 1 or 2 of the reader's categories:
+                    ${if (scheme.isEmpty()) "(none yet)" else scheme.joinToString("\n") { "- ${it.name}${if (it.about.isNotBlank()) ": ${it.about}" else ""}" }}
+                    Create a new category (short name in ${language()}) only when none fits.
+                    Reply with ONLY: {"categories":[{"name":"...","about":"...","ids":[123]}]}
+                """.trimIndent(),
+                prompt = buildString {
+                    if (instruction.isNotBlank()) appendLine("Reader's style: $instruction")
+                    appendLine("New series (id|title|genres|origin|status|progress|author|story):")
+                    append(describe(items))
+                },
+            )
+        }
+        return parseGroups(reply, items.map { it.manga.id }.toSet())
+    }
+
+    /** Series that finished go to the reader's "Completed" category, when the reader has one. */
+    private suspend fun moveCompleted(library: List<LibraryManga>) {
+        val name = context.stringResource(ATMR.strings.org_completed_category)
+        val category = userCategories().firstOrNull { it.name.equals(name, ignoreCase = true) } ?: return
+        library.filter { item ->
+            val status = item.manga.status.toInt()
+            (status == SManga.COMPLETED || status == SManga.PUBLISHING_FINISHED) && category.id !in item.categories
+        }.forEach { item ->
+            setMangaCategories.await(item.manga.id, (item.categories.filter { it != 0L } + category.id).distinct())
+        }
+    }
+
+    /** Puts a series back where it was before the organizer placed it. */
+    fun undo(entry: Placed) {
+        scope.launch {
+            setMangaCategories.await(entry.mangaId, entry.previous)
+            _log.value = _log.value.filterNot { it.mangaId == entry.mangaId && it.at == entry.at }
+            saveLog()
+        }
+    }
+
+    private fun saveLog() {
+        runCatching { logFile.writeText(json.encodeToString(_log.value)) }
+    }
+
+    // endregion
+
+    // region AI helpers
+
+    private fun librarianRules() = """
+        You are a professional manhwa, manga and manhua librarian who knows the webtoon world deeply.
+        Classify by what a reader looks for, from the genres, the story and what you know of the title:
+        system and leveling, regression / return / time travel, reincarnation and transmigration, murim and martial
+        arts, cultivation, isekai, dungeons and towers, hunters, villainess and noble romance, romance, BL, GL,
+        school and drama, revenge, horror and thriller, comedy, slice of life, historical, sports, apocalypse.
+        Merge themes that always go together (for example "System & Leveling"). Never make a category of one series
+        unless the reader asks. Do not make categories by reading progress unless the reader asks.
+        Every series goes in at least 1 and at most 2 categories, the main one first.
+    """.trimIndent()
+
+    private suspend fun describe(items: List<LibraryManga>): String {
+        val sources = HashMap<Long, String>()
+        return items.joinToString("\n") { item ->
+            val m = item.manga
+            val origin = sources.getOrPut(m.source) {
+                val source = runCatching { sourceManager.getOrStub(m.source) }.getOrNull()
+                listOfNotNull(source?.name, (source as? CatalogueSource)?.lang).joinToString(" ")
+            }
+            val status = when (m.status.toInt()) {
+                SManga.ONGOING -> "ongoing"
+                SManga.COMPLETED, SManga.PUBLISHING_FINISHED -> "completed"
+                SManga.ON_HIATUS -> "hiatus"
+                SManga.CANCELLED -> "cancelled"
+                else -> "unknown"
+            }
+            val story = m.description.orEmpty().replace(Regex("\\s+"), " ").trim().take(STORY_CHARS)
+            listOf(
+                m.id,
+                m.title.replace("|", " "),
+                m.genre.orEmpty().take(10).joinToString(","),
+                origin,
+                status,
+                "read ${item.readCount}/${item.totalChapters}",
+                listOfNotNull(m.author, m.artist).distinct().joinToString(", ").take(60),
+                story.replace("|", " "),
+            ).joinToString("|")
+        }
+    }
+
+    private fun parseGroups(reply: JsonObject, valid: Set<Long>): List<Group> {
+        val merged = LinkedHashMap<String, Group>()
+        (reply["categories"] as? JsonArray).orEmpty().forEach { element ->
+            val obj = element as? JsonObject ?: return@forEach
+            val name = (obj["name"] as? JsonPrimitive)?.contentOrNull?.trim()?.take(MAX_NAME).orEmpty()
+            val about = (obj["about"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+            val ids = (obj["ids"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.longOrNull }
+                .filter { it in valid }.distinct()
+            if (name.isEmpty() || ids.isEmpty()) return@forEach
+            val old = merged[name.lowercase()]
+            merged[name.lowercase()] = if (old == null) Group(name, ids, about) else old.copy(mangaIds = (old.mangaIds + ids).distinct())
+        }
+        return merged.values.toList()
+    }
+
+    // endregion
+
+    // region Built-in genre map
+
+    private class Theme(val en: String, val ar: String, val words: List<String>, val story: List<String> = emptyList())
+
+    /** The specific themes come first: a regression murim series is better found under those than "Action". */
+    private val themes = listOf(
+        Theme(
+            "System & Leveling", "نظام وتلفيل",
+            listOf("system", "leveling", "level up", "game", "gamer", "virtual reality", "نظام", "تلفيل", "ألعاب", "시스템", "레벨", "게임", "sistema", "videojuegos"),
+            listOf("system", "level up", "leveling", "status window", "نظام", "المستوى"),
+        ),
+        Theme(
+            "Regression & Rebirth", "عودة بالزمن وتناسخ",
+            listOf("regression", "regressor", "reincarnation", "rebirth", "time travel", "transmigration", "عودة بالزمن", "تناسخ", "سفر عبر الزمن", "회귀", "환생", "빙의", "reencarnación", "regresión"),
+            listOf("regress", "returned to the past", "second chance", "reincarnat", "reborn", "time travel", "عاد بالزمن", "تناسخ", "ولد من جديد"),
+        ),
+        Theme(
+            "Murim & Martial Arts", "موريم وفنون قتالية",
+            listOf("murim", "martial arts", "wuxia", "cultivation", "xianxia", "xuanhuan", "فنون قتالية", "موريم", "زراعة", "무협", "무림", "artes marciales"),
+            listOf("murim", "martial", "sect", "cultivat", "موريم", "الطائفة"),
+        ),
+        Theme("Isekai", "إيسيكاي", listOf("isekai", "another world", "عالم آخر", "إيسيكاي", "ايسكاي", "이세계"), listOf("another world", "isekai", "عالم آخر")),
+        Theme("Dungeons & Hunters", "دانجن وصيادين", listOf("dungeon", "tower", "hunter", "دانجن", "زنزانة", "برج", "صياد", "던전", "헌터", "탑"), listOf("dungeon", "hunter", "gate", "tower", "البوابة", "الصيادين")),
+        Theme("BL", "BL", listOf("yaoi", "boys love", "boys' love", "bl", "shounen ai", "danmei", "بويز لوف")),
+        Theme("GL", "GL", listOf("yuri", "girls love", "girls' love", "gl", "shoujo ai", "يوري")),
+        Theme("Romance", "رومانسي", listOf("romance", "josei", "shoujo", "رومانسي", "رومانسية", "رومنسي", "로맨스", "romance")),
+        Theme("Horror & Thriller", "رعب وإثارة", listOf("horror", "thriller", "psychological", "mystery", "survival", "رعب", "إثارة", "غموض", "نفسي", "공포", "스릴러", "terror", "misterio")),
+        Theme("Drama & School", "دراما ومدرسة", listOf("drama", "school life", "school", "slice of life", "دراما", "مدرسي", "حياة مدرسية", "شريحة من الحياة", "드라마", "학원", "일상")),
+        Theme("Comedy", "كوميديا", listOf("comedy", "كوميدي", "كوميديا", "코미디", "comedia")),
+        Theme("Historical", "تاريخي", listOf("historical", "تاريخي", "사극", "histórico")),
+        Theme("Sports", "رياضة", listOf("sports", "رياضة", "رياضي", "스포츠", "deportes")),
+        Theme("Action & Fantasy", "أكشن وفانتازيا", listOf("action", "fantasy", "adventure", "supernatural", "magic", "أكشن", "فانتازيا", "مغامرة", "خارق للطبيعة", "سحر", "액션", "판타지", "acción", "fantasía", "aventura")),
+    )
+
+    private val wordRegex = java.util.concurrent.ConcurrentHashMap<String, Regex>()
+
+    private fun matches(text: String, word: String): Boolean =
+        if (word.all { it.code < 128 }) {
+            wordRegex.getOrPut(word) { Regex("(^|[^a-z])${Regex.escape(word)}([^a-z]|$)") }.containsMatchIn(text)
+        } else {
+            text.contains(word)
+        }
+
+    private suspend fun localGroups(items: List<LibraryManga>): List<Group> {
+        val existing = userCategories().map { it.name }
+        val out = LinkedHashMap<String, MutableList<Long>>()
+        items.forEach { item ->
+            val genres = item.manga.genre.orEmpty().map { it.lowercase().trim() }
+            val story = item.manga.description.orEmpty().lowercase()
+            val picked = themes.map { theme ->
+                val g = genres.count { genre -> theme.words.any { matches(genre, it) } } * 2
+                val s = theme.story.count { matches(story, it) }
+                theme to g + s
+            }.filter { it.second > 0 }
+                // Order of the list breaks ties: the specific themes before the broad ones
+                .sortedByDescending { it.second }
+                .take(2)
+                .map { it.first }
+            picked.forEach { theme ->
+                val name = existing.firstOrNull { it.equals(theme.en, true) || it.equals(theme.ar, true) } ?: if (arabic) theme.ar else theme.en
+                out.getOrPut(name) { mutableListOf() } += item.manga.id
+            }
+        }
+        return out.map { (name, ids) -> Group(name, ids.distinct()) }
+    }
+
+    // endregion
+
+    private companion object {
+        const val BATCH = 60
+        const val STORY_CHARS = 220
+        const val MAX_NAME = 40
+        const val MAX_LOG = 40
+        const val SETTLE_MS = 3_000L
+    }
+}

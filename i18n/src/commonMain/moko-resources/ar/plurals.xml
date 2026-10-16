@@ -25,12 +25,12 @@
         <item quantity="other">%1$d فصل جديد</item>
     </plurals>
     <plurals name="notification_new_chapters_summary">
-        <item quantity="zero">لا شيء</item>
-        <item quantity="one">إدخال واحد</item>
-        <item quantity="two">إدخالين</item>
-        <item quantity="few">ادخالات %d ل</item>
-        <item quantity="many">ادخالات %d ل</item>
-        <item quantity="other">ادخالات %d ل</item>
+        <item quantity="zero">مفيش أعمال جديدة</item>
+        <item quantity="one">عمل واحد نزل له جديد</item>
+        <item quantity="two">عملين نزل لهم جديد</item>
+        <item quantity="few">%d أعمال نزل لها جديد</item>
+        <item quantity="many">%d عمل نزل له جديد</item>
+        <item quantity="other">%d عمل نزل له جديد</item>
     </plurals>
     <plurals name="download_queue_summary">
         <item quantity="zero">لا عناصر متبقية</item>

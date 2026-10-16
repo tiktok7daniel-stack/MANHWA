@@ -129,7 +129,7 @@ class FavoriteDrops(
         val text = if (hidden) {
             context.stringResource(ATMR.strings.drop_text_hidden)
         } else {
-            context.stringResource(ATMR.strings.drop_text, number, manga.title, sourceName)
+            context.stringResource(ATMR.strings.drop_text, isolate(number), isolate(manga.title), isolate(sourceName))
         }
         context.notify(manga.id.hashCode(), Notifications.CHANNEL_FAVORITE_DROPS) {
             setSmallIcon(R.drawable.ic_launcher_monochrome)
@@ -177,6 +177,9 @@ class FavoriteDrops(
             context.imageLoader.execute(request).image?.asDrawable(context.resources)?.getBitmapOrNull()
         }.getOrNull()
     }
+
+    /** Keeps a Latin title or number in its own direction inside an Arabic sentence, so the words stay in order. */
+    private fun isolate(text: String) = "\u2068$text\u2069"
 
     private companion object {
         const val MAX_ARCHIVE = 150
