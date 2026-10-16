@@ -212,7 +212,7 @@ class TranslationManager(
         if (!translationPreferences.translationSaveOnRead().get() && !translationPreferences.translationFreeSpaceOnRead().get()) return@withContext 0L
         val source = sourceManager.get(manga.source) ?: return@withContext 0L
         val src = eu.kanade.translation.recognizer.TextRecognizerLanguage.fromPref(translationPreferences.translateFromLanguage()).name
-        val tgt = eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(translationPreferences.translateToLanguage()).name
+        val tgt = eu.kanade.translation.style.StyleProfile.libraryTarget(translationPreferences, eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(translationPreferences.translateToLanguage()).name)
         var freed = 0L
         for (chapter in chapters) {
             // Never while it is still being translated

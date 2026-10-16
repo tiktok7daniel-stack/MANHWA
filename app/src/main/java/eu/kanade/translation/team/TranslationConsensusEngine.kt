@@ -22,7 +22,16 @@ object TranslationConsensusEngine {
     /** Points the second translation must win by to replace the first. */
     const val MARGIN = 5
 
-    data class Outcome(val reviewed: Int, val replaced: Int, val replacedLines: List<Pair<TranslationBlock, String>> = emptyList())
+    /** Choices offered to the reader per chapter at most. */
+    const val MAX_TIES = 3
+
+    data class Outcome(
+        val reviewed: Int,
+        val replaced: Int,
+        val replacedLines: List<Pair<TranslationBlock, String>> = emptyList(),
+        /** Lines where both keys did about as well: (source, kept, other), for the reader to choose. */
+        val ties: List<Triple<String, String, String>> = emptyList(),
+    )
 
     private val latinWord = Regex("(?<![A-Z])[A-Za-z][a-z'-]{3,}")
     private val femaleSource = Regex("\\b(she|her|hers|herself|girl|woman|lady|miss|madam|sister|mother|queen|princess)\\b", RegexOption.IGNORE_CASE)
@@ -112,6 +121,7 @@ object TranslationConsensusEngine {
             ?: return Outcome(0, 0)
         val alternatives = (reply["t"] as? JsonArray).orEmpty().map { (it as? JsonPrimitive)?.contentOrNull.orEmpty() }
         val replaced = mutableListOf<Pair<TranslationBlock, String>>()
+        val ties = mutableListOf<Triple<String, String, String>>()
         lines.forEachIndexed { i, block ->
             val alt = alternatives.getOrNull(i)?.trim().orEmpty()
             if (alt.isEmpty() || alt == block.translation) return@forEachIndexed
@@ -121,8 +131,10 @@ object TranslationConsensusEngine {
             if (second >= first + MARGIN) {
                 replaced += block to block.translation
                 block.translation = alt
+            } else if (kotlin.math.abs(second - first) < MARGIN) {
+                ties += Triple(block.text, block.translation, alt)
             }
         }
-        return Outcome(lines.size, replaced.size, replaced)
+        return Outcome(lines.size, replaced.size, replaced, ties.take(MAX_TIES))
     }
 }

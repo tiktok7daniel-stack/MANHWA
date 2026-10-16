@@ -115,6 +115,8 @@ interface AppGraph : ViewModelGraph {
     val characterStore: eu.kanade.translation.characters.CharacterStore
     val getHistory: tachiyomi.domain.history.interactor.GetHistory
     val translationSearchIndex: eu.kanade.translation.search.TranslationSearchIndex
+    val seriesBrain: eu.kanade.translation.brain.SeriesBrain
+    val unifiedSources: eu.kanade.translation.unified.UnifiedSources
 
     val crashLogUtil: CrashLogUtil
 

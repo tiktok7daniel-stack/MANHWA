@@ -40,6 +40,7 @@ fun ChapterQualitySheet(
     report: ChapterQuality.Report,
     onCorrect: (source: String, translation: String) -> Unit,
     onDismiss: () -> Unit,
+    onChoose: (source: String, chosen: String, rejected: String) -> Unit = { _, _, _ -> },
 ) {
     val fixed = remember { mutableStateMapOf<String, Boolean>() }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF0B0709)) {
@@ -53,6 +54,26 @@ fun ChapterQualitySheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.75f),
             )
+            // MANHWA fingerprint: which reads better? Every answer teaches the reader's style
+            val picked = remember { mutableStateMapOf<String, Boolean>() }
+            val open = report.choices.filter { picked[it.source] != true }
+            if (open.isNotEmpty()) {
+                Text(stringResource(ATMR.strings.style_pick_title), color = Color.White, fontWeight = FontWeight.Bold)
+                open.forEach { tie ->
+                    Column(
+                        Modifier.fillMaxWidth().glass(RoundedCornerShape(18.dp), accent = true, alpha = 0.45f).padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(tie.source, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                        listOf(tie.a to tie.b, tie.b to tie.a).forEach { (mine, other) ->
+                            ManhwaKit.GhostButton(mine, modifier = Modifier.fillMaxWidth()) {
+                                onChoose(tie.source, mine, other)
+                                picked[tie.source] = true
+                            }
+                        }
+                    }
+                }
+            }
             if (report.doubtful.isEmpty()) {
                 Text(stringResource(ATMR.strings.quality_no_doubts), color = Color(0xFF3DDC97), style = MaterialTheme.typography.bodyMedium)
             } else {

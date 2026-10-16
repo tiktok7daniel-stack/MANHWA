@@ -124,6 +124,11 @@ class TranslationHubScreen : Screen() {
         val deleteDownload by prefs.translationDeleteDownloadOnRead().collectPreference()
         val consensus by prefs.translationConsensus().collectPreference()
         val nightly by prefs.translationNightly().collectPreference()
+        val dialect by prefs.translationStyleDialect().collectPreference()
+        val honorifics by prefs.translationStyleHonorifics().collectPreference()
+        val deepClean by prefs.translationDeepClean().collectPreference()
+        val brain by prefs.translationSeriesBrain().collectPreference()
+        val unified by prefs.translationUnifiedSources().collectPreference()
         val dramatic by prefs.translationDramaticStyle().collectPreference()
         val smartScroll by prefs.translationSmartScroll().collectPreference()
         val noKeyEngine = if (TextTranslators.entries.getOrNull(engineIndex) == TextTranslators.MLKIT) TextTranslators.MLKIT else TextTranslators.GOOGLE
@@ -335,6 +340,59 @@ class TranslationHubScreen : Screen() {
                                 info = stringResource(ATMR.strings.info_pretranslate),
                                 checked = pretranslate,
                                 onChange = { prefs.translationPretranslateNext().set(it) },
+                            )
+                            HubDivider()
+                            // MANHWA on-device AI: translation with no key and no internet
+                            eu.kanade.translation.local.LocalAiPanel(Modifier.padding(horizontal = 4.dp))
+                            HubDivider()
+                            // MANHWA fingerprint: the reader's own Arabic
+                            HubChoiceRow(
+                                icon = MaterialSymbols.Rounded.TextFields,
+                                title = stringResource(ATMR.strings.style_dialect),
+                                info = stringResource(ATMR.strings.info_style_dialect),
+                                options = listOf(
+                                    "FUSHA" to stringResource(ATMR.strings.style_dialect_fusha),
+                                    "LIGHT" to stringResource(ATMR.strings.style_dialect_light),
+                                    "EGYPTIAN" to stringResource(ATMR.strings.style_dialect_egyptian),
+                                ),
+                                selected = dialect,
+                                onSelect = { prefs.translationStyleDialect().set(it) },
+                            )
+                            HubDivider()
+                            HubChoiceRow(
+                                icon = MaterialSymbols.Rounded.TextFields,
+                                title = stringResource(ATMR.strings.style_honorifics),
+                                info = stringResource(ATMR.strings.info_style_honorifics),
+                                options = listOf(
+                                    "ARABIC" to stringResource(ATMR.strings.style_honorifics_arabic),
+                                    "KEEP" to stringResource(ATMR.strings.style_honorifics_keep),
+                                ),
+                                selected = honorifics,
+                                onSelect = { prefs.translationStyleHonorifics().set(it) },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.TextFields,
+                                title = stringResource(ATMR.strings.pref_deep_clean),
+                                info = stringResource(ATMR.strings.info_deep_clean),
+                                checked = deepClean,
+                                onChange = { prefs.translationDeepClean().set(it) },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.Psychology,
+                                title = stringResource(ATMR.strings.pref_series_brain),
+                                info = stringResource(ATMR.strings.info_series_brain),
+                                checked = brain,
+                                onChange = { prefs.translationSeriesBrain().set(it) },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.SkipNext,
+                                title = stringResource(ATMR.strings.pref_unified_sources),
+                                info = stringResource(ATMR.strings.info_unified_sources),
+                                checked = unified,
+                                onChange = { prefs.translationUnifiedSources().set(it) },
                             )
                             HubDivider()
                             HubSwitchRow(

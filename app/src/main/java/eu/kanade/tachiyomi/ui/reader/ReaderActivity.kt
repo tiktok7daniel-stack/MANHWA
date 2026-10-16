@@ -432,6 +432,12 @@ class ReaderActivity : BaseActivity() {
                     report = quality,
                     onCorrect = { source, translated -> saveCorrection(chapterIdNow, source, translated) },
                     onDismiss = { showQuality = false },
+                    onChoose = { source, chosen, rejected ->
+                        // The reader's taste: kept for every next translation, and this line saved their way
+                        eu.kanade.translation.style.StyleProfile.record(appGraph.translationPreferences, source, chosen, rejected)
+                        qualityStore.chosen(chapterIdNow, source)
+                        saveCorrection(chapterIdNow, source, chosen)
+                    },
                 )
             }
             val toggleEvent by translationToggle.collectAsState()
@@ -924,7 +930,7 @@ class ReaderActivity : BaseActivity() {
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val prefs = appGraph.translationPreferences
             val src = eu.kanade.translation.recognizer.TextRecognizerLanguage.fromPref(prefs.translateFromLanguage()).name
-            val tgt = eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(prefs.translateToLanguage()).name
+            val tgt = eu.kanade.translation.style.StyleProfile.libraryTarget(prefs, eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(prefs.translateToLanguage()).name)
             appGraph.translationCollection.learn(
                 src, tgt, manga.id, appGraph.glossaryStore.asMap(manga.id),
                 listOf(eu.kanade.translation.collection.TranslationCollection.Line(source, translated, "")),

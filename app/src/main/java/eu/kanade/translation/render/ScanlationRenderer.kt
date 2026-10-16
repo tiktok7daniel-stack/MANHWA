@@ -60,6 +60,8 @@ object ScanlationRenderer {
         val latinOnly: Boolean,
         /** MANHWA: system windows get glowing HUD corners and shouts a heavy outline. */
         val dramatic: Boolean = true,
+        /** MANHWA real cleaning: letters on busy drawings are inpainted from the drawing itself. */
+        val deepClean: Boolean = true,
     )
 
     private val cache = object : LruCache<String, ByteArray>(CACHE_BYTES) {
@@ -80,6 +82,7 @@ object ScanlationRenderer {
             skipSfx = prefs.translationSkipSfx().get(),
             latinOnly = lang != null && lang.code !in RTL_SCRIPTS && lang.code !in WIDE_SCRIPTS,
             dramatic = prefs.translationDramaticStyle().get(),
+            deepClean = prefs.translationDeepClean().get(),
         )
     }
 
@@ -329,8 +332,21 @@ object ScanlationRenderer {
                 residual = residual(px, w, n, inRing, solved)
             }
             if (share < PLAIN_SHARE && residual > SMOOTH_RESIDUAL) {
-                // A busy drawing behind the text (speed lines, art): rebuilt from the area's edges
-                if (boxWhenBusy) rebuildFromEdges(px, w, h)?.let { bitmap.setPixels(it, 0, w, l, t, w, h) }
+                // A busy drawing behind the text (speed lines, art): MANHWA real cleaning first, the letters' hole
+                // filled with real pieces of the drawing around it; the edge blend when that cannot be done
+                if (boxWhenBusy) {
+                    val hole = BooleanArray(n) { i ->
+                        val x = i % w
+                        val y = i / w
+                        x >= innerL - HOLE_GROW && x < innerR + HOLE_GROW && y >= innerT - HOLE_GROW && y < innerB + HOLE_GROW
+                    }
+                    val inpainted = style.deepClean && ExemplarInpainter.fill(px, w, h, hole)
+                    if (inpainted) {
+                        bitmap.setPixels(px, 0, w, l, t, w, h)
+                    } else {
+                        rebuildFromEdges(px, w, h)?.let { bitmap.setPixels(it, 0, w, l, t, w, h) }
+                    }
+                }
                 return averageOf(if (ring.isEmpty()) px else ring) to false
             }
             val modelAt = IntArray(n) { solved.at((it % w).toDouble(), (it / w).toDouble()) }
@@ -863,6 +879,7 @@ object ScanlationRenderer {
     private const val MODEL_DISTANCE = 40
     private const val FEATHER = 5f
     private const val GROW = 2
+    private const val HOLE_GROW = 2
     private const val MIN_TEXT_PX = 6f
     private val RTL_SCRIPTS = setOf("ar", "fa", "ur", "he", "iw")
     private val WIDE_SCRIPTS = setOf("ja", "zh", "ko", "th", "hi", "ru", "uk", "el", "bg")

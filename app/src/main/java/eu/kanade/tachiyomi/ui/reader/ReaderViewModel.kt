@@ -751,6 +751,8 @@ class ReaderViewModel(
     private suspend fun updateChapterProgressOnComplete(readerChapter: ReaderChapter) {
         updateTrackChapterRead(readerChapter)
         deleteChapterIfNeeded(readerChapter)
+        // MANHWA one work, all sources: read here counts as read on the work's other sources too
+        manga?.let { m -> appScope.launch(Dispatchers.IO) { runCatching { context.appGraph.unifiedSources.syncRead(m.id, readerChapter.chapter.chapterNumber) } } }
         // MANHWA: the chapter's lines go to the translation library and its temporary translation files are freed
         manga?.let { m -> appScope.launch(Dispatchers.IO) { runCatching { translationManager.archiveOnRead(m, listOf(readerChapter.chapter)) } } }
 

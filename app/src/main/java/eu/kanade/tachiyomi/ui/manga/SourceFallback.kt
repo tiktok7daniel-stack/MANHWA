@@ -27,7 +27,10 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import eu.kanade.presentation.components.ManhwaKit
 import eu.kanade.presentation.components.glass
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import tachiyomi.core.common.i18n.stringResource as ctxString
 import kotlinx.coroutines.withContext
+import androidx.compose.runtime.setValue
 import mihon.app.di.appGraph
 import mihon.feature.migration.config.MigrationConfigScreen
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -64,7 +67,36 @@ fun SourceDownCard(mangaId: Long, sourceId: Long, favorite: Boolean, modifier: M
                 modifier = Modifier.weight(1f),
             )
         }
-        ManhwaKit.NeonButton(stringResource(ATMR.strings.fallback_move), icon = MaterialSymbols.Rounded.SwapCalls, modifier = Modifier.fillMaxWidth()) {
+        // MANHWA one work, all sources: the next chapter straight from a working copy, nothing moved
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+        var finding by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+        ManhwaKit.NeonButton(
+            stringResource(if (finding) ATMR.strings.hub_checking else ATMR.strings.unified_read_next),
+            icon = MaterialSymbols.Rounded.TravelExplore,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (finding) return@NeonButton
+            finding = true
+            scope.launch {
+                val graph = context.appGraph
+                val target = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val manga = graph.getMangaById.await(mangaId) ?: return@runCatching null
+                        val next = graph.getChaptersByMangaId.await(mangaId).filter { !it.read && it.chapterNumber >= 0 }.minByOrNull { it.chapterNumber }?.chapterNumber
+                        graph.unifiedSources.discover(manga)
+                        val alts = graph.unifiedSources.alternatives(mangaId)
+                        (if (next != null) alts.firstOrNull { it.number == next } else null) ?: alts.maxByOrNull { it.number }
+                    }.getOrNull()
+                }
+                finding = false
+                if (target != null) {
+                    context.startActivity(eu.kanade.tachiyomi.ui.reader.ReaderActivity.newIntent(context, target.mangaId, target.chapterId))
+                } else {
+                    android.widget.Toast.makeText(context, context.ctxString(ATMR.strings.unified_not_found), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        ManhwaKit.GhostButton(stringResource(ATMR.strings.fallback_move), icon = MaterialSymbols.Rounded.SwapCalls, modifier = Modifier.fillMaxWidth()) {
             navigator?.push(MigrationConfigScreen(listOf(mangaId)))
         }
     }

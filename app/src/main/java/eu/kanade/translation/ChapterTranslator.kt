@@ -315,13 +315,22 @@ class ChapterTranslator(
         val style = with(translationPreferences) {
             "${translationInstructions().get().hashCode()}:${translationEngineTemperature().get()}:${translationEngineMaxOutputTokens().get()}"
         }
-        return "${translation.fromLang}|${translation.toLang}|${translationPreferences.translationEngine().get()}|$style|$team"
+        val local = if (team.isEmpty()) eu.kanade.translation.local.LocalAiEngine.available(context).toString() + translationPreferences.translationStyleDialect().get() else ""
+        return "${translation.fromLang}|${translation.toLang}|${translationPreferences.translationEngine().get()}|$style|$team|$local"
     }
 
     private fun buildTranslator(translation: Translation): TextTranslator {
         val team = teamMembers()
         return if (team.isNotEmpty()) {
             TeamTranslator(translation.fromLang, translation.toLang, teamStore, team)
+        } else if (eu.kanade.translation.local.LocalAiEngine.available(context)) {
+            // MANHWA on-device AI: no key works, the model on the phone translates (Google fills what it misses)
+            eu.kanade.translation.local.LocalAiTranslator(
+                context,
+                translation.fromLang,
+                translation.toLang,
+                instructions = eu.kanade.translation.style.StyleProfile.instruction(translationPreferences, translation.toLang.name),
+            )
         } else {
             TextTranslators.withoutKeys(translationPreferences)
                 .build(translationPreferences, translation.fromLang, translation.toLang)
@@ -465,7 +474,8 @@ class ChapterTranslator(
             translation.advance(Translation.Stage.PLANNING)
             showProgress()
             val src = translation.fromLang.name
-            val tgt = translation.toLang.name
+            // MANHWA: spoken Egyptian lines have their own place in the translation library
+            val tgt = eu.kanade.translation.style.StyleProfile.libraryTarget(translationPreferences, translation.toLang.name)
             // MANHWA: the same work from another source in the library shares this one's dictionary
             if (translation.manga.favorite) glossaryStore.registerWork(translation.manga.id, translation.manga.title)
             val useLibrary = translationPreferences.translationCollection().get()
@@ -485,7 +495,7 @@ class ChapterTranslator(
                     glossaryNotes = glossaryStore.notes(translation.manga.id)
                     richTerms = true
                     discoveredDetails.clear()
-                    storySoFar = glossaryStore.storySoFar(translation.manga.id)
+                    storySoFar = glossaryStore.storySoFar(translation.manga.id) + brainContext(translation.manga.id, translation.manga.title, translation.chapter.chapterNumber)
                     lessons = lessonStore.forPrompt(translation.manga.id)
                     fitHints = true
                     askSummary = true
@@ -517,6 +527,9 @@ class ChapterTranslator(
                         logcat(LogPriority.WARN, it) { "Scout failed, translating without it" }
                     }
                 }
+                // MANHWA on-device AI: the series glossary and the codex for the model on the phone too
+                (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.glossary =
+                    codex + glossaryStore.asMap(translation.manga.id)
                 // MANHWA collection: lines translated before, in any manhwa, are written at once; repeats inside
                 // the chapter are translated once; only what is left goes to the translator
                 val library = if (useLibrary) fromLibrary(pages, src, tgt, glossaryStore.asMap(translation.manga.id)) else LibraryPass.NONE
@@ -583,6 +596,17 @@ class ChapterTranslator(
                 mergeBack(pages, work, library)
                 ai?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms, termDetails) }
                 glossaryStore.addChapterSummary(translation.manga.id, translation.chapter.name, chapterSummary, translation.chapter.chapterNumber)
+                // MANHWA work brain: who is who and what happened, learnt from this chapter in the background
+                if (translationPreferences.translationSeriesBrain().get()) {
+                    context.appGraph.seriesBrain.learnLater(
+                        translation.manga.id,
+                        translation.manga.title,
+                        translation.chapter.name,
+                        translation.chapter.chapterNumber,
+                        chapterSummary,
+                        pages.values.flatMap { it.blocks }.filter { it.translation.isNotBlank() }.map { it.text to it.translation },
+                    )
+                }
 
                 // 4. Review (92–98%): the automatic check, then (accurate mode) the editor
                 translation.advance(Translation.Stage.REVIEWING, 0, 3)
@@ -654,6 +678,7 @@ class ChapterTranslator(
                             reviewed = consensus.reviewed + (doubts?.size ?: 0),
                             changed = consensus.replaced,
                             doubtful = stillDoubtful,
+                            choices = consensus.ties.map { (src, a, b) -> eu.kanade.translation.team.ChapterQuality.Tie(src, a, b) },
                         ),
                     )
                 }
@@ -869,6 +894,13 @@ class ChapterTranslator(
      * automatic check, read with low OCR confidence, carrying a name found in this chapter, or longer than their
      * bubble. Each with why, so the editor looks at the right thing. At most [MAX_DOUBTS].
      */
+    /** MANHWA work brain: the facts known up to [chapter], for the translator (empty when it is off). */
+    private fun brainContext(mangaId: Long, title: String, chapter: Double): String {
+        if (!translationPreferences.translationSeriesBrain().get()) return ""
+        val facts = runCatching { context.appGraph.seriesBrain.contextFor(mangaId, title, chapter) }.getOrDefault("")
+        return if (facts.isBlank()) "" else "\nStory bible (who is who now, what happened):\n$facts"
+    }
+
     private fun doubtful(
         pages: Map<String, PageTranslation>,
         glossary: Map<String, String>,

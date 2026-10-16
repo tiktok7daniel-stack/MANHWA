@@ -69,6 +69,11 @@ fun CharacterGallery(mangaId: Long, title: String, modifier: Modifier = Modifier
     var loading by remember(title) { mutableStateOf(cast == null) }
     var open by remember { mutableStateOf<CharacterStore.Character?>(null) }
     var picking by remember { mutableStateOf(false) }
+    val readUpTo by androidx.compose.runtime.produceState(-1.0, mangaId) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { context.appGraph.getChaptersByMangaId.await(mangaId).filter { it.read }.maxOfOrNull { it.chapterNumber } ?: -1.0 }.getOrDefault(-1.0)
+        }
+    }
     LaunchedEffect(mangaId, title) {
         cast = runCatching { store.load(mangaId, title) }.getOrNull() ?: cast
         loading = false
@@ -107,7 +112,7 @@ fun CharacterGallery(mangaId: Long, title: String, modifier: Modifier = Modifier
             }
         }
     }
-    open?.let { c -> CharacterSheet(title, c, isHero = c == CastRules.heroOf(characters), glossaryNote = remember(c) { noteFor(context, mangaId, c) }) { open = null } }
+    open?.let { c -> CharacterSheet(title, c, isHero = c == CastRules.heroOf(characters), glossaryNote = remember(c, readUpTo) { noteFor(context, mangaId, title, c, readUpTo) }) { open = null } }
     if (picking) {
         PickWorkSheet(cast?.candidates.orEmpty(), onDismiss = { picking = false }) { candidate ->
             picking = false
@@ -120,10 +125,18 @@ fun CharacterGallery(mangaId: Long, title: String, modifier: Modifier = Modifier
     }
 }
 
-private fun noteFor(context: android.content.Context, mangaId: Long, c: CharacterStore.Character): String {
+private fun noteFor(context: android.content.Context, mangaId: Long, title: String, c: CharacterStore.Character, readUpTo: Double): String {
     val glossary = context.appGraph.glossaryStore
     val notes = glossary.notes(mangaId)
-    return (listOf(c.name) + c.alternative + c.name.split(' ')).firstNotNullOfOrNull { n -> notes.entries.firstOrNull { it.key.equals(n, true) }?.value }.orEmpty()
+    val note = (listOf(c.name) + c.alternative + c.name.split(' ')).firstNotNullOfOrNull { n -> notes.entries.firstOrNull { it.key.equals(n, true) }?.value }.orEmpty()
+    // MANHWA work brain: what they are to the others (only what the translation already met)
+    val names = (listOf(c.name, c.arabicName) + c.alternative + c.name.split(' ')).filter { it.length >= 3 }.map { it.lowercase() }
+    // Only up to the last chapter read: no spoilers from chapters translated ahead
+    val brain = runCatching { context.appGraph.seriesBrain.get(mangaId, title) }.getOrNull()?.let { eu.kanade.translation.brain.BrainRules.upTo(it, readUpTo) }
+        ?.takeIf { readUpTo >= 0 }
+    val relations = brain?.relations.orEmpty().filter { r -> r.a.lowercase() in names || r.b.lowercase() in names }
+        .take(8).joinToString("\n") { "${it.a} ← ${it.kind} → ${it.b}" }
+    return listOf(note, relations).filter { it.isNotBlank() }.joinToString("\n")
 }
 
 @Composable

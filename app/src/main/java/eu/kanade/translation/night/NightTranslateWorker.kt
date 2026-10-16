@@ -34,7 +34,9 @@ class NightTranslateWorker(context: Context, params: WorkerParameters) : Corouti
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         if (hour !in START_HOUR until END_HOUR) return Result.success()
         val store = graph.teamStore
-        if (store.active().isEmpty()) return Result.success()
+        // With no working key, the on-device AI translates the night's chapters for free
+        val local = eu.kanade.translation.local.LocalAiEngine.available(applicationContext)
+        if (store.active().isEmpty() && !local) return Result.success()
         val queued = runCatching { pick() }.onFailure { logcat(LogPriority.WARN, it) { "Night translation could not list chapters" } }
             .getOrDefault(emptyList())
         var sent = 0
@@ -78,6 +80,7 @@ class NightTranslateWorker(context: Context, params: WorkerParameters) : Corouti
     /** True while some key has more than [KEEP_PERCENT]% of today's quota left. */
     private fun quotaLeft(): Boolean {
         val store = applicationContext.appGraph.teamStore
+        if (store.active().isEmpty()) return eu.kanade.translation.local.LocalAiEngine.available(applicationContext)
         return store.active().any { m -> store.usage.level(m).let { !it.exhausted && it.percent > KEEP_PERCENT } }
     }
 

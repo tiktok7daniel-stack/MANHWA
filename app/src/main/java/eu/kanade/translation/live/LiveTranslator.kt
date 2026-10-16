@@ -458,7 +458,7 @@ class LiveTranslator(
             if (useLibrary) {
                 val glossary = id?.let(glossaryStore::asMap).orEmpty()
                 result.blocks.forEach { block ->
-                    val hit = collection.lookup(from.name, to.name, block.text, glossary)
+                    val hit = collection.lookup(from.name, eu.kanade.translation.style.StyleProfile.libraryTarget(preferences, to.name), block.text, glossary)
                     if (hit?.sure == true) {
                         block.translation = hit.translation
                         known += block
@@ -543,7 +543,7 @@ class LiveTranslator(
             if (useLibrary && id != null && engine.aiPart != null && !engine.fellBack) {
                 collection.learn(
                     from.name,
-                    to.name,
+                    eu.kanade.translation.style.StyleProfile.libraryTarget(preferences, to.name),
                     id,
                     glossaryStore.asMap(id),
                     result.blocks.filter { it.translation.isNotBlank() }.map { TranslationCollection.Line(it.text, it.translation, it.kind) },

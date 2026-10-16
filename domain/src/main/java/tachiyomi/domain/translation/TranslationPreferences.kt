@@ -123,4 +123,28 @@ class TranslationPreferences(
 
     /** Each chapter's translation quality (from library, by AI, reviewed, doubtful), as JSON. */
     fun translationChapterQuality() = preferenceStore.getString("manhwa_translation_chapter_quality", "{}")
+
+    /** Letters on busy drawings are inpainted from the drawing itself (real scanlation cleaning). */
+    fun translationDeepClean() = preferenceStore.getBoolean("manhwa_translation_deep_clean", true)
+
+    /** The on-device AI model file the reader imported (a MediaPipe .task file), empty when none. */
+    fun translationLocalModelPath() = preferenceStore.getString("manhwa_translation_local_model_path", "")
+
+    /** The on-device AI is used: as the draft before the keys, and alone when no key works. */
+    fun translationLocalAi() = preferenceStore.getBoolean("manhwa_translation_local_ai", true)
+
+    /** The reader's Arabic: FUSHA (formal), LIGHT (light formal, the default) or EGYPTIAN (spoken Egyptian). */
+    fun translationStyleDialect() = preferenceStore.getString("manhwa_translation_style_dialect", "LIGHT")
+
+    /** Korean and Japanese honorifics: KEEP ("hyung", "senpai") or ARABIC ("my big brother", "senior"). */
+    fun translationStyleHonorifics() = preferenceStore.getString("manhwa_translation_style_honorifics", "ARABIC")
+
+    /** What the reader's choices taught about their style, as JSON (see StyleProfile). */
+    fun translationStyleProfile() = preferenceStore.getString("manhwa_translation_style_profile", "{}")
+
+    /** The work's brain: characters, relations, ranks, places and a timeline learnt chapter by chapter. */
+    fun translationSeriesBrain() = preferenceStore.getBoolean("manhwa_translation_series_brain", true)
+
+    /** One work, all sources: a dead source or a missing chapter is read from another source by itself. */
+    fun translationUnifiedSources() = preferenceStore.getBoolean("manhwa_translation_unified_sources", true)
 }

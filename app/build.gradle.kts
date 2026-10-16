@@ -217,6 +217,8 @@ dependencies {
     implementation(libs.mlkit.text.recognition.japanese)
     implementation(libs.mlkit.text.recognition.korean)
     implementation(libs.mlkit.text.translate)
+    // MANHWA on-device AI (Gemma, Qwen... MediaPipe .task models imported by the reader)
+    implementation(libs.mediapipe.genai)
 
     implementation(projects.icons.customMaterialSymbols)
     implementation(projects.icons.materialSymbols)

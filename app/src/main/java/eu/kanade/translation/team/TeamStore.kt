@@ -43,6 +43,9 @@ import kotlin.math.roundToInt
 @SingleIn(AppScope::class)
 class TeamStore(private val context: Context, private val prefs: TranslationPreferences) {
 
+    /** The app, for parts of the team that need it (the on-device AI fallback). */
+    val appContext: Context get() = context
+
     /** How much each key has left (see [UsageMeter]). */
     val usage = UsageMeter(prefs.translationTeamUsage())
 
@@ -369,7 +372,8 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         maxOutputTokens = (prefs.translationEngineMaxOutputTokens().get().toIntOrNull() ?: 16000)
             .let { wanted -> if (member.maxOutput > 0) wanted.coerceAtMost(member.maxOutput) else wanted },
         temperature = prefs.translationEngineTemperature().get().toFloatOrNull() ?: 0.4f,
-        instructions = prefs.translationInstructions().get(),
+        // MANHWA: the reader's own Arabic (dialect, honorifics, what their choices taught)
+        instructions = prefs.translationInstructions().get() + eu.kanade.translation.style.StyleProfile.instruction(prefs, to.name),
         // A model the site retired is replaced by itself: the automatic choice follows
         onModelReplaced = { next -> if (member.model.isBlank()) setAutoModel(member.id, next) },
         siteDefaultModel = KeySites.byId(member.siteOrGuess)?.defaultModel.orEmpty(),

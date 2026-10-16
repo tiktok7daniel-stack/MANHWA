@@ -304,6 +304,14 @@ fun ExpandableMangaDescription(
         if (mangaId != null) {
             ManhwaSourceCards(mangaId)
         }
+        // MANHWA work brain: who is who, what happened, ask without spoilers
+        if (mangaId != null) {
+            eu.kanade.translation.brain.BrainButton(
+                mangaId = mangaId,
+                title = title,
+                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
+            )
+        }
         // MANHWA: a newer chapter on another of the reader's sources
         if (mangaId != null) {
             eu.kanade.tachiyomi.ui.manga.SourceRadar(
@@ -798,4 +806,6 @@ private fun ManhwaSourceCards(mangaId: Long) {
     val m = manga ?: return
     eu.kanade.tachiyomi.ui.manga.SourceDownCard(m.id, m.source, m.favorite, Modifier.padding(horizontal = 16.dp).padding(top = 10.dp))
     eu.kanade.tachiyomi.ui.manga.ChapterGapsCard(m.id, m.favorite, Modifier.padding(horizontal = 16.dp).padding(top = 10.dp))
+    // MANHWA one work, all sources: where else it is, and the chapters only they have
+    eu.kanade.translation.unified.UnifiedWorkCard(m, Modifier.padding(horizontal = 16.dp).padding(top = 10.dp))
 }

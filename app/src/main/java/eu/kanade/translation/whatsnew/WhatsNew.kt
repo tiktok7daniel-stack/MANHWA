@@ -100,6 +100,12 @@ object WhatsNew {
 
     val features: List<Feature>
         get() = listOf(
+            // Build 39: the five big ones first
+            Feature(MaterialSymbols.Rounded.Psychology, ATMR.strings.wn_local_t, ATMR.strings.wn_local_b),
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_clean_t, ATMR.strings.wn_clean_b),
+            Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_brain_t, ATMR.strings.wn_brain_b),
+            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_style_t, ATMR.strings.wn_style_b),
+            Feature(MaterialSymbols.Rounded.Public, ATMR.strings.wn_unified_t, ATMR.strings.wn_unified_b),
             Feature(MaterialSymbols.Rounded.Key, ATMR.strings.wn_keys_t, ATMR.strings.wn_keys_b),
             Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_fix_t, ATMR.strings.wn_fix_b),
             Feature(MaterialSymbols.Rounded.Public, ATMR.strings.wn_sources_t, ATMR.strings.wn_sources_b),

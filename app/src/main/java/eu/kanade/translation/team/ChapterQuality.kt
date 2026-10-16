@@ -21,6 +21,8 @@ class ChapterQuality(private val pref: Preference<String>) {
         /** Source text of the lines still doubtful after the review. */
         val doubtful: List<String> = emptyList(),
         val at: Long = System.currentTimeMillis(),
+        /** MANHWA fingerprint: two good translations of one line, for the reader to pick the one they like. */
+        val choices: List<Tie> = emptyList(),
     ) {
         val total: Int get() = fromLibrary + byAi
         val libraryPercent: Int get() = if (total == 0) 0 else fromLibrary * 100 / total
@@ -32,6 +34,17 @@ class ChapterQuality(private val pref: Preference<String>) {
                 val good = fromLibrary + byAi - doubtful.size.coerceAtMost(byAi)
                 return (good * 100 / total).coerceIn(0, 100)
             }
+    }
+
+    @Serializable
+    data class Tie(val source: String, val a: String, val b: String)
+
+    /** A choice the reader made is not asked again. */
+    fun chosen(chapterId: Long, source: String) {
+        synchronized(lock) {
+            val old = all()["$chapterId"] ?: return
+            save(chapterId, old.copy(choices = old.choices.filterNot { it.source == source }))
+        }
     }
 
     private val json = Json { ignoreUnknownKeys = true }

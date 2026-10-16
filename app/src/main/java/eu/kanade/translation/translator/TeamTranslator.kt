@@ -203,7 +203,8 @@ class TeamTranslator(
         val rest = leftOver + queue
         if (rest.isNotEmpty()) {
             fellBack = true
-            val google = GoogleTranslator(fromLang, toLang)
+            // MANHWA: the on-device AI when the reader has one, else Google
+            val google = fallbackTranslator()
             for (batch in rest) {
                 runCatching { google.translate(batch.pages.associateWithTo(mutableMapOf()) { pages.getValue(it) }) }
                     .onFailure { if (it is CancellationException) throw it }
@@ -299,10 +300,18 @@ class TeamTranslator(
             remember(pages.values)
         } else {
             fellBack = true
-            runCatching { GoogleTranslator(fromLang, toLang).translate(pages) }.onFailure { if (it is CancellationException) throw it }
+            runCatching { fallbackTranslator().translate(pages) }.onFailure { if (it is CancellationException) throw it }
         }
         Unit
     }
+
+    /** What translates when no key can: the on-device AI (with the series glossary) when there is one, else Google. */
+    private fun fallbackTranslator(): TextTranslator =
+        if (eu.kanade.translation.local.LocalAiEngine.available(store.appContext)) {
+            eu.kanade.translation.local.LocalAiTranslator(store.appContext, fromLang, toLang, glossary = lead.glossary)
+        } else {
+            GoogleTranslator(fromLang, toLang)
+        }
 
     /** How long the page waits on [member] before another key races it: its usual time, within 4–12 s. */
     private fun raceDelay(member: TeamStore.Member): Long {

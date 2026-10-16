@@ -14,6 +14,9 @@ import eu.kanade.translation.team.ChapterPlanner
 import eu.kanade.translation.team.TranslationConsensusEngine
 import eu.kanade.translation.translator.ArabicGrammarEngine
 import eu.kanade.translation.translator.ArabicTransliterator
+import eu.kanade.translation.brain.BrainRules
+import eu.kanade.translation.brain.SeriesBrain
+import eu.kanade.translation.style.StyleProfile
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
@@ -243,5 +246,77 @@ class WhatsNewTest {
         eu.kanade.translation.whatsnew.WhatsNewRule.shouldShow(null, "120-abc") shouldBe true
         eu.kanade.translation.whatsnew.WhatsNewRule.shouldShow("120-abc", "120-abc") shouldBe false
         eu.kanade.translation.whatsnew.WhatsNewRule.shouldShow("119-zzz", "120-abc") shouldBe true
+    }
+}
+
+class FiveFeaturesTest {
+
+    @Test
+    fun `inpainting fills a hole with the drawing around it`() {
+        val w = 120
+        val h = 60
+        val dark = 0xFF202020.toInt()
+        val light = 0xFFE0E0E0.toInt()
+        val px = IntArray(w * h) { i -> if (((i % w + i / w) / 6) % 2 == 0) dark else light }
+        val hole = BooleanArray(w * h) { i -> (i % w) in 40 until 80 && (i / w) in 20 until 40 }
+        for (i in hole.indices) if (hole[i]) px[i] = 0xFFFF0000.toInt()
+        eu.kanade.translation.render.ExemplarInpainter.fill(px, w, h, hole) shouldBe true
+        // Every pixel of the hole is a colour of the drawing, none of the letters' red is left
+        px.indices.filter { hole[it] }.all { px[it] == dark || px[it] == light } shouldBe true
+        eu.kanade.translation.render.ExemplarInpainter.fill(px.copyOf(), w, h, BooleanArray(w * h) { true }) shouldBe false
+    }
+
+    @Test
+    fun `style profile`() {
+                StyleProfile.libraryKey("ARABIC", StyleProfile.Dialect.EGYPTIAN) shouldBe "ARABIC_EG"
+        StyleProfile.libraryKey("ARABIC", StyleProfile.Dialect.LIGHT) shouldBe "ARABIC"
+        StyleProfile.libraryKey("ENGLISH", StyleProfile.Dialect.EGYPTIAN) shouldBe "ENGLISH"
+        var p = StyleProfile.Profile()
+        p = StyleProfile.withChoice(p, "Let's go!", "يلا بينا!", "هيا بنا لنذهب!")
+        p.shorter shouldBe 1
+        p.choices.size shouldBe 1
+        p = StyleProfile.withChoice(p, "Let's go!", "يلا!", "يلا بينا!")
+        p.choices.size shouldBe 1
+        val text = StyleProfile.instructionFor(StyleProfile.Dialect.EGYPTIAN, StyleProfile.Honorifics.KEEP, p)
+        text.contains("Egyptian") shouldBe true
+        text.contains("يلا!") shouldBe true
+    }
+
+    @Test
+    fun `work brain never shows what comes after the last chapter read`() {
+                var brain = SeriesBrain.Brain()
+        brain = BrainRules.merge(brain, listOf(BrainRules.NewEntity("Jinwoo", "جين وو", "character", "The hero", "E-rank")), emptyList(), SeriesBrain.Event(1.0, "Ch 1", "Start"), 1.0)
+        brain = BrainRules.merge(brain, listOf(BrainRules.NewEntity("Jinwoo", "", "character", "", "S-rank"), BrainRules.NewEntity("Igris", "إيغريس", "character", "Knight", "")), listOf(SeriesBrain.Relation("Igris", "Jinwoo", "تابع", 80.0)), SeriesBrain.Event(80.0, "Ch 80", "Reawakening"), 80.0)
+        val early = BrainRules.upTo(brain, 10.0)
+        early.entities.map { it.name } shouldBe listOf("Jinwoo")
+        early.entities.first().history.map { it.text } shouldBe listOf("E-rank")
+        early.relations shouldBe emptyList()
+        early.events.size shouldBe 1
+        BrainRules.upTo(brain, 80.0).entities.first { it.name == "Jinwoo" }.history.last().text shouldBe "S-rank"
+        BrainRules.describe(early, 2000).contains("S-rank") shouldBe false
+    }
+
+    @Test
+    fun `one work across sources`() {
+        eu.kanade.translation.unified.UnifiedRules.sameWork("Solo Leveling", "solo leveling (Official)") shouldBe true
+        eu.kanade.translation.unified.UnifiedRules.sameWork("Solo Leveling", "Solo Leveling: Ragnarok") shouldBe false
+        val theirs = listOf(
+            eu.kanade.translation.unified.UnifiedSources.AltChapter(5.0, "5", "A", 1, 10),
+            eu.kanade.translation.unified.UnifiedSources.AltChapter(5.0, "5", "B", 2, 20),
+            eu.kanade.translation.unified.UnifiedSources.AltChapter(7.0, "7", "B", 2, 21),
+            eu.kanade.translation.unified.UnifiedSources.AltChapter(2.0, "2", "A", 1, 11),
+        )
+        eu.kanade.translation.unified.UnifiedRules.missing(listOf(1.0, 2.0, 3.0, 4.0, 6.0), theirs).map { it.number to it.sourceName } shouldBe
+            listOf(5.0 to "A", 7.0 to "B")
+    }
+
+    @Test
+    fun `on-device model replies`() {
+        eu.kanade.translation.local.LocalAiRules.parse("Sure! {\"t\":[\"مرحبا\",\"يلا\"]} done") shouldBe listOf("مرحبا", "يلا")
+        eu.kanade.translation.local.LocalAiRules.parse("no json") shouldBe null
+        eu.kanade.translation.local.LocalAiRules.usable("Hello", "مرحبا", "ar") shouldBe true
+        eu.kanade.translation.local.LocalAiRules.usable("Hello", "Hello", "ar") shouldBe false
+        eu.kanade.translation.local.LocalAiRules.usable("Hello", "Hello friend", "ar") shouldBe false
+        eu.kanade.translation.local.LocalAiRules.usable("Hello", "", "ar") shouldBe false
     }
 }
