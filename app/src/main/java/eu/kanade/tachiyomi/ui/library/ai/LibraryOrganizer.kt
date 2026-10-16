@@ -324,13 +324,13 @@ class LibraryOrganizer(
     """.trimIndent()
 
     private suspend fun describe(items: List<LibraryManga>): String {
-        val sources = HashMap<Long, String>()
+        val sources = items.map { it.manga.source }.distinct().associateWith { id ->
+            val source = runCatching { sourceManager.getOrStub(id) }.getOrNull()
+            listOfNotNull(source?.name, (source as? CatalogueSource)?.lang).joinToString(" ")
+        }
         return items.joinToString("\n") { item ->
             val m = item.manga
-            val origin = sources.getOrPut(m.source) {
-                val source = runCatching { sourceManager.getOrStub(m.source) }.getOrNull()
-                listOfNotNull(source?.name, (source as? CatalogueSource)?.lang).joinToString(" ")
-            }
+            val origin = sources[m.source].orEmpty()
             val status = when (m.status.toInt()) {
                 SManga.ONGOING -> "ongoing"
                 SManga.COMPLETED, SManga.PUBLISHING_FINISHED -> "completed"

@@ -99,6 +99,7 @@ import eu.kanade.tachiyomi.util.system.isBenchmarkBuildType
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
 import eu.kanade.tachiyomi.util.system.updaterEnabled
 import eu.kanade.tachiyomi.ui.home.fresh.FavoriteDropBanner
+import eu.kanade.tachiyomi.ui.library.ai.AutoOrganizeBanner
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -295,7 +296,7 @@ class MainActivity : BaseActivity() {
                         // MANHWA: a new chapter of a favorite slides down over any screen
                         FavoriteDropBanner()
                         // MANHWA: where the organizer just put a series the reader added
-                        eu.kanade.tachiyomi.ui.library.ai.AutoOrganizeBanner()
+                        AutoOrganizeBanner()
 
                         // MANHWA LEGENDS opening, on cold start only
                         if (showIntro) {
