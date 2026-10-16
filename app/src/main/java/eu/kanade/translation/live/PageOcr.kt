@@ -25,7 +25,7 @@ object PageOcr {
     fun recognize(
         recognizer: TextRecognizer,
         bitmap: Bitmap,
-        paddle: ((Bitmap) -> List<eu.kanade.translation.ocr.PaddleOcrCore.Line>?)? = null,
+        paddle: ((Bitmap, (eu.kanade.translation.ocr.PaddleMath.Box) -> Boolean) -> List<eu.kanade.translation.ocr.PaddleOcrCore.Line>?)? = null,
         mode: eu.kanade.translation.ocr.PaddleOcrEngine.Mode = eu.kanade.translation.ocr.PaddleOcrEngine.Mode.MLKIT,
     ): PageTranslation {
         val w = bitmap.width
@@ -33,7 +33,7 @@ object PageOcr {
         val stripH = (w * STRIP_RATIO).toInt().coerceAtLeast(64)
         if (h <= stripH * 1.15f) {
             val blocks = readStrip(recognizer, bitmap, paddle, mode)
-            return PageTranslation(markSfx(mergeLines(blocks, w.toFloat(), bubblesOf(bitmap, blocks))), w.toFloat(), h.toFloat())
+            return PageTranslation(markSfx(mergeLines(blocks, w.toFloat(), bubbleFinder(bitmap))), w.toFloat(), h.toFloat())
         }
         val overlap = (stripH * OVERLAP).toInt()
         val found = mutableListOf<TranslationBlock>()
@@ -57,77 +57,31 @@ object PageOcr {
             if (top + sh >= h) break
             top += sh - overlap
         }
-        return PageTranslation(markSfx(mergeLines(found, w.toFloat(), bubblesOf(bitmap, found))), w.toFloat(), h.toFloat())
+        return PageTranslation(markSfx(mergeLines(found, w.toFloat(), bubbleFinder(bitmap))), w.toFloat(), h.toFloat())
     }
 
     /**
-     * MANHWA bubble finder: the speech bubble each block sits in (null when it is not in a closed light shape),
-     * so lines of two different bubbles are never joined. Read from the page around each block only.
+     * MANHWA bubble finder: the speech bubble a block sits in (null when it is not in a closed light shape),
+     * read from the page around the block only, and only for blocks that are about to be joined.
      */
-    private fun bubblesOf(bitmap: Bitmap, blocks: List<TranslationBlock>): java.util.IdentityHashMap<TranslationBlock, eu.kanade.translation.ocr.BubbleFinder.Rect?> {
-        val out = java.util.IdentityHashMap<TranslationBlock, eu.kanade.translation.ocr.BubbleFinder.Rect?>()
-        val w = bitmap.width
-        val h = bitmap.height
-        for (b in blocks) {
-            out[b] = runCatching {
-                val lineH = b.lineHeight().toInt().coerceAtLeast(4)
-                val margin = (max(lineH * 3, max(b.width, b.height).toInt() / 2) + lineH * 4).coerceAtMost(BUBBLE_MARGIN_MAX)
-                val left = (b.x.toInt() - margin).coerceIn(0, w - 1)
-                val top = (b.y.toInt() - margin).coerceIn(0, h - 1)
-                val right = (b.x + b.width).toInt().plus(margin).coerceIn(left + 1, w)
-                val bottom = (b.y + b.height).toInt().plus(margin).coerceIn(top + 1, h)
-                val rw = right - left
-                val rh = bottom - top
-                val region = IntArray(rw * rh)
-                bitmap.getPixels(region, 0, rw, left, top, rw, rh)
-                eu.kanade.translation.ocr.BubbleFinder.bubbleOf(
-                    region, rw, rh, b.x.toInt() - left, b.y.toInt() - top, b.width.toInt(), b.height.toInt(), lineH,
-                )?.let { eu.kanade.translation.ocr.BubbleFinder.Rect(it.left + left, it.top + top, it.right + left, it.bottom + top) }
-            }.getOrNull()
-        }
-        return out
-    }
-
-    fun toPageTranslation(blocks: List<Text.TextBlock>, width: Int, height: Int): PageTranslation =
-        PageTranslation(markSfx(mergeLines(toBlocks(blocks), width.toFloat())), width.toFloat(), height.toFloat())
-
-    /**
-     * MANHWA: marks sound effects drawn as art (huge letters, one short word, or a known onomatopoeia) with the
-     * sfx kind before anything is translated, so they can be left exactly as drawn.
-     */
-    private fun markSfx(blocks: MutableList<TranslationBlock>): MutableList<TranslationBlock> {
-        val heights = blocks.map { it.lineHeight() }.sorted()
-        val median = if (heights.size >= SFX_MIN_BLOCKS) heights[heights.size / 2] else 0f
-        blocks.forEach {
-            when {
-                looksLikeSfx(it, median) -> it.kind = SFX
-                // MANHWA art text: a skill, a spell or a sign drawn in huge letters, not a sound and not a bubble
-                looksLikeArt(it, median) -> it.kind = ART
-            }
-        }
-        return blocks
-    }
-
-    /** Text drawn into the art (skill and spell names, signs, titles): far bigger than the page's text and longer than a sound. */
-    fun looksLikeArt(block: TranslationBlock, medianLineHeight: Float): Boolean {
-        if (medianLineHeight <= 0f) return false
-        val letters = block.text.count { it.isLetter() }
-        return letters > SFX_BIG_CHARS && block.lineHeight() > medianLineHeight * ART_SIZE_FACTOR
-    }
-
-    /** Whether [block] is a sound effect: a known onomatopoeia, or one short word in letters far bigger than the page's text. */
-    fun looksLikeSfx(block: TranslationBlock, medianLineHeight: Float): Boolean {
-        val compact = block.text.filterNot { it.isWhitespace() }
-        if (compact.isEmpty() || compact.length > SFX_MAX_CHARS) return false
-        if (block.text.trim().contains(' ') || compact.any { it in SENTENCE_MARKS }) return false
-        val letters = compact.filter { it.isLetter() }
-        if (letters.isEmpty()) return false
-        if (KNOWN_SFX.matches(letters.lowercase())) return true
-        // Hangul made only of the syllables sound effects are built from (쾅, 쿵쾅, 두근두근...)
-        if (letters.length <= 6 && letters.all { it in SFX_SYLLABLES } && letters.any { it in SFX_STRONG }) return true
-        // Short katakana with a small tsu or a long mark (ドン, バッ, ゴゴゴ...)
-        if (letters.length <= 6 && letters.all { it in '゠'..'ヿ' } && (letters.any { it == 'ッ' || it == 'ー' } || letters.toSet().size < letters.length)) return true
-        return medianLineHeight > 0f && block.lineHeight() > medianLineHeight * SFX_SIZE_FACTOR && letters.length <= SFX_BIG_CHARS
+    private fun bubbleFinder(bitmap: Bitmap): (TranslationBlock) -> eu.kanade.translation.ocr.BubbleFinder.Rect? = { b ->
+        runCatching {
+            val w = bitmap.width
+            val h = bitmap.height
+            val lineH = b.lineHeight().toInt().coerceAtLeast(4)
+            val margin = (max(lineH * 3, max(b.width, b.height).toInt() / 2) + lineH * 4).coerceAtMost(BUBBLE_MARGIN_MAX)
+            val left = (b.x.toInt() - margin).coerceIn(0, w - 1)
+            val top = (b.y.toInt() - margin).coerceIn(0, h - 1)
+            val right = (b.x + b.width).toInt().plus(margin).coerceIn(left + 1, w)
+            val bottom = (b.y + b.height).toInt().plus(margin).coerceIn(top + 1, h)
+            val rw = right - left
+            val rh = bottom - top
+            val region = IntArray(rw * rh)
+            bitmap.getPixels(region, 0, rw, left, top, rw, rh)
+            eu.kanade.translation.ocr.BubbleFinder.bubbleOf(
+                region, rw, rh, b.x.toInt() - left, b.y.toInt() - top, b.width.toInt(), b.height.toInt(), lineH,
+            )?.let { eu.kanade.translation.ocr.BubbleFinder.Rect(it.left + left, it.top + top, it.right + left, it.bottom + top) }
+        }.getOrNull()
     }
 
     /**
@@ -138,18 +92,22 @@ object PageOcr {
     private fun readStrip(
         recognizer: TextRecognizer,
         strip: Bitmap,
-        paddle: ((Bitmap) -> List<eu.kanade.translation.ocr.PaddleOcrCore.Line>?)?,
+        paddle: ((Bitmap, (eu.kanade.translation.ocr.PaddleMath.Box) -> Boolean) -> List<eu.kanade.translation.ocr.PaddleOcrCore.Line>?)?,
         mode: eu.kanade.translation.ocr.PaddleOcrEngine.Mode,
     ): List<TranslationBlock> {
         val scale = if (strip.width < SMALL_WIDTH) UPSCALE else 1f
-        // MANHWA dual OCR: PaddleOCR reads the strip too (null when it can't: ML Kit alone, as before)
-        val lines = paddle?.let { read -> runCatching { read(strip) }.getOrNull() }
-        if (lines != null) {
-            val found = lines.map { eu.kanade.translation.ocr.OcrFusion.block(it.text, it.confidence, it.x, it.y, it.w, it.h) }
-            if (mode == eu.kanade.translation.ocr.PaddleOcrEngine.Mode.PADDLE) return found
-            // PaddleOCR reads light text on dark itself: ML Kit's second, inverted reading is not needed
-            val mlkit = runCatching { readAt(recognizer, strip, scale) }.getOrDefault(emptyList())
-            return eu.kanade.translation.ocr.OcrFusion.fuse(mlkit, found)
+        // MANHWA dual OCR: ML Kit reads first (at plain size: PaddleOCR takes care of small and light text), then
+        // PaddleOCR looks at the whole strip but reads only the lines ML Kit did not read surely. Null when
+        // PaddleOCR can't: ML Kit alone, as before.
+        if (paddle != null) {
+            val dual = mode != eu.kanade.translation.ocr.PaddleOcrEngine.Mode.PADDLE
+            val mlkit = if (dual) runCatching { readAt(recognizer, strip, 1f) }.getOrDefault(emptyList()) else emptyList()
+            val sure = mlkit.filter { it.ocrConfidence >= eu.kanade.translation.ocr.OcrFusion.TRUST && !eu.kanade.translation.ocr.OcrFusion.garbled(it.text) }
+            val lines = runCatching { paddle(strip) { box -> sure.none { covers(it, box) } } }.getOrNull()
+            if (lines != null) {
+                val found = lines.map { eu.kanade.translation.ocr.OcrFusion.block(it.text, it.confidence, it.x, it.y, it.w, it.h) }
+                return if (dual) eu.kanade.translation.ocr.OcrFusion.fuse(mlkit, found) else found
+            }
         }
         val base = readAt(recognizer, strip, scale)
         if (!hasDarkPanels(strip)) return base
@@ -162,6 +120,14 @@ object PageOcr {
             inverted.recycle()
         }
         return base + extra.filter { e -> base.none { overlapRatio(it, e) > 0.3f } }
+    }
+
+    /** The PaddleOCR line [box] sits inside [block] (its centre), so it was already read. */
+    private fun covers(block: TranslationBlock, box: eu.kanade.translation.ocr.PaddleMath.Box): Boolean {
+        val cx = box.x + box.w / 2f
+        val cy = box.y + box.h / 2f
+        val margin = min(block.width, block.height) * 0.15f + 4f
+        return cx >= block.x - margin && cx <= block.x + block.width + margin && cy >= block.y - margin && cy <= block.y + block.height + margin
     }
 
     private fun readAt(recognizer: TextRecognizer, bitmap: Bitmap, scale: Float): List<TranslationBlock> {
@@ -261,19 +227,23 @@ object PageOcr {
     private fun mergeLines(
         blocks: List<TranslationBlock>,
         pageWidth: Float,
-        bubbles: java.util.IdentityHashMap<TranslationBlock, eu.kanade.translation.ocr.BubbleFinder.Rect?> = java.util.IdentityHashMap(),
+        bubbleOf: ((TranslationBlock) -> eu.kanade.translation.ocr.BubbleFinder.Rect?)? = null,
     ): MutableList<TranslationBlock> {
         val list = blocks.sortedWith(compareBy({ it.y }, { it.x })).toMutableList()
+        // Each block's bubble is looked for once, and only when it is about to be joined
+        val bubbles = java.util.IdentityHashMap<TranslationBlock, eu.kanade.translation.ocr.BubbleFinder.Rect?>()
+        fun bubble(b: TranslationBlock) = if (bubbles.containsKey(b)) bubbles[b] else bubbleOf?.invoke(b).also { bubbles[b] = it }
         var changed = true
         while (changed) {
             changed = false
             loop@ for (i in list.indices) {
                 for (j in i + 1 until list.size) {
                     // Two different bubbles (when both are known) are never one, however close
-                    val apart = eu.kanade.translation.ocr.BubbleFinder.same(bubbles[list[i]], bubbles[list[j]]) == false
-                    if (!apart && shouldJoin(list[i], list[j], pageWidth)) {
+                    if (shouldJoin(list[i], list[j], pageWidth) &&
+                        (bubbleOf == null || eu.kanade.translation.ocr.BubbleFinder.same(bubble(list[i]), bubble(list[j])) != false)
+                    ) {
                         val joined = join(list[i], list[j])
-                        bubbles[joined] = bubbles[list[i]] ?: bubbles[list[j]]
+                        if (bubbleOf != null) bubbles[joined] = bubble(list[i]) ?: bubble(list[j])
                         list[i] = joined
                         list.removeAt(j)
                         changed = true
@@ -432,7 +402,7 @@ object PageOcr {
     }
 
     private const val STRIP_RATIO = 2.2f
-    private const val BUBBLE_MARGIN_MAX = 260
+    private const val BUBBLE_MARGIN_MAX = 200
 
     /** Pages narrower than this are read enlarged by [UPSCALE] (their letters are small for the OCR). */
     private const val SMALL_WIDTH = 800

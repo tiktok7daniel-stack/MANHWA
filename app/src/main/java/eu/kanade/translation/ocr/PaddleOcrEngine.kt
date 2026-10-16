@@ -31,7 +31,7 @@ object PaddleOcrEngine {
      * A reader for pages of [language] with the chosen engine, or null when PaddleOCR is not used (ML Kit only,
      * or its models are not on the phone yet: then they are fetched on Wi-Fi for next time).
      */
-    fun readerFor(context: Context, language: TextRecognizerLanguage): ((Bitmap) -> List<PaddleOcrCore.Line>?)? {
+    fun readerFor(context: Context, language: TextRecognizerLanguage): ((Bitmap, (PaddleMath.Box) -> Boolean) -> List<PaddleOcrCore.Line>?)? {
         if (mode(context) == Mode.MLKIT) return null
         val pack = packFor(language)
         if (!OcrModels.ready(context, pack)) {
@@ -39,12 +39,12 @@ object PaddleOcrEngine {
             return null
         }
         val app = context.applicationContext
-        return { bitmap -> read(app, bitmap, pack) }
+        return { bitmap, wanted -> read(app, bitmap, pack, wanted) }
     }
 
     /** Every line of text on [bitmap]; null when PaddleOCR could not read it (ML Kit carries on alone). */
     @Synchronized
-    fun read(context: Context, bitmap: Bitmap, pack: OcrModels.Pack): List<PaddleOcrCore.Line>? {
+    fun read(context: Context, bitmap: Bitmap, pack: OcrModels.Pack, wanted: (PaddleMath.Box) -> Boolean = { true }): List<PaddleOcrCore.Line>? {
         val engine = core(context, pack) ?: return null
         return try {
             val w = bitmap.width
@@ -52,7 +52,7 @@ object PaddleOcrEngine {
             val pixels = IntArray(w * h)
             bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
             lastUse = System.currentTimeMillis()
-            engine.read(pixels, w, h)
+            engine.read(pixels, w, h, wanted)
         } catch (e: OutOfMemoryError) {
             logcat(LogPriority.WARN, e) { "PaddleOCR ran out of memory; ML Kit reads this page" }
             release()

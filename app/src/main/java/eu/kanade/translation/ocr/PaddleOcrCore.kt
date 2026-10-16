@@ -32,10 +32,13 @@ class PaddleOcrCore(detModel: File, recModel: File, private val dict: List<Strin
     private val detInput = det.inputNames.first()
     private val recInput = rec.inputNames.first()
 
-    /** Every line of text in the [w]×[h] image [argb], top to bottom. */
-    fun read(argb: IntArray, w: Int, h: Int): List<Line> {
+    /**
+     * Every line of text in the [w]×[h] image [argb], top to bottom. Only the lines [wanted] are read (the
+     * detector always looks at the whole image): lines another engine already read surely are skipped.
+     */
+    fun read(argb: IntArray, w: Int, h: Int, wanted: (PaddleMath.Box) -> Boolean = { true }): List<Line> {
         if (w < 8 || h < 8 || argb.size < w * h) return emptyList()
-        val boxes = detect(argb, w, h)
+        val boxes = detect(argb, w, h).filter(wanted)
         return boxes.mapNotNull { box -> recognize(argb, w, h, box) }
             .sortedWith(compareBy({ it.y }, { it.x }))
     }
@@ -104,7 +107,8 @@ class PaddleOcrCore(detModel: File, recModel: File, private val dict: List<Strin
         const val MIN_SIDE = 4
         const val VERTICAL_RATIO = 1.5f
         const val MIN_CONFIDENCE = 0.5f
-        const val THREADS = 2
+        /** The phone's big cores (most phones have four). */
+        val THREADS = Runtime.getRuntime().availableProcessors().coerceIn(1, 4)
 
         /** The characters of a recognizer's dictionary file (one per line). */
         fun readDict(file: File): List<String> = file.readLines(Charsets.UTF_8).map { it.trimEnd('\r') }
