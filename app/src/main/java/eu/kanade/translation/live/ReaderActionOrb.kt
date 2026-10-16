@@ -89,9 +89,9 @@ fun ReaderActionOrb(
     onGlossary: () -> Unit,
     autoEnabled: Boolean,
     modifier: Modifier = Modifier,
+    onHold: () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
-    val peekScope = rememberCoroutineScope()
     Column(modifier = modifier, horizontalAlignment = Alignment.End) {
         AnimatedVisibility(visible = expanded, enter = fadeIn() + scaleIn(transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)), exit = fadeOut() + scaleOut(transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f))) {
             Column(
@@ -213,23 +213,11 @@ fun ReaderActionOrb(
                         .neonGlow(CircleShape, colors.primary, if (working || expanded) 0.45f else 0.2f, 10.dp)
                         .clip(CircleShape)
                         .background(if (expanded) ManhwaKit.accentBrush() else androidx.compose.ui.graphics.SolidColor(Color(0xD9140508)))
-                        // MANHWA before/after: tap opens the menu; hold to see the original page, let go to come back
-                        .pointerInput(expanded, showTranslations) {
+                        // MANHWA: tap opens the menu; hold opens the quick HUD
+                        .pointerInput(expanded) {
                             detectTapGestures(
                                 onTap = { onExpanded(!expanded) },
-                                onLongPress = { },
-                                onPress = {
-                                    if (!showTranslations || expanded) return@detectTapGestures
-                                    var peeking = false
-                                    val hold = peekScope.launch {
-                                        delay(PEEK_AFTER_MS)
-                                        peeking = true
-                                        onShowTranslations(false)
-                                    }
-                                    tryAwaitRelease()
-                                    hold.cancel()
-                                    if (peeking) onShowTranslations(true)
-                                },
+                                onLongPress = { if (!expanded) onHold() },
                             )
                         },
                     contentAlignment = Alignment.Center,
@@ -382,4 +370,3 @@ private const val PACE_CHARS = 140f
 private const val PACE_MIN = 0.35f
 private const val PACE_EASE = 0.35f
 private const val PAGE_CHARS = 300f
-private const val PEEK_AFTER_MS = 350L

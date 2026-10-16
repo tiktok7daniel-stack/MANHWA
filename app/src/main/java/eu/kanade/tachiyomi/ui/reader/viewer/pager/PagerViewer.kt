@@ -119,7 +119,13 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
                 NavigationRegion.LEFT -> moveLeft()
             }
         }
-        pager.longTapListener = f@{
+        pager.longTapListener = f@{ event ->
+            // MANHWA: a long press in the middle of the page shows or hides the translation
+            if (!activity.viewModel.state.value.menuVisible && pager.width > 0 && pager.height > 0 &&
+                activity.onCenterLongTap(event.x / pager.width, event.y / pager.height)
+            ) {
+                return@f true
+            }
             if (activity.viewModel.state.value.menuVisible || config.longTapEnabled) {
                 val item = adapter.items.getOrNull(pager.currentItem)
                 if (item is ReaderPage) {

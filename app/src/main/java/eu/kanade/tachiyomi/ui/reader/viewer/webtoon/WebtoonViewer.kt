@@ -9,6 +9,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.core.app.ActivityCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.WebtoonLayoutManager
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -17,12 +18,13 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.cancel
-import mihon.app.di.appGraph
-import tachiyomi.core.common.util.system.logcat
 import kotlin.math.max
 import kotlin.math.min
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
+import tachiyomi.core.common.util.system.logcat
 
 /**
  * Implementation of a [Viewer] to display pages with a [RecyclerView].
@@ -143,6 +145,12 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             }
         }
         recycler.longTapListener = f@{ event ->
+            // MANHWA: a long press in the middle of the page shows or hides the translation
+            if (!activity.viewModel.state.value.menuVisible && recycler.width > 0 && recycler.height > 0 &&
+                activity.onCenterLongTap(event.x / recycler.width, event.y / recycler.height)
+            ) {
+                return@f true
+            }
             if (activity.viewModel.state.value.menuVisible || config.longTapEnabled) {
                 val child = recycler.findChildViewUnder(event.x, event.y)
                 if (child != null) {
@@ -265,6 +273,8 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             val pages = chapters.currChapter.pages ?: return
             moveToPage(pages[min(chapters.currChapter.requestedPage, pages.lastIndex)])
             recycler.isVisible = true
+            // MANHWA smart focus: back to the exact line where the reader stopped
+            activity.restoreSmartFocus(this, chapters.currChapter)
         }
     }
 
@@ -280,6 +290,39 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             }
         } else {
             logcat { "Page $page not found in adapter" }
+        }
+    }
+
+    /** MANHWA smart focus: the page at the middle of the screen and how far into it the middle is. */
+    fun focusPoint(): Pair<Int, Float>? {
+        val mid = recycler.height / 2f
+        val child = recycler.findChildViewUnder(recycler.width / 2f, mid) ?: return null
+        val page = adapter.items.getOrNull(recycler.getChildAdapterPosition(child)) as? ReaderPage ?: return null
+        if (child.height <= 0) return null
+        return page.index to ((mid - child.top) / child.height).coerceIn(0f, 1f)
+    }
+
+    /**
+     * Puts the point [fraction] of the page [index] back at the middle of the screen, once the page image is
+     * loaded and has its real height. Calls [onDone] when it got there.
+     */
+    fun restoreFocus(index: Int, fraction: Float, onDone: () -> Unit) {
+        val page = adapter.items.firstOrNull { it is ReaderPage && it.index == index && it.chapter == adapter.currentChapter } as? ReaderPage ?: return
+        val position = adapter.items.indexOf(page)
+        activity.lifecycleScope.launch {
+            var lastHeight = -1
+            repeat(FOCUS_TRIES) {
+                kotlinx.coroutines.delay(FOCUS_STEP_MS)
+                val child = layoutManager.findViewByPosition(position) ?: return@repeat
+                val height = child.height
+                if (page.status == eu.kanade.tachiyomi.source.model.Page.State.Ready && height > 0 && height == lastHeight) {
+                    val target = recycler.height / 2f - fraction * height
+                    recycler.scrollBy(0, (child.top - target).toInt())
+                    onDone()
+                    return@launch
+                }
+                lastHeight = height
+            }
         }
     }
 
@@ -380,3 +423,6 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
 
 // Double the cache size to reduce rebinds/recycles incurred by the extra layout space on scroll direction changes
 private const val RECYCLER_VIEW_CACHE_SIZE = 4
+
+private const val FOCUS_TRIES = 40
+private const val FOCUS_STEP_MS = 100L

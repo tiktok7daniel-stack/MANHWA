@@ -32,6 +32,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.rounded.Translate
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,6 +48,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.core.graphics.Insets
@@ -97,6 +99,7 @@ import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -291,6 +294,8 @@ class ReaderActivity : BaseActivity() {
             var showGlossary by remember { mutableStateOf(false) }
             var showStyle by remember { mutableStateOf(false) }
             var orbOpen by remember { mutableStateOf(false) }
+            var hudOpen by remember { mutableStateOf(false) }
+            var showRecap by remember { mutableStateOf(false) }
             var scrolling by rememberSaveable { mutableStateOf(false) }
             val editStore = remember { appGraph.translationEditStore }
             val editing by editStore.editing.collectAsState()
@@ -375,11 +380,49 @@ class ReaderActivity : BaseActivity() {
                 onStyle = { showStyle = true },
                 onGlossary = { showGlossary = true },
                 autoEnabled = autoTranslate,
+                onHold = { hudOpen = true },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .navigationBarsPadding()
                     .padding(end = 14.dp, bottom = if (state.menuVisible) 150.dp else 40.dp),
             )
+            // MANHWA quick HUD, the long press chip and the smart focus line
+            if (hudOpen) {
+                Box(Modifier.matchParentSize().pointerInput(Unit) { detectTapGestures { hudOpen = false } })
+            }
+            eu.kanade.translation.live.ReaderQuickHud(
+                visible = hudOpen,
+                onDismiss = { hudOpen = false },
+                liveOn = autoTranslate,
+                onLive = viewModel.liveTranslation::setEnabled,
+                showTranslations = showTranslations,
+                onShowTranslations = readerPreferences.showTranslations::set,
+                editing = editing,
+                onEditing = editStore::setEditing,
+                scrolling = scrolling,
+                onScrolling = { scrolling = it },
+                speed = autoScrollSpeed,
+                onSpeed = readerPreferences.autoScrollSpeed::set,
+                onSwapSource = ::openSourceSwap,
+                onRecap = { showRecap = true },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = if (state.menuVisible) 220.dp else 110.dp),
+            )
+            val toggleEvent by translationToggle.collectAsState()
+            eu.kanade.translation.live.TranslationToggleChip(toggleEvent)
+            val flashAt by focusFlash.collectAsState()
+            eu.kanade.translation.live.FocusFlash(flashAt)
+            val recapManga = state.manga
+            if (showRecap && recapManga != null) {
+                eu.kanade.translation.companion.ChapterRecapSheet(
+                    manga = recapManga,
+                    currentChapter = state.viewerChapters?.currChapter?.chapter?.chapterNumber ?: -1.0,
+                    store = remember { appGraph.glossaryStore },
+                    onDismiss = { showRecap = false },
+                )
+            }
             val mangaId = state.manga?.id
             if (showGlossary && mangaId != null) {
                 GlossarySheet(
@@ -464,6 +507,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     override fun onPause() {
+        runCatching { saveSmartFocus() }
         viewModel.saveHistory()
         super.onPause()
     }
@@ -818,6 +862,63 @@ class ReaderActivity : BaseActivity() {
         viewModel.openPageDialog(page)
     }
 
+    /** MANHWA: the long press chip, as (shown, when). */
+    private val translationToggle = MutableStateFlow<Pair<Boolean, Long>?>(null)
+
+    /** MANHWA smart focus: when the "you were here" line was last shown. */
+    private val focusFlash = MutableStateFlow(0L)
+
+    private val smartFocus by lazy { SmartFocus(this) }
+
+    /**
+     * MANHWA: a long press in the middle of the page ([fx], [fy] as fractions of the view) shows or hides the
+     * translation; when live translation is off, it is turned on so there is something to show.
+     */
+    fun onCenterLongTap(fx: Float, fy: Float): Boolean {
+        if (!readerPreferences.translationLongPress.get()) return false
+        if (fx !in CENTER_RANGE || fy !in CENTER_RANGE) return false
+        val translations = appGraph.translationPreferences.liveTranslation()
+        val show = if (!translations.get()) {
+            viewModel.liveTranslation.setEnabled(true)
+            true
+        } else {
+            !readerPreferences.showTranslations.get()
+        }
+        readerPreferences.showTranslations.set(show)
+        window.decorView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+        translationToggle.value = show to System.currentTimeMillis()
+        return true
+    }
+
+    /** Called by the webtoon viewer on its first layout: back to the exact line where the reader stopped. */
+    fun restoreSmartFocus(viewer: WebtoonViewer, chapter: ReaderChapter) {
+        val id = chapter.chapter.id
+        val point = smartFocus.get(id) ?: return
+        // Only when the chapter is still where it was left
+        if (point.lastRead != chapter.chapter.lastPageRead) return
+        viewer.restoreFocus(point.page, point.fraction) { focusFlash.value = System.currentTimeMillis() }
+    }
+
+    private fun saveSmartFocus() {
+        val state = viewModel.state.value
+        val viewer = state.viewer as? WebtoonViewer ?: return
+        val chapter = state.viewerChapters?.currChapter?.chapter ?: return
+        val (page, fraction) = viewer.focusPoint() ?: return
+        smartFocus.save(chapter.id, SmartFocus.Point(page, fraction, chapter.lastPageRead))
+    }
+
+    /** Opens the move-to-another-source flow for the manhwa being read. */
+    private fun openSourceSwap() {
+        val id = viewModel.manga?.id ?: return
+        startActivity(
+            Intent(this, MainActivity::class.java).apply {
+                action = MainActivity.INTENT_MIGRATE
+                putExtra(Constants.MANGA_EXTRA, id)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+        )
+    }
+
     /**
      * Called from the viewer when the given [chapter] should be preloaded. It should be called when
      * the viewer is reaching the beginning or end of a chapter or the transition page is active.
@@ -1082,3 +1183,5 @@ class ReaderActivity : BaseActivity() {
         }
     }
 }
+
+private val CENTER_RANGE = 0.25f..0.75f

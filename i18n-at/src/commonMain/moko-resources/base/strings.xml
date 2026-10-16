@@ -609,4 +609,19 @@
     <string name="org_local">Sorted with the built-in genre map. Add an AI key in the team for a smarter sort.</string>
     <string name="org_placed">Sorted %1$s into %2$s</string>
     <string name="org_placed_many">%1$d new series sorted into their categories</string>
+    <string name="hud_live">Live</string>
+    <string name="hud_show">Show</string>
+    <string name="hud_source">Source</string>
+    <string name="hud_recap">Recap</string>
+    <string name="hud_translation_on">Translation shown</string>
+    <string name="hud_translation_off">Translation hidden</string>
+    <string name="recap_up_to">Up to chapter</string>
+    <string name="recap_go">Tell me</string>
+    <string name="recap_hint">Pick a chapter and get the story told up to it, with nothing from after it.</string>
+    <string name="recap_hero">Where the hero stands</string>
+    <string name="recap_threads">Open threads</string>
+    <string name="recap_from_knowledge">Told from what the AI knows of the story: no chapter of it was translated here yet.</string>
+    <string name="crecap_title">Story so far</string>
+    <string name="crecap_characters">Who is who</string>
+    <string name="crecap_failed">Could not tell the story right now</string>
 </resources>

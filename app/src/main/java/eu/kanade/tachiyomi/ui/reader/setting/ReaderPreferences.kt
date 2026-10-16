@@ -45,6 +45,9 @@ class ReaderPreferences(
     /** Auto-scroll speed, 1 (slow) to 10 (fast). */
     val autoScrollSpeed: Preference<Int> = preferenceStore.getInt("manhwa_auto_scroll_speed", 4)
 
+    /** MANHWA: a long press in the middle of the page shows or hides the translation. */
+    val translationLongPress: Preference<Boolean> = preferenceStore.getBoolean("manhwa_translation_long_press", true)
+
     val verticalNavigator: Preference<Set<ReadingMode>> = preferenceStore.getEnumSet(
         "pref_vertical_navigator",
         emptySet(),

@@ -550,4 +550,19 @@
     <string name="org_local">اترتبت بخريطة التصنيفات اللي جوه التطبيق. ضيف مفتاح AI في الفريق عشان الترتيب يبقى أذكى.</string>
     <string name="org_placed">اترتبت %1$s في %2$s</string>
     <string name="org_placed_many">%1$d أعمال جديدة اترتبت في فئاتها</string>
+    <string name="hud_live">لايف</string>
+    <string name="hud_show">إظهار</string>
+    <string name="hud_source">المصدر</string>
+    <string name="hud_recap">الملخص</string>
+    <string name="hud_translation_on">الترجمة ظاهرة</string>
+    <string name="hud_translation_off">الترجمة مخفية</string>
+    <string name="recap_up_to">لحد الفصل</string>
+    <string name="recap_go">احكيلي</string>
+    <string name="recap_hint">اختار فصل، والقصة تتحكيلك لحد عنده من غير أي حرق للي بعده.</string>
+    <string name="recap_hero">البطل واقف فين</string>
+    <string name="recap_threads">ألغاز وصراعات مفتوحة</string>
+    <string name="recap_from_knowledge">الحكاية من معرفة الـ AI بالقصة، لأن مفيش فصل منها اتترجم هنا لسه.</string>
+    <string name="crecap_title">القصة لحد دلوقتي</string>
+    <string name="crecap_characters">مين ده</string>
+    <string name="crecap_failed">ما قدرتش أحكي القصة دلوقتي</string>
 </resources>

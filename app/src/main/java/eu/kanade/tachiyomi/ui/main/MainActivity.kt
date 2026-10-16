@@ -637,6 +637,13 @@ class MainActivity : BaseActivity() {
                 navigator.popUntilRoot()
                 HomeScreen.Tab.Library(idToOpen)
             }
+            INTENT_MIGRATE -> {
+                // MANHWA: move the manhwa being read to another source, from the reader's quick HUD
+                val id = intent.extras?.getLong(Constants.MANGA_EXTRA) ?: return false
+                navigator.popUntilRoot()
+                navigator.push(mihon.feature.migration.config.MigrationConfigScreen(id))
+                null
+            }
             Constants.SHORTCUT_UPDATES -> HomeScreen.Tab.Updates
             Constants.SHORTCUT_HISTORY -> HomeScreen.Tab.History
             Constants.SHORTCUT_SOURCES -> HomeScreen.Tab.Browse(false)
@@ -706,6 +713,7 @@ class MainActivity : BaseActivity() {
         const val INTENT_SEARCH = "eu.kanade.tachiyomi.SEARCH"
         const val INTENT_SEARCH_QUERY = "query"
         const val INTENT_SEARCH_FILTER = "filter"
+        const val INTENT_MIGRATE = "eu.kanade.tachiyomi.MANHWA_MIGRATE"
     }
 }
 
