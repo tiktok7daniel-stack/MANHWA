@@ -53,7 +53,7 @@ object ModelHealthManager {
         if (code == 429) return Problem.RateLimited(parseRetryAfter(retryAfter, m))
         if (code in 500..599 || code == 408) return Problem.Temporary
         if (code == 400 || code == 413 || code == 422) {
-            if (contextWords.any { it in m }) return Problem.ContextTooLong(readLimit(m))
+            if (contextWords.any { it in m }) return Problem.ContextTooLong(readLimit(m, bareNumbers = false))
             if (outputWords.any { it in m }) readLimit(m)?.let { return Problem.MaxTokens(it) }
         }
         if (code == 400 || code == 403 || code == 404 || code == 422) {
@@ -64,20 +64,22 @@ object ModelHealthManager {
     }
 
     /** The token limit in a message like "must be less than or equal to 8192" or "maximum of 4096". */
-    fun readLimit(message: String): Int? {
-        val m = message.lowercase().replace(",", "")
+    fun readLimit(message: String, bareNumbers: Boolean = true): Int? {
+        // The status code ("HTTP 400") is not a limit
+        val m = message.lowercase().replace(",", "").replace(Regex("(?:http|status|code|error)\\s*:?\\s*\\d{3}\\b"), " ")
         val patterns = listOf(
             Regex("less than or equal to\\s*`?(\\d{3,7})"),
             Regex("(?:at most|maximum of|max(?:imum)? is|maximum value(?: is)?|up to|limit(?: is| of)?|<=)\\s*`?(\\d{3,7})"),
             Regex("(?:max_tokens|max tokens|max_completion_tokens|maxoutputtokens|context length)[^0-9]{0,40}?(\\d{3,7})"),
             Regex("(\\d{3,7})\\s*(?:tokens|token)"),
         )
-        for (p in patterns) {
-            val n = p.findAll(m).mapNotNull { it.groupValues[1].toIntOrNull() }.filter { it in 256..2_000_000 }.toList()
-            // "must be <= 8192, got 16000": the smaller number is the limit
-            if (n.isNotEmpty()) return n.min()
-        }
-        return null
+        // "must be <= 8192, got 16000" or "16000 > 8192": the smallest number named is the limit. Bare numbers count
+        // too, but not those inside a model name ("command-a-03-2025") or a word
+        val named = patterns.flatMap { p -> p.findAll(m).mapNotNull { it.groupValues[1].toIntOrNull() }.toList() }
+        if (named.isEmpty()) return null
+        if (!bareNumbers) return named.filter { it in 256..2_000_000 }.minOrNull()
+        val bare = Regex("(?<![\\w.-])(\\d{3,7})(?![\\w.-])").findAll(m).mapNotNull { it.groupValues[1].toIntOrNull() }.toList()
+        return (named + bare).filter { it in 256..2_000_000 }.minOrNull()
     }
 
     fun parseRetryAfter(header: String?, message: String = ""): Long? {
