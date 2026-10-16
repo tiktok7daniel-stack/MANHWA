@@ -186,6 +186,8 @@ object ScanlationRenderer {
                 val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
                 if (kind == BubbleKind.SFX && style.skipSfx) return@mapNotNull null
                 if (block.lineBoxes.isEmpty()) return@mapNotNull null
+                // MANHWA art text: the drawing is never erased, the translation goes in a caption under it
+                if (kind == BubbleKind.ART) return@mapNotNull artCaption(block, kind)
                 // One bad bubble never costs the whole page its translation
                 try {
                     clean(block, kind)
@@ -225,6 +227,15 @@ object ScanlationRenderer {
                     logcat(LogPriority.WARN, e) { "Skipped a bubble that could not be typeset" }
                 }
             }
+        }
+
+        private fun artCaption(block: TranslationBlock, kind: BubbleKind): Cleaned {
+            val text = RectF(block.lineBoxes.first().let { RectF(it.x * s, it.y * s, it.right * s, it.bottom * s) })
+            block.lineBoxes.forEach { text.union(it.x * s, it.y * s, it.right * s, it.bottom * s) }
+            val widen = text.width() * ART_WIDEN
+            val height = max(text.height() * ART_HEIGHT, text.width() * ART_MIN_HEIGHT_OF_WIDTH)
+            val caption = clamp(RectF(text.left - widen, text.bottom, text.right + widen, text.bottom + height))
+            return Cleaned(block, kind, caption, ART_BAND, plain = false)
         }
 
         private fun separate(areas: List<RectF>) {
@@ -607,6 +618,20 @@ object ScanlationRenderer {
             }
             val x = area.centerX() - layout.width / 2f
             val y = area.centerY() - layout.height / 2f
+            if (set.cleaned.kind == BubbleKind.ART) {
+                // A dark glass band with a crimson edge under the drawn text, the translation in light crimson
+                val pad = size * 0.4f
+                val band = RectF(x - pad, y - pad * 0.5f, x + layout.width + pad, y + layout.height + pad * 0.5f)
+                boxPaint.color = ART_BAND
+                canvas.drawRoundRect(band, pad, pad, boxPaint)
+                val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.style = Paint.Style.STROKE
+                    strokeWidth = max(1.5f, size * 0.06f)
+                    color = ART_EDGE
+                }
+                canvas.drawRoundRect(band, pad, pad, edge)
+                paint.color = ART_TEXT
+            }
             canvas.save()
             canvas.translate(x, y)
             val plain = set.cleaned.plain
@@ -824,6 +849,14 @@ object ScanlationRenderer {
     private const val WHOLE_EXTRA = 24f
     private const val MAX_TEXT_OF_WIDTH = 0.085f
     private const val INK = 28
+
+    // MANHWA art text caption
+    private const val ART_WIDEN = 0.08f
+    private const val ART_HEIGHT = 0.9f
+    private const val ART_MIN_HEIGHT_OF_WIDTH = 0.16f
+    private val ART_BAND = 0xD9120408.toInt()
+    private val ART_EDGE = 0xFFFF2D46.toInt()
+    private val ART_TEXT = 0xFFFFD1D7.toInt()
     private const val SHARE_DISTANCE = 70
     private const val FREE_DISTANCE = 45
     private const val HALO = 8

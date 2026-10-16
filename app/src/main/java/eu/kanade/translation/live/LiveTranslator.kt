@@ -426,6 +426,7 @@ class LiveTranslator(
                     // OCR ran on the downscaled bitmap (in strips for tall pages); boxes go back to the real page size
                     PageOcr.recognize(ocr, decoded.bitmap).rescaled(1f / decoded.scale).also {
                         if (skipSfx) it.blocks.removeAll { b -> b.kind.equals(PageOcr.SFX, ignoreCase = true) }
+                        if (!preferences.translationArtText().get()) it.blocks.forEach { b -> if (b.kind.equals(PageOcr.ART, ignoreCase = true)) b.kind = "" }
                         PageImageProcessor.prepare(it, decoded)
                         if (engine.aiPart != null && preferences.translationVision().get()) {
                             images[KEY] = PageImageProcessor.tiles(decoded)

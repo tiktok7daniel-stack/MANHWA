@@ -340,8 +340,10 @@ private class Typesetter(
             val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
             if (kind == BubbleKind.SFX && skipSfx) return@mapIndexed null
             val style = styleFor(kind)
-            val patches = if (kind == BubbleKind.SFX) emptyList() else patches(block)
-            val base = cleaned[index].intersect(pageRect)
+            // MANHWA art text: nothing erased, the translation in a caption right under the drawn text
+            val art = kind == BubbleKind.ART
+            val patches = if (kind == BubbleKind.SFX || art) emptyList() else patches(block)
+            val base = (if (art) artCaption(cleaned[index]) else cleaned[index]).intersect(pageRect)
             // A little more room when the translation is longer, stopping at the neighbours
             val others = cleaned.filterIndexed { i, _ -> i != index }
             val room = roomAround(base, others).intersect(pageRect)
@@ -371,18 +373,19 @@ private class Typesetter(
             val area = if (size > plan.fit) plan.room else plan.area
             val layout = balanced(block.translation, plan.style.copy(fontSize = size.sp), area)
             val bg = Color(block.bgColor.takeIf { it != 0 } ?: 0xFFFFFFFF.toInt()).copy(alpha = 1f)
-            val fg = Color(block.textColor)
+            val fg = if (plan.kind == BubbleKind.ART) ART_TEXT else Color(block.textColor)
             val shout = dramatic && plan.kind == BubbleKind.SHOUT
             // MANHWA: the original letters' outline colour, kept on the translation
             val ownStroke = block.strokeColor.takeIf { it != 0 }?.let { Color(it) }
             val stroke = when {
-                plan.kind == BubbleKind.SFX -> size * 0.18f
+                plan.kind == BubbleKind.SFX || plan.kind == BubbleKind.ART -> size * 0.18f
                 shout -> size * 0.12f
                 ownStroke != null -> size * 0.09f
                 outline -> size * 0.08f
                 else -> 0f
             }
             val outlineColor = when {
+                plan.kind == BubbleKind.ART -> ART_OUTLINE
                 // A shout stands out in the colour opposite to its letters
                 shout -> if (fg.luminance() > 0.5f) Color.Black else Color.White
                 ownStroke != null -> ownStroke
@@ -402,6 +405,12 @@ private class Typesetter(
     )
 
     /** Each original line with its erase margin (+10 px left/right, +6 px top/bottom at least). */
+    private fun artCaption(text: Rect): Rect {
+        val widen = text.width * 0.08f
+        val height = maxOf(text.height * 0.9f, text.width * 0.16f)
+        return Rect(text.left - widen, text.bottom, text.right + widen, text.bottom + height)
+    }
+
     private fun lineRects(block: TranslationBlock): List<Rect> = block.lineBoxes.map { line ->
         val px = PageImageProcessor.padX(line.h)
         val py = PageImageProcessor.padY(line.h)
@@ -532,3 +541,6 @@ private fun DrawScope.drawHudCorners(topLeft: Offset, text: Size, size: Float) {
 }
 
 private val HudColor = Color(0xFF4FD8FF)
+
+private val ART_TEXT = Color(0xFFFFD1D7)
+private val ART_OUTLINE = Color(0xF2120408)

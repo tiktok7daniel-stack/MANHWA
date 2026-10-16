@@ -62,8 +62,21 @@ object PageOcr {
     private fun markSfx(blocks: MutableList<TranslationBlock>): MutableList<TranslationBlock> {
         val heights = blocks.map { it.lineHeight() }.sorted()
         val median = if (heights.size >= SFX_MIN_BLOCKS) heights[heights.size / 2] else 0f
-        blocks.forEach { if (looksLikeSfx(it, median)) it.kind = SFX }
+        blocks.forEach {
+            when {
+                looksLikeSfx(it, median) -> it.kind = SFX
+                // MANHWA art text: a skill, a spell or a sign drawn in huge letters, not a sound and not a bubble
+                looksLikeArt(it, median) -> it.kind = ART
+            }
+        }
         return blocks
+    }
+
+    /** Text drawn into the art (skill and spell names, signs, titles): far bigger than the page's text and longer than a sound. */
+    fun looksLikeArt(block: TranslationBlock, medianLineHeight: Float): Boolean {
+        if (medianLineHeight <= 0f) return false
+        val letters = block.text.count { it.isLetter() }
+        return letters > SFX_BIG_CHARS && block.lineHeight() > medianLineHeight * ART_SIZE_FACTOR
     }
 
     /** Whether [block] is a sound effect: a known onomatopoeia, or one short word in letters far bigger than the page's text. */
@@ -288,10 +301,14 @@ object PageOcr {
     private const val NMS_IOU = 0.15f
 
     const val SFX = "sfx"
+
+    /** Kind of the text drawn into the art: translated as a caption under it, the art is never erased. */
+    const val ART = "art"
     private const val SFX_MIN_BLOCKS = 3
     private const val SFX_MAX_CHARS = 10
     private const val SFX_BIG_CHARS = 6
     private const val SFX_SIZE_FACTOR = 2.2f
+    private const val ART_SIZE_FACTOR = 2.0f
     private val SENTENCE_MARKS = setOf('.', ',', '?', '"', '\'', ':', ';', '。', '、', '？', '…', '「', '」', '(', ')')
     private val KNOWN_SFX = Regex(
         "(boom|bam|bang|crash|thud|thump|whoosh|swish|swoosh|slash|click|clack|crack|snap|drip|buzz|rumble|shing|clang|" +

@@ -31,6 +31,9 @@ class TranslationPreferences(
     /** Leave sound effects drawn in the art untranslated. */
     fun translationSkipSfx() = preferenceStore.getBoolean("manhwa_translation_skip_sfx", true)
 
+    /** MANHWA: skill, spell and sign text drawn into the art is translated as a caption under it, the art kept. */
+    fun translationArtText() = preferenceStore.getBoolean("manhwa_translation_art_text", true)
+
     /** MANHWA: sound effects were switched to "left as drawn" once for readers from before it was the default. */
     fun translationSfxMigrated() = preferenceStore.getBoolean("manhwa_translation_sfx_migrated", false)
 

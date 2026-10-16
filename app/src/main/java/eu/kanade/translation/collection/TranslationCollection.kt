@@ -175,6 +175,51 @@ class TranslationCollection(private val context: Context) {
     }
 
     /**
+     * MANHWA built-in phrasebook: common lines known before any chapter is translated, reused with no AI call.
+     * Only rows not in the collection yet are added (a learnt or corrected line is never touched); they count
+     * as sure, and a different translation learnt later marks them context-sensitive like any other line.
+     * Returns how many were added.
+     */
+    fun seedPhrasebook(src: String, tgt: String, pairs: List<Pair<String, String>>): Int = runCatching {
+        var added = 0
+        val now = System.currentTimeMillis()
+        db.beginTransaction()
+        try {
+            for ((text, translation) in pairs) {
+                if (text.isBlank() || translation.isBlank()) continue
+                val key = TextKey.key(text, emptyMap()).exact
+                val id = db.insertWithOnConflict(
+                    "segments",
+                    null,
+                    ContentValues().apply {
+                        put("src", src)
+                        put("tgt", tgt)
+                        put("key", key)
+                        put("original", text.trim())
+                        put("translation", translation.trim())
+                        put("arabic", if (TextKey.arabicStyle(translation)) 1 else 0)
+                        put("kind", "")
+                        put("confidence", Source.EDITOR.confidence)
+                        put("uses", SURE_USES)
+                        put("mangas", 1)
+                        put("last_manga", 0)
+                        put("last_used", now)
+                    },
+                    SQLiteDatabase.CONFLICT_IGNORE,
+                )
+                if (id != -1L) {
+                    added++
+                    cache.remove(cacheKey(src, tgt, key))
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        added
+    }.onFailure { logcat(LogPriority.ERROR, it) { "Could not load the phrasebook" } }.getOrDefault(0)
+
+    /**
      * Saves the lines of a translated chapter. A new line is added once; a line already saved with the same
      * translation counts up; with a different one it becomes context-sensitive, unless [source] is the reader
      * (whose correction replaces it and is never overwritten by the AI).

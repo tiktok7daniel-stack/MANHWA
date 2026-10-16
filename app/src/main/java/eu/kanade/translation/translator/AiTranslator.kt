@@ -308,7 +308,7 @@ class AiTranslator(
         for (name in batch) {
             val page = pages[name]!!
             page.blocks.forEachIndexed { i, block ->
-                kinds[name]?.get(i)?.let { block.kind = it }
+                kinds[name]?.get(i)?.let { if (!block.kind.equals(ART_KIND, ignoreCase = true)) block.kind = it }
                 val text = done[name]?.get(i)
                 val sfx = block.kind.equals(SFX_KIND, ignoreCase = true)
                 block.translation = when {
@@ -413,13 +413,13 @@ class AiTranslator(
                     // without a translation so its lines are still erased with that bubble (PageOcr.finish)
                     translation.isNullOrBlank() -> {
                         block.translation = ""
-                        bubble.string("kind")?.let { block.kind = it }
+                        bubble.string("kind")?.let { if (!block.kind.equals(ART_KIND, ignoreCase = true)) block.kind = it }
                         kept += block
                     }
                     else -> {
                         bubble.string("text")?.takeIf { it.isNotBlank() }?.let { block.text = it }
                         block.translation = TextSanitizer.clean(translation, block.text, toLang)
-                        bubble.string("kind")?.let { block.kind = it }
+                        bubble.string("kind")?.let { if (!block.kind.equals(ART_KIND, ignoreCase = true)) block.kind = it }
                         kept += block
                     }
                 }
@@ -1077,6 +1077,7 @@ class AiTranslator(
         const val KINDS_KEY = "_kinds"
         const val UNSURE_KEY = "_unsure"
         const val SFX_KIND = "sfx"
+        const val ART_KIND = "art"
 
         /** Below this OCR confidence a reading is called uncertain (and re-read from the image when a key can). */
         const val UNSURE_OCR = 0.6f

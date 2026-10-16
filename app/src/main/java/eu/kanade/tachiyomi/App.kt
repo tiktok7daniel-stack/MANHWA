@@ -53,6 +53,7 @@ import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import eu.kanade.tachiyomi.util.system.notify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import logcat.AndroidLogcatLogger
@@ -216,7 +217,13 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         initializeMigrator()
 
         // MANHWA: series added to the library sort themselves into their categories
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || getProcessName() == packageName) graph.libraryOrganizer.watch()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || getProcessName() == packageName) {
+            graph.libraryOrganizer.watch()
+            // MANHWA: the bundled phrasebook goes into the translation collection once, off the main thread
+            scope.launch(Dispatchers.IO) {
+                runCatching { eu.kanade.translation.collection.Phrasebook.seedIfNeeded(this@App, graph.translationCollection) }
+            }
+        }
     }
 
     private fun initializeMigrator() {

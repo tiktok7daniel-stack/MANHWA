@@ -9,7 +9,7 @@ import eu.kanade.tachiyomi.R
 import tachiyomi.core.common.preference.Preference
 
 /** Kind of bubble, as told by the AI (or guessed): each kind gets its own typeface in Auto mode. */
-enum class BubbleKind { SPEECH, SHOUT, THOUGHT, NARRATION, SYSTEM, SFX;
+enum class BubbleKind { SPEECH, SHOUT, THOUGHT, NARRATION, SYSTEM, SFX, ART;
 
     companion object {
         fun parse(value: String?): BubbleKind? = when (value?.trim()?.lowercase()) {
@@ -19,6 +19,7 @@ enum class BubbleKind { SPEECH, SHOUT, THOUGHT, NARRATION, SYSTEM, SFX;
             "narration", "caption", "narrator" -> NARRATION
             "system", "window", "status", "ui" -> SYSTEM
             "sfx", "sound", "effect" -> SFX
+            "art", "spell", "skill", "sign" -> ART
             else -> null
         }
 
@@ -66,7 +67,7 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
                 BubbleKind.SHOUT, BubbleKind.SFX -> LALEZAR.family(kind)
                 BubbleKind.THOUGHT -> TAJAWAL.family(kind)
                 BubbleKind.NARRATION -> NOTO_NASKH.family(kind)
-                BubbleKind.SYSTEM -> CHANGA.family(kind)
+                BubbleKind.SYSTEM, BubbleKind.ART -> CHANGA.family(kind)
             }
         }
         SMART -> when {
@@ -99,7 +100,7 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
                 BubbleKind.SHOUT, BubbleKind.SFX -> LALEZAR.androidFont(kind)
                 BubbleKind.THOUGHT -> TAJAWAL.androidFont(kind)
                 BubbleKind.NARRATION -> NOTO_NASKH.androidFont(kind)
-                BubbleKind.SYSTEM -> CHANGA.androidFont(kind)
+                BubbleKind.SYSTEM, BubbleKind.ART -> CHANGA.androidFont(kind)
             }
         }
         SMART -> when {

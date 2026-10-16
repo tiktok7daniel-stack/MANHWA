@@ -377,6 +377,7 @@ class ChapterTranslator(
             val vision = textTranslator.aiPart != null && translationPreferences.translationVision().get()
             // MANHWA: sound effects stay as drawn; unsure readings are cut out to be read again from their image
             val skipSfx = translationPreferences.translationSkipSfx().get()
+            val artText = translationPreferences.translationArtText().get()
             val canReread = textTranslator is TeamTranslator
             val unsureCrops = mutableListOf<Triple<String, Int, ByteArray>>()
             val streams = getChapterPages(chapterPath)
@@ -411,11 +412,14 @@ class ChapterTranslator(
                                 // OCR in strips on the decoded page, then the colour behind every line
                                 PageOcr.recognize(recognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
                                     if (skipSfx) it.blocks.removeAll { b -> b.kind.equals(PageOcr.SFX, ignoreCase = true) }
+                                    if (!artText) it.blocks.forEach { b -> if (b.kind.equals(PageOcr.ART, ignoreCase = true)) b.kind = "" }
                                     PageImageProcessor.prepare(it, decoded)
                                     if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
                                     if (canReread) {
                                         it.blocks.forEachIndexed { i, b ->
-                                            if (b.ocrConfidence < AiTranslator.UNSURE_OCR && unsureCrops.size < MAX_REREAD) {
+                                            // Art text is always read again from its image: stylised letters fool the OCR
+                                            val art = b.kind.equals(PageOcr.ART, ignoreCase = true)
+                                            if ((b.ocrConfidence < AiTranslator.UNSURE_OCR || art) && unsureCrops.size < MAX_REREAD) {
                                                 PageImageProcessor.crop(decoded, b)?.let { jpeg -> unsureCrops += Triple(fileName, i, jpeg) }
                                             }
                                         }
