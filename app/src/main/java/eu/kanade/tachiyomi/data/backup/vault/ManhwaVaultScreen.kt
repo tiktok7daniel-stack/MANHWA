@@ -85,7 +85,7 @@ class ManhwaVaultScreen : Screen() {
         val syncMerged = stringResource(ATMR.strings.vault_sync_merged)
         val needFolder = stringResource(ATMR.strings.vault_need_folder)
 
-        fun run(block: suspend () -> String) {
+        fun launchTask(block: suspend () -> String) {
             if (working) return
             working = true
             message = null
@@ -106,13 +106,13 @@ class ManhwaVaultScreen : Screen() {
         }
 
         val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-            if (uri != null) run {
+            if (uri != null) launchTask {
                 vault.export(uri, password)
                 exported
             }
         }
         val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) run {
+            if (uri != null) launchTask {
                 val result = vault.import(uri, password)
                 importedTemplate.replace("%1\$d", "${result.files}").replace("%2\$d", "${result.lines}")
             }
@@ -193,7 +193,7 @@ class ManhwaVaultScreen : Screen() {
                                 when {
                                     folder == null -> message = needFolder
                                     password.length < MIN_PASSWORD -> message = needPassword
-                                    else -> run {
+                                    else -> launchTask {
                                         when (vault.sync()) {
                                             ManhwaVault.SyncResult.WROTE -> syncWrote
                                             ManhwaVault.SyncResult.MERGED_AND_WROTE -> syncMerged

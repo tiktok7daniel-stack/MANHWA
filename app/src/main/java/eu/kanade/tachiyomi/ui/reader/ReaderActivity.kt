@@ -80,6 +80,8 @@ import eu.kanade.tachiyomi.databinding.ReaderActivityBinding
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.main.MainActivity
+import eu.kanade.translation.live.FocusFlash
+import eu.kanade.translation.live.TranslationToggleChip
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.AddToLibraryFirst
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.Error
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.Success
@@ -411,9 +413,9 @@ class ReaderActivity : BaseActivity() {
                     .padding(bottom = if (state.menuVisible) 220.dp else 110.dp),
             )
             val toggleEvent by translationToggle.collectAsState()
-            eu.kanade.translation.live.TranslationToggleChip(toggleEvent)
+            TranslationToggleChip(toggleEvent)
             val flashAt by focusFlash.collectAsState()
-            eu.kanade.translation.live.FocusFlash(flashAt)
+            FocusFlash(flashAt)
             val recapManga = state.manga
             if (showRecap && recapManga != null) {
                 eu.kanade.translation.companion.ChapterRecapSheet(
@@ -899,7 +901,7 @@ class ReaderActivity : BaseActivity() {
         val id = chapter.chapter.id
         val point = smartFocus.get(id) ?: return
         // Only when the chapter is still where it was left
-        if (point.lastRead != chapter.chapter.lastPageRead) return
+        if (point.lastRead != chapter.chapter.lastPageRead.toLong()) return
         viewer.restoreFocus(point.page, point.fraction) { focusFlash.value = System.currentTimeMillis() }
     }
 
@@ -908,7 +910,7 @@ class ReaderActivity : BaseActivity() {
         val viewer = state.viewer as? WebtoonViewer ?: return
         val chapter = state.viewerChapters?.currChapter?.chapter ?: return
         val (page, fraction) = viewer.focusPoint() ?: return
-        smartFocus.save(chapter.id, SmartFocus.Point(page, fraction, chapter.lastPageRead))
+        smartFocus.save(chapter.id, SmartFocus.Point(page, fraction, chapter.lastPageRead.toLong()))
     }
 
     /** Opens the move-to-another-source flow for the manhwa being read. */
