@@ -88,6 +88,9 @@ class LocalModelsScreen : Screen() {
             }
         }
         val stats = remember(tick / 5) { OrchestraStore.stats(context) }
+        // MANHWA phone ensemble: who drafts, who rereads, who judges, and how many keys play with them
+        val lineup = remember(tick / 5, mainPath, judgePath) { PhoneEnsemble.lineup(context) }
+        val keys = remember(tick / 5) { context.appGraph.teamStore.active().size }
         val gatedText = stringResource(ATMR.strings.models_gated)
         val missingText = stringResource(ATMR.strings.models_not_found)
         val bottom = WindowInsets.navigationBars.asPaddingValues()
@@ -113,6 +116,22 @@ class LocalModelsScreen : Screen() {
                                 stringResource(ATMR.strings.orchestra_today, stats.localLines, stats.teamLines, OrchestraRules.callsSaved(stats.localLines), stats.judged),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color(0xFF3DDC97),
+                            )
+                            Text(
+                                when {
+                                    lineup == null -> stringResource(ATMR.strings.ensemble_none)
+                                    lineup.ensemble -> stringResource(
+                                        ATMR.strings.ensemble_lineup,
+                                        PhoneEnsemble.nameOf(context, lineup.drafter),
+                                        PhoneEnsemble.nameOf(context, lineup.polisher),
+                                        PhoneEnsemble.nameOf(context, lineup.judge),
+                                        keys,
+                                    )
+                                    else -> stringResource(ATMR.strings.ensemble_single, PhoneEnsemble.nameOf(context, lineup.polisher), keys)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4FD8FF),
                             )
                             Text(stringResource(ATMR.strings.models_ram, ram), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
                         }
@@ -149,7 +168,8 @@ class LocalModelsScreen : Screen() {
                         val status = remember(tick, model.repo) { ModelCatalog.status(context, model) }
                         val ready = (status as? ModelCatalog.Status.Ready)?.file
                         val isMain = ready != null && ready.absolutePath == mainPath
-                        val isJudge = ready != null && ready.absolutePath == judgePath
+                        val isJudge = ready != null && (ready.absolutePath == judgePath || (lineup?.ensemble == true && ready.absolutePath == lineup.judge.absolutePath))
+                        val isDrafter = ready != null && lineup?.ensemble == true && ready.absolutePath == lineup.drafter.absolutePath && !isMain
                         Column(
                             Modifier.fillMaxWidth().glass(RoundedCornerShape(22.dp), accent = isMain, alpha = 0.5f).padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -166,6 +186,7 @@ class LocalModelsScreen : Screen() {
                                 color = if (CatalogRules.fits(model, ram)) Color.White.copy(alpha = 0.55f) else Color(0xFFFFB020),
                             )
                             if (isMain) Text(stringResource(ATMR.strings.models_role_main), color = Color(0xFF3DDC97), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            if (isDrafter) Text(stringResource(ATMR.strings.models_role_drafter), color = Color(0xFFFFB020), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                             if (isJudge) Text(stringResource(ATMR.strings.models_role_judge), color = Color(0xFF4FD8FF), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                             when (status) {
                                 is ModelCatalog.Status.Downloading -> {

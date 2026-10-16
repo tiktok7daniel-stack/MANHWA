@@ -2,6 +2,7 @@ package eu.kanade.translation.local
 
 import android.content.Context
 import eu.kanade.translation.model.PageTranslation
+import eu.kanade.translation.model.TranslationBlock
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
 import eu.kanade.translation.translator.GoogleTranslator
 import eu.kanade.translation.translator.TextTranslator
@@ -24,6 +25,8 @@ class LocalAiTranslator(
     override val toLang: TextTranslatorLanguage,
     private val instructions: String = "",
     var glossary: Map<String, String> = emptyMap(),
+    /** The phone model that answers (null: the main one). */
+    private val model: java.io.File? = null,
 ) : TextTranslator {
 
     private val fallback = GoogleTranslator(fromLang, toLang)
@@ -31,6 +34,32 @@ class LocalAiTranslator(
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
         val blocks = pages.values.flatMap { it.blocks }.filter { it.text.isNotBlank() }
+        // MANHWA phone ensemble with no key: the quick model drafts, the strong model rereads every line
+        val lineup = if (model == null) PhoneEnsemble.lineup(context) else null
+        if (lineup != null && lineup.drafter != lineup.polisher) {
+            val drafter = LocalAiTranslator(context, fromLang, toLang, instructions, glossary, lineup.drafter)
+            val drafts = runCatching { drafter.draftLines(blocks.map { it.text }) }
+                .onFailure { if (it is CancellationException) throw it }
+                .getOrNull()
+            if (drafts != null) {
+                val polisher = LocalAiTranslator(context, fromLang, toLang, instructions, glossary, lineup.polisher)
+                val polished = runCatching { polisher.polishLines(blocks.map { it.text }, drafts) }
+                    .onFailure { if (it is CancellationException) throw it }
+                    .getOrDefault(drafts)
+                val left = mutableListOf<TranslationBlock>()
+                blocks.forEachIndexed { i, b ->
+                    val t = polished.getOrNull(i) ?: drafts.getOrNull(i)
+                    if (t != null) {
+                        b.translation = t
+                        b.by = "local"
+                    } else {
+                        left += b
+                    }
+                }
+                left.forEach { b -> b.translation = runCatching { fallback.translateText(b.text.replace('\n', ' ')) }.getOrDefault("").ifBlank { b.text } }
+                return
+            }
+        }
         val missing = mutableListOf<Int>()
         blocks.chunked(LINES_PER_CALL).forEachIndexed { chunkIndex, chunk ->
             val answers = runCatching { translateLines(chunk.map { it.text.replace('\n', ' ') }) }
@@ -70,6 +99,35 @@ class LocalAiTranslator(
         return out
     }
 
+    /**
+     * MANHWA phone ensemble: this model rereads [drafts] of [lines] (another model's) and returns the better line
+     * for each: its own rewrite when it is usable, else the draft (null where neither is).
+     */
+    suspend fun polishLines(lines: List<String>, drafts: List<String?>): List<String?> {
+        val out = ArrayList<String?>(lines.size)
+        lines.indices.chunked(LINES_PER_CALL).forEach { idx ->
+            val terms = glossary.entries.filter { (k, _) -> idx.any { lines[it].contains(k, ignoreCase = true) } }.take(30)
+            val prompt = buildString {
+                appendLine("You review draft ${toLang.label} translations of manhwa speech bubbles. Fix meaning errors, unnatural wording and wrong names; keep good lines as they are. Short, natural, spoken.")
+                if (terms.isNotEmpty()) appendLine("Names and terms: " + terms.joinToString("; ") { "${it.key} = ${it.value}" })
+                if (instructions.isNotBlank()) appendLine(instructions.take(800))
+                appendLine("Reply with ONLY a JSON object: {\"t\":[\"...\"]} with ${idx.size} items in order.")
+                idx.forEachIndexed { n, i ->
+                    appendLine("${n + 1}. ${lines[i].replace('\n', ' ').take(300)}")
+                    appendLine("   draft: ${drafts.getOrNull(i).orEmpty().take(300)}")
+                }
+            }
+            val answers = runCatching { LocalAiEngine.generate(context, prompt, model)?.let { LocalAiRules.parse(it, json) } }
+                .onFailure { if (it is CancellationException) throw it }
+                .getOrNull()
+            idx.forEachIndexed { n, i ->
+                val t = answers?.getOrNull(n)?.trim().orEmpty()
+                out += t.takeIf { LocalAiRules.usable(lines[i], it, toLang.code) } ?: drafts.getOrNull(i)
+            }
+        }
+        return out
+    }
+
     private suspend fun translateLines(lines: List<String>): List<String>? {
         val terms = glossary.entries.filter { (k, _) -> lines.any { it.contains(k, ignoreCase = true) } }.take(30)
         val prompt = buildString {
@@ -85,7 +143,7 @@ class LocalAiTranslator(
             appendLine("Translate each numbered line. Reply with ONLY a JSON object: {\"t\":[\"...\",\"...\"]} with ${lines.size} items in order.")
             lines.forEachIndexed { i, l -> appendLine("${i + 1}. ${l.take(300)}") }
         }
-        val reply = LocalAiEngine.generate(context, prompt) ?: return null
+        val reply = LocalAiEngine.generate(context, prompt, model) ?: return null
         return LocalAiRules.parse(reply, json)
     }
 

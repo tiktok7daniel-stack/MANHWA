@@ -9,6 +9,7 @@ import eu.kanade.translation.ChapterPrefetchManager
 import eu.kanade.translation.characters.CastRules
 import eu.kanade.translation.characters.CharacterStore
 import eu.kanade.translation.glossary.WorkIdentity
+import eu.kanade.translation.local.EnsembleRules
 import eu.kanade.translation.night.NightRules
 import eu.kanade.translation.team.ChapterPlanner
 import eu.kanade.translation.team.TranslationConsensusEngine
@@ -356,5 +357,42 @@ class OrchestraTest {
         eu.kanade.translation.orchestra.TutorRules.closest(ex, listOf("The gate is closing"), 1).map { it.source } shouldBe listOf("The gate opened")
         eu.kanade.translation.local.CatalogRules.bestFile(listOf("README.md", "model_q8.task", "model_int4.task")) shouldBe "model_int4.task"
         eu.kanade.translation.local.CatalogRules.bestFile(listOf("README.md")) shouldBe null
+    }
+}
+
+class PhoneEnsembleTest {
+    private val gb = 1024L * 1024 * 1024
+    private fun c(path: String, strength: Int, gbs: Double) = EnsembleRules.Candidate(path, strength, (gbs * gb).toLong())
+
+    @Test
+    fun `one model plays every role`() {
+        val r = EnsembleRules.assign(listOf(c("q15", 3, 1.6)), mainPath = "q15", judgePath = "", budget = 6 * gb)!!
+        r.drafter shouldBe "q15"
+        r.polisher shouldBe "q15"
+        r.judge shouldBe "q15"
+        r.all shouldBe listOf("q15")
+        EnsembleRules.assign(emptyList(), "", "", 6 * gb) shouldBe null
+    }
+
+    @Test
+    fun `the quick model drafts, the main rereads, a third judges`() {
+        val all = listOf(c("gemma4b", 5, 4.4), c("phi4", 4, 3.9), c("q15", 3, 1.6))
+        val r = EnsembleRules.assign(all, mainPath = "gemma4b", judgePath = "", budget = (6.75 * gb).toLong())!!
+        r.polisher shouldBe "gemma4b"
+        r.drafter shouldBe "q15"
+        r.judge shouldBe "phi4"
+        // The reader's own judge wins
+        EnsembleRules.assign(all, mainPath = "gemma4b", judgePath = "q15", budget = 7 * gb)!!.judge shouldBe "q15"
+    }
+
+    @Test
+    fun `a drafter that cannot stay loaded with the main one is not used`() {
+        val r = EnsembleRules.assign(listOf(c("gemma4b", 5, 4.4), c("phi4", 4, 3.9)), "gemma4b", "", budget = 6 * gb)!!
+        r.drafter shouldBe "gemma4b"
+        r.judge shouldBe "phi4"
+        EnsembleRules.fits(listOf(4 * gb), 2 * gb, 6 * gb) shouldBe true
+        EnsembleRules.fits(listOf(4 * gb), 3 * gb, 6 * gb) shouldBe false
+        EnsembleRules.budgetBytes(0) shouldBe 4 * gb
+        EnsembleRules.budgetBytes(16 * gb) shouldBe 16 * gb * 45 / 100
     }
 }

@@ -325,12 +325,16 @@ class TeamTranslator(
      */
     private suspend fun orchestrate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
         val context = store.appContext
+        // MANHWA phone ensemble: every model on the phone in its role (the quick one drafts, the strong one rereads)
+        val lineup = eu.kanade.translation.local.PhoneEnsemble.lineup(context)
+        val style = store.styleInstruction(toLang)
         val drafter = eu.kanade.translation.local.LocalAiTranslator(
             context,
             fromLang,
             toLang,
-            instructions = store.styleInstruction(toLang),
+            instructions = style,
             glossary = lead.glossary,
+            model = lineup?.drafter,
         )
         val blocks = pages.values.flatMap { it.blocks }.filter { it.text.isNotBlank() && it.translation.isBlank() }
         val drafts = runCatching { drafter.draftLines(blocks.map { it.text }) }
@@ -361,6 +365,33 @@ class TeamTranslator(
                 toTeam += block
             }
         }
+        // The lines the phone keeps are reread by the strong model while the keys work on the rest
+        val kept = blocks.filter { it.by == "local" }
+        val polish: suspend () -> Unit = polish@{
+            val polisher = lineup?.takeIf { it.drafter != it.polisher }?.polisher ?: return@polish
+            if (kept.isEmpty()) return@polish
+            val better = runCatching {
+                eu.kanade.translation.local.LocalAiTranslator(context, fromLang, toLang, instructions = style, glossary = lead.glossary, model = polisher)
+                    .polishLines(kept.map { it.text }, kept.map { it.translation })
+            }.onFailure { if (it is CancellationException) throw it }.getOrNull() ?: return@polish
+            kept.forEachIndexed { i, b -> better.getOrNull(i)?.let { b.translation = it } }
+        }
+        kotlinx.coroutines.coroutineScope {
+            val polishing = launch { polish() }
+            orchestrateTeam(pages, images, toTeam, drafted)
+            polishing.join()
+        }
+        eu.kanade.translation.orchestra.OrchestraStore.record(context, local = local, team = toTeam.size)
+    }
+
+    /** The keys' part of the orchestra: the lines the phone did not keep, with its drafts; the phone learns after. */
+    private suspend fun orchestrateTeam(
+        pages: MutableMap<String, PageTranslation>,
+        images: Map<String, PageImage>,
+        toTeam: MutableSet<TranslationBlock>,
+        drafted: java.util.IdentityHashMap<TranslationBlock, String>,
+    ) {
+        val context = store.appContext
         if (toTeam.isNotEmpty()) {
             // Only the pages with lines left go to the keys, holding only those lines (the same objects)
             val rest = pages.mapNotNull { (name, page) ->
@@ -382,7 +413,6 @@ class TeamTranslator(
             }
             eu.kanade.translation.orchestra.OrchestraStore.learn(context, corrected)
         }
-        eu.kanade.translation.orchestra.OrchestraStore.record(context, local = local, team = toTeam.size)
     }
 
     /** What translates when no key can: the on-device AI (with the series glossary) when there is one, else Google. */

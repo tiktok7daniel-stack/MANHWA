@@ -22,7 +22,7 @@ object LocalJudge {
             appendLine("2: $b")
             appendLine("Answer with only the number 1 or 2.")
         }
-        val reply = LocalAiEngine.generate(context, prompt, LocalAiEngine.judgeFile(context)) ?: return null
+        val reply = LocalAiEngine.generate(context, prompt, eu.kanade.translation.local.PhoneEnsemble.lineup(context)?.judge ?: LocalAiEngine.judgeFile(context)) ?: return null
         return JudgeRules.parse(reply)
     }
 }

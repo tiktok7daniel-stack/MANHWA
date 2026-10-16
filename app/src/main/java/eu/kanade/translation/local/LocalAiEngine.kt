@@ -19,14 +19,12 @@ import java.io.File
  * - as the translator when no key of the team works (no more "quota is over"),
  * - in place of Google as the last fallback of the team,
  * - for night translation, free.
- * One model is loaded at a time and freed when it has not been used for a while.
+ * Several models stay loaded together while they fit in the phone's memory (the phone ensemble); each is freed
+ * when it has not been used for a while.
  */
 object LocalAiEngine {
 
     private val gate = Mutex()
-    @Volatile private var engine: LlmInference? = null
-    @Volatile private var loadedPath: String? = null
-    @Volatile private var lastUse = 0L
 
     private fun modelDir(context: Context) = File(context.filesDir, "models").apply { mkdirs() }
 
@@ -83,40 +81,90 @@ object LocalAiEngine {
     /** One answer from the model; null when there is no model or it failed. */
     suspend fun generate(context: Context, prompt: String, model: File? = null): String? = withContext(Dispatchers.Default) {
         val file = model?.takeIf { it.isFile } ?: modelFile(context) ?: return@withContext null
+        repeat(2) {
+            val slot = runCatching { slotFor(context, file) }
+                .onFailure { logcat(LogPriority.WARN, it) { "The on-device AI could not load ${file.name}" } }
+                .getOrNull() ?: return@withContext null
+            // Each model answers one prompt at a time; different models answer at the same time
+            slot.lock.withLock {
+                // Freed for another model meanwhile: loaded again
+                if (slots[slot.path] === slot) {
+                    return@withContext runCatching {
+                        slot.lastUse = System.currentTimeMillis()
+                        slot.engine.generateResponse(prompt)
+                    }.onFailure { logcat(LogPriority.WARN, it) { "The on-device AI failed" } }.getOrNull()
+                }
+            }
+        }
+        null
+    }
+
+    /**
+     * MANHWA phone ensemble: several models stay loaded together while they fit in the memory budget (part of
+     * the phone's RAM); a model that does not fit frees the one used longest ago first.
+     */
+    private suspend fun slotFor(context: Context, file: File): Slot = gate.withLock {
+        slots[file.absolutePath]?.let { return@withLock it }
+        val budget = EnsembleRules.budgetBytes(LocalModelRam.totalBytes(context))
+        while (slots.isNotEmpty() && !EnsembleRules.fits(slots.values.map { it.bytes }, file.length(), budget)) {
+            val oldest = slots.values.minBy { it.lastUse }
+            // Waits for its answer in progress before freeing it
+            oldest.lock.withLock { runCatching { oldest.engine.close() } }
+            slots.remove(oldest.path)
+        }
+        val engine = LlmInference.createFromOptions(
+            context.applicationContext,
+            LlmInference.LlmInferenceOptions.builder()
+                .setModelPath(file.absolutePath)
+                .setMaxTokens(MAX_TOKENS)
+                .build(),
+        )
+        Slot(file.absolutePath, file.length(), engine).also { slots[it.path] = it }
+    }
+
+    /** The models loaded now (for the screen). */
+    fun loadedPaths(): Set<String> = slots.keys.toSet()
+
+    /** Frees the models not used for a while (called by the background worker). */
+    suspend fun trim() {
+        val now = System.currentTimeMillis()
+        if (slots.values.none { now - it.lastUse >= IDLE_MS }) return
         gate.withLock {
-            runCatching {
-                val llm = engine?.takeIf { loadedPath == file.absolutePath } ?: run {
-                    release()
-                    LlmInference.createFromOptions(
-                        context.applicationContext,
-                        LlmInference.LlmInferenceOptions.builder()
-                            .setModelPath(file.absolutePath)
-                            .setMaxTokens(MAX_TOKENS)
-                            .build(),
-                    ).also {
-                        engine = it
-                        loadedPath = file.absolutePath
+            slots.values.filter { now - it.lastUse >= IDLE_MS }.forEach { slot ->
+                if (slot.lock.tryLock()) {
+                    try {
+                        runCatching { slot.engine.close() }
+                        slots.remove(slot.path)
+                    } finally {
+                        slot.lock.unlock()
                     }
                 }
-                lastUse = System.currentTimeMillis()
-                llm.generateResponse(prompt)
-            }.onFailure { logcat(LogPriority.WARN, it) { "The on-device AI failed" } }.getOrNull()
+            }
         }
     }
 
-    /** Frees the model's memory when it was not used for a while (called by the background worker). */
-    suspend fun trim() {
-        if (engine == null || System.currentTimeMillis() - lastUse < IDLE_MS) return
-        gate.withLock { release() }
+    private suspend fun release() {
+        slots.values.toList().forEach { slot -> slot.lock.withLock { runCatching { slot.engine.close() } } }
+        slots.clear()
     }
 
-    private fun release() {
-        runCatching { engine?.close() }
-        engine = null
-        loadedPath = null
+    private class Slot(val path: String, val bytes: Long, val engine: LlmInference) {
+        val lock = Mutex()
+        @Volatile var lastUse = System.currentTimeMillis()
     }
+
+    private val slots = java.util.concurrent.ConcurrentHashMap<String, Slot>()
 
     private const val MAX_TOKENS = 1_536
     private const val MIN_MODEL_BYTES = 10L * 1024 * 1024
     private const val IDLE_MS = 5 * 60 * 1000L
+}
+
+/** The phone's total memory in bytes (0 when unknown). */
+object LocalModelRam {
+    fun totalBytes(context: Context): Long = runCatching {
+        val info = android.app.ActivityManager.MemoryInfo()
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(info)
+        info.totalMem
+    }.getOrDefault(0L)
 }

@@ -881,7 +881,7 @@
     <string name="models_title">Model shelf</string>
     <string name="models_subtitle">The strongest phone models, working with your keys</string>
     <string name="orchestra_title">Hybrid orchestra</string>
-    <string name="orchestra_info">The model on your phone and all your keys translate every chapter together: the library gives what it knows, the phone drafts every line at once, short plain lines keep the phone\'s line, the keys improve the rest from the phone\'s draft (far fewer tokens), the phone judges when two keys disagree, and every correction a key makes teaches the phone. On a hot phone, low battery or battery saver the phone sits out.</string>
+    <string name="orchestra_info">Every model on your phone and all your keys translate each chapter together. The library gives what it knows; the quickest phone model drafts every line; short plain lines stay with the phone and the strongest phone model rereads them while, at the same time, the keys improve the rest from the drafts (far fewer tokens); a third model judges when two translations disagree; and every correction a key makes teaches the phone. The models that fit in memory stay loaded together. On a hot phone, low battery or battery saver the phone sits out.</string>
     <string name="orchestra_today">Today: %1$d lines by the phone · %2$d by the keys · about %3$d calls saved · %4$d judged</string>
     <string name="models_ram">This phone has %1$d GB of memory</string>
     <string name="models_token_info">Gemma models ask you to accept Google\'s licence on their page first (with your free Hugging Face account). Then paste your own Hugging Face read token here: it stays on this phone and is only sent to Hugging Face to download.</string>
@@ -910,4 +910,8 @@
     <string name="team_phone_paused">%1$s · resting now (hot phone, low battery or battery saver)</string>
     <string name="team_phone_none">No phone model yet: add one so it works with your keys</string>
     <string name="team_phone_off">The orchestra is off: your keys translate without the phone</string>
+    <string name="ensemble_lineup">Phone team: %1$s drafts every line · %2$s rereads · %3$s judges · together with %4$d keys</string>
+    <string name="ensemble_single">%1$s plays every role with %2$d keys. Download a second, lighter model and they split the work: one drafts while the other rereads.</string>
+    <string name="ensemble_none">No model on the phone yet: the keys translate alone.</string>
+    <string name="models_role_drafter">Drafts every line (the quickest)</string>
 </resources>
