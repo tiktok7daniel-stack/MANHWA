@@ -26,7 +26,7 @@ object PageOcr {
         val w = bitmap.width
         val h = bitmap.height
         val stripH = (w * STRIP_RATIO).toInt().coerceAtLeast(64)
-        if (h <= stripH * 1.15f) return toPageTranslation(read(recognizer, bitmap), w, h)
+        if (h <= stripH * 1.15f) return PageTranslation(markSfx(mergeLines(readStrip(recognizer, bitmap), w.toFloat())), w.toFloat(), h.toFloat())
         val overlap = (stripH * OVERLAP).toInt()
         val found = mutableListOf<TranslationBlock>()
         var top = 0
@@ -34,7 +34,7 @@ object PageOcr {
             val sh = min(stripH, h - top)
             val strip = Bitmap.createBitmap(bitmap, 0, top, w, sh)
             val part = try {
-                toBlocks(read(recognizer, strip))
+                readStrip(recognizer, strip)
             } finally {
                 if (strip !== bitmap) strip.recycle()
             }
@@ -93,6 +93,86 @@ object PageOcr {
         if (letters.length <= 6 && letters.all { it in '゠'..'ヿ' } && (letters.any { it == 'ッ' || it == 'ー' } || letters.toSet().size < letters.length)) return true
         return medianLineHeight > 0f && block.lineHeight() > medianLineHeight * SFX_SIZE_FACTOR && letters.length <= SFX_BIG_CHARS
     }
+
+    /**
+     * MANHWA: reads one strip as well as the OCR can. Narrow pages (small letters) are read enlarged; a strip with
+     * dark panels (system windows, night scenes, black captions) is read a second time with its colours turned
+     * to dark-on-light, and what only that reading found is added. Boxes stay in [strip] pixels.
+     */
+    private fun readStrip(recognizer: TextRecognizer, strip: Bitmap): List<TranslationBlock> {
+        val scale = if (strip.width < SMALL_WIDTH) UPSCALE else 1f
+        val base = readAt(recognizer, strip, scale)
+        if (!hasDarkPanels(strip)) return base
+        val inverted = runCatching { invertedGray(strip) }.getOrNull() ?: return base
+        val extra = try {
+            readAt(recognizer, inverted, scale)
+        } catch (e: Exception) {
+            emptyList()
+        } finally {
+            inverted.recycle()
+        }
+        return base + extra.filter { e -> base.none { overlapRatio(it, e) > 0.3f } }
+    }
+
+    private fun readAt(recognizer: TextRecognizer, bitmap: Bitmap, scale: Float): List<TranslationBlock> {
+        if (scale == 1f) return toBlocks(read(recognizer, bitmap))
+        val big = runCatching {
+            Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
+        }.getOrNull() ?: return toBlocks(read(recognizer, bitmap))
+        return try {
+            toBlocks(read(recognizer, big)).map { it.scaled(1f / scale) }
+        } finally {
+            if (big !== bitmap) big.recycle()
+        }
+    }
+
+    /** A good part of the strip is dark (where light letters on a dark panel can hide from the OCR). */
+    private fun hasDarkPanels(bitmap: Bitmap): Boolean {
+        val stepX = max(1, bitmap.width / DARK_GRID)
+        val stepY = max(1, bitmap.height / DARK_GRID)
+        var dark = 0
+        var all = 0
+        var y = stepY / 2
+        while (y < bitmap.height) {
+            var x = stepX / 2
+            while (x < bitmap.width) {
+                val c = bitmap.getPixel(x, y)
+                val lum = (android.graphics.Color.red(c) * 299 + android.graphics.Color.green(c) * 587 + android.graphics.Color.blue(c) * 114) / 1000
+                if (lum < DARK_LUMA) dark++
+                all++
+                x += stepX
+            }
+            y += stepY
+        }
+        return all > 0 && dark.toFloat() / all >= DARK_SHARE
+    }
+
+    /** The strip in grey with its light and dark swapped (light letters on dark become dark on light). */
+    private fun invertedGray(bitmap: Bitmap): Bitmap {
+        val out = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        val matrix = android.graphics.ColorMatrix(
+            floatArrayOf(
+                -0.299f, -0.587f, -0.114f, 0f, 255f,
+                -0.299f, -0.587f, -0.114f, 0f, 255f,
+                -0.299f, -0.587f, -0.114f, 0f, 255f,
+                0f, 0f, 0f, 1f, 0f,
+            ),
+        )
+        val paint = android.graphics.Paint().apply { colorFilter = android.graphics.ColorMatrixColorFilter(matrix) }
+        android.graphics.Canvas(out).drawBitmap(bitmap, 0f, 0f, paint)
+        return out
+    }
+
+    private fun TranslationBlock.scaled(f: Float): TranslationBlock =
+        copy(
+            x = x * f,
+            y = y * f,
+            width = width * f,
+            height = height * f,
+            symWidth = symWidth * f,
+            symHeight = symHeight * f,
+            lines = lineBoxes.map { LineBox(it.x * f, it.y * f, it.w * f, it.h * f, it.bg) },
+        )
 
     private fun read(recognizer: TextRecognizer, bitmap: Bitmap): List<Text.TextBlock> =
         recognizer.recognize(InputImage.fromBitmap(bitmap, 0)).textBlocks.filter { it.boundingBox != null && it.text.length > 1 }
@@ -294,6 +374,15 @@ object PageOcr {
     }
 
     private const val STRIP_RATIO = 2.2f
+
+    /** Pages narrower than this are read enlarged by [UPSCALE] (their letters are small for the OCR). */
+    private const val SMALL_WIDTH = 800
+    private const val UPSCALE = 1.5f
+
+    /** A strip is read a second time inverted when at least [DARK_SHARE] of it is darker than [DARK_LUMA]. */
+    private const val DARK_GRID = 48
+    private const val DARK_LUMA = 70
+    private const val DARK_SHARE = 0.08f
     private const val OVERLAP = 0.15f
     private const val MAX_WIDTH = 0.95f
     private const val MAX_HEIGHT = 0.6f
