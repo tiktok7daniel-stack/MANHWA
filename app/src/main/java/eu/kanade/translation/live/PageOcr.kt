@@ -84,6 +84,48 @@ object PageOcr {
         }.getOrNull()
     }
 
+    fun toPageTranslation(blocks: List<Text.TextBlock>, width: Int, height: Int): PageTranslation =
+        PageTranslation(markSfx(mergeLines(toBlocks(blocks), width.toFloat())), width.toFloat(), height.toFloat())
+
+    /**
+     * MANHWA: marks sound effects drawn as art (huge letters, one short word, or a known onomatopoeia) with the
+     * sfx kind before anything is translated, so they can be left exactly as drawn.
+     */
+    private fun markSfx(blocks: MutableList<TranslationBlock>): MutableList<TranslationBlock> {
+        val heights = blocks.map { it.lineHeight() }.sorted()
+        val median = if (heights.size >= SFX_MIN_BLOCKS) heights[heights.size / 2] else 0f
+        blocks.forEach {
+            when {
+                looksLikeSfx(it, median) -> it.kind = SFX
+                // MANHWA art text: a skill, a spell or a sign drawn in huge letters, not a sound and not a bubble
+                looksLikeArt(it, median) -> it.kind = ART
+            }
+        }
+        return blocks
+    }
+
+    /** Text drawn into the art (skill and spell names, signs, titles): far bigger than the page's text and longer than a sound. */
+    fun looksLikeArt(block: TranslationBlock, medianLineHeight: Float): Boolean {
+        if (medianLineHeight <= 0f) return false
+        val letters = block.text.count { it.isLetter() }
+        return letters > SFX_BIG_CHARS && block.lineHeight() > medianLineHeight * ART_SIZE_FACTOR
+    }
+
+    /** Whether [block] is a sound effect: a known onomatopoeia, or one short word in letters far bigger than the page's text. */
+    fun looksLikeSfx(block: TranslationBlock, medianLineHeight: Float): Boolean {
+        val compact = block.text.filterNot { it.isWhitespace() }
+        if (compact.isEmpty() || compact.length > SFX_MAX_CHARS) return false
+        if (block.text.trim().contains(' ') || compact.any { it in SENTENCE_MARKS }) return false
+        val letters = compact.filter { it.isLetter() }
+        if (letters.isEmpty()) return false
+        if (KNOWN_SFX.matches(letters.lowercase())) return true
+        // Hangul made only of the syllables sound effects are built from (쾅, 쿵쾅, 두근두근...)
+        if (letters.length <= 6 && letters.all { it in SFX_SYLLABLES } && letters.any { it in SFX_STRONG }) return true
+        // Short katakana with a small tsu or a long mark (ドン, バッ, ゴゴゴ...)
+        if (letters.length <= 6 && letters.all { it in '゠'..'ヿ' } && (letters.any { it == 'ッ' || it == 'ー' } || letters.toSet().size < letters.length)) return true
+        return medianLineHeight > 0f && block.lineHeight() > medianLineHeight * SFX_SIZE_FACTOR && letters.length <= SFX_BIG_CHARS
+    }
+
     /**
      * MANHWA: reads one strip as well as the OCR can. Narrow pages (small letters) are read enlarged; a strip with
      * dark panels (system windows, night scenes, black captions) is read a second time with its colours turned
