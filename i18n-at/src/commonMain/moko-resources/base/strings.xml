@@ -951,4 +951,26 @@
     <string name="ensemble_role_no_room">Resting · no room in memory next to the others</string>
     <string name="wn_fix2_t">No more \"stopped moving\"</string>
     <string name="wn_fix2_b">The phone models now work within a time limit and show their progress as they go, so a chapter is never stopped for being slow; a phone that is too slow sits out for a while and the keys carry on alone. A model that does not fit in memory next to the others rests instead of being loaded again every chapter. OpenRouter keys use free models first, so a key with no credit stops failing.</string>
+    <string name="ocr_engine">Text reading engine (OCR)</string>
+    <string name="info_ocr_engine">What reads the text of each page before it is translated. Both together (the default and the strongest): ML Kit reads fast, PaddleOCR reads every line again on the phone, adds what ML Kit missed (stylised letters, slanted and small text, light text on dark panels, Korean) and replaces ML Kit\'s reading where ML Kit was unsure. PaddleOCR only: the most accurate for hard fonts and Korean. ML Kit only: the fastest and lightest. Lines still unsure after both are read again from their image by a key that sees images. Until PaddleOCR\'s models are on the phone (they download by themselves on Wi-Fi), ML Kit reads alone.</string>
+    <string name="ocr_engine_dual">Both together (ML Kit + PaddleOCR)</string>
+    <string name="ocr_engine_paddle">PaddleOCR only (hard fonts, Korean)</string>
+    <string name="ocr_engine_mlkit">ML Kit only (fastest)</string>
+    <string name="ocr_models_title">PaddleOCR models</string>
+    <string name="ocr_models_info">Downloaded once into the app and checked after the download. Wi-Fi downloads them by itself.</string>
+    <string name="ocr_pack_main">English, Chinese, Japanese</string>
+    <string name="ocr_pack_korean">Korean</string>
+    <string name="ocr_pack_ready">On the phone, reading with ML Kit</string>
+    <string name="ocr_pack_downloading">Downloading… %1$d%%</string>
+    <string name="ocr_pack_failed">Download failed: %1$s</string>
+    <string name="ocr_pack_size">About %1$d MB</string>
+    <string name="ocr_pack_download">Download</string>
+    <string name="ocr_pack_retry">Try again</string>
+    <string name="ocr_pack_delete">Remove</string>
+    <string name="wn_ocr_t">Two OCR engines reading together</string>
+    <string name="wn_ocr_b">PaddleOCR (PP-OCRv5) now reads every page on the phone with ML Kit: it adds the lines ML Kit missed (stylised and slanted letters, small text, light text on system windows, Korean) and takes over where ML Kit was unsure. Its models download by themselves on Wi-Fi (about 21 MB) and are checked after the download. Choose the engine in translation settings.</string>
+    <string name="wn_bubbles_t">Every bubble on its own</string>
+    <string name="wn_bubbles_b">The app now finds the outline of each speech bubble, so two bubbles side by side are never read as one sentence.</string>
+    <string name="wn_audit_t">Steadier and safer</string>
+    <string name="wn_audit_b">A full check of the app: saves that can no longer be cut in half (glossary, corrections, edits), chapters that never wait forever when every key rests, a reader that never re-translates a saved chapter, and a faster start.</string>
 </resources>

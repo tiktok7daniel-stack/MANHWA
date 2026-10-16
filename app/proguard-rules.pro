@@ -91,3 +91,6 @@
     public <init>();
     public void destroy();
 }
+
+# MANHWA: ONNX Runtime (PaddleOCR) is called from its native library by name
+-keep class ai.onnxruntime.** { *; }

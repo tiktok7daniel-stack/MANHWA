@@ -459,7 +459,10 @@ class LiveTranslator(
                 val decoded = PageImageProcessor.decode { ByteArrayInputStream(bytes) } ?: return@reader null
                 try {
                     // OCR ran on the downscaled bitmap (in strips for tall pages); boxes go back to the real page size
-                    PageOcr.recognize(ocr, decoded.bitmap).rescaled(1f / decoded.scale).also {
+                    // MANHWA dual OCR: PaddleOCR reads with ML Kit when its models are on the phone
+                    val appContext = teamStore.appContext
+                    val paddle = eu.kanade.translation.ocr.PaddleOcrEngine.readerFor(appContext, from)
+                    PageOcr.recognize(ocr, decoded.bitmap, paddle, eu.kanade.translation.ocr.PaddleOcrEngine.mode(appContext)).rescaled(1f / decoded.scale).also {
                         if (skipSfx) it.blocks.removeAll { b -> b.kind.equals(PageOcr.SFX, ignoreCase = true) }
                         if (!preferences.translationArtText().get()) it.blocks.forEach { b -> if (b.kind.equals(PageOcr.ART, ignoreCase = true)) b.kind = "" }
                         if (preferences.translationOcrHealer().get()) it.blocks.forEach { b -> b.text = OcrHealer.heal(b.text) }

@@ -125,6 +125,7 @@ class TranslationHubScreen : Screen() {
         val consensus by prefs.translationConsensus().collectPreference()
         val nightly by prefs.translationNightly().collectPreference()
         val dialect by prefs.translationStyleDialect().collectPreference()
+        val ocrEngine by prefs.translationOcrEngine().collectPreference()
         val honorifics by prefs.translationStyleHonorifics().collectPreference()
         val deepClean by prefs.translationDeepClean().collectPreference()
         val brain by prefs.translationSeriesBrain().collectPreference()
@@ -344,6 +345,24 @@ class TranslationHubScreen : Screen() {
                             HubDivider()
                             // MANHWA on-device AI: translation with no key and no internet
                             eu.kanade.translation.local.LocalAiPanel(Modifier.padding(horizontal = 4.dp))
+                            HubDivider()
+                            // MANHWA dual OCR: what reads the text of the pages
+                            HubChoiceRow(
+                                icon = MaterialSymbols.Rounded.TextFields,
+                                title = stringResource(ATMR.strings.ocr_engine),
+                                info = stringResource(ATMR.strings.info_ocr_engine),
+                                options = listOf(
+                                    "DUAL" to stringResource(ATMR.strings.ocr_engine_dual),
+                                    "PADDLE" to stringResource(ATMR.strings.ocr_engine_paddle),
+                                    "MLKIT" to stringResource(ATMR.strings.ocr_engine_mlkit),
+                                ),
+                                selected = ocrEngine,
+                                onSelect = {
+                                    prefs.translationOcrEngine().set(it)
+                                    if (it != "MLKIT") eu.kanade.translation.ocr.OcrModels.download(context, eu.kanade.translation.ocr.OcrModels.Pack.MAIN)
+                                },
+                            )
+                            if (ocrEngine != "MLKIT") eu.kanade.translation.ocr.OcrModelsCard(Modifier.padding(horizontal = 4.dp))
                             HubDivider()
                             // MANHWA fingerprint: the reader's own Arabic
                             HubChoiceRow(

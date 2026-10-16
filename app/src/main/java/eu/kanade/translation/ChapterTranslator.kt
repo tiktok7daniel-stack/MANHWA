@@ -409,6 +409,9 @@ class ChapterTranslator(
             val artText = translationPreferences.translationArtText().get()
             val healOcr = translationPreferences.translationOcrHealer().get()
             val canReread = textTranslator is TeamTranslator
+            // MANHWA dual OCR: PaddleOCR with ML Kit (null when ML Kit reads alone or its models are not here yet)
+            val paddle = eu.kanade.translation.ocr.PaddleOcrEngine.readerFor(context, translation.fromLang)
+            val ocrMode = eu.kanade.translation.ocr.PaddleOcrEngine.mode(context)
             val unsureCrops = mutableListOf<Triple<String, Int, ByteArray>>()
             val streams = getChapterPages(chapterPath)
             val showProgress = progressNotifier(translation, notificationId)
@@ -440,7 +443,7 @@ class ChapterTranslator(
                                 ?: return@background null
                             try {
                                 // OCR in strips on the decoded page, then the colour behind every line
-                                PageOcr.recognize(recognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
+                                PageOcr.recognize(recognizer, decoded.bitmap, paddle, ocrMode).rescaled(1f / decoded.scale).also {
                                     if (skipSfx) it.blocks.removeAll { b -> b.kind.equals(PageOcr.SFX, ignoreCase = true) }
                                     if (!artText) it.blocks.forEach { b -> if (b.kind.equals(PageOcr.ART, ignoreCase = true)) b.kind = "" }
                                     if (healOcr) it.blocks.forEach { b -> b.text = OcrHealer.heal(b.text) }

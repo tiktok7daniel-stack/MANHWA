@@ -147,6 +147,8 @@ android {
                 "libsqlite3x",
             )
                 .map { "**/$it.so" }
+            // MANHWA: MediaPipe and ONNX Runtime may both carry the C++ runtime; one copy is enough
+            pickFirsts += "**/libc++_shared.so"
         }
         resources {
             excludes += setOf(
@@ -219,6 +221,8 @@ dependencies {
     implementation(libs.mlkit.text.translate)
     // MANHWA on-device AI (Gemma, Qwen... MediaPipe .task models imported by the reader)
     implementation(libs.mediapipe.genai)
+    // MANHWA: PaddleOCR (PP-OCRv5) on the phone, next to ML Kit
+    implementation(libs.onnxruntime.android)
 
     implementation(projects.icons.customMaterialSymbols)
     implementation(projects.icons.materialSymbols)

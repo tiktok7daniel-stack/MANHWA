@@ -22,11 +22,19 @@ object PageOcr {
      * Reads [bitmap] in overlapping strips, so text on tall webtoon pages is not shrunk away by the OCR.
      * Boxes are in [bitmap] pixels; a bubble read twice in the overlap keeps its larger reading.
      */
-    fun recognize(recognizer: TextRecognizer, bitmap: Bitmap): PageTranslation {
+    fun recognize(
+        recognizer: TextRecognizer,
+        bitmap: Bitmap,
+        paddle: ((Bitmap) -> List<eu.kanade.translation.ocr.PaddleOcrCore.Line>?)? = null,
+        mode: eu.kanade.translation.ocr.PaddleOcrEngine.Mode = eu.kanade.translation.ocr.PaddleOcrEngine.Mode.MLKIT,
+    ): PageTranslation {
         val w = bitmap.width
         val h = bitmap.height
         val stripH = (w * STRIP_RATIO).toInt().coerceAtLeast(64)
-        if (h <= stripH * 1.15f) return PageTranslation(markSfx(mergeLines(readStrip(recognizer, bitmap), w.toFloat())), w.toFloat(), h.toFloat())
+        if (h <= stripH * 1.15f) {
+            val blocks = readStrip(recognizer, bitmap, paddle, mode)
+            return PageTranslation(markSfx(mergeLines(blocks, w.toFloat(), bubblesOf(bitmap, blocks))), w.toFloat(), h.toFloat())
+        }
         val overlap = (stripH * OVERLAP).toInt()
         val found = mutableListOf<TranslationBlock>()
         var top = 0
@@ -34,7 +42,7 @@ object PageOcr {
             val sh = min(stripH, h - top)
             val strip = Bitmap.createBitmap(bitmap, 0, top, w, sh)
             val part = try {
-                readStrip(recognizer, strip)
+                readStrip(recognizer, strip, paddle, mode)
             } finally {
                 if (strip !== bitmap) strip.recycle()
             }
@@ -49,7 +57,35 @@ object PageOcr {
             if (top + sh >= h) break
             top += sh - overlap
         }
-        return PageTranslation(markSfx(mergeLines(found, w.toFloat())), w.toFloat(), h.toFloat())
+        return PageTranslation(markSfx(mergeLines(found, w.toFloat(), bubblesOf(bitmap, found))), w.toFloat(), h.toFloat())
+    }
+
+    /**
+     * MANHWA bubble finder: the speech bubble each block sits in (null when it is not in a closed light shape),
+     * so lines of two different bubbles are never joined. Read from the page around each block only.
+     */
+    private fun bubblesOf(bitmap: Bitmap, blocks: List<TranslationBlock>): java.util.IdentityHashMap<TranslationBlock, eu.kanade.translation.ocr.BubbleFinder.Rect?> {
+        val out = java.util.IdentityHashMap<TranslationBlock, eu.kanade.translation.ocr.BubbleFinder.Rect?>()
+        val w = bitmap.width
+        val h = bitmap.height
+        for (b in blocks) {
+            out[b] = runCatching {
+                val lineH = b.lineHeight().toInt().coerceAtLeast(4)
+                val margin = (max(lineH * 3, max(b.width, b.height).toInt() / 2) + lineH * 4).coerceAtMost(BUBBLE_MARGIN_MAX)
+                val left = (b.x.toInt() - margin).coerceIn(0, w - 1)
+                val top = (b.y.toInt() - margin).coerceIn(0, h - 1)
+                val right = (b.x + b.width).toInt().plus(margin).coerceIn(left + 1, w)
+                val bottom = (b.y + b.height).toInt().plus(margin).coerceIn(top + 1, h)
+                val rw = right - left
+                val rh = bottom - top
+                val region = IntArray(rw * rh)
+                bitmap.getPixels(region, 0, rw, left, top, rw, rh)
+                eu.kanade.translation.ocr.BubbleFinder.bubbleOf(
+                    region, rw, rh, b.x.toInt() - left, b.y.toInt() - top, b.width.toInt(), b.height.toInt(), lineH,
+                )?.let { eu.kanade.translation.ocr.BubbleFinder.Rect(it.left + left, it.top + top, it.right + left, it.bottom + top) }
+            }.getOrNull()
+        }
+        return out
     }
 
     fun toPageTranslation(blocks: List<Text.TextBlock>, width: Int, height: Int): PageTranslation =
@@ -99,8 +135,22 @@ object PageOcr {
      * dark panels (system windows, night scenes, black captions) is read a second time with its colours turned
      * to dark-on-light, and what only that reading found is added. Boxes stay in [strip] pixels.
      */
-    private fun readStrip(recognizer: TextRecognizer, strip: Bitmap): List<TranslationBlock> {
+    private fun readStrip(
+        recognizer: TextRecognizer,
+        strip: Bitmap,
+        paddle: ((Bitmap) -> List<eu.kanade.translation.ocr.PaddleOcrCore.Line>?)?,
+        mode: eu.kanade.translation.ocr.PaddleOcrEngine.Mode,
+    ): List<TranslationBlock> {
         val scale = if (strip.width < SMALL_WIDTH) UPSCALE else 1f
+        // MANHWA dual OCR: PaddleOCR reads the strip too (null when it can't: ML Kit alone, as before)
+        val lines = paddle?.let { read -> runCatching { read(strip) }.getOrNull() }
+        if (lines != null) {
+            val found = lines.map { eu.kanade.translation.ocr.OcrFusion.block(it.text, it.confidence, it.x, it.y, it.w, it.h) }
+            if (mode == eu.kanade.translation.ocr.PaddleOcrEngine.Mode.PADDLE) return found
+            // PaddleOCR reads light text on dark itself: ML Kit's second, inverted reading is not needed
+            val mlkit = runCatching { readAt(recognizer, strip, scale) }.getOrDefault(emptyList())
+            return eu.kanade.translation.ocr.OcrFusion.fuse(mlkit, found)
+        }
         val base = readAt(recognizer, strip, scale)
         if (!hasDarkPanels(strip)) return base
         val inverted = runCatching { invertedGray(strip) }.getOrNull() ?: return base
@@ -208,15 +258,23 @@ object PageOcr {
      * Joins blocks that are lines of the same bubble: close one under the other, with the same text size and
      * overlapping columns, or boxes that overlap. Never past a size limit, so far-apart text stays apart.
      */
-    private fun mergeLines(blocks: List<TranslationBlock>, pageWidth: Float): MutableList<TranslationBlock> {
+    private fun mergeLines(
+        blocks: List<TranslationBlock>,
+        pageWidth: Float,
+        bubbles: java.util.IdentityHashMap<TranslationBlock, eu.kanade.translation.ocr.BubbleFinder.Rect?> = java.util.IdentityHashMap(),
+    ): MutableList<TranslationBlock> {
         val list = blocks.sortedWith(compareBy({ it.y }, { it.x })).toMutableList()
         var changed = true
         while (changed) {
             changed = false
             loop@ for (i in list.indices) {
                 for (j in i + 1 until list.size) {
-                    if (shouldJoin(list[i], list[j], pageWidth)) {
-                        list[i] = join(list[i], list[j])
+                    // Two different bubbles (when both are known) are never one, however close
+                    val apart = eu.kanade.translation.ocr.BubbleFinder.same(bubbles[list[i]], bubbles[list[j]]) == false
+                    if (!apart && shouldJoin(list[i], list[j], pageWidth)) {
+                        val joined = join(list[i], list[j])
+                        bubbles[joined] = bubbles[list[i]] ?: bubbles[list[j]]
+                        list[i] = joined
                         list.removeAt(j)
                         changed = true
                         break@loop
@@ -374,6 +432,7 @@ object PageOcr {
     }
 
     private const val STRIP_RATIO = 2.2f
+    private const val BUBBLE_MARGIN_MAX = 260
 
     /** Pages narrower than this are read enlarged by [UPSCALE] (their letters are small for the OCR). */
     private const val SMALL_WIDTH = 800

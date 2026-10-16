@@ -63,6 +63,7 @@ moko-resources = "0.26.4"
 mlkit-text-recognition = "16.0.1"
 mlkit-text-translate = "17.0.3"
 mediapipe-genai = "0.10.27"
+onnxruntime-android = "1.22.0"
 okhttp = "5.5.0"
 okio = "3.18.2"
 photoView = "2.3.0"
@@ -176,6 +177,7 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 moko-resources = { module = "dev.icerock.moko:resources", version.ref = "moko-resources" }
 mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkit-text-recognition" }
 mediapipe-genai = { module = "com.google.mediapipe:tasks-genai", version.ref = "mediapipe-genai" }
+onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime-android" }
 mlkit-text-recognition-chinese = { module = "com.google.mlkit:text-recognition-chinese", version.ref = "mlkit-text-recognition" }
 mlkit-text-recognition-japanese = { module = "com.google.mlkit:text-recognition-japanese", version.ref = "mlkit-text-recognition" }
 mlkit-text-recognition-korean = { module = "com.google.mlkit:text-recognition-korean", version.ref = "mlkit-text-recognition" }

@@ -303,6 +303,7 @@ class FreshChaptersWorker(context: Context, params: WorkerParameters) : Coroutin
         runCatching { graph.libraryOrganizer.catchUp() }
         // MANHWA on-device AI: its memory is freed when it has not been used for a while
         runCatching { eu.kanade.translation.local.LocalAiEngine.trim() }
+        runCatching { eu.kanade.translation.ocr.PaddleOcrEngine.trim() }
         // MANHWA organizer: the whole library is checked once a day at most (never two runs at once)
         runCatching { graph.libraryOrganizer.dailyIfDue() }
         // MANHWA source health: hidden home sources are tried again (6, 12, then 24 hours apart)

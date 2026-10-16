@@ -222,6 +222,12 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             // pulls in the sources and the library database) starts, all off the main thread
             scope.launch(Dispatchers.IO) {
                 runCatching { graph.libraryOrganizer.watch() }
+                // MANHWA dual OCR: PaddleOCR's models come by themselves on Wi-Fi when the engine needs them
+                runCatching {
+                    if (eu.kanade.translation.ocr.PaddleOcrEngine.mode(this@App) != eu.kanade.translation.ocr.PaddleOcrEngine.Mode.MLKIT) {
+                        eu.kanade.translation.ocr.OcrModels.autoDownload(this@App, eu.kanade.translation.ocr.OcrModels.Pack.MAIN)
+                    }
+                }
                 runCatching { eu.kanade.translation.collection.Phrasebook.seedIfNeeded(this@App, graph.translationCollection) }
             }
         }

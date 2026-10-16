@@ -892,4 +892,26 @@
     <string name="ensemble_role_no_room">مستريح · الرام مش مكفياه جنب الباقيين</string>
     <string name="wn_fix2_t">خلاص مفيش \"الترجمة وقفت\"</string>
     <string name="wn_fix2_b">موديلات الموبايل بقت بتشتغل بوقت محدد وبتعرض تقدمها أول بأول، فالفصل مبقاش بيقف عشان الموبايل بطيء؛ ولو الموبايل بطيء قوي بيستريح شوية والمفاتيح بتكمّل لوحدها. والموديل اللي الرام مش مكفياه جنب الباقيين بيستريح بدل ما يتحمّل من جديد كل فصل. ومفاتيح OpenRouter بقت بتستخدم الموديلات المجانية الأول، فالمفتاح اللي مفيهوش رصيد مبقاش بيفشل.</string>
+    <string name="ocr_engine">محرك قراءة النصوص (OCR)</string>
+    <string name="info_ocr_engine">إيه اللي بيقرا كلام كل صفحة قبل ما يتترجم. الاتنين مع بعض (الافتراضي والأقوى): ML Kit بيقرا بسرعة، وPaddleOCR بيقرا كل سطر تاني على الموبايل، ويضيف اللي ML Kit فوّته (الخطوط المزخرفة، والكلام المايل والصغير، والكلام الفاتح على الخلفيات الغامقة، والكوري)، ويحط قرايته مكان قراية ML Kit لما يكون ML Kit مش واثق. PaddleOCR بس: الأدق للخطوط الصعبة والكوري. ML Kit بس: الأسرع والأخف. السطور اللي لسه مش واضحة بعد الاتنين بتتقري تاني من صورتها بمفتاح بيشوف الصور. لحد ما موديلات PaddleOCR تتحمّل على الموبايل (بتتحمّل لوحدها على الواي فاي)، ML Kit بيقرا لوحده.</string>
+    <string name="ocr_engine_dual">الاتنين مع بعض (ML Kit + PaddleOCR)</string>
+    <string name="ocr_engine_paddle">PaddleOCR بس (الخطوط الصعبة والكوري)</string>
+    <string name="ocr_engine_mlkit">ML Kit بس (الأسرع)</string>
+    <string name="ocr_models_title">موديلات PaddleOCR</string>
+    <string name="ocr_models_info">بتتحمّل مرة واحدة جوه التطبيق وبتتفحص بعد التحميل. على الواي فاي بتتحمّل لوحدها.</string>
+    <string name="ocr_pack_main">إنجليزي وصيني وياباني</string>
+    <string name="ocr_pack_korean">كوري</string>
+    <string name="ocr_pack_ready">على الموبايل، وبيقرا مع ML Kit</string>
+    <string name="ocr_pack_downloading">بيتحمّل… %1$d%%</string>
+    <string name="ocr_pack_failed">التحميل فشل: %1$s</string>
+    <string name="ocr_pack_size">حوالي %1$d ميجا</string>
+    <string name="ocr_pack_download">حمّل</string>
+    <string name="ocr_pack_retry">جرّب تاني</string>
+    <string name="ocr_pack_delete">امسح</string>
+    <string name="wn_ocr_t">محركين قراءة شغالين مع بعض</string>
+    <string name="wn_ocr_b">PaddleOCR (PP-OCRv5) بقى بيقرا كل صفحة على الموبايل مع ML Kit: بيضيف السطور اللي ML Kit فوّتها (الخطوط المزخرفة والمايلة، والكلام الصغير، والكلام الفاتح في نوافذ النظام، والكوري)، وبياخد مكانه لما ML Kit مش واثق. موديلاته بتتحمّل لوحدها على الواي فاي (حوالي 21 ميجا) وبتتفحص بعد التحميل. اختار المحرك من إعدادات الترجمة.</string>
+    <string name="wn_bubbles_t">كل فقاعة لوحدها</string>
+    <string name="wn_bubbles_b">التطبيق بقى بيلاقي حدود كل فقاعة كلام، فمفيش فقاعتين جنب بعض يتقروا كأنهم جملة واحدة.</string>
+    <string name="wn_audit_t">أثبت وأأمن</string>
+    <string name="wn_audit_b">فحص كامل للتطبيق: الحفظ مبقاش ممكن يتقطع في النص (القاموس، والتصحيحات، والتعديلات)، والفصول مبقتش بتستنى للأبد لما كل المفاتيح تستريح، والقارئ مبقاش بيعيد ترجمة فصل متحفظ، والتطبيق بقى بيفتح أسرع.</string>
 </resources>

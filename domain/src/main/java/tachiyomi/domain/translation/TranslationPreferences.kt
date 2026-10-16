@@ -163,6 +163,9 @@ class TranslationPreferences(
     /** MANHWA phone ensemble: how many phone models play at most (0 = all the active ones). */
     fun translationEnsembleSize() = preferenceStore.getInt("manhwa_translation_ensemble_size", 0)
 
+    /** MANHWA OCR engine: "DUAL" (ML Kit and PaddleOCR together, the default), "PADDLE" or "MLKIT". */
+    fun translationOcrEngine() = preferenceStore.getString("manhwa_translation_ocr_engine", "DUAL")
+
     /** What the orchestra did (lines by the phone, by the keys, judgements), as JSON (see OrchestraStats). */
     fun translationOrchestraStats() = preferenceStore.getString("manhwa_translation_orchestra_stats", "{}")
 }
