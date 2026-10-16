@@ -59,9 +59,13 @@ object ModelHealthManager {
         if (code == 400 || code == 403 || code == 404 || code == 422) {
             if ("model" in m && modelGone.any { it in m }) return Problem.ModelInvalid
         }
+        // A paid model on a key with no credit (OpenRouter's 402): that model is not open to this key, another is
+        if (code == 402 || creditWords.any { it in m }) return Problem.ModelInvalid
         if (code == 401 || code == 403) return Problem.AuthFailed
         return Problem.Other
     }
+
+    private val creditWords = listOf("insufficient credits", "more credits", "requires more credits", "payment required", "credit balance", "add credits")
 
     /** The token limit in a message like "must be less than or equal to 8192" or "maximum of 4096". */
     fun readLimit(message: String, bareNumbers: Boolean = true): Int? {

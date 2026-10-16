@@ -375,13 +375,18 @@ class PhoneEnsembleTest {
     }
 
     @Test
-    fun `the quick model drafts, the main rereads, a third judges`() {
+    fun `the quick model drafts, the main rereads, a third judges when it fits`() {
         val all = listOf(c("gemma4b", 5, 4.4), c("phi4", 4, 3.9), c("q15", 3, 1.6))
-        val r = EnsembleRules.assign(all, mainPath = "gemma4b", judgePath = "", budget = (6.75 * gb).toLong())!!
-        r.polisher shouldBe "gemma4b"
-        r.drafter shouldBe "q15"
-        r.judge shouldBe "phi4"
-        r.members shouldBe listOf("gemma4b" to EnsembleRules.Role.MAIN, "phi4" to EnsembleRules.Role.JUDGES, "q15" to EnsembleRules.Role.DRAFTS)
+        // Room for all three: the third one judges
+        val roomy = EnsembleRules.assign(all, mainPath = "gemma4b", judgePath = "", budget = 11 * gb)!!
+        roomy.polisher shouldBe "gemma4b"
+        roomy.drafter shouldBe "q15"
+        roomy.judge shouldBe "phi4"
+        roomy.members shouldBe listOf("gemma4b" to EnsembleRules.Role.MAIN, "phi4" to EnsembleRules.Role.JUDGES, "q15" to EnsembleRules.Role.DRAFTS)
+        // No room for the third next to the other two: it rests, the drafter judges (no reloading every chapter)
+        val tight = EnsembleRules.assign(all, mainPath = "gemma4b", judgePath = "", budget = (6.75 * gb).toLong())!!
+        tight.members shouldBe listOf("gemma4b" to EnsembleRules.Role.MAIN, "phi4" to EnsembleRules.Role.NO_ROOM, "q15" to EnsembleRules.Role.DRAFTS_AND_JUDGES)
+        tight.judges shouldBe listOf("q15")
         // The reader's own judge leads the vote
         EnsembleRules.assign(all, mainPath = "gemma4b", judgePath = "q15", budget = 7 * gb)!!.judge shouldBe "q15"
     }
@@ -405,7 +410,8 @@ class PhoneEnsembleTest {
     fun `a drafter that cannot stay loaded with the main one is not used`() {
         val r = EnsembleRules.assign(listOf(c("gemma4b", 5, 4.4), c("phi4", 4, 3.9)), "gemma4b", "", budget = 6 * gb)!!
         r.drafter shouldBe "gemma4b"
-        r.judge shouldBe "phi4"
+        r.judge shouldBe "gemma4b"
+        r.members shouldBe listOf("gemma4b" to EnsembleRules.Role.MAIN, "phi4" to EnsembleRules.Role.NO_ROOM)
         EnsembleRules.fits(listOf(4 * gb), 2 * gb, 6 * gb) shouldBe true
         EnsembleRules.fits(listOf(4 * gb), 3 * gb, 6 * gb) shouldBe false
         EnsembleRules.budgetBytes(0) shouldBe 4 * gb

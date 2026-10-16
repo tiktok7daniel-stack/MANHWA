@@ -6,7 +6,9 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import tachiyomi.core.common.util.system.logcat
@@ -78,26 +80,44 @@ object LocalAiEngine {
         }
     }
 
-    /** One answer from the model; null when there is no model or it failed. */
-    suspend fun generate(context: Context, prompt: String, model: File? = null): String? = withContext(Dispatchers.Default) {
-        val file = model?.takeIf { it.isFile } ?: modelFile(context) ?: return@withContext null
+    /**
+     * One answer from the model; null when there is no model, it failed, or it took longer than [timeoutMs].
+     * The model works in its own scope: a caller that stops waiting (time out, chapter cancelled) is never held
+     * by the phone, and the model finishes its answer in the background before its next one.
+     */
+    suspend fun generate(context: Context, prompt: String, model: File? = null, timeoutMs: Long = CALL_TIMEOUT_MS): String? {
+        val file = model?.takeIf { it.isFile } ?: modelFile(context) ?: return null
+        val call = scope.async { answer(context, file, prompt) }
+        try {
+            val reply = withTimeoutOrNull(timeoutMs) { call.await() }
+            if (reply == null && !call.isCompleted) logcat(LogPriority.WARN) { "The on-device AI took over ${timeoutMs / 1000}s (${file.name})" }
+            return reply
+        } finally {
+            // Not waited for any more: a call still queued is dropped (one already answering finishes, unread)
+            if (!call.isCompleted) call.cancel()
+        }
+    }
+
+    private suspend fun answer(context: Context, file: File, prompt: String): String? {
         repeat(2) {
             val slot = runCatching { slotFor(context, file) }
                 .onFailure { logcat(LogPriority.WARN, it) { "The on-device AI could not load ${file.name}" } }
-                .getOrNull() ?: return@withContext null
+                .getOrNull() ?: return null
             // Each model answers one prompt at a time; different models answer at the same time
             slot.lock.withLock {
                 // Freed for another model meanwhile: loaded again
                 if (slots[slot.path] === slot) {
-                    return@withContext runCatching {
+                    return runCatching {
                         slot.lastUse = System.currentTimeMillis()
                         slot.engine.generateResponse(prompt)
                     }.onFailure { logcat(LogPriority.WARN, it) { "The on-device AI failed" } }.getOrNull()
                 }
             }
         }
-        null
+        return null
     }
+
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Default)
 
     /**
      * MANHWA phone ensemble: several models stay loaded together while they fit in the memory budget (part of
@@ -156,6 +176,7 @@ object LocalAiEngine {
     private val slots = java.util.concurrent.ConcurrentHashMap<String, Slot>()
 
     private const val MAX_TOKENS = 1_536
+    const val CALL_TIMEOUT_MS = 60_000L
     private const val MIN_MODEL_BYTES = 10L * 1024 * 1024
     private const val IDLE_MS = 5 * 60 * 1000L
 }

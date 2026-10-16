@@ -10,6 +10,9 @@ import eu.kanade.translation.local.LocalAiEngine
  */
 object LocalJudge {
 
+    /** A judge has this long to answer (a short reply). */
+    private const val VOTE_MS = 20_000L
+
     /** 1 for [a], 2 for [b], null when the judge did not answer clearly. */
     suspend fun pick(context: Context, source: String, a: String, b: String, style: String, glossary: Map<String, String>): Int? {
         val terms = glossary.entries.filter { source.contains(it.key, ignoreCase = true) }.take(12)
@@ -25,8 +28,8 @@ object LocalJudge {
         // MANHWA phone ensemble: every judge model votes, the most votes win (the strongest breaks a tie)
         val judges = eu.kanade.translation.local.PhoneEnsemble.lineup(context)?.judges
             ?: listOfNotNull(LocalAiEngine.judgeFile(context))
-        if (judges.isEmpty()) return LocalAiEngine.generate(context, prompt)?.let(JudgeRules::parse)
-        val votes = judges.map { judge -> LocalAiEngine.generate(context, prompt, judge)?.let(JudgeRules::parse) }
+        if (judges.isEmpty()) return LocalAiEngine.generate(context, prompt, timeoutMs = VOTE_MS)?.let(JudgeRules::parse)
+        val votes = judges.map { judge -> LocalAiEngine.generate(context, prompt, judge, VOTE_MS)?.let(JudgeRules::parse) }
         return eu.kanade.translation.local.EnsembleRules.vote(votes)
     }
 }

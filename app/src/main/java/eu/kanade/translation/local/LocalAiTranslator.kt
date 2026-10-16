@@ -30,6 +30,13 @@ class LocalAiTranslator(
 ) : TextTranslator {
 
     private val fallback = GoogleTranslator(fromLang, toLang)
+
+    /** Called after every few lines, so the chapter shows it is moving (done, total steps). */
+    var onBatchDone: ((Int, Int) -> Unit)? = null
+
+    /** True when the last draft stopped early because the phone was too slow (see [draftLines]). */
+    @Volatile var slow = false
+        private set
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
@@ -38,12 +45,13 @@ class LocalAiTranslator(
         val lineup = if (model == null) PhoneEnsemble.lineup(context) else null
         if (lineup != null && lineup.drafter != lineup.polisher) {
             val drafter = LocalAiTranslator(context, fromLang, toLang, instructions, glossary, lineup.drafter)
-            val drafts = runCatching { drafter.draftLines(blocks.map { it.text }) }
+            val steps = (blocks.size + LINES_PER_CALL - 1) / LINES_PER_CALL * 2
+            val drafts = runCatching { drafter.draftLines(blocks.map { it.text }) { n -> onBatchDone?.invoke(n, steps) } }
                 .onFailure { if (it is CancellationException) throw it }
                 .getOrNull()
             if (drafts != null) {
                 val polisher = LocalAiTranslator(context, fromLang, toLang, instructions, glossary, lineup.polisher)
-                val polished = runCatching { polisher.polishLines(blocks.map { it.text }, drafts) }
+                val polished = runCatching { polisher.polishLines(blocks.map { it.text }, drafts) { n -> onBatchDone?.invoke(steps / 2 + n, steps) } }
                     .onFailure { if (it is CancellationException) throw it }
                     .getOrDefault(drafts)
                 val left = mutableListOf<TranslationBlock>()
@@ -61,10 +69,20 @@ class LocalAiTranslator(
             }
         }
         val missing = mutableListOf<Int>()
+        slow = false
+        val chunks = (blocks.size + LINES_PER_CALL - 1) / LINES_PER_CALL
         blocks.chunked(LINES_PER_CALL).forEachIndexed { chunkIndex, chunk ->
-            val answers = runCatching { translateLines(chunk.map { it.text.replace('\n', ' ') }) }
-                .onFailure { if (it is CancellationException) throw it }
-                .getOrNull()
+            onBatchDone?.invoke(chunkIndex, chunks)
+            // A phone too slow for one call is not asked again in this chapter: Google does the rest
+            val started = System.currentTimeMillis()
+            val answers = if (slow) {
+                null
+            } else {
+                runCatching { translateLines(chunk.map { it.text.replace('\n', ' ') }) }
+                    .onFailure { if (it is CancellationException) throw it }
+                    .getOrNull()
+            }
+            if (answers == null && System.currentTimeMillis() - started >= LocalAiEngine.CALL_TIMEOUT_MS - 1_000) slow = true
             chunk.forEachIndexed { i, block ->
                 val t = answers?.getOrNull(i)?.trim().orEmpty()
                 if (LocalAiRules.usable(block.text, t, toLang.code)) {
@@ -85,12 +103,21 @@ class LocalAiTranslator(
      * MANHWA orchestra: the phone's draft of every line (null where it has none worth keeping), without the
      * Google fallback: the team's keys do what the phone cannot.
      */
-    suspend fun draftLines(lines: List<String>): List<String?> {
+    suspend fun draftLines(lines: List<String>, deadline: Long = Long.MAX_VALUE, onStep: ((Int) -> Unit)? = null): List<String?> {
         val out = ArrayList<String?>(lines.size)
-        lines.chunked(LINES_PER_CALL).forEach { chunk ->
+        slow = false
+        lines.chunked(LINES_PER_CALL).forEachIndexed { n, chunk ->
+            onStep?.invoke(n)
+            // Out of time (or the phone proved too slow): the rest has no draft, the keys do it from the source
+            if (slow || System.currentTimeMillis() >= deadline) {
+                repeat(chunk.size) { out += null }
+                return@forEachIndexed
+            }
+            val started = System.currentTimeMillis()
             val answers = runCatching { translateLines(chunk.map { it.replace('\n', ' ') }) }
                 .onFailure { if (it is CancellationException) throw it }
                 .getOrNull()
+            if (answers == null && System.currentTimeMillis() - started >= LocalAiEngine.CALL_TIMEOUT_MS - 1_000) slow = true
             chunk.forEachIndexed { i, src ->
                 val t = answers?.getOrNull(i)?.trim().orEmpty()
                 out += t.takeIf { LocalAiRules.usable(src, it, toLang.code) }
@@ -103,9 +130,14 @@ class LocalAiTranslator(
      * MANHWA phone ensemble: this model rereads [drafts] of [lines] (another model's) and returns the better line
      * for each: its own rewrite when it is usable, else the draft (null where neither is).
      */
-    suspend fun polishLines(lines: List<String>, drafts: List<String?>): List<String?> {
+    suspend fun polishLines(lines: List<String>, drafts: List<String?>, deadline: Long = Long.MAX_VALUE, onStep: ((Int) -> Unit)? = null): List<String?> {
         val out = ArrayList<String?>(lines.size)
-        lines.indices.chunked(LINES_PER_CALL).forEach { idx ->
+        lines.indices.chunked(LINES_PER_CALL).forEachIndexed { n, idx ->
+            onStep?.invoke(n)
+            if (System.currentTimeMillis() >= deadline) {
+                idx.forEach { out += drafts.getOrNull(it) }
+                return@forEachIndexed
+            }
             val terms = glossary.entries.filter { (k, _) -> idx.any { lines[it].contains(k, ignoreCase = true) } }.take(30)
             val prompt = buildString {
                 appendLine("You review draft ${toLang.label} translations of manhwa speech bubbles. Fix meaning errors, unnatural wording and wrong names; keep good lines as they are. Short, natural, spoken.")

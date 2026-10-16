@@ -29,12 +29,22 @@ object OrchestraStore {
     fun active(context: Context): Boolean {
         val prefs = context.appGraph.translationPreferences
         if (!prefs.translationOrchestra().get() || !LocalAiEngine.available(context)) return false
+        if (slowNow(context)) return false
         val device = ChapterPrefetchManager.device(context)
         val thermal = runCatching {
             if (android.os.Build.VERSION.SDK_INT >= 29) (context.getSystemService(Context.POWER_SERVICE) as PowerManager).currentThermalStatus else 0
         }.getOrDefault(0)
         return OrchestraRules.deviceOk(device.batteryPercent, device.charging, device.powerSave, thermal)
     }
+
+    @Volatile private var slowUntil = 0L
+
+    /** The phone was too slow for one call: it sits out for a while and the keys work alone (no waiting on it). */
+    fun markSlow(context: Context) {
+        slowUntil = System.currentTimeMillis() + SLOW_REST_MS
+    }
+
+    fun slowNow(context: Context): Boolean = System.currentTimeMillis() < slowUntil
 
     fun stats(context: Context): Stats {
         val raw = context.appGraph.translationPreferences.translationOrchestraStats().get()
@@ -80,6 +90,7 @@ object OrchestraStore {
     private fun today(): String = java.time.LocalDate.now().toString()
 
     private const val MAX_EXAMPLES = 400
+    private const val SLOW_REST_MS = 20 * 60_000L
 }
 
 /** Pure choice of the tutor's examples (tested without a phone). */

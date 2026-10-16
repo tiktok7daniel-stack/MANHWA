@@ -167,6 +167,11 @@ object KeySites {
             }.maxByOrNull { it.first }?.second
             return flash ?: models.firstOrNull { it == "gemini-flash-latest" } ?: models.firstOrNull { it == siteDefault }
         }
+        // OpenRouter: the free models (":free") first, so a key with no credit never lands on a paid one
+        if (protocol == Provider.OPENROUTER) {
+            val free = models.filter { it.lowercase().endsWith(":free") && SKIP.none { s -> s in it.lowercase() } }
+            if (free.isNotEmpty()) return siteDefault.takeIf { it in free } ?: free.minWith(compareBy<String>({ rank(it) }, { it.length }))
+        }
         if (siteDefault.isNotBlank() && siteDefault in models) return siteDefault
         val usable = models.filterNot { id -> SKIP.any { it in id.lowercase() } }.ifEmpty { return null }
         return usable.minWithOrNull(compareBy<String>({ rank(it) }, { it.length }))

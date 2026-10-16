@@ -123,7 +123,7 @@ class LocalModelsScreen : Screen() {
                             if (lineup == null) {
                                 Text(stringResource(ATMR.strings.ensemble_none), style = MaterialTheme.typography.bodySmall, color = Color(0xFFFFB020))
                             } else {
-                                Text(stringResource(ATMR.strings.ensemble_header, lineup.members.size, keys), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = Color.White)
+                                Text(stringResource(ATMR.strings.ensemble_header, lineup.playing, keys), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = Color.White)
                                 lineup.members.forEach { m -> RoleLine(m.name, m.role) }
                                 if (!lineup.ensemble) Text(stringResource(ATMR.strings.ensemble_add_more), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.65f))
                             }
@@ -269,6 +269,7 @@ class LocalModelsScreen : Screen() {
             EnsembleRules.Role.DRAFTS -> stringResource(ATMR.strings.ensemble_role_drafts) to Color(0xFFFFB020)
             EnsembleRules.Role.JUDGES -> stringResource(ATMR.strings.ensemble_role_judges) to Color(0xFF4FD8FF)
             EnsembleRules.Role.DRAFTS_AND_JUDGES -> stringResource(ATMR.strings.ensemble_role_both) to Color(0xFFFFB020)
+            EnsembleRules.Role.NO_ROOM -> stringResource(ATMR.strings.ensemble_role_no_room) to Color.White.copy(alpha = 0.55f)
         }
         Text(
             if (name != null) "$name · $text" else text,

@@ -240,6 +240,9 @@ class AiTranslator(
     /** MANHWA: called when a call failed and is about to be tried again, with what went wrong. */
     var onRetry: ((Throwable) -> Unit)? = null
 
+    /** MANHWA orchestra: work goes on without a finished batch (the phone's models drafting or rereading). */
+    var onAlive: (() -> Unit)? = null
+
     private fun collectTerms(output: JsonObject) {
         if (askSummary) {
             (output[SUMMARY_KEY] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }?.let { summaries += it.take(300) }

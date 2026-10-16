@@ -337,10 +337,17 @@ class TeamTranslator(
             model = lineup?.drafter,
         )
         val blocks = pages.values.flatMap { it.blocks }.filter { it.text.isNotBlank() && it.translation.isBlank() }
-        val drafts = runCatching { drafter.draftLines(blocks.map { it.text }) }
+        // The phone drafts within a time limit, telling the chapter it is still moving after every few lines;
+        // what it has not drafted by then goes to the keys from the source. A phone too slow for one call
+        // sits out for a while (the keys work alone, nobody waits on it).
+        val heartbeat = { lead.onAlive?.invoke(); Unit }
+        val drafts = runCatching {
+            drafter.draftLines(blocks.map { it.text }, deadline = System.currentTimeMillis() + DRAFT_BUDGET_MS) { heartbeat() }
+        }
             .onFailure { if (it is CancellationException) throw it }
             .getOrNull()
-        if (drafts == null) {
+        if (drafter.slow) eu.kanade.translation.orchestra.OrchestraStore.markSlow(context)
+        if (drafts == null || drafts.all { it == null }) {
             // The phone could not play this time: the keys do it all as before
             translate(pages, images)
             return
@@ -370,16 +377,18 @@ class TeamTranslator(
         val polish: suspend () -> Unit = polish@{
             val polisher = lineup?.takeIf { it.drafter != it.polisher }?.polisher ?: return@polish
             if (kept.isEmpty()) return@polish
+            if (eu.kanade.translation.orchestra.OrchestraStore.slowNow(context)) return@polish
             val better = runCatching {
                 eu.kanade.translation.local.LocalAiTranslator(context, fromLang, toLang, instructions = style, glossary = lead.glossary, model = polisher)
-                    .polishLines(kept.map { it.text }, kept.map { it.translation })
+                    .polishLines(kept.map { it.text }, kept.map { it.translation }, deadline = System.currentTimeMillis() + POLISH_BUDGET_MS) { heartbeat() }
             }.onFailure { if (it is CancellationException) throw it }.getOrNull() ?: return@polish
             kept.forEachIndexed { i, b -> better.getOrNull(i)?.let { b.translation = it } }
         }
         kotlinx.coroutines.coroutineScope {
             val polishing = launch { polish() }
             orchestrateTeam(pages, images, toTeam, drafted)
-            polishing.join()
+            // The keys are done: the rereading gets a short while more, then the chapter goes on without it
+            if (withTimeoutOrNull(POLISH_BUDGET_MS) { polishing.join() } == null) polishing.cancel()
         }
         eu.kanade.translation.orchestra.OrchestraStore.record(context, local = local, team = toTeam.size)
     }
@@ -495,6 +504,12 @@ class TeamTranslator(
         private val STOP = Any()
         private val WAIT = Any()
         private const val WAIT_MS = 150L
+
+        /** How long the phone may draft a chapter before the keys take the rest from the source. */
+        private const val DRAFT_BUDGET_MS = 45_000L
+
+        /** How long the strong phone model may reread the lines the phone keeps. */
+        private const val POLISH_BUDGET_MS = 30_000L
         private const val MAX_ATTEMPTS = 3
         private const val MAX_RACERS = 2
         private const val RECENT_LINES = 30

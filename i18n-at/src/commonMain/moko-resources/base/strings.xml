@@ -948,4 +948,7 @@
     <string name="wn_tn_b">A translate button next to download in every work shows how many chapters are translating anywhere. It opens the list: the work, the chapter, the step and the percentage, with \"open the work\" and \"stop this one\", and pause, carry on or clear for all.</string>
     <string name="wn_count_t">Choose how many phone models play</string>
     <string name="wn_count_b">On the model shelf pick 1, 2, 3 or all: only that many of your strongest active models play (the main one first), the rest rest and free their memory.</string>
+    <string name="ensemble_role_no_room">Resting · no room in memory next to the others</string>
+    <string name="wn_fix2_t">No more \"stopped moving\"</string>
+    <string name="wn_fix2_b">The phone models now work within a time limit and show their progress as they go, so a chapter is never stopped for being slow; a phone that is too slow sits out for a while and the keys carry on alone. A model that does not fit in memory next to the others rests instead of being loaded again every chapter. OpenRouter keys use free models first, so a key with no credit stops failing.</string>
 </resources>

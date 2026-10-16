@@ -20,7 +20,10 @@ object PhoneEnsemble {
 
     data class Lineup(val drafter: File, val polisher: File, val judges: List<File>, val members: List<Member>) {
         /** More than one model really plays. */
-        val ensemble: Boolean get() = members.size > 1
+        val ensemble: Boolean get() = playing > 1
+
+        /** The models that really have a role (one left out for memory does not count). */
+        val playing: Int get() = members.count { it.role != EnsembleRules.Role.NO_ROOM }
         val judge: File get() = judges.first()
     }
 
@@ -72,7 +75,7 @@ object EnsembleRules {
     data class Candidate(val path: String, val strength: Int, val bytes: Long)
 
     /** What a model does in the lineup. */
-    enum class Role { MAIN, DRAFTS, JUDGES, DRAFTS_AND_JUDGES }
+    enum class Role { MAIN, DRAFTS, JUDGES, DRAFTS_AND_JUDGES, NO_ROOM }
 
     data class Roles(val drafter: String, val polisher: String, val judges: List<String>, val members: List<Pair<String, Role>>) {
         val judge: String get() = judges.first()
@@ -98,19 +101,35 @@ object EnsembleRules {
             .sortedWith(compareByDescending<Candidate> { it.strength }.thenBy { it.bytes })
         val drafter = helpers.filter { it.strength >= MIN_DRAFT_STRENGTH && fits(listOf(main.bytes), it.bytes, budget) }
             .minByOrNull { it.bytes } ?: main
-        // The judge the reader chose always votes, even when it also drafts
-        val voters = helpers.filter { it.path != drafter.path || it.path == judgePath }.ifEmpty { helpers }.ifEmpty { listOf(main) }
-        val judges = voters.sortedByDescending { judgePath.isNotBlank() && it.path == judgePath }.map { it.path }.take(MAX_JUDGES)
+        // Judges stay loaded next to the main model and the drafter (no model is unloaded and loaded again every
+        // chapter): the judge the reader chose first, then the strongest, while they fit in the memory budget
+        val loaded = mutableListOf(main.bytes).apply { if (drafter.path != main.path) add(drafter.bytes) }
+        val judges = mutableListOf<String>()
+        helpers.sortedByDescending { judgePath.isNotBlank() && it.path == judgePath }.forEach { h ->
+            if (judges.size >= MAX_JUDGES) return@forEach
+            when {
+                h.path == drafter.path -> if (h.path == judgePath) judges += h.path
+                fits(loaded, h.bytes, budget) -> {
+                    judges += h.path
+                    loaded += h.bytes
+                }
+            }
+        }
+        // No helper fits as a judge: the drafter judges too (else the main model)
+        if (judges.isEmpty()) judges += drafter.path
         val members = buildList {
             add(main.path to Role.MAIN)
             helpers.forEach { h ->
                 val drafts = h.path == drafter.path
                 val judgesToo = h.path in judges
-                when {
-                    drafts && judgesToo -> add(h.path to Role.DRAFTS_AND_JUDGES)
-                    drafts -> add(h.path to Role.DRAFTS)
-                    judgesToo -> add(h.path to Role.JUDGES)
-                }
+                add(
+                    h.path to when {
+                        drafts && judgesToo -> Role.DRAFTS_AND_JUDGES
+                        drafts -> Role.DRAFTS
+                        judgesToo -> Role.JUDGES
+                        else -> Role.NO_ROOM
+                    },
+                )
             }
         }
         return Roles(drafter.path, main.path, judges, members)

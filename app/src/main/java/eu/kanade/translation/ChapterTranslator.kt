@@ -506,6 +506,7 @@ class ChapterTranslator(
                         showProgress()
                     }
                     onRetry = { error -> translation.note(noteFor(error)) }
+                    onAlive = { translation.touch() }
                 }
                 // MANHWA scout: the chapter's names and terms (with gender and how they speak) found in one call
                 // before translating, so every key uses the same ones from the first page
@@ -528,8 +529,14 @@ class ChapterTranslator(
                     }
                 }
                 // MANHWA on-device AI: the series glossary and the codex for the model on the phone too
-                (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.glossary =
-                    codex + glossaryStore.asMap(translation.manga.id)
+                (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.apply {
+                    glossary = codex + glossaryStore.asMap(translation.manga.id)
+                    // The phone shows its progress as it goes (it can be slow): never "stopped moving"
+                    onBatchDone = { done, total ->
+                        translation.advance(Translation.Stage.TRANSLATING, done, total)
+                        showProgress()
+                    }
+                }
                 // MANHWA collection: lines translated before, in any manhwa, are written at once; repeats inside
                 // the chapter are translated once; only what is left goes to the translator
                 val library = if (useLibrary) fromLibrary(pages, src, tgt, glossaryStore.asMap(translation.manga.id)) else LibraryPass.NONE
@@ -580,10 +587,12 @@ class ChapterTranslator(
                     chapterSummary = ai?.summaries?.takeLast(SUMMARY_LINES)?.joinToString(" ").orEmpty()
                     termDetails = ai?.discoveredDetails?.mapValues { (_, info) -> info.kind to info.gender }.orEmpty()
                     (textTranslator as? TeamTranslator)?.onPagesDone = null
+                    (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.onBatchDone = null
                     ai?.apply {
                         useDrafts = draftsBefore
                         onBatchDone = null
                         onRetry = null
+                        onAlive = null
                         glossaryNotes = emptyMap()
                         richTerms = false
                         storySoFar = ""
@@ -669,7 +678,11 @@ class ChapterTranslator(
                 if (consensus.ties.isNotEmpty() && eu.kanade.translation.orchestra.OrchestraStore.active(context)) {
                     val style = eu.kanade.translation.style.StyleProfile.instruction(translationPreferences, translation.toLang.name)
                     var judged = 0
+                    // The phone judges within a time limit: the chapter is never held up by a slow phone
+                    val judgeUntil = System.currentTimeMillis() + JUDGE_BUDGET_MS
                     consensus.ties.forEach { (source, kept, other) ->
+                        if (System.currentTimeMillis() > judgeUntil || eu.kanade.translation.orchestra.OrchestraStore.slowNow(context)) return@forEach
+                        translation.touch()
                         val verdict = runCatching { eu.kanade.translation.orchestra.LocalJudge.pick(context, source, kept, other, style, glossaryAfter) }.getOrNull()
                         if (verdict == 2) {
                             pages.values.flatMap { it.blocks }.firstOrNull { it.text == source && it.translation == kept }?.translation = other
@@ -1108,6 +1121,7 @@ class ChapterTranslator(
         /** How often the watchdog looks, and how long without any progress counts as stuck. */
         const val WATCH_MS = 5_000L
         const val STALL_MS = 180_000L
+        const val JUDGE_BUDGET_MS = 45_000L
 
         /** Lines up to this long that repeat inside a chapter are translated once. */
         const val REPEAT_MAX_LENGTH = 40

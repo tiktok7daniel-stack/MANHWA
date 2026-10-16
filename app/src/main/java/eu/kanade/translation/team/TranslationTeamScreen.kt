@@ -994,8 +994,8 @@ private fun PhoneMemberCard(onOpen: () -> Unit) {
     val (text, color) = when {
         lineup == null -> stringResource(ATMR.strings.team_phone_none) to Color(0xFFFFB020)
         !orchestra -> stringResource(ATMR.strings.team_phone_off) to Color.White.copy(alpha = 0.6f)
-        playing -> stringResource(ATMR.strings.team_phone_all_on, lineup.members.size) to Color(0xFF3DDC97)
-        else -> stringResource(ATMR.strings.team_phone_all_paused, lineup.members.size) to Color(0xFFFFB020)
+        playing -> stringResource(ATMR.strings.team_phone_all_on, lineup.playing) to Color(0xFF3DDC97)
+        else -> stringResource(ATMR.strings.team_phone_all_paused, lineup.playing) to Color(0xFFFFB020)
     }
     Column(
         Modifier
@@ -1021,6 +1021,7 @@ private fun PhoneMemberCard(onOpen: () -> Unit) {
                 eu.kanade.translation.local.EnsembleRules.Role.DRAFTS -> stringResource(ATMR.strings.ensemble_role_drafts) to Color(0xFFFFB020)
                 eu.kanade.translation.local.EnsembleRules.Role.JUDGES -> stringResource(ATMR.strings.ensemble_role_judges) to Color(0xFF4FD8FF)
                 eu.kanade.translation.local.EnsembleRules.Role.DRAFTS_AND_JUDGES -> stringResource(ATMR.strings.ensemble_role_both) to Color(0xFFFFB020)
+                eu.kanade.translation.local.EnsembleRules.Role.NO_ROOM -> stringResource(ATMR.strings.ensemble_role_no_room) to Color.White.copy(alpha = 0.4f)
             }
             Row(Modifier.padding(start = 56.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).background(roleColor, CircleShape))

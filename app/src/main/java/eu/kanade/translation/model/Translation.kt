@@ -59,6 +59,11 @@ data class Translation(
         }
     }
 
+    /** Work is still going (the phone's models are drafting): keeps the watchdog from calling it stuck. */
+    fun touch() {
+        _progress.update { it.copy(updatedAt = System.currentTimeMillis()) }
+    }
+
     /** Why the chapter is waiting right now (kept until it moves on); does not count as progress. */
     fun note(note: Note?) {
         _progress.update { it.copy(note = note) }
