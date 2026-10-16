@@ -115,6 +115,10 @@ class TranslationTeamScreen : Screen() {
         var editing by remember { mutableStateOf<TeamStore.Member?>(null) }
         var prefill by remember { mutableStateOf<KeyPrefill?>(null) }
         var advisor by remember { mutableStateOf(false) }
+        // MANHWA "check and fix all keys": progress while it runs, then what it found
+        var fixProgress by remember { mutableStateOf<Triple<Int, Int, String>?>(null) }
+        var fixSummary by remember { mutableStateOf<TeamStore.CheckSummary?>(null) }
+        val keyHealth by store.keyHealth.all.collectAsState()
 
         // Recomputed whenever something changes: strength, share and the lead
         val shares = remember(members, analysis, health) { store.shares() }
@@ -214,6 +218,54 @@ class TranslationTeamScreen : Screen() {
                                     modifier = Modifier.weight(1f),
                                 ) { members.forEach(::analyze) }
                             }
+                            ManhwaKit.NeonButton(
+                                text = stringResource(ATMR.strings.keys_fix_all),
+                                icon = MaterialSymbols.Rounded.Verified,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                if (fixProgress == null) {
+                                    scope.launch {
+                                        fixSummary = null
+                                        val summary = store.checkAll { done, total, name -> fixProgress = Triple(done, total, name) }
+                                        fixProgress = null
+                                        fixSummary = summary
+                                    }
+                                }
+                            }
+                            fixProgress?.let { (done, total, name) ->
+                                Text(
+                                    stringResource(ATMR.strings.keys_fix_progress, (done + 1).coerceAtMost(total), total, name),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.75f),
+                                )
+                                MeterBar(if (total == 0) 1f else done / total.toFloat(), MaterialTheme.colorScheme.primary)
+                            }
+                            fixSummary?.let { summary ->
+                                Text(
+                                    stringResource(ATMR.strings.keys_fix_done, summary.working, summary.total, summary.fixed.size),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (summary.working > 0) Green else Crimson,
+                                )
+                                summary.broken.forEach { (name, why) ->
+                                    Text(
+                                        stringResource(ATMR.strings.keys_fix_broken, "$name · ${why.take(120)}"),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Crimson.copy(alpha = 0.9f),
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                // Few keys work: the official key pages, one tap away
+                                if (summary.working < 2) {
+                                    Text(
+                                        stringResource(ATMR.strings.keys_fix_few),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.75f),
+                                    )
+                                    SiteLinkButton(stringResource(ATMR.strings.keys_fix_open_finder), MaterialSymbols.Rounded.Key) { advisor = true }
+                                }
+                            }
                             // MANHWA: the AI that knows where free keys are, with one-tap links and quick add
                             SiteLinkButton(stringResource(ATMR.strings.keys_ask_ai), MaterialSymbols.Rounded.AutoAwesome) { advisor = true }
                         }
@@ -240,6 +292,8 @@ class TranslationTeamScreen : Screen() {
                             busy = busyByKey[member.id].orEmpty(),
                             parallel = capacities[member.id] ?: store.router.capacity(member.id),
                             level = remember(member, usageState) { store.usage.level(member) },
+                            usedModel = store.router.modelFor(member, AiRouter.Lane.CHAPTER),
+                            keyHealth = keyHealth[member.id],
                             onEnabled = { store.setEnabled(member.id, it) },
                             onAnalyze = { analyze(member) },
                             onEdit = { editing = member },
@@ -373,6 +427,8 @@ class TranslationTeamScreen : Screen() {
         busy: Map<AiRouter.Lane, Int>,
         parallel: Int,
         level: UsageMeter.Level,
+        usedModel: String,
+        keyHealth: KeyHealthStore.KeyHealth?,
         onEnabled: (Boolean) -> Unit,
         onAnalyze: () -> Unit,
         onEdit: () -> Unit,
@@ -398,7 +454,6 @@ class TranslationTeamScreen : Screen() {
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    val usedModel = analysis?.model?.takeIf { it.isNotBlank() } ?: member.model.ifBlank { member.providerEnum.defaultModel }
                     Text(
                         if (member.model.isBlank()) stringResource(ATMR.strings.team_model_auto_value, usedModel) else usedModel,
                         style = MaterialTheme.typography.labelMedium,
@@ -428,6 +483,8 @@ class TranslationTeamScreen : Screen() {
                 Spacer(Modifier.width(8.dp))
                 Text(status, color = statusColor, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
+            // MANHWA key health: its state, the limit it learnt, and how far today's quota goes
+            keyHealth?.let { kh -> KeyHealthLine(kh, level) }
             // What the key is doing right now, by kind of work
             if (busy.isNotEmpty()) {
                 Tag(MaterialSymbols.Rounded.Speed, stringResource(ATMR.strings.router_working, lanesText(busy)), Green)
@@ -479,6 +536,31 @@ class TranslationTeamScreen : Screen() {
                 ActionButton(MaterialSymbols.Rounded.Refresh, stringResource(ATMR.strings.team_actions_check), Color.White, enabled = !analyzing, onClick = onAnalyze)
                 ActionButton(MaterialSymbols.Rounded.Edit, stringResource(ATMR.strings.team_edit), Color.White, onClick = onEdit)
                 ActionButton(MaterialSymbols.Rounded.Delete, stringResource(ATMR.strings.team_delete), Crimson, onClick = onDelete)
+            }
+        }
+    }
+
+    @Composable
+    private fun KeyHealthLine(kh: KeyHealthStore.KeyHealth, level: UsageMeter.Level) {
+        val (text, color) = when (kh.statusEnum) {
+            ModelHealthManager.Status.ACTIVE -> stringResource(ATMR.strings.key_status_active) to Green
+            ModelHealthManager.Status.DEGRADED -> stringResource(ATMR.strings.key_status_degraded) to Amber
+            ModelHealthManager.Status.RATE_LIMITED -> stringResource(ATMR.strings.key_status_rate_limited) to Amber
+            ModelHealthManager.Status.MODEL_INVALID -> stringResource(ATMR.strings.key_status_model_invalid) to Amber
+            ModelHealthManager.Status.AUTH_FAILED -> stringResource(ATMR.strings.key_status_auth_failed) to Amber
+            ModelHealthManager.Status.TEMPORARY_ERROR -> stringResource(ATMR.strings.key_status_temporary) to Amber
+            ModelHealthManager.Status.DISABLED -> stringResource(ATMR.strings.key_status_disabled, kh.disabledReason.orEmpty().take(80)) to Crimson
+            ModelHealthManager.Status.UNKNOWN -> stringResource(ATMR.strings.key_status_unknown) to Color.White.copy(alpha = 0.6f)
+        }
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Tag(MaterialSymbols.Rounded.Verified, text, color)
+            if (kh.maxTokens > 0) Tag(MaterialSymbols.Rounded.Speed, stringResource(ATMR.strings.key_limit_tokens, kh.maxTokens), Color.White.copy(alpha = 0.8f))
+            if (kh.callsToday > 0) Tag(MaterialSymbols.RoundedFilled.Bolt, stringResource(ATMR.strings.key_quota_calls, kh.callsToday), Color.White.copy(alpha = 0.8f))
+            QuotaForecast.chaptersLeft(kh, level)?.let { n ->
+                Tag(MaterialSymbols.Rounded.Translate, stringResource(ATMR.strings.key_quota_forecast, n), if (n < 3) Amber else Green)
             }
         }
     }

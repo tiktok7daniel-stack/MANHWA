@@ -636,4 +636,21 @@
     <string name="lessons_extract">استخلص دروس جديدة بالـ AI من تعديلاتي</string>
     <string name="lessons_extracting">بيستخلص…</string>
     <string name="lessons_extracted">اتكتبت قواعد جديدة لـ %1$d كتاب</string>
+    <string name="keys_fix_all">افحص وصلّح كل المفاتيح</string>
+    <string name="keys_fix_progress">بفحص %1$d من %2$d · %3$s</string>
+    <string name="keys_fix_done">%1$d من %2$d مفاتيح شغالة · اتصلّح %3$d</string>
+    <string name="keys_fix_broken">لسه مش شغال: %1$s</string>
+    <string name="keys_fix_few">المفاتيح الشغالة قليلة. تفتح الصفحات الرسمية عشان تجيب مفاتيح مجانية أكتر؟</string>
+    <string name="keys_fix_open_finder">دوّر على مفاتيح مجانية</string>
+    <string name="key_status_active">سليم</string>
+    <string name="key_status_degraded">شغال بحدود</string>
+    <string name="key_status_rate_limited">بيرتاح (زحمة أو الحصة خلصت)</string>
+    <string name="key_status_model_invalid">الموديل اتغيّر</string>
+    <string name="key_status_auth_failed">اترفض مرة، هيتجرب تاني</string>
+    <string name="key_status_temporary">خطأ مؤقت، بيرتاح</string>
+    <string name="key_status_disabled">متوقف: %1$s</string>
+    <string name="key_status_unknown">لسه ما اتفحصش</string>
+    <string name="key_limit_tokens">الرد لحد %1$d توكن</string>
+    <string name="key_quota_forecast">يكفّي حوالي %1$d فصل كمان النهارده</string>
+    <string name="key_quota_calls">%1$d طلب النهارده</string>
 </resources>

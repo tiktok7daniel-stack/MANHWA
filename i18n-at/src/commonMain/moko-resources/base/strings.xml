@@ -695,4 +695,21 @@
     <string name="lessons_extract">Extract new lessons from my edits with AI</string>
     <string name="lessons_extracting">Extracting…</string>
     <string name="lessons_extracted">New rules written for %1$d books</string>
+    <string name="keys_fix_all">Check and fix all keys</string>
+    <string name="keys_fix_progress">Checking %1$d of %2$d · %3$s</string>
+    <string name="keys_fix_done">%1$d of %2$d keys work · %3$d repaired</string>
+    <string name="keys_fix_broken">Still not working: %1$s</string>
+    <string name="keys_fix_few">Few keys work. Open the official pages to get more free keys?</string>
+    <string name="keys_fix_open_finder">Find free keys</string>
+    <string name="key_status_active">Healthy</string>
+    <string name="key_status_degraded">Working with limits</string>
+    <string name="key_status_rate_limited">Resting (busy or out of quota)</string>
+    <string name="key_status_model_invalid">Model replaced</string>
+    <string name="key_status_auth_failed">Refused once, will retry</string>
+    <string name="key_status_temporary">Temporary error, resting</string>
+    <string name="key_status_disabled">Out of work: %1$s</string>
+    <string name="key_status_unknown">Not checked yet</string>
+    <string name="key_limit_tokens">Answers up to %1$d tokens</string>
+    <string name="key_quota_forecast">Enough for about %1$d more chapters today</string>
+    <string name="key_quota_calls">%1$d calls today</string>
 </resources>

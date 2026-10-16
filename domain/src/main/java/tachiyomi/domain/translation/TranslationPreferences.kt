@@ -96,4 +96,31 @@ class TranslationPreferences(
 
     /** Inside the reader, a quick Google draft shows first and the team's translation replaces it. */
     fun translationQuickDraft() = preferenceStore.getBoolean("manhwa_translation_quick_draft", true)
+
+    /** MANHWA: each key's health (status, limits, errors, cooldown, models, use today), as JSON (see KeyHealthStore). */
+    fun translationTeamKeyHealth() = preferenceStore.getString("manhwa_translation_team_key_health", "{}")
+
+    /** When a chapter is read, its lines missing from the translation library are saved there. */
+    fun translationSaveOnRead() = preferenceStore.getBoolean("manhwa_translation_save_on_read", true)
+
+    /** When a chapter is read, its translation file, temporary images and cache are deleted (the library keeps the lines). */
+    fun translationFreeSpaceOnRead() = preferenceStore.getBoolean("manhwa_translation_free_space_on_read", true)
+
+    /** When a chapter is read, its downloaded pages are deleted too (off: downloads kept for offline reading). */
+    fun translationDeleteDownloadOnRead() = preferenceStore.getBoolean("manhwa_translation_delete_download_on_read", false)
+
+    /** Space freed by deleting read chapters' temporary files, in bytes. */
+    fun translationFreedBytes() = preferenceStore.getLong("manhwa_translation_freed_bytes", 0L)
+
+    /** The next chapter is translated by itself while reading, when the team has enough working keys. */
+    fun translationAutoPrefetch() = preferenceStore.getBoolean("manhwa_translation_auto_prefetch", true)
+
+    /** Doubtful and important lines are checked by a second key, and the better translation is kept. */
+    fun translationConsensus() = preferenceStore.getBoolean("manhwa_translation_consensus", true)
+
+    /** New chapters of library works from English sources are translated at night (charging, Wi-Fi). */
+    fun translationNightly() = preferenceStore.getBoolean("manhwa_translation_nightly", true)
+
+    /** Each chapter's translation quality (from library, by AI, reviewed, doubtful), as JSON. */
+    fun translationChapterQuality() = preferenceStore.getString("manhwa_translation_chapter_quality", "{}")
 }

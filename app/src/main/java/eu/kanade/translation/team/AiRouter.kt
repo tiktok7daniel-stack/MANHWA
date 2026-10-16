@@ -171,14 +171,20 @@ class AiRouter internal constructor(
     fun modelFor(member: TeamStore.Member, lane: Lane): String {
         if (member.model.isNotBlank()) return member.model
         // Automatic: the model picked from the key's own live list, kept up to date by the team
-        val site = KeySites.byId(member.site)
-        val auto = member.autoModel.ifBlank { site?.defaultModel.orEmpty() }
+        val site = KeySites.byId(member.siteOrGuess)
+        // MANHWA: never the provider's own default on another site (Cohere is not "gpt-4o-mini")
+        val auto = member.autoModel.takeIf { it.isNotBlank() && it !in member.deadModels }
+            ?: site?.defaultModel?.takeIf { it.isNotBlank() && it !in member.deadModels }
+            ?: member.providerEnum.defaultModel
         // Sites of their own (Mistral, Cerebras, a custom router...) have one automatic model for everything
-        val ownSite = member.site == KeySites.CUSTOM ||
+        val ownSite = member.siteOrGuess == KeySites.CUSTOM ||
             (site != null && site.protocol == eu.kanade.translation.translator.AiTranslator.Provider.OPENAI_COMPATIBLE && site.id != "openai")
+        // A light or strong model is used only while the key really has it (a dead one falls back to the automatic one)
+        val live = store.keyHealth[member.id].models
+        fun usable(model: String) = model.isNotBlank() && model !in member.deadModels && (live.isEmpty() || model in live)
         return when (lane) {
-            Lane.CHAT, Lane.BACKGROUND -> if (ownSite) auto else member.providerEnum.lightModel
-            Lane.REVIEW -> if (ownSite) auto else member.providerEnum.strongModel
+            Lane.CHAT, Lane.BACKGROUND -> if (ownSite) auto else member.providerEnum.lightModel.takeIf(::usable) ?: auto
+            Lane.REVIEW -> if (ownSite) auto else member.providerEnum.strongModel.takeIf(::usable) ?: auto
             Lane.LIVE, Lane.CHAPTER -> auto
         }
     }
@@ -264,11 +270,7 @@ class AiRouter internal constructor(
         prefer: (TeamStore.Member) -> Boolean = { true },
         block: suspend (AiTranslator) -> T,
     ): T = withContext(Dispatchers.IO) {
-        val health = store.health.value
-        val candidates = store.active()
-            .filter { prefer(it) && allowed(it, lane) }
-            // Resting keys last, then the strongest first
-            .sortedWith(compareBy<TeamStore.Member> { health[it.id]?.resting == true }.thenByDescending { store.strength(it.id) })
+        val candidates = rankedFor(lane, prefer)
         if (candidates.isEmpty()) throw NoKeyException()
         var last: Throwable? = null
         for (member in candidates) {
@@ -297,9 +299,41 @@ class AiRouter internal constructor(
         throw last ?: NoKeyException()
     }
 
+    /**
+     * MANHWA smart switching: the keys that may take [lane], best first by health, quota left, error rate,
+     * strength, speed and load ([ModelHealthManager.rank]). Disabled keys are out; keys cooling down after an
+     * error come last, only when nothing else is left.
+     */
+    fun rankedFor(lane: Lane, prefer: (TeamStore.Member) -> Boolean = { true }): List<TeamStore.Member> {
+        val health = store.health.value
+        val members = store.active().filter { prefer(it) && allowed(it, lane) }
+        val now = System.currentTimeMillis()
+        val byId = members.associateBy { it.id }
+        val ranked = ModelHealthManager.rank(
+            members.map { m ->
+                val kh = store.keyHealth[m.id]
+                val h = health[m.id]
+                ModelHealthManager.Candidate(
+                    id = m.id,
+                    status = kh.statusEnum,
+                    cooldownUntil = maxOf(kh.cooldownUntil, h?.restingUntil ?: 0L),
+                    strength = store.strength(m.id),
+                    quotaPercent = store.usage.level(m).percent,
+                    errorRate = kh.errorRate,
+                    latencyMs = h?.latencyMs ?: 0L,
+                    inFlight = synchronized(lock) { inFlight(m.id) },
+                )
+            },
+            now,
+        ).mapNotNull { byId[it.id] }
+        // Nothing ranked (all refused): keep the old order so the reader still gets the real error
+        return ranked.ifEmpty { members.sortedByDescending { store.strength(it.id) } }
+    }
+
     /** Whether another key may succeed where this one failed. */
     private fun handOver(e: Throwable): Boolean = when (e) {
-        is AiTranslator.ApiException -> e.code == 401 || e.code == 403 || e.code == 408 || e.code == 429 || e.code in 500..599
+        is AiTranslator.ApiException -> e.code == 401 || e.code == 403 || e.code == 408 || e.code == 429 || e.code in 500..599 ||
+            e.problem.let { it is ModelHealthManager.Problem.ContextTooLong || it == ModelHealthManager.Problem.ModelInvalid || it is ModelHealthManager.Problem.MaxTokens }
         is TimeoutCancellationException -> true
         is java.io.IOException -> true
         else -> false

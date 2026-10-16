@@ -49,12 +49,31 @@ class AiTranslator(
     private val apiKey: String,
     model: String,
     baseUrl: String,
-    private val maxOutputTokens: Int,
+    maxOutputTokens: Int,
     private val temperature: Float,
     private val instructions: String,
     /** Called when a retired model was replaced by a working one, so the choice can be saved. */
     private val onModelReplaced: (String) -> Unit = {},
+    /** MANHWA: the model the key's site is known to work with, preferred when a dead model is replaced. */
+    private val siteDefaultModel: String = "",
+    /** Models this key already found dead: never picked again as a replacement. */
+    knownDeadModels: Set<String> = emptySet(),
 ) : TextTranslator {
+
+    /** MANHWA: lowered by itself to what the model gives when the site says the answer may not be that long. */
+    @Volatile var maxOutputTokens: Int = maxOutputTokens
+        private set
+
+    private val deadModels: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet<String>().apply { addAll(knownDeadModels) }
+
+    /** Called with the answer limit read from the site's error, so the key keeps it. */
+    var onLimit: ((Int) -> Unit)? = null
+
+    /** Called with the context limit the site reported (null when it gave no number). */
+    var onContextLimit: ((Int?) -> Unit)? = null
+
+    /** Called with a dead model and the model that took its place. */
+    var onModelDead: ((dead: String, next: String) -> Unit)? = null
 
     enum class Provider(val defaultModel: String, val defaultBaseUrl: String) {
         GEMINI("gemini-2.5-flash", "https://generativelanguage.googleapis.com/v1beta"),
@@ -975,7 +994,7 @@ class AiTranslator(
         client.newCall(request).execute().use { response ->
             val text = response.body.string()
             onResponse?.invoke(response.code, response.headers, if (response.isSuccessful) "" else text.take(500))
-            if (!response.isSuccessful) throw ApiException(response.code, text.take(500))
+            if (!response.isSuccessful) throw ApiException(response.code, text.take(500), response.header("retry-after"))
             extractText(json.parseToJsonElement(text).jsonObject)
         }
     }
@@ -1054,14 +1073,44 @@ class AiTranslator(
     private suspend fun <T> withRetry(block: suspend () -> T): T {
         var wait = 1_000L
         var replaced = 0
+        var limited = 0
         triedFallbacks.clear()
-        repeat(MAX_ATTEMPTS + 2) { attempt ->
+        repeat(MAX_ATTEMPTS + 4) { attempt ->
             try {
                 return block()
             } catch (e: Exception) {
-                if (e is ApiException && replaced < 2 && replaceRetiredModel(e)) {
-                    replaced++
-                    return@repeat
+                // MANHWA model health: what the site said decides the cure, the same for every feature of the app
+                if (e is ApiException) {
+                    when (val problem = e.problem) {
+                        is eu.kanade.translation.team.ModelHealthManager.Problem.MaxTokens -> if (limited < 2 && problem.limit < maxOutputTokens) {
+                            limited++
+                            logcat(LogPriority.WARN) { "$model gives at most ${problem.limit} tokens, asking for that" }
+                            maxOutputTokens = problem.limit
+                            onLimit?.invoke(problem.limit)
+                            return@repeat
+                        }
+                        is eu.kanade.translation.team.ModelHealthManager.Problem.ContextTooLong -> {
+                            onContextLimit?.invoke(problem.limit)
+                            // A long answer can be what overflows: ask for a quarter of the window once
+                            val room = problem.limit?.div(4)
+                            if (limited < 2 && room != null && room in 512 until maxOutputTokens) {
+                                limited++
+                                maxOutputTokens = room
+                                onLimit?.invoke(room)
+                                return@repeat
+                            }
+                            throw e
+                        }
+                        eu.kanade.translation.team.ModelHealthManager.Problem.ModelInvalid -> if (replaced < 1 && replaceDeadModel()) {
+                            replaced++
+                            return@repeat
+                        }
+                        else -> Unit
+                    }
+                    if (replaced < 2 && replaceRetiredModel(e)) {
+                        replaced++
+                        return@repeat
+                    }
                 }
                 // MANHWA team: no waiting here, the team hands the work to another key at once
                 if (fastFail) throw e
@@ -1076,13 +1125,36 @@ class AiTranslator(
         return block()
     }
 
+    /**
+     * MANHWA: the model is gone for this key ("does not exist", "model_not_found"...): its live list is read,
+     * the dead model and any found dead before are left out, and the best one left takes its place. False when
+     * the list can't be read or holds nothing better (then the error is the key's, not the model's).
+     */
+    private suspend fun replaceDeadModel(): Boolean {
+        val dead = model
+        deadModels += dead
+        val models = runCatching { listModels() }.getOrNull().orEmpty()
+        if (models.isEmpty()) return false
+        val next = eu.kanade.translation.team.KeySites.bestModel(models, provider, siteDefaultModel, exclude = deadModels) ?: return false
+        if (next == dead) return false
+        logcat(LogPriority.WARN) { "Model $dead is not open to this key, switching to $next" }
+        model = next
+        onModelDead?.invoke(dead, next)
+        onModelReplaced(next)
+        return true
+    }
+
     override fun close() {
         // MANHWA: the client is shared, so nothing is shut down here. Closing its connections used to write to
         // the network from whatever thread called close(), which on the main thread failed every key check
         // with NetworkOnMainThreadException.
     }
 
-    class ApiException(val code: Int, body: String) : IOException("HTTP $code: ${readable(body)}") {
+    class ApiException(val code: Int, body: String, val retryAfter: String? = null) : IOException("HTTP $code: ${readable(body)}") {
+        /** What the error means for the key and its model ([eu.kanade.translation.team.ModelHealthManager]). */
+        val problem: eu.kanade.translation.team.ModelHealthManager.Problem
+            get() = eu.kanade.translation.team.ModelHealthManager.classify(code, message, retryAfter)
+
         private companion object {
             /** The provider's own error message when the body is JSON, otherwise the body. */
             fun readable(body: String): String =

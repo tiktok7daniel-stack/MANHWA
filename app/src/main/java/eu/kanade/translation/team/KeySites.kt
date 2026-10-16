@@ -157,7 +157,9 @@ object KeySites {
      * The model to use from [models] (a key's live list): the newest Gemini Flash for Gemini, else the site's
      * known good model when it is there, else the best translation model found by name.
      */
-    fun bestModel(models: List<String>, protocol: Provider, siteDefault: String): String? {
+    fun bestModel(models: List<String>, protocol: Provider, siteDefault: String, exclude: Set<String> = emptySet()): String? {
+        @Suppress("NAME_SHADOWING")
+        val models = models.filterNot { it in exclude }
         if (models.isEmpty()) return null
         if (protocol == Provider.GEMINI) {
             val flash = models.mapNotNull { id ->

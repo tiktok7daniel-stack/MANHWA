@@ -7,8 +7,8 @@ import kotlin.math.max
  *
  * A page's weight grows with its bubbles, how much text they hold, sound effects, names the glossary does not
  * know yet, and whether the model has to look at the picture. Pages are grouped into batches of about the same
- * weight (not the same number of pages), heaviest first, so the slow part starts early and the light pages
- * fill the gaps; heavy batches go to the strongest keys.
+ * weight (not the same number of pages) from pages that follow each other, so a scene is translated in one call;
+ * the batches run heaviest first, so the slow part starts early, and heavy batches go to the strongest keys.
  */
 object ChapterPlanner {
 
@@ -69,23 +69,31 @@ object ChapterPlanner {
         // Enough batches for every slot, but none so small that the call costs more than its text
         val limitWeight = if (slots > 1) (total / slots * 1.15f).coerceIn(MIN_BATCH_WEIGHT, maxWeight) else maxWeight
         val levels = weights.mapValues { level(it.value) } + emptyPages.associateWith { Level.EMPTY }
-        // First fit, heaviest pages first: every batch ends up about as heavy as the others
+        // MANHWA scene-aware batches: pages stay with the pages next to them (one scene in one call, so the model
+        // sees the whole exchange), cut when the batch is full, when pages that need the picture meet pages that
+        // don't, or at a page with no text (a scene break) once the batch has enough in it
         val open = mutableListOf<MutableList<String>>()
         val openWeight = mutableListOf<Float>()
-        for ((name, w) in weights.entries.filter { it.value > 0f }.sortedByDescending { it.value }) {
+        var current: MutableList<String>? = null
+        var currentWeight = 0f
+        for ((name, w) in weights) {
+            if (w <= 0f) {
+                if (current != null && currentWeight >= MIN_BATCH_WEIGHT / 2) current = null
+                continue
+            }
             val image = pages.getValue(name).needsImage
             val limit = if (image) maxImagePages else maxPages
-            val slot = open.indices.firstOrNull { i ->
-                val sameKind = pages.getValue(open[i].first()).needsImage == image
-                sameKind && open[i].size < limit && openWeight[i] + w <= limitWeight
+            val fits = current != null && pages.getValue(current.first()).needsImage == image &&
+                current.size < limit && currentWeight + w <= limitWeight
+            if (!fits) {
+                current = mutableListOf()
+                open += current
+                openWeight += 0f
+                currentWeight = 0f
             }
-            if (slot == null) {
-                open += mutableListOf(name)
-                openWeight += w
-            } else {
-                open[slot] += name
-                openWeight[slot] = openWeight[slot] + w
-            }
+            current!! += name
+            currentWeight += w
+            openWeight[openWeight.lastIndex] = currentWeight
         }
         val batches = open.indices.map { i ->
             val names = open[i].sortedBy { order[it] }

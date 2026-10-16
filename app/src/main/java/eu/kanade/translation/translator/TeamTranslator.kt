@@ -215,6 +215,8 @@ class TeamTranslator(
         summaries.values.forEach { lead.summaries += it }
         // OpenRouter tells the credit left on a key: read again after the chapter
         members.forEach { store.usage.refreshOpenRouter(it) }
+        // MANHWA quota meter: calls a whole chapter takes (the scout and the check included), for the forecast
+        if (lane == AiRouter.Lane.CHAPTER && done > 0) members.forEach { store.keyHealth.chapterDone(it.id, total + 2) }
     }
 
     /**

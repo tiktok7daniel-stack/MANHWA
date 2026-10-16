@@ -46,6 +46,9 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     /** How much each key has left (see [UsageMeter]). */
     val usage = UsageMeter(prefs.translationTeamUsage())
 
+    /** MANHWA: each key's health, limits and errors (see [KeyHealthStore]). */
+    val keyHealth = KeyHealthStore(prefs.translationTeamKeyHealth())
+
     /** Keys already warned about today ("almost out", "out"), so each warning comes once. */
     private val warned = ConcurrentHashMap.newKeySet<String>()
 
@@ -68,6 +71,12 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         val autoModel: String = "",
         /** When [autoModel] was last checked against the live list. */
         val modelCheckedAt: Long = 0,
+        /** MANHWA model health: the longest answer the model gives (read from the site's error), 0 = not known. */
+        val maxOutput: Int = 0,
+        /** The longest request the model reads, in tokens, 0 = not known. */
+        val contextLimit: Int = 0,
+        /** Models found dead for this key: never picked again. */
+        val deadModels: List<String> = emptyList(),
     ) {
         /** The site of this key; keys added before sites existed are told from their provider and server. */
         val siteOrGuess: String
@@ -194,6 +203,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         // A changed key or model is a different member: what was learnt about it no longer holds
         saveAnalysis(_analysis.value - member.id)
         _health.update { it - member.id }
+        keyHealth.forget(member.id)
     }
 
     fun setEnabled(id: String, enabled: Boolean) {
@@ -202,6 +212,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
     fun remove(id: String) {
         usage.forget(id)
+        keyHealth.forget(id)
         save(_members.value.filterNot { it.id == id })
         saveAnalysis(_analysis.value - id)
         _health.update { it - id }
@@ -209,7 +220,8 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
     /** The members the team works with: enabled, with a key, and not known to be broken. */
     fun active(): List<Member> = _members.value.filter { m ->
-        m.enabled && m.key.isNotBlank() && _analysis.value[m.id]?.let { it.ok || it.limited } != false && !usage.exhausted(m)
+        m.enabled && m.key.isNotBlank() && _analysis.value[m.id]?.let { it.ok || it.limited } != false && !usage.exhausted(m) &&
+            keyHealth[m.id].statusEnum != ModelHealthManager.Status.DISABLED
     }
 
     /** Strength now (1–100): the analysis, adjusted by how the member has done while translating. */
@@ -258,6 +270,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             val latency = if (old.latencyMs == 0L) latencyMs else (old.latencyMs * 0.7 + latencyMs * 0.3).toLong()
             map + (id to old.copy(latencyMs = latency, done = old.done + 1, restingUntil = 0, streak = 0))
         }
+        keyHealth.success(id, "")
     }
 
     /** A call that worked, whose time says nothing about the key's speed (chat, search, review). */
@@ -266,6 +279,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             val old = map[id] ?: Health()
             map + (id to old.copy(done = old.done + 1, restingUntil = 0, streak = 0))
         }
+        keyHealth.success(id, "")
     }
 
     /** A failed call: a busy or limited key rests for [restMs] while the others carry on. */
@@ -293,10 +307,45 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         if (error is AiTranslator.ApiException && (error.code == 400 || error.code == 404) && modelProblem(error.message)) {
             _members.value.firstOrNull { it.id == id }?.let { member -> healScope.launch { runCatching { refreshModel(member) } } }
         }
-        // A key the provider refuses (wrong or revoked) is out until it is analysed again
-        if (error is AiTranslator.ApiException && (error.code == 401 || error.code == 403)) {
+        // MANHWA key health: what went wrong is recorded; a temporary error only rests the key
+        val problem = (error as? AiTranslator.ApiException)?.problem
+            ?: if (error is java.io.IOException || error is kotlinx.coroutines.TimeoutCancellationException) ModelHealthManager.Problem.Temporary else ModelHealthManager.Problem.Other
+        val status = keyHealth.failure(id, problem, error.message)
+        // A key the provider refused twice in a row (wrong or revoked) is out until it is checked again
+        if (status == ModelHealthManager.Status.DISABLED) {
             saveAnalysis(_analysis.value + (id to Analysis(ok = false, error = error.message?.take(160))))
         }
+    }
+
+    /** MANHWA: the answer limit the site reported for [id]'s model, kept so no call asks for more again. */
+    private fun setLimit(id: String, limit: Int) {
+        save(_members.value.map { if (it.id == id) it.copy(maxOutput = limit) else it })
+        keyHealth.edit(id) { it.copy(maxTokens = limit) }
+    }
+
+    private fun setContextLimit(id: String, limit: Int?) {
+        if (limit == null) return
+        save(_members.value.map { if (it.id == id) it.copy(contextLimit = limit) else it })
+        keyHealth.edit(id) { it.copy(contextLimit = limit) }
+    }
+
+    /** [dead] is not open to [id]: remembered, a model chosen by hand that died goes back to automatic. */
+    private fun markDead(id: String, dead: String, next: String) {
+        save(
+            _members.value.map {
+                if (it.id != id) {
+                    it
+                } else {
+                    it.copy(
+                        model = if (it.model == dead) "" else it.model,
+                        autoModel = next,
+                        modelCheckedAt = System.currentTimeMillis(),
+                        deadModels = (it.deadModels + dead).distinct().takeLast(20),
+                    )
+                }
+            },
+        )
+        keyHealth.edit(id) { it.copy(model = next, status = ModelHealthManager.Status.ACTIVE.name) }
     }
 
     /** A translator for [member], set the way the reader set translation (instructions, temperature…). */
@@ -317,12 +366,18 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             member.providerEnum == AiTranslator.Provider.OPENAI_COMPATIBLE -> prefs.translationEngineBaseUrl().get().trim()
             else -> ""
         },
-        maxOutputTokens = prefs.translationEngineMaxOutputTokens().get().toIntOrNull() ?: 16000,
+        maxOutputTokens = (prefs.translationEngineMaxOutputTokens().get().toIntOrNull() ?: 16000)
+            .let { wanted -> if (member.maxOutput > 0) wanted.coerceAtMost(member.maxOutput) else wanted },
         temperature = prefs.translationEngineTemperature().get().toFloatOrNull() ?: 0.4f,
         instructions = prefs.translationInstructions().get(),
         // A model the site retired is replaced by itself: the automatic choice follows
         onModelReplaced = { next -> if (member.model.isBlank()) setAutoModel(member.id, next) },
+        siteDefaultModel = KeySites.byId(member.siteOrGuess)?.defaultModel.orEmpty(),
+        knownDeadModels = member.deadModels.toSet(),
     ).apply {
+        onLimit = { limit -> setLimit(member.id, limit) }
+        onContextLimit = { limit -> setContextLimit(member.id, limit) }
+        onModelDead = { dead, next -> markDead(member.id, dead, next) }
         onResponse = { code, headers, body ->
             usage.record(member, code, headers, body)
             warnIfLow(member)
@@ -359,14 +414,15 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     suspend fun refreshModel(member: Member): Member = withContext(Dispatchers.IO) {
         val models = runCatching { fetchModels(member) }.onFailure { logcat(LogPriority.WARN, it) { "Models of ${member.displayName} not read" } }
             .getOrNull() ?: return@withContext member
-        val site = KeySites.byId(member.site)
-        val best = KeySites.bestModel(models, member.providerEnum, site?.defaultModel ?: member.providerEnum.defaultModel)
+        val site = KeySites.byId(member.siteOrGuess)
+        val best = KeySites.bestModel(models, member.providerEnum, site?.defaultModel ?: member.providerEnum.defaultModel, exclude = member.deadModels.toSet())
         val manualGone = member.model.isNotBlank() && models.isNotEmpty() && member.model !in models
         val updated = member.copy(
             model = if (manualGone) "" else member.model,
             autoModel = best ?: member.autoModel,
             modelCheckedAt = System.currentTimeMillis(),
         )
+        keyHealth.edit(member.id) { it.copy(models = models.take(200), lastChecked = System.currentTimeMillis()) }
         if (manualGone) logcat(LogPriority.WARN) { "Model ${member.model} is gone from ${member.displayName}, back to automatic ($best)" }
         save(_members.value.map { if (it.id == member.id) updated else it })
         updated
@@ -377,6 +433,72 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         val now = System.currentTimeMillis()
         _members.value.filter { it.enabled && it.key.isNotBlank() && (force || now - it.modelCheckedAt > MODEL_CHECK_MS) }
             .forEach { refreshModel(it) }
+    }
+
+    /** What [checkAll] found: keys that work, keys it repaired (model, limit or site), and keys still broken with why. */
+    data class CheckSummary(val working: Int, val fixed: List<String>, val broken: List<Pair<String, String>>, val total: Int)
+
+    /**
+     * MANHWA "check and fix all keys": for every key, the site is told from the key and its address, the live
+     * model list is read, the best model is picked (dead ones left out), a tiny real request is made (which also
+     * lowers the answer limit or replaces the model when the site complains), what the key can do is noted, and
+     * its health is saved. Nothing is deleted: a key that still fails only shows why.
+     */
+    suspend fun checkAll(onProgress: (done: Int, total: Int, name: String) -> Unit = { _, _, _ -> }): CheckSummary = withContext(Dispatchers.IO) {
+        val list = _members.value.filter { it.key.isNotBlank() }
+        val fixed = mutableListOf<String>()
+        val broken = mutableListOf<Pair<String, String>>()
+        var working = 0
+        list.forEachIndexed { index, original ->
+            val name = "${original.displayName} ${original.key.takeLast(4)}"
+            onProgress(index, list.size, name)
+            // 1. The site, from how the key looks and where it points
+            val site = original.site.ifBlank {
+                KeySites.forKey(original.key)?.takeIf { it.protocol == original.providerEnum }?.id
+                    ?: original.baseUrl.takeIf { it.isNotBlank() }?.let { KeySites.byUrl(it)?.id }
+                    ?: ""
+            }
+            var member = if (site != original.site) original.copy(site = site).also { m -> save(_members.value.map { if (it.id == m.id) m else it }) } else original
+            // 2–3. The live models and the best of them
+            member = refreshModel(member)
+            // 4. A tiny real request: heals the answer limit and a dead model by itself
+            val result = analyzeNow(member)
+            val now = _members.value.firstOrNull { it.id == member.id } ?: member
+            val model = router.modelFor(now, AiRouter.Lane.CHAPTER)
+            // 5. What the key can do
+            val vision = readsImages(now.providerEnum, model)
+            val web = now.providerEnum == AiTranslator.Provider.GEMINI || now.providerEnum == AiTranslator.Provider.CLAUDE ||
+                now.providerEnum == AiTranslator.Provider.OPENROUTER
+            // 6. Its health
+            if (result.ok) {
+                working++
+                keyHealth.edit(now.id) {
+                    it.copy(
+                        status = ModelHealthManager.Status.ACTIVE.name,
+                        model = model,
+                        lastChecked = System.currentTimeMillis(),
+                        lastSuccess = System.currentTimeMillis(),
+                        authStrikes = 0,
+                        streak = 0,
+                        cooldownUntil = 0,
+                        disabledReason = null,
+                        vision = vision,
+                        webSearch = web,
+                    )
+                }
+                val changed = now.site != original.site || now.maxOutput != original.maxOutput ||
+                    router.modelFor(original, AiRouter.Lane.CHAPTER) != model
+                if (changed) fixed += name
+            } else {
+                val code = Regex("HTTP (\\d{3})").find(result.error.orEmpty())?.groupValues?.get(1)?.toIntOrNull()
+                val problem = ModelHealthManager.classify(code, result.error)
+                keyHealth.failure(now.id, problem, result.error)
+                keyHealth.edit(now.id) { it.copy(lastChecked = System.currentTimeMillis(), vision = vision, webSearch = web) }
+                broken += name to (result.error ?: "")
+            }
+        }
+        onProgress(list.size, list.size, "")
+        CheckSummary(working, fixed, broken, list.size)
     }
 
     /** What a pasted site address turned out to be: its API server, the protocol it speaks and its models. */
