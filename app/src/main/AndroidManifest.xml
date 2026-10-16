@@ -215,6 +215,19 @@
             android:name=".data.notification.NotificationReceiver"
             android:exported="false" />
 
+        <!-- MANHWA: continue-reading widget -->
+        <receiver
+            android:name="eu.kanade.translation.widget.ManhwaContinueWidget"
+            android:exported="false"
+            android:label="@string/manhwa_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/manhwa_widget_info" />
+        </receiver>
+
         <service
             android:name=".extension.util.ExtensionInstallService"
             android:exported="false"

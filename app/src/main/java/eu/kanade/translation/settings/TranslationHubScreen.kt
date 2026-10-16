@@ -393,6 +393,21 @@ class TranslationHubScreen : Screen() {
                     item {
                         HubSection(stringResource(ATMR.strings.th_section_knowledge), MaterialSymbols.Rounded.Psychology) {
                             HubNavRow(
+                                icon = MaterialSymbols.Rounded.Psychology,
+                                title = stringResource(ATMR.strings.health_title),
+                                info = stringResource(ATMR.strings.health_subtitle),
+                                value = null,
+                                onClick = { navigator.push(eu.kanade.translation.health.HealthDashboardScreen()) },
+                            )
+                            HubDivider()
+                            HubNavRow(
+                                icon = MaterialSymbols.Rounded.CollectionsBookmark,
+                                title = stringResource(ATMR.strings.tsearch_title),
+                                info = stringResource(ATMR.strings.tsearch_subtitle),
+                                onClick = { navigator.push(eu.kanade.translation.search.TranslationSearchScreen()) },
+                            )
+                            HubDivider()
+                            HubNavRow(
                                 icon = MaterialSymbols.Rounded.CollectionsBookmark,
                                 title = stringResource(ATMR.strings.col_title),
                                 info = stringResource(ATMR.strings.info_collection),

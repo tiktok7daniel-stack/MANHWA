@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MANHWA widget: dark obsidian glass with a glowing crimson edge -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:angle="135" android:startColor="#F2160A0E" android:centerColor="#F20B0709" android:endColor="#F2060204" />
+    <stroke android:width="1.5dp" android:color="#99E5173F" />
+    <corners android:radius="26dp" />
+</shape>

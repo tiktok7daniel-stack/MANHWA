@@ -142,6 +142,8 @@ class TranslationTeamScreen : Screen() {
                     subtitle = stringResource(ATMR.strings.team_subtitle),
                     onBack = navigator::pop,
                 ) {
+                    // MANHWA: everything that keeps itself alive, on one screen
+                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.Verified, size = 36) { navigator.push(eu.kanade.translation.health.HealthDashboardScreen()) }
                     InfoButton(stringResource(ATMR.strings.team_title), stringResource(ATMR.strings.info_team))
                 }
                 LazyColumn(

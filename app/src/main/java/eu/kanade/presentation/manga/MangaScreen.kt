@@ -433,6 +433,10 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
+                    // MANHWA: back after two weeks, the story so far
+                    item(key = "manhwa_return_recap") {
+                        eu.kanade.translation.characters.ReturnRecapCard(state.manga.id)
+                    }
                     // MANHWA: the cast of the work, in glass cards
                     item(key = "manhwa_characters") {
                         eu.kanade.translation.characters.CharacterGallery(state.manga.id, state.manga.title)
@@ -661,6 +665,7 @@ fun MangaScreenLargeImpl(
                             onEditNotes = onEditNotesClicked,
                         )
                         eu.kanade.translation.characters.CharacterGallery(state.manga.id, state.manga.title)
+                        eu.kanade.translation.characters.ReturnRecapCard(state.manga.id)
                     }
                 },
                 endContent = {

@@ -207,3 +207,32 @@ class TranslationLogicTest {
         cast.sortedBy { CastRules.roleOrder(it.role) }.first().id shouldBe 2
     }
 }
+
+class ManhwaFeaturesTest {
+
+    @Test
+    fun `missing chapters are whole-number gaps only`() {
+        eu.kanade.tachiyomi.ui.manga.ChapterGaps.missing(listOf(1.0, 2.0, 3.0, 4.0, 6.0, 7.0, 8.0, 9.0, 10.0)) shouldBe listOf(5)
+        eu.kanade.tachiyomi.ui.manga.ChapterGaps.missing(listOf(1.0, 1.5, 2.0, 3.0)) shouldBe emptyList()
+        // Numbered by volume (huge jumps): not missing chapters
+        eu.kanade.tachiyomi.ui.manga.ChapterGaps.missing(listOf(1.0, 100.0, 200.0, 300.0)) shouldBe emptyList()
+        eu.kanade.tachiyomi.ui.manga.ChapterGaps.describe(listOf(3, 4, 5, 9)) shouldBe "3–5, 9"
+    }
+
+    @Test
+    fun `glossary pack round trip and foreign files refused`() {
+        val entries = listOf(eu.kanade.translation.glossary.GlossaryStore.Entry("Sung Jinwoo", "سونغ جين وو", kind = "character", gender = "male"))
+        val text = eu.kanade.translation.glossary.GlossaryPack.encode(entries, emptyList())
+        eu.kanade.translation.glossary.GlossaryPack.decode(text)?.entries shouldBe entries
+        eu.kanade.translation.glossary.GlossaryPack.decode("{}") shouldBe null
+        eu.kanade.translation.glossary.GlossaryPack.decode("not json") shouldBe null
+    }
+
+    @Test
+    fun `chapter quality score`() {
+        val report = eu.kanade.translation.team.ChapterQuality.Report(fromLibrary = 60, byAi = 40, doubtful = listOf("a", "b", "c", "d"))
+        report.libraryPercent shouldBe 60
+        report.score shouldBe 96
+        eu.kanade.translation.team.ChapterQuality.Report().score shouldBe 0
+    }
+}

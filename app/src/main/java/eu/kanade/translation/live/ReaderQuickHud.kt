@@ -59,6 +59,9 @@ import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.rounded.VisibilityOff
 import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
+import mihon.icons.materialsymbols.rounded.RecordVoiceOver
+import mihon.icons.materialsymbols.rounded.School
+import mihon.icons.materialsymbols.rounded.Verified
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -84,6 +87,12 @@ fun ReaderQuickHud(
     onSwapSource: () -> Unit,
     onRecap: () -> Unit,
     modifier: Modifier = Modifier,
+    /** MANHWA: the chapter's quality score (null when it was not translated by the team). */
+    quality: Int? = null,
+    onQuality: () -> Unit = {},
+    speaking: Boolean = false,
+    onSpeak: () -> Unit = {},
+    onStudy: () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     AnimatedVisibility(
@@ -119,6 +128,21 @@ fun ReaderQuickHud(
                 HudButton(MaterialSymbols.Rounded.AutoStories, stringResource(ATMR.strings.hud_recap), false) {
                     onDismiss()
                     onRecap()
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            // Read aloud and the chapter's quality badge
+            Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+                HudButton(MaterialSymbols.Rounded.RecordVoiceOver, stringResource(ATMR.strings.hud_speak), speaking) { onSpeak() }
+                HudButton(MaterialSymbols.Rounded.School, stringResource(ATMR.strings.hud_study), false) {
+                    onDismiss()
+                    onStudy()
+                }
+                if (quality != null) {
+                    HudButton(MaterialSymbols.Rounded.Verified, "${stringResource(ATMR.strings.hud_quality)} $quality%", quality >= 85) {
+                        onDismiss()
+                        onQuality()
+                    }
                 }
             }
             Spacer(Modifier.height(6.dp))

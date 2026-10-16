@@ -298,6 +298,13 @@ class ReaderActivity : BaseActivity() {
             var orbOpen by remember { mutableStateOf(false) }
             var hudOpen by remember { mutableStateOf(false) }
             var showRecap by remember { mutableStateOf(false) }
+            // MANHWA: the chapter's quality report, and the bubbles read aloud
+            var showQuality by remember { mutableStateOf(false) }
+            var showStudy by remember { mutableStateOf(false) }
+            val chapterIdNow = state.viewerChapters?.currChapter?.chapter?.id
+            val qualityStore = remember { eu.kanade.translation.team.ChapterQuality(appGraph.translationPreferences.translationChapterQuality()) }
+            val quality = remember(chapterIdNow, hudOpen, showQuality) { chapterIdNow?.let { qualityStore[it] } }
+            val speaking by speaker.speaking.collectAsState()
             var scrolling by rememberSaveable { mutableStateOf(false) }
             val editStore = remember { appGraph.translationEditStore }
             val editing by editStore.editing.collectAsState()
@@ -407,11 +414,26 @@ class ReaderActivity : BaseActivity() {
                 onSpeed = readerPreferences.autoScrollSpeed::set,
                 onSwapSource = ::openSourceSwap,
                 onRecap = { showRecap = true },
+                quality = quality?.score,
+                onQuality = { showQuality = true },
+                speaking = speaking,
+                onSpeak = { toggleSpeaking() },
+                onStudy = { showStudy = true },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(bottom = if (state.menuVisible) 220.dp else 110.dp),
             )
+            if (showStudy) {
+                eu.kanade.translation.study.StudySheet(currentReaderPage()?.translation, state.manga?.title.orEmpty()) { showStudy = false }
+            }
+            if (showQuality && quality != null && chapterIdNow != null) {
+                eu.kanade.translation.team.ChapterQualitySheet(
+                    report = quality,
+                    onCorrect = { source, translated -> saveCorrection(chapterIdNow, source, translated) },
+                    onDismiss = { showQuality = false },
+                )
+            }
             val toggleEvent by translationToggle.collectAsState()
             TranslationToggleChip(toggleEvent)
             val flashAt by focusFlash.collectAsState()
@@ -502,6 +524,9 @@ class ReaderActivity : BaseActivity() {
      */
     override fun onDestroy() {
         super.onDestroy()
+        if (speakerLazy.isInitialized()) speaker.shutdown()
+        // MANHWA: the home-screen widget shows the chapter just read
+        eu.kanade.translation.widget.ManhwaContinueWidget.refresh(applicationContext)
         viewModel.state.value.viewer?.destroy()
         config = null
         menuToggleToast?.cancel()
@@ -856,6 +881,59 @@ class ReaderActivity : BaseActivity() {
      * Called from the viewer whenever a [page] is marked as active. It updates the values of the
      * bottom menu and delegates the change to the presenter.
      */
+    /** MANHWA read aloud: the page's translated bubbles, then the next page by itself. */
+    private val speakerLazy = lazy {
+        eu.kanade.translation.speech.BubbleSpeaker(this).apply {
+            onPageDone = { runOnUiThread { speakNextPage() } }
+        }
+    }
+    private val speaker by speakerLazy
+
+    private fun currentReaderPage(): ReaderPage? {
+        val state = viewModel.state.value
+        return state.viewerChapters?.currChapter?.pages?.getOrNull(state.currentPage - 1)
+    }
+
+    private fun toggleSpeaking() {
+        if (speaker.speaking.value) {
+            speaker.stop()
+            return
+        }
+        speaker.speak(currentReaderPage()?.translation)
+        lifecycleScope.launch {
+            kotlinx.coroutines.delay(1_500)
+            if (speaker.speaking.value && !speaker.available()) {
+                speaker.stop()
+                toast(stringResource(tachiyomi.i18n.at.ATMR.strings.hud_speak_missing))
+            }
+        }
+    }
+
+    private fun speakNextPage() {
+        if (!speaker.speaking.value) return
+        val state = viewModel.state.value
+        val pages = state.viewerChapters?.currChapter?.pages ?: return speaker.stop()
+        val next = pages.getOrNull(state.currentPage) ?: return speaker.stop()
+        state.viewer?.moveToPage(next)
+        speaker.speak(next.translation)
+    }
+
+    /** A doubtful line corrected from the quality sheet: saved in the translation library as the reader's own. */
+    private fun saveCorrection(chapterId: Long, source: String, translated: String) {
+        val manga = viewModel.manga ?: return
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val prefs = appGraph.translationPreferences
+            val src = eu.kanade.translation.recognizer.TextRecognizerLanguage.fromPref(prefs.translateFromLanguage()).name
+            val tgt = eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(prefs.translateToLanguage()).name
+            appGraph.translationCollection.learn(
+                src, tgt, manga.id, appGraph.glossaryStore.asMap(manga.id),
+                listOf(eu.kanade.translation.collection.TranslationCollection.Line(source, translated, "")),
+                eu.kanade.translation.collection.TranslationCollection.Source.USER,
+            )
+            eu.kanade.translation.team.ChapterQuality(prefs.translationChapterQuality()).resolve(chapterId, source)
+        }
+    }
+
     fun onPageSelected(page: ReaderPage) {
         viewModel.onPageSelected(page)
     }

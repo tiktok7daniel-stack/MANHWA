@@ -1,6 +1,7 @@
 package eu.kanade.translation
 
 import java.util.concurrent.ConcurrentHashMap
+import mihon.app.di.appGraph
 import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -218,6 +219,8 @@ class TranslationManager(
             if (translator.queueState.value.any { it.chapter.id == chapter.id && TranslationJob.active(it.status) }) continue
             val file = runCatching { provider.findTranslationFile(chapter.name, chapter.scanlator, manga.title, source) }.getOrNull() ?: continue
             val pages = runCatching { Json.decodeFromStream<Map<String, PageTranslation>>(file.openInputStream()) }.getOrNull() ?: continue
+            // Its lines stay searchable after the file goes
+            runCatching { context.appGraph.translationSearchIndex.index(manga.id, manga.title, chapter.id, chapter.name, pages) }
             var saved = true
             if (translationPreferences.translationSaveOnRead().get() && translationPreferences.translationCollection().get()) {
                 val lines = pages.values.flatMap { it.blocks }

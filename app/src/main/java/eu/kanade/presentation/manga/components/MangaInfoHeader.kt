@@ -300,6 +300,10 @@ fun ExpandableMangaDescription(
                 modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
             )
         }
+        // MANHWA: the series' source is down, or chapters are missing: a working source is one tap away
+        if (mangaId != null) {
+            ManhwaSourceCards(mangaId)
+        }
         // MANHWA: a newer chapter on another of the reader's sources
         if (mangaId != null) {
             eu.kanade.tachiyomi.ui.manga.SourceRadar(
@@ -781,4 +785,17 @@ private fun RowScope.MangaActionButton(
             )
         }
     }
+}
+
+@Composable
+private fun ManhwaSourceCards(mangaId: Long) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val manga by androidx.compose.runtime.produceState<tachiyomi.domain.manga.model.Manga?>(null, mangaId) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { context.appGraph.getMangaById.await(mangaId) }.getOrNull()
+        }
+    }
+    val m = manga ?: return
+    eu.kanade.tachiyomi.ui.manga.SourceDownCard(m.id, m.source, m.favorite, Modifier.padding(horizontal = 16.dp).padding(top = 10.dp))
+    eu.kanade.tachiyomi.ui.manga.ChapterGapsCard(m.id, m.favorite, Modifier.padding(horizontal = 16.dp).padding(top = 10.dp))
 }

@@ -1,5 +1,6 @@
 package eu.kanade.translation
 
+import mihon.app.di.appGraph
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
@@ -704,6 +705,13 @@ class ChapterTranslator(
                         .filter { it.translation.isNotBlank() && !(skipSfx && it.kind.equals(PageOcr.SFX, ignoreCase = true)) }
                         .map { TranslationCollection.Line(it.text, it.translation, it.kind) }
                     collection.learn(src, tgt, translation.manga.id, glossaryStore.asMap(translation.manga.id), lines, TranslationCollection.Source.TEAM)
+                }
+            }
+            // MANHWA: the chapter's lines can be searched later from the search in translations
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    context.appGraph.translationSearchIndex
+                        .index(translation.manga.id, translation.manga.title, translation.chapter.id, translation.chapter.name, pages)
                 }
             }
             translation.status = Translation.State.TRANSLATED

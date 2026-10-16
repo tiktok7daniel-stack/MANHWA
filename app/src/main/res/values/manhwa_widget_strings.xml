@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manhwa_widget_label">MANHWA · Continue reading</string>
+    <string name="manhwa_widget_description">The last work you read, one tap from where you stopped, and how many chapters are translated and waiting.</string>
+    <string name="manhwa_widget_continue">Continue</string>
+    <string name="manhwa_widget_empty">Open a manhwa to start</string>
+    <string name="manhwa_widget_chapter">Chapter %1$s</string>
+    <string name="manhwa_widget_ready">Chapter %1$s · %2$d translated and waiting</string>
+</resources>

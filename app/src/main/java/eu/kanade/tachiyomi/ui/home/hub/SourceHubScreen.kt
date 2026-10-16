@@ -71,6 +71,7 @@ import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
+import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Refresh
 import tachiyomi.core.common.i18n.stringResource
@@ -268,6 +269,19 @@ class SourceHubScreen : Screen() {
                             )
                             entry.reason?.let {
                                 Text(it, color = Color.White.copy(alpha = 0.5f), style = MaterialTheme.typography.labelSmall, maxLines = 3)
+                            }
+                            // Works of the library on this source: moved to a working one with their progress
+                            val graphContext = androidx.compose.ui.platform.LocalContext.current
+                            val works by androidx.compose.runtime.produceState(emptyList<Long>(), sourceId) {
+                                value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    runCatching { graphContext.appGraphFavorites(sourceId) }.getOrDefault(emptyList())
+                                }
+                            }
+                            if (works.isNotEmpty()) {
+                                ManhwaKit.GhostButton("${stringResource(ATMR.strings.hub_move_works)} (${works.size})", icon = MaterialSymbols.Rounded.Refresh) {
+                                    hiddenInfoRequest.value = null
+                                    navigator.push(mihon.feature.migration.config.MigrationConfigScreen(works))
+                                }
                             }
                         }
                     },
@@ -1245,3 +1259,7 @@ class SourceHubScreen : Screen() {
         val hiddenInfoRequest = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
     }
 }
+
+/** Library series read from [sourceId]. */
+private suspend fun android.content.Context.appGraphFavorites(sourceId: Long): List<Long> =
+    appGraph.getFavorites.await().filter { it.source == sourceId }.map { it.id }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manhwa_widget_label">MANHWA · كمّل القراية</string>
+    <string name="manhwa_widget_description">آخر عمل قريته، بضغطة من المكان اللي وقفت عنده، وعدد الفصول المترجمة اللي مستنياك.</string>
+    <string name="manhwa_widget_continue">كمّل</string>
+    <string name="manhwa_widget_empty">افتح مانهوا عشان تبدأ</string>
+    <string name="manhwa_widget_chapter">الفصل %1$s</string>
+    <string name="manhwa_widget_ready">الفصل %1$s · %2$d مترجم ومستنيك</string>
+</resources>

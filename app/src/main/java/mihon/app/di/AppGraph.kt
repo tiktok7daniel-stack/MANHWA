@@ -113,6 +113,8 @@ interface AppGraph : ViewModelGraph {
     val manhwaVault: eu.kanade.tachiyomi.data.backup.vault.ManhwaVault
     val sourceHealthManager: eu.kanade.tachiyomi.ui.home.discover.SourceHealthManager
     val characterStore: eu.kanade.translation.characters.CharacterStore
+    val getHistory: tachiyomi.domain.history.interactor.GetHistory
+    val translationSearchIndex: eu.kanade.translation.search.TranslationSearchIndex
 
     val crashLogUtil: CrashLogUtil
 
