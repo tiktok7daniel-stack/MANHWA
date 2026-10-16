@@ -1,5 +1,8 @@
 package eu.kanade.translation.study
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,7 +48,21 @@ import tachiyomi.presentation.core.i18n.stringResource
 fun StudySheet(page: PageTranslation?, title: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val list = remember { StudyList(context) }
-    val saved = remember { mutableStateListOf<String>().apply { addAll(list.all().map { it.original }) } }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // The study list file is read and written off the main thread
+    val saved = remember { mutableStateListOf<String>() }
+    var items by remember { androidx.compose.runtime.mutableStateOf<List<StudyList.Item>>(emptyList()) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val all = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { list.all() }
+        saved.addAll(all.map { it.original })
+        items = all.reversed()
+    }
+    fun change(edit: () -> Unit) {
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            edit()
+            items = list.all().reversed()
+        }
+    }
     val blocks = page?.blocks.orEmpty().filter { it.text.isNotBlank() && it.translation.isNotBlank() }
         .sortedWith(compareBy({ it.y.toInt() / 40 }, { -it.x }))
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF0B0709)) {
@@ -85,18 +102,17 @@ fun StudySheet(page: PageTranslation?, title: String, onDismiss: () -> Unit) {
                             .clip(CircleShape)
                             .clickable {
                                 if (on) {
-                                    list.remove(b.text)
                                     saved.remove(b.text)
+                                    change { list.remove(b.text) }
                                 } else {
-                                    list.add(StudyList.Item(b.text, b.translation, title))
                                     saved.add(b.text)
+                                    change { list.add(StudyList.Item(b.text, b.translation, title)) }
                                 }
                             }
                             .padding(5.dp),
                     )
                 }
             }
-            val items = remember(saved.size) { list.all().reversed() }
             if (items.isNotEmpty()) {
                 Text(stringResource(ATMR.strings.study_saved, items.size), color = Color.White, fontWeight = FontWeight.Bold)
                 items.take(50).forEach { item ->

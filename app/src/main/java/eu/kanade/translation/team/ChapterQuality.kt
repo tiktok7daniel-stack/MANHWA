@@ -70,6 +70,6 @@ class ChapterQuality(private val pref: Preference<String>) {
     }
 
     private companion object {
-        const val KEEP = 400
+        const val KEEP = 150
     }
 }

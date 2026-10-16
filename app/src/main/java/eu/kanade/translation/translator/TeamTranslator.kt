@@ -174,7 +174,23 @@ class TeamTranslator(
                     launch {
                         while (true) {
                             val batch = take(member, vision) ?: break
-                            val translator = store.translatorFor(member, fromLang, toLang, lane).also(::shareSettings)
+                            // Built under the permit: if it can't be built, the permit and the batch go back
+                            val translator = try {
+                                store.translatorFor(member, fromLang, toLang, lane).also(::shareSettings)
+                            } catch (e: Exception) {
+                                if (e is CancellationException) {
+                                    store.router.release(member.id, lane)
+                                    throw e
+                                }
+                                logcat(LogPriority.WARN, e) { "Team key ${member.provider} could not start" }
+                                store.router.release(member.id, lane)
+                                lock.withLock {
+                                    inFlight--
+                                    working[member.id] = ((working[member.id] ?: 1) - 1).coerceAtLeast(0)
+                                    queue.addFirst(batch)
+                                }
+                                break
+                            }
                             if (lane != AiRouter.Lane.LIVE) translator.recentLines = contextBefore(batch.pages.minOf { order.getValue(it) })
                             val part = batch.pages.associateWithTo(mutableMapOf()) { pages.getValue(it) }
                             val partImages = if (vision) images.filterKeys { it in batch.pages } else emptyMap()

@@ -52,11 +52,14 @@ fun UnifiedWorkCard(manga: Manga, modifier: Modifier = Modifier) {
     val graph = remember { context.appGraph }
     if (!manga.favorite || !graph.translationPreferences.translationUnifiedSources().get()) return
     val scope = rememberCoroutineScope()
-    var links by remember(manga.id) { mutableStateOf(graph.unifiedSources.linksOf(manga.id)) }
+    // Read off the main thread (the first read loads the links file and the sources)
+    var links by remember(manga.id) { mutableStateOf<List<UnifiedSources.Link>>(emptyList()) }
     var missing by remember(manga.id) { mutableStateOf<List<UnifiedSources.AltChapter>?>(null) }
     var loading by remember(manga.id) { mutableStateOf(false) }
     LaunchedEffect(manga.id) {
-        links = runCatching { graph.unifiedSources.discover(manga) }.getOrDefault(links)
+        val unified = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { graph.unifiedSources }
+        links = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { unified.linksOf(manga.id) }
+        links = runCatching { unified.discover(manga) }.getOrDefault(links)
     }
     if (links.isEmpty()) return
     Column(

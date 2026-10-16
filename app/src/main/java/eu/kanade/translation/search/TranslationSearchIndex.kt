@@ -75,6 +75,8 @@ class TranslationSearchIndex(context: Context) {
                         )
                     }
                 }
+                // Bounded: the oldest lines leave once the index holds [MAX_ROWS] (search stays quick)
+                db.execSQL("DELETE FROM lines WHERE id <= (SELECT MAX(id) FROM lines) - $MAX_ROWS")
                 db.setTransactionSuccessful()
             } finally {
                 db.endTransaction()
@@ -111,5 +113,6 @@ class TranslationSearchIndex(context: Context) {
         const val DB_NAME = "manhwa_translation_search.db"
         const val DB_VERSION = 1
         const val MAX_TEXT = 600
+        private const val MAX_ROWS = 150_000
     }
 }

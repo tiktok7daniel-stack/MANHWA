@@ -254,7 +254,7 @@ class FreshChaptersViewModel(
         favoriteDrops.archive
             .onEach { list -> _state.update { it.copy(drops = list) } }
             .launchIn(viewModelScope)
-        if (engine.isStale()) refresh()
+        viewModelScope.launch(Dispatchers.IO) { if (engine.isStaleLoaded()) engine.refresh() }
     }
 
     fun refresh() {

@@ -92,10 +92,15 @@ object ScanlationRenderer {
      * the OCR of a background translation: the webtoon viewer prepares several tall pages at once, and doing
      * all that image work together runs out of memory.
      */
-    suspend fun bake(context: Context, source: BufferedSource, translation: PageTranslation): BufferedSource? =
-        HeavyWork.reader {
+    suspend fun bake(context: Context, source: BufferedSource, translation: PageTranslation): BufferedSource? {
+        // The page scrolled away: drawing stops at the next bubble and frees the reader's turn
+        val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+        val stop = { job?.isActive == false }
+        return HeavyWork.reader {
             try {
-                bakeNow(context, source, translation)
+                bakeNow(context, source, translation, stop)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: OutOfMemoryError) {
                 cache.evictAll()
                 logcat(LogPriority.ERROR, e) { "Out of memory drawing the translation; showing the original page" }
@@ -105,13 +110,14 @@ object ScanlationRenderer {
                 null
             }
         }
+    }
 
-    private fun bakeNow(context: Context, source: BufferedSource, translation: PageTranslation): BufferedSource? {
+    private fun bakeNow(context: Context, source: BufferedSource, translation: PageTranslation, stop: () -> Boolean): BufferedSource? {
         if (translation.blocks.none { it.translation.isNotBlank() }) return null
         val style = style(context)
         val bytes = source.peek().readByteArray()
         val key = "${bytes.size}|${bytes.contentHashCodeSample()}|${translation.imgWidth}|${translation.blocks.hashCode()}|$style"
-        val out = cache.get(key) ?: renderSafely(context, bytes, translation, style)
+        val out = cache.get(key) ?: renderSafely(context, bytes, translation, style, stop)
             .onFailure { logcat(LogPriority.ERROR, it) { "Could not draw the translation into the page" } }
             .getOrNull()
             ?.also { cache.put(key, it) }
@@ -131,11 +137,13 @@ object ScanlationRenderer {
     }
 
     /** Tries full quality first; on low memory, again at half and then quarter resolution. */
-    private fun renderSafely(context: Context, bytes: ByteArray, page: PageTranslation, style: Style): Result<ByteArray?> {
+    private fun renderSafely(context: Context, bytes: ByteArray, page: PageTranslation, style: Style, stop: () -> Boolean): Result<ByteArray?> {
         var last: Throwable? = null
         for (extra in intArrayOf(1, 2, 4)) {
             try {
-                return Result.success(render(context, bytes, page, style, extra))
+                return Result.success(render(context, bytes, page, style, extra, stop))
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: OutOfMemoryError) {
                 last = e
                 System.gc()
@@ -146,7 +154,7 @@ object ScanlationRenderer {
         return Result.failure(last ?: IllegalStateException("render failed"))
     }
 
-    private fun render(context: Context, bytes: ByteArray, page: PageTranslation, style: Style, extraSample: Int): ByteArray? {
+    private fun render(context: Context, bytes: ByteArray, page: PageTranslation, style: Style, extraSample: Int, stop: () -> Boolean): ByteArray? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
@@ -162,7 +170,7 @@ object ScanlationRenderer {
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
         try {
             val scale = bitmap.width / (if (page.imgWidth > 0f) page.imgWidth else bounds.outWidth.toFloat())
-            Studio(context, bitmap, scale, style).draw(page)
+            Studio(context, bitmap, scale, style, stop).draw(page)
             return ByteArrayOutputStream((bytes.size / 3).coerceAtLeast(64 * 1024)).use {
                 bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it)
                 it.toByteArray()
@@ -172,7 +180,13 @@ object ScanlationRenderer {
         }
     }
 
-    private class Studio(private val context: Context, private val bitmap: Bitmap, private val s: Float, private val style: Style) {
+    private class Studio(
+        private val context: Context,
+        private val bitmap: Bitmap,
+        private val s: Float,
+        private val style: Style,
+        private val stop: () -> Boolean = { false },
+    ) {
 
         private val canvas = Canvas(bitmap)
         private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -185,6 +199,7 @@ object ScanlationRenderer {
         fun draw(page: PageTranslation) {
             // 1. Cleaning, every bubble first, so free space is measured on the cleaned page
             val cleaned = page.blocks.mapNotNull { block ->
+                if (stop()) throw kotlinx.coroutines.CancellationException("Page scrolled away")
                 if (block.translation.isBlank()) return@mapNotNull null
                 val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
                 if (kind == BubbleKind.SFX && style.skipSfx) return@mapNotNull null
@@ -340,7 +355,7 @@ object ScanlationRenderer {
                         val y = i / w
                         x >= innerL - HOLE_GROW && x < innerR + HOLE_GROW && y >= innerT - HOLE_GROW && y < innerB + HOLE_GROW
                     }
-                    val inpainted = style.deepClean && ExemplarInpainter.fill(px, w, h, hole)
+                    val inpainted = style.deepClean && ExemplarInpainter.fill(px, w, h, hole, stop)
                     if (inpainted) {
                         bitmap.setPixels(px, 0, w, l, t, w, h)
                     } else {

@@ -278,6 +278,11 @@ class ChapterTranslator(
             part.openOutputStream().use { Json.encodeToStream(pages, it) }
         }
         if (part.length() <= 0L) throw IOException("Nothing was written")
+        // A plain folder: the new file takes the old one's place in one step (the reader never finds none)
+        if (path != null) {
+            val from = java.io.File(path)
+            if (from.renameTo(java.io.File(from.parentFile, name))) return
+        }
         dir.findFile(name)?.delete()
         if (!part.renameTo(name)) throw IOException("Could not rename $partName")
     }
@@ -696,7 +701,9 @@ class ChapterTranslator(
                     consensus.ties.forEach { (source, kept, other) ->
                         if (System.currentTimeMillis() > judgeUntil || eu.kanade.translation.orchestra.OrchestraStore.slowNow(context)) return@forEach
                         translation.touch()
-                        val verdict = runCatching { eu.kanade.translation.orchestra.LocalJudge.pick(context, source, kept, other, style, glossaryAfter) }.getOrNull()
+                        val verdict = runCatching { eu.kanade.translation.orchestra.LocalJudge.pick(context, source, kept, other, style, glossaryAfter) }
+                            .onFailure { if (it is CancellationException) throw it }
+                            .getOrNull()
                         if (verdict == 2) {
                             pages.values.flatMap { it.blocks }.firstOrNull { it.text == source && it.translation == kept }?.translation = other
                         }

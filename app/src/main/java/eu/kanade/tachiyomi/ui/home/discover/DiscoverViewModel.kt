@@ -200,7 +200,7 @@ class DiscoverViewModel(
         fresh.state
             .onEach { snap -> _state.update { it.copy(fresh = snap.items, freshRunning = snap.running) } }
             .launchIn(viewModelScope)
-        if (fresh.isStale()) viewModelScope.launch(Dispatchers.IO) { fresh.refresh() }
+        viewModelScope.launch(Dispatchers.IO) { if (fresh.isStaleLoaded()) fresh.refresh() }
         // Sources and the reader's choices are watched, so a newly installed extension shows up at once.
         combine(
             sourceManager.sources,

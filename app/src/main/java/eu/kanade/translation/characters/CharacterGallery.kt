@@ -112,7 +112,7 @@ fun CharacterGallery(mangaId: Long, title: String, modifier: Modifier = Modifier
             }
         }
     }
-    open?.let { c -> CharacterSheet(title, c, isHero = c == CastRules.heroOf(characters), glossaryNote = remember(c, readUpTo) { noteFor(context, mangaId, title, c, readUpTo) }) { open = null } }
+    open?.let { c -> CharacterSheet(title, c, isHero = c == CastRules.heroOf(characters), glossaryNote = androidx.compose.runtime.produceState("", c, readUpTo) { value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { noteFor(context, mangaId, title, c, readUpTo) } }.value) { open = null } }
     if (picking) {
         PickWorkSheet(cast?.candidates.orEmpty(), onDismiss = { picking = false }) { candidate ->
             picking = false

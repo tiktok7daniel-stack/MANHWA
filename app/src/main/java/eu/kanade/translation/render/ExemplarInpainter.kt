@@ -25,7 +25,7 @@ object ExemplarInpainter {
      * Fills the pixels of [px] (width [w], height [h]) where [hole] is true, in place. Returns false when it
      * could not (no source around, hole too big); then [px] is left as it was.
      */
-    fun fill(px: IntArray, w: Int, h: Int, hole: BooleanArray): Boolean {
+    fun fill(px: IntArray, w: Int, h: Int, hole: BooleanArray, stop: () -> Boolean = { false }): Boolean {
         val n = w * h
         if (px.size != n || hole.size != n) return false
         val holeCount = hole.count { it }
@@ -52,6 +52,8 @@ object ExemplarInpainter {
         var remainingCount = 0
         for (i in 0 until n) if (hole[i]) remaining[remainingCount++] = i
         while (left > 0 && guard-- > 0) {
+            // Given up (the page left the screen): the caller falls back to its plain cleaning
+            if (stop()) return false
             // The fill front: unknown pixels with a known neighbour; the most confident with the strongest
             // structure around it goes first
             var best = -1

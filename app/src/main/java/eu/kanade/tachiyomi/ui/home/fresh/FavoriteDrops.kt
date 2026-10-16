@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.home.fresh
 
+import kotlinx.coroutines.launch
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.app.NotificationCompat
@@ -81,10 +82,19 @@ class FavoriteDrops(
     /** Every drop of the last weeks, newest first, for the bell. */
     val archive: StateFlow<List<Drop>> = _archive.asStateFlow()
 
+    /** The archive, read once off the main thread (the banner is composed at launch). */
+    private val loaded = kotlinx.coroutines.CompletableDeferred<Unit>()
+
     init {
-        runCatching { file.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<Drop>>(it) } }
-            .getOrNull()
-            ?.let { _archive.value = it }
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            try {
+                runCatching { file.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<Drop>>(it) } }
+                    .getOrNull()
+                    ?.let { saved -> _archive.update { (it + saved).distinctBy { d -> d.key }.take(MAX_ARCHIVE) } }
+            } finally {
+                loaded.complete(Unit)
+            }
+        }
     }
 
     /**
@@ -93,6 +103,7 @@ class FavoriteDrops(
      */
     suspend fun post(manga: Manga, chapters: List<Chapter>, sourceName: String, notify: Boolean) {
         if (chapters.isEmpty() || !manga.favorite) return
+        loaded.await()
         val known = _archive.value.map { it.key }.toSet()
         val drops = chapters.sortedByDescending { it.chapterNumber }.map { chapter ->
             Drop(

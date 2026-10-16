@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.home.fresh
 
+import kotlinx.coroutines.launch
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -103,10 +104,28 @@ class FreshChaptersEngine(
     @Serializable
     private data class Stored(val items: List<Item>, val updatedAt: Long)
 
+    /** The saved list, read once off the main thread (the home screen opens without waiting for it). */
+    private val loaded = kotlinx.coroutines.CompletableDeferred<Unit>()
+
     init {
-        runCatching {
-            file.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<Stored>(it) }
-        }.getOrNull()?.let { _state.value = Snapshot(it.items, it.updatedAt) }
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            try {
+                runCatching {
+                    file.takeIf { it.exists() }?.readText()?.let { json.decodeFromString<Stored>(it) }
+                }.getOrNull()?.let { stored ->
+                    // A refresh that finished meanwhile is newer: kept
+                    _state.update { if (it.updatedAt == 0L) Snapshot(stored.items, stored.updatedAt) else it }
+                }
+            } finally {
+                loaded.complete(Unit)
+            }
+        }
+    }
+
+    /** Waits for the saved list, then says whether it is old. */
+    suspend fun isStaleLoaded(): Boolean {
+        loaded.await()
+        return isStale()
     }
 
     fun isStale(): Boolean = System.currentTimeMillis() - _state.value.updatedAt > STALE_MS
@@ -127,6 +146,7 @@ class FreshChaptersEngine(
      * that source answers, without waiting for the slow ones. Returns how many new chapters were found.
      */
     suspend fun refresh(): Int = withContext(Dispatchers.IO) {
+        loaded.await()
         if (mutex.isLocked) return@withContext 0
         mutex.withLock {
             _state.update { it.copy(running = true) }
