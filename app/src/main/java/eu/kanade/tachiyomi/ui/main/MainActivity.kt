@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.main
 
+import eu.kanade.translation.whatsnew.WhatsNewShowcase
 import android.animation.ValueAnimator
 import android.app.SearchManager
 import android.app.assist.AssistContent
@@ -302,6 +303,16 @@ class MainActivity : BaseActivity() {
                         // MANHWA: where the organizer just put a series the reader added
                         AutoOrganizeBanner()
 
+                        // MANHWA what's new: once per build, after the opening
+                        var showWhatsNew by rememberSaveable { mutableStateOf(eu.kanade.translation.whatsnew.WhatsNew.shouldShow(this@MainActivity)) }
+                        if (showWhatsNew && !showIntro) {
+                            WhatsNewShowcase(
+                                onDismiss = {
+                                    eu.kanade.translation.whatsnew.WhatsNew.markSeen(this@MainActivity)
+                                    showWhatsNew = false
+                                },
+                            )
+                        }
                         // MANHWA LEGENDS opening, on cold start only
                         if (showIntro) {
                             // The opening replaces the wait: let the system splash go at once

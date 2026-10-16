@@ -34,6 +34,7 @@ import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.util.LocalBackPress
 import eu.kanade.presentation.util.Screen
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.NewReleases
 import mihon.icons.materialsymbols.automirroredrounded.ChromeReaderMode
 import mihon.icons.materialsymbols.rounded.Code
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
@@ -221,6 +222,13 @@ object SettingsMainScreen : Screen() {
             subtitleRes = MR.strings.pref_advanced_summary,
             icon = MaterialSymbols.Rounded.Code,
             screen = SettingsAdvancedScreen,
+        ),
+        // MANHWA: what the latest update brought, opened by hand
+        Item(
+            titleRes = tachiyomi.i18n.at.ATMR.strings.wn_menu,
+            subtitleRes = tachiyomi.i18n.at.ATMR.strings.wn_menu_sub,
+            icon = MaterialSymbols.Rounded.NewReleases,
+            screen = eu.kanade.translation.whatsnew.WhatsNewScreen(),
         ),
         Item(
             titleRes = MR.strings.pref_category_about,

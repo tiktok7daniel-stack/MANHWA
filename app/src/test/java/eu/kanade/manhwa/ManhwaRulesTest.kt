@@ -236,3 +236,12 @@ class ManhwaFeaturesTest {
         eu.kanade.translation.team.ChapterQuality.Report().score shouldBe 0
     }
 }
+
+class WhatsNewTest {
+    @Test
+    fun `shown once for every new build`() {
+        eu.kanade.translation.whatsnew.WhatsNewRule.shouldShow(null, "120-abc") shouldBe true
+        eu.kanade.translation.whatsnew.WhatsNewRule.shouldShow("120-abc", "120-abc") shouldBe false
+        eu.kanade.translation.whatsnew.WhatsNewRule.shouldShow("119-zzz", "120-abc") shouldBe true
+    }
+}
