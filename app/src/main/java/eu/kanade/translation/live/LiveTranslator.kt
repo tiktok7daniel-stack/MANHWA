@@ -427,6 +427,7 @@ class LiveTranslator(
                     PageOcr.recognize(ocr, decoded.bitmap).rescaled(1f / decoded.scale).also {
                         if (skipSfx) it.blocks.removeAll { b -> b.kind.equals(PageOcr.SFX, ignoreCase = true) }
                         if (!preferences.translationArtText().get()) it.blocks.forEach { b -> if (b.kind.equals(PageOcr.ART, ignoreCase = true)) b.kind = "" }
+                        if (preferences.translationOcrHealer().get()) it.blocks.forEach { b -> b.text = OcrHealer.heal(b.text) }
                         PageImageProcessor.prepare(it, decoded)
                         if (engine.aiPart != null && preferences.translationVision().get()) {
                             images[KEY] = PageImageProcessor.tiles(decoded)
@@ -441,7 +442,13 @@ class LiveTranslator(
             // 2. Translate, following the series glossary and adding the new names it finds
             val id = mangaId()
             engine.aiPart?.apply {
-                glossary = id?.let(glossaryStore::asMap).orEmpty()
+                // MANHWA master codex under the series glossary (English to Arabic)
+                val codex = if (from == TextRecognizerLanguage.ENGLISH && to == TextTranslatorLanguage.ARABIC) {
+                    eu.kanade.translation.collection.ManhwaCodex.termsIn(result.blocks.joinToString(" ") { it.text }, preferences.translationCodexPacks().get())
+                } else {
+                    emptyMap()
+                }
+                glossary = codex + id?.let(glossaryStore::asMap).orEmpty()
                 learnTerms = id != null
                 discoveredTerms.clear()
             }

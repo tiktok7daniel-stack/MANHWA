@@ -7,6 +7,8 @@
 
     <!--== Theme Base ==-->
     <style name="Base.Theme.Tachiyomi" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- MANHWA: the window behind the app is the opening's own black, never the grey of Material -->
+        <item name="android:windowBackground">@color/splash</item>
         <!-- Disallow "Force dark theme" -->
         <item name="android:forceDarkAllowed" tools:targetApi="Q">false</item>
 
@@ -574,9 +576,10 @@
 
     <!--== Splash Theme ==-->
     <style name="Theme.Tachiyomi.SplashScreen" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenAnimatedIcon">@drawable/manhwa_splash</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_empty</item>
         <item name="windowSplashScreenBackground">@color/splash</item>
         <item name="postSplashScreenTheme">@style/Theme.Tachiyomi</item>
+        <item name="android:windowBackground">@color/splash</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>

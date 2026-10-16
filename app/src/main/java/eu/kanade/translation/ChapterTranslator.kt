@@ -27,6 +27,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 import eu.kanade.translation.data.PageImageProcessor
 import eu.kanade.translation.glossary.GlossaryStore
+import eu.kanade.translation.live.OcrHealer
 import eu.kanade.translation.live.PageOcr
 import eu.kanade.translation.live.PageOcr.rescaled
 import eu.kanade.translation.data.TranslationProvider
@@ -378,6 +379,7 @@ class ChapterTranslator(
             // MANHWA: sound effects stay as drawn; unsure readings are cut out to be read again from their image
             val skipSfx = translationPreferences.translationSkipSfx().get()
             val artText = translationPreferences.translationArtText().get()
+            val healOcr = translationPreferences.translationOcrHealer().get()
             val canReread = textTranslator is TeamTranslator
             val unsureCrops = mutableListOf<Triple<String, Int, ByteArray>>()
             val streams = getChapterPages(chapterPath)
@@ -413,6 +415,7 @@ class ChapterTranslator(
                                 PageOcr.recognize(recognizer, decoded.bitmap).rescaled(1f / decoded.scale).also {
                                     if (skipSfx) it.blocks.removeAll { b -> b.kind.equals(PageOcr.SFX, ignoreCase = true) }
                                     if (!artText) it.blocks.forEach { b -> if (b.kind.equals(PageOcr.ART, ignoreCase = true)) b.kind = "" }
+                                    if (healOcr) it.blocks.forEach { b -> b.text = OcrHealer.heal(b.text) }
                                     PageImageProcessor.prepare(it, decoded)
                                     if (vision) images[fileName] = PageImageProcessor.tiles(decoded)
                                     if (canReread) {
@@ -469,8 +472,10 @@ class ChapterTranslator(
             val ai = textTranslator.aiPart
             withContext(Dispatchers.IO) {
                 // The series glossary keeps names consistent; new names found are added to it
+                // MANHWA master codex: each genre's standard terms found in this chapter, under the series glossary
+                val codex = codexFor(translation.fromLang, translation.toLang, pages.values.joinToString("\n") { page -> page.blocks.joinToString(" ") { it.text } })
                 ai?.apply {
-                    glossary = glossaryStore.asMap(translation.manga.id)
+                    glossary = codex + glossaryStore.asMap(translation.manga.id)
                     learnTerms = true
                     discoveredTerms.clear()
                     // MANHWA smart glossary: who each name is (gender, how they speak) and the story so far
@@ -502,7 +507,7 @@ class ChapterTranslator(
                             found.associate { it.source to (it.kind to it.gender) },
                             found.filter { it.note.isNotBlank() }.associate { it.source to it.note },
                         )
-                        ai.glossary = glossaryStore.asMap(translation.manga.id)
+                        ai.glossary = codex + glossaryStore.asMap(translation.manga.id)
                         ai.glossaryNotes = glossaryStore.notes(translation.manga.id)
                     }.onFailure {
                         if (it is CancellationException) throw it
@@ -691,6 +696,14 @@ class ChapterTranslator(
             val NONE = LibraryPass(Collections.newSetFromMap(IdentityHashMap()), IdentityHashMap(), 0, 0)
         }
     }
+
+    /** The master codex terms of [text], for English to Arabic only (the packs are written for that pair). */
+    private fun codexFor(from: TextRecognizerLanguage, to: TextTranslatorLanguage, text: String): Map<String, String> =
+        if (from == TextRecognizerLanguage.ENGLISH && to == TextTranslatorLanguage.ARABIC) {
+            eu.kanade.translation.collection.ManhwaCodex.termsIn(text, translationPreferences.translationCodexPacks().get())
+        } else {
+            emptyMap()
+        }
 
     private fun fromLibrary(
         pages: Map<String, PageTranslation>,

@@ -34,6 +34,12 @@ class TranslationPreferences(
     /** MANHWA: skill, spell and sign text drawn into the art is translated as a caption under it, the art kept. */
     fun translationArtText() = preferenceStore.getBoolean("manhwa_translation_art_text", true)
 
+    /** MANHWA master codex packs in use (system, murim, fantasy): standard Arabic for each genre's terms. */
+    fun translationCodexPacks() = preferenceStore.getStringSet("manhwa_codex_packs", setOf("system", "murim", "fantasy"))
+
+    /** MANHWA: OCR slips (split words, 0 for O, 1 for I) mended before the collection and the AI see a line. */
+    fun translationOcrHealer() = preferenceStore.getBoolean("manhwa_ocr_healer", true)
+
     /** MANHWA: sound effects were switched to "left as drawn" once for readers from before it was the default. */
     fun translationSfxMigrated() = preferenceStore.getBoolean("manhwa_translation_sfx_migrated", false)
 

@@ -12,7 +12,7 @@ import tachiyomi.core.common.util.system.logcat
 object Phrasebook {
 
     /** Bump when the bundled files change, so new lines get added. */
-    private const val VERSION = 1
+    private const val VERSION = 2
     private const val PREFS = "manhwa_phrasebook"
 
     /** Bundled files: asset path to (source, target) collection language names. */

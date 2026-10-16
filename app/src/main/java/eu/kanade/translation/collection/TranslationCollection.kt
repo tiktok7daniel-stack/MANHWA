@@ -51,7 +51,7 @@ class TranslationCollection(private val context: Context) {
         val user: Boolean,
     )
 
-    class Stats(val lines: Long, val bytes: Long, val todayLookups: Long, val todayHits: Long, val allHits: Long)
+    class Stats(val lines: Long, val bytes: Long, val todayLookups: Long, val todayHits: Long, val allHits: Long, val templates: Long = 0)
 
     private val helper = object : SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
         override fun onConfigure(db: SQLiteDatabase) {
@@ -187,7 +187,11 @@ class TranslationCollection(private val context: Context) {
         try {
             for ((text, translation) in pairs) {
                 if (text.isBlank() || translation.isBlank()) continue
-                val key = TextKey.key(text, emptyMap()).exact
+                // Lines with numbers are saved as templates ("You gained {n0} EXP!"), so every number matches
+                val keyed = TextKey.key(text, emptyMap())
+                val template = if (keyed.isTemplate) TextKey.templateOf(translation, keyed, emptyMap()) else null
+                val key = if (template != null) keyed.template else keyed.exact
+                val saved = template ?: translation.trim()
                 val id = db.insertWithOnConflict(
                     "segments",
                     null,
@@ -196,9 +200,9 @@ class TranslationCollection(private val context: Context) {
                         put("tgt", tgt)
                         put("key", key)
                         put("original", text.trim())
-                        put("translation", translation.trim())
+                        put("translation", saved)
                         put("arabic", if (TextKey.arabicStyle(translation)) 1 else 0)
-                        put("kind", "")
+                        put("kind", if (template != null) "system" else "")
                         put("confidence", Source.EDITOR.confidence)
                         put("uses", SURE_USES)
                         put("mangas", 1)
@@ -342,7 +346,8 @@ class TranslationCollection(private val context: Context) {
             if (c.moveToFirst()) c.getLong(0) to c.getLong(1) else 0L to 0L
         }
         val allHits = db.compileStatement("SELECT IFNULL(SUM(hits), 0) FROM stats").simpleQueryForLong()
-        Stats(lines, sizeBytes(), lookups, hits, allHits)
+        val templates = db.compileStatement("SELECT COUNT(*) FROM segments WHERE key LIKE '%{n%' OR key LIKE '%{name%'").simpleQueryForLong()
+        Stats(lines, sizeBytes(), lookups, hits, allHits, templates)
     }.getOrElse { Stats(0, sizeBytes(), 0, 0, 0) }
 
     fun sizeBytes(): Long {
@@ -382,6 +387,43 @@ class TranslationCollection(private val context: Context) {
     }.getOrElse { emptyList() }
 
     /** The reader's own translation for a saved line: it wins from now on. */
+    /** MANHWA optimizer: the lines worth a review, most reused first (the reader's own corrections are left alone). */
+    fun reviewCandidates(src: String, tgt: String, limit: Int): List<Entry> = runCatching {
+        db.query(
+            "segments",
+            arrayOf("id", "original", "translation", "kind", "uses", "mangas", "sensitive", "user"),
+            "src = ? AND tgt = ? AND user = 0",
+            arrayOf(src, tgt),
+            null,
+            null,
+            "sensitive DESC, uses DESC, last_used DESC",
+            limit.toString(),
+        ).use { c ->
+            buildList {
+                while (c.moveToNext()) {
+                    add(Entry(c.getLong(0), c.getString(1), c.getString(2), c.getString(3), c.getInt(4), c.getInt(5), c.getInt(6) == 1, c.getInt(7) == 1))
+                }
+            }
+        }
+    }.getOrDefault(emptyList())
+
+    /** A better translation from the team's editor: kept as sure, but still not the reader's own. */
+    fun improve(id: Long, translation: String) {
+        if (translation.isBlank()) return
+        db.update(
+            "segments",
+            ContentValues().apply {
+                put("translation", translation.trim())
+                put("sensitive", 0)
+                put("confidence", Source.EDITOR.confidence)
+                put("uses", SURE_USES)
+            },
+            "id = ? AND user = 0",
+            arrayOf(id.toString()),
+        )
+        cache.evictAll()
+    }
+
     fun edit(id: Long, translation: String) {
         if (translation.isBlank()) return
         db.update(

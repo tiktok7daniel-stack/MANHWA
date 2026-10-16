@@ -37,6 +37,8 @@ object QualityCheck {
             val latin = tr.count { it in 'a'..'z' || it in 'A'..'Z' }
             if (latin > tr.count { it.isLetter() } * 0.6f) return Problem.UNTRANSLATED
         }
+        // MANHWA zero English leak: an English word left in the middle of a non-Latin translation
+        if (!targetLatin && leaksEnglish(tr, glossary)) return Problem.UNTRANSLATED
         if (tr.length > src.length * LONG_FACTOR + LONG_SLACK) return Problem.TOO_LONG
         for ((term, translated) in glossary) {
             if (term.length < 2 || translated.isBlank()) continue
@@ -44,6 +46,20 @@ object QualityCheck {
             if (inSource && !tr.contains(translated, ignoreCase = true)) return Problem.NAME_NOT_KEPT
         }
         return null
+    }
+
+    private val latinWord = Regex("[A-Za-z][A-Za-z'-]{3,}")
+
+    /**
+     * A Latin word of 4 letters or more in a translation written in another script, that is neither an
+     * abbreviation in capitals (HP, EXP, S-RANK) nor a term the glossary keeps in Latin letters.
+     */
+    private fun leaksEnglish(translation: String, glossary: Map<String, String>): Boolean {
+        val kept = glossary.values.filter { v -> v.any { it in 'A'..'Z' || it in 'a'..'z' } }
+        return latinWord.findAll(translation).any { match ->
+            val word = match.value
+            word.any { it.isLowerCase() } && kept.none { it.contains(word, ignoreCase = true) }
+        }
     }
 
     private fun isEastAsian(c: Char): Boolean = c in '가'..'힯' || // Hangul syllables

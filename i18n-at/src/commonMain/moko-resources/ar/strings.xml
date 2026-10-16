@@ -610,4 +610,18 @@
     <string name="keys_advisor_no_key">ضيف أي مفتاح الأول عشان الـ AI يقدر يرد. لحد ما تعمل كده، ده الدليل اللي جوه التطبيق.</string>
     <string name="keys_advisor_failed">الـ AI ما قدرش يرد دلوقتي</string>
     <string name="keys_builtin_guide">الدليل المدمج</string>
+    <string name="db_templates">قوالب ذكية (أي رقم أو اسم بيركب عليها): %1$d</string>
+    <string name="db_codex_terms">مصطلحات الموسوعة المفعّلة: %1$d</string>
+    <string name="db_codex">موسوعة المانهوا الذهبية</string>
+    <string name="db_codex_summary">الترجمة العربية المعتمدة لمصطلحات كل نوع، بتتبعت للفريق مع قاموس العمل (من الإنجليزي للعربي). أسماء العمل نفسه دايماً ليها الأولوية.</string>
+    <string name="db_pack_system">النظام والصيادين (%1$d مصطلح)</string>
+    <string name="db_pack_murim">الموريم والفنون القتالية (%1$d مصطلح)</string>
+    <string name="db_pack_fantasy">الفانتازيا والنبلاء والأبراج (%1$d مصطلح)</string>
+    <string name="db_healer">معالج أخطاء القراءة</string>
+    <string name="db_healer_summary">بيصلح أخطاء القراءة (الكلمات المقسومة، 0 بدل O، 1 بدل I، علامات الترقيم) قبل ما المكتبة والـ AI يشوفوا السطر.</string>
+    <string name="db_optimize">طوّر المكتبة بالـ AI</string>
+    <string name="db_optimize_summary">أقوى مفتاح في الفريق بيراجع أكتر الجمل استخداماً زي المحرر: بيصلح الغلط والركيك ويوحّد المصطلحات. تصحيحاتك إنت ما بتتلمسش.</string>
+    <string name="db_optimize_go">راجع وطوّر دلوقتي</string>
+    <string name="db_optimizing">بيراجع…</string>
+    <string name="db_optimized">اتراجع %1$d سطر، واتحسّن %2$d</string>
 </resources>

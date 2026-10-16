@@ -669,4 +669,18 @@
     <string name="keys_advisor_no_key">Add any key first so the AI can answer. Meanwhile, here is the built-in guide.</string>
     <string name="keys_advisor_failed">The AI could not answer right now</string>
     <string name="keys_builtin_guide">Built-in guide</string>
+    <string name="db_templates">Smart templates (any number or name fits): %1$d</string>
+    <string name="db_codex_terms">Master codex terms in use: %1$d</string>
+    <string name="db_codex">Manhwa master codex</string>
+    <string name="db_codex_summary">The standard Arabic for each genre\'s terms, given to the team with the series glossary (English to Arabic). The series\' own names always win.</string>
+    <string name="db_pack_system">System and hunters (%1$d terms)</string>
+    <string name="db_pack_murim">Murim and martial arts (%1$d terms)</string>
+    <string name="db_pack_fantasy">Fantasy, nobility and towers (%1$d terms)</string>
+    <string name="db_healer">OCR healer</string>
+    <string name="db_healer_summary">Mends reading slips (split words, 0 for O, 1 for I, messy punctuation) before the library and the AI see a line.</string>
+    <string name="db_optimize">Optimize with AI</string>
+    <string name="db_optimize_summary">The team\'s strongest key reviews the most reused lines like an editor: fixes wrong or clumsy ones and makes terms consistent. Your own corrections are never touched.</string>
+    <string name="db_optimize_go">Review and improve now</string>
+    <string name="db_optimizing">Reviewing…</string>
+    <string name="db_optimized">Reviewed %1$d lines, improved %2$d</string>
 </resources>

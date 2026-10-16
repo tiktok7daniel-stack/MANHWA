@@ -71,6 +71,12 @@ class TranslationCollectionScreen : Screen() {
         val prefs = remember { context.appGraph.translationPreferences }
         val enabled by prefs.translationCollection().collectAsState()
         val limitMb by prefs.translationCollectionLimitMb().collectAsState()
+        val codexPacks by prefs.translationCodexPacks().collectAsState()
+        val healOcr by prefs.translationOcrHealer().collectAsState()
+        var optimizing by remember { mutableStateOf(false) }
+        var optimized by remember { mutableStateOf<String?>(null) }
+        val optimizedTemplate = stringResource(ATMR.strings.db_optimized)
+        val noAi = stringResource(ATMR.strings.recs_setup)
 
         var refresh by remember { mutableIntStateOf(0) }
         var stats by remember { mutableStateOf<TranslationCollection.Stats?>(null) }
@@ -132,6 +138,13 @@ class TranslationCollectionScreen : Screen() {
                             val share = if (s.todayLookups > 0) (s.todayHits * 100 / s.todayLookups).toInt() else 0
                             Text(stringResource(ATMR.strings.col_today, share, s.todayHits))
                             Text(stringResource(ATMR.strings.col_saved, s.allHits), color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(ATMR.strings.db_templates, s.templates))
+                            Text(
+                                stringResource(
+                                    ATMR.strings.db_codex_terms,
+                                    ManhwaCodex.Pack.entries.filter { it.id in codexPacks }.sumOf { ManhwaCodex.size(it) },
+                                ),
+                            )
                         }
                     }
                 }
@@ -164,6 +177,73 @@ class TranslationCollectionScreen : Screen() {
                             }
                         }
                         Text(stringResource(ATMR.strings.col_limit_summary), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                // MANHWA master codex: each genre's standard terms, on or off by pack
+                item {
+                    Card {
+                        Text(stringResource(ATMR.strings.db_codex), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(stringResource(ATMR.strings.db_codex_summary), style = MaterialTheme.typography.bodySmall)
+                        ManhwaCodex.Pack.entries.forEach { pack ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    stringResource(
+                                        when (pack) {
+                                            ManhwaCodex.Pack.SYSTEM -> ATMR.strings.db_pack_system
+                                            ManhwaCodex.Pack.MURIM -> ATMR.strings.db_pack_murim
+                                            ManhwaCodex.Pack.FANTASY -> ATMR.strings.db_pack_fantasy
+                                        },
+                                        ManhwaCodex.size(pack),
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Switch(
+                                    checked = pack.id in codexPacks,
+                                    onCheckedChange = { on ->
+                                        prefs.translationCodexPacks().set(if (on) codexPacks + pack.id else codexPacks - pack.id)
+                                    },
+                                )
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(ATMR.strings.db_healer), fontWeight = FontWeight.Bold)
+                                Text(stringResource(ATMR.strings.db_healer_summary), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Switch(checked = healOcr, onCheckedChange = { prefs.translationOcrHealer().set(it) })
+                        }
+                    }
+                }
+                // MANHWA optimizer: the team's editor reviews the most reused lines
+                item {
+                    Card {
+                        Text(stringResource(ATMR.strings.db_optimize), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(stringResource(ATMR.strings.db_optimize_summary), style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(
+                            enabled = !optimizing,
+                            onClick = {
+                                if (!eu.kanade.translation.translator.appAiConfigured()) {
+                                    optimized = noAi
+                                } else {
+                                    optimizing = true
+                                    optimized = null
+                                    scope.launch {
+                                        val from = eu.kanade.translation.recognizer.TextRecognizerLanguage.fromPref(prefs.translateFromLanguage())
+                                        val to = eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(prefs.translateToLanguage())
+                                        val result = runCatching { CollectionOptimizer.optimize(collection, from.name, to.name, to.label) }
+                                        optimizing = false
+                                        optimized = result.fold(
+                                            { optimizedTemplate.replace("%1\$d", "${it.reviewed}").replace("%2\$d", "${it.improved}") },
+                                            { it.message ?: noAi },
+                                        )
+                                        refresh++
+                                    }
+                                }
+                            },
+                        ) {
+                            Text(stringResource(if (optimizing) ATMR.strings.db_optimizing else ATMR.strings.db_optimize_go))
+                        }
+                        optimized?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
                     }
                 }
                 // Backup, move to another phone, start over

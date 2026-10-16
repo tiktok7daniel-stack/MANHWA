@@ -48,6 +48,9 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 private val Obsidian = Color(0xFF050505)
+
+/** The window and system splash colour (@color/splash): the first frame matches it exactly. */
+private val SplashBlack = Color(0xFF060204)
 private val Wine = Color(0xFF1A0508)
 private val DeepWine = Color(0xFF2E0610)
 private val Crimson = Color(0xFFFF2D46)
@@ -157,7 +160,7 @@ fun ManhwaIntro(started: Boolean, onFinished: () -> Unit, modifier: Modifier = M
             val t = nanos / 1_000_000_000f
             val center = Offset(size.width / 2f, size.height / 2f)
             val opening = 1f - rift.value
-            drawRect(lerp(Obsidian, Wine, opening * 0.9f))
+            drawRect(lerp(Obsidian, SplashBlack, opening))
             drawRect(
                 Brush.radialGradient(
                     listOf(DeepWine.copy(alpha = 0.95f * rift.value), Wine.copy(alpha = 0.5f * rift.value), Color.Transparent),
