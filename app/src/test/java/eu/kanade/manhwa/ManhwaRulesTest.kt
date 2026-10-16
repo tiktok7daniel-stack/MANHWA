@@ -381,8 +381,24 @@ class PhoneEnsembleTest {
         r.polisher shouldBe "gemma4b"
         r.drafter shouldBe "q15"
         r.judge shouldBe "phi4"
-        // The reader's own judge wins
+        r.members shouldBe listOf("gemma4b" to EnsembleRules.Role.MAIN, "phi4" to EnsembleRules.Role.JUDGES, "q15" to EnsembleRules.Role.DRAFTS)
+        // The reader's own judge leads the vote
         EnsembleRules.assign(all, mainPath = "gemma4b", judgePath = "q15", budget = 7 * gb)!!.judge shouldBe "q15"
+    }
+
+    @Test
+    fun `two models: the helper drafts and judges, a model switched off does not play`() {
+        val r = EnsembleRules.assign(listOf(c("gemma4b", 5, 4.4), c("q15", 3, 1.6)), "gemma4b", "", budget = 6 * gb)!!
+        r.members shouldBe listOf("gemma4b" to EnsembleRules.Role.MAIN, "q15" to EnsembleRules.Role.DRAFTS_AND_JUDGES)
+        r.judges shouldBe listOf("q15")
+    }
+
+    @Test
+    fun `the judges vote, the strongest breaks a tie`() {
+        EnsembleRules.vote(listOf(2, 1, 2)) shouldBe 2
+        EnsembleRules.vote(listOf(1, 2)) shouldBe 1
+        EnsembleRules.vote(listOf(null, 2)) shouldBe 2
+        EnsembleRules.vote(listOf(null, null)) shouldBe null
     }
 
     @Test

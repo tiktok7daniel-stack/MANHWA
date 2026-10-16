@@ -855,4 +855,21 @@
     <string name="ensemble_single">%1$s بيعمل كل الأدوار مع %2$d مفتاح. نزّل موديل تاني أخف وهيقسموا الشغل: واحد يكتب المسودة والتاني يراجع.</string>
     <string name="ensemble_none">لسه مفيش موديل على الموبايل: المفاتيح بتترجم لوحدها.</string>
     <string name="models_role_drafter">بيكتب مسودة كل السطور (الأسرع)</string>
+    <string name="ensemble_header">فريق الموبايل · %1$d موديل مع %2$d مفتاح، كلهم في نفس الوقت</string>
+    <string name="ensemble_add_more">نزّل موديل تاني وفعّله: هيبقى مساعد (الأسرع يكتب المسودة، والباقيين يحكموا).</string>
+    <string name="ensemble_resting">مستريح (فعّله عشان يدخل الفريق)</string>
+    <string name="ensemble_role_main">الأساسي · بيراجع وبيقود</string>
+    <string name="ensemble_role_drafts">مساعد · بيكتب مسودة كل السطور</string>
+    <string name="ensemble_role_judges">مساعد · بيحكم وبيصوّت</string>
+    <string name="ensemble_role_both">مساعد · بيكتب المسودة وبيحكم وبيصوّت</string>
+    <string name="team_phone_all_on">%1$d موديل على الموبايل شغالين مع مفاتيحك في كل فصل</string>
+    <string name="team_phone_all_paused">%1$d موديل مستريحين دلوقتي (الموبايل سخن أو البطارية قليلة أو توفير الطاقة)</string>
+    <string name="wn_latest">في التحديث ده</string>
+    <string name="wn_earlier">تحديثات قبل كده</string>
+    <string name="wn_ensemble_t">موديلات موبايلك كلها مع بعض</string>
+    <string name="wn_ensemble_b">كل موديل بتنزّله بقى له زرار تفعيل في خانة الموديلات. واحد هو الأساسي، والباقيين اللي بتفعّلهم بيبقوا مساعدين حسب قوتهم: الأسرع بيكتب مسودة كل السطور، والباقيين بيحكموا وبيصوّتوا. كلهم بيشتغلوا في نفس الوقت مع كل مفاتيحك، وشاشة الفريق بتعرض كل موديل ودوره.</string>
+    <string name="wn_shelf_t">تحميل الموديلات اتصلّح، وGemma 3n جاهز</string>
+    <string name="wn_shelf_b">التحميل من Hugging Face مبقاش بيقف بخطأ 403 بعد ما توافق على الرخصة، والموديل أول ما يخلص تحميل بيدخل الفريق لوحده، ومحرك الموبايل اتحدّث عشان Gemma 3n.</string>
+    <string name="wn_whatsnew_t">الجديد بس</string>
+    <string name="wn_whatsnew_b">الشاشة دي بقت بتعرض اللي اتغيّر في التحديث ده بس؛ وكل اللي قبل كده موجود في الإعدادات، \"سجل التحديثات\"، تحت التحديثات اللي قبل كده.</string>
 </resources>

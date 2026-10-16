@@ -89,7 +89,8 @@ class LocalModelsScreen : Screen() {
         }
         val stats = remember(tick / 5) { OrchestraStore.stats(context) }
         // MANHWA phone ensemble: who drafts, who rereads, who judges, and how many keys play with them
-        val lineup = remember(tick / 5, mainPath, judgePath) { PhoneEnsemble.lineup(context) }
+        val inactive by prefs.translationInactiveModels().collectPreference()
+        val lineup = remember(tick / 5, mainPath, judgePath, inactive) { PhoneEnsemble.lineup(context) }
         val keys = remember(tick / 5) { context.appGraph.teamStore.active().size }
         val gatedText = stringResource(ATMR.strings.models_gated)
         val missingText = stringResource(ATMR.strings.models_not_found)
@@ -117,22 +118,14 @@ class LocalModelsScreen : Screen() {
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color(0xFF3DDC97),
                             )
-                            Text(
-                                when {
-                                    lineup == null -> stringResource(ATMR.strings.ensemble_none)
-                                    lineup.ensemble -> stringResource(
-                                        ATMR.strings.ensemble_lineup,
-                                        PhoneEnsemble.nameOf(context, lineup.drafter),
-                                        PhoneEnsemble.nameOf(context, lineup.polisher),
-                                        PhoneEnsemble.nameOf(context, lineup.judge),
-                                        keys,
-                                    )
-                                    else -> stringResource(ATMR.strings.ensemble_single, PhoneEnsemble.nameOf(context, lineup.polisher), keys)
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF4FD8FF),
-                            )
+                            // The whole phone team, one line per model: the main one and its helpers by strength
+                            if (lineup == null) {
+                                Text(stringResource(ATMR.strings.ensemble_none), style = MaterialTheme.typography.bodySmall, color = Color(0xFFFFB020))
+                            } else {
+                                Text(stringResource(ATMR.strings.ensemble_header, lineup.members.size, keys), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = Color.White)
+                                lineup.members.forEach { m -> RoleLine(m.name, m.role) }
+                                if (!lineup.ensemble) Text(stringResource(ATMR.strings.ensemble_add_more), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.65f))
+                            }
                             Text(stringResource(ATMR.strings.models_ram, ram), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
                         }
                     }
@@ -168,8 +161,9 @@ class LocalModelsScreen : Screen() {
                         val status = remember(tick, model.repo) { ModelCatalog.status(context, model) }
                         val ready = (status as? ModelCatalog.Status.Ready)?.file
                         val isMain = ready != null && ready.absolutePath == mainPath
-                        val isJudge = ready != null && (ready.absolutePath == judgePath || (lineup?.ensemble == true && ready.absolutePath == lineup.judge.absolutePath))
-                        val isDrafter = ready != null && lineup?.ensemble == true && ready.absolutePath == lineup.drafter.absolutePath && !isMain
+                        val isJudge = ready != null && ready.absolutePath == judgePath
+                        val active = ready != null && (isMain || ready.absolutePath !in inactive)
+                        val role = ready?.let { f -> lineup?.members?.firstOrNull { it.file.absolutePath == f.absolutePath }?.role }
                         Column(
                             Modifier.fillMaxWidth().glass(RoundedCornerShape(22.dp), accent = isMain, alpha = 0.5f).padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -185,9 +179,22 @@ class LocalModelsScreen : Screen() {
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (CatalogRules.fits(model, ram)) Color.White.copy(alpha = 0.55f) else Color(0xFFFFB020),
                             )
-                            if (isMain) Text(stringResource(ATMR.strings.models_role_main), color = Color(0xFF3DDC97), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            if (isDrafter) Text(stringResource(ATMR.strings.models_role_drafter), color = Color(0xFFFFB020), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            if (isJudge) Text(stringResource(ATMR.strings.models_role_judge), color = Color(0xFF4FD8FF), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            // A model on the phone plays (switch on) or rests; the main one always plays
+                            if (ready != null) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        if (role != null) RoleLine(null, role) else Text(stringResource(ATMR.strings.ensemble_resting), color = Color.White.copy(alpha = 0.55f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    }
+                                    Switch(
+                                        checked = active,
+                                        enabled = !isMain,
+                                        onCheckedChange = { on ->
+                                            val path = ready.absolutePath
+                                            prefs.translationInactiveModels().set(if (on) inactive - path else inactive + path)
+                                        },
+                                    )
+                                }
+                            }
                             when (status) {
                                 is ModelCatalog.Status.Downloading -> {
                                     Text(stringResource(ATMR.strings.models_downloading, status.percent), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
@@ -217,7 +224,7 @@ class LocalModelsScreen : Screen() {
                                     }
                                     else -> Unit
                                 }
-                                if (ready != null && !isJudge) {
+                                if (ready != null && active && !isMain && !isJudge) {
                                     ManhwaKit.GhostButton(stringResource(ATMR.strings.models_use_judge), modifier = Modifier.weight(1f)) {
                                         prefs.translationLocalJudgePath().set(ready.absolutePath)
                                     }
@@ -239,6 +246,23 @@ class LocalModelsScreen : Screen() {
                 }
             }
         }
+    }
+
+    /** "Gemma 3n E4B · main" style line in the colour of the role. */
+    @Composable
+    private fun RoleLine(name: String?, role: EnsembleRules.Role) {
+        val (text, color) = when (role) {
+            EnsembleRules.Role.MAIN -> stringResource(ATMR.strings.ensemble_role_main) to Color(0xFF3DDC97)
+            EnsembleRules.Role.DRAFTS -> stringResource(ATMR.strings.ensemble_role_drafts) to Color(0xFFFFB020)
+            EnsembleRules.Role.JUDGES -> stringResource(ATMR.strings.ensemble_role_judges) to Color(0xFF4FD8FF)
+            EnsembleRules.Role.DRAFTS_AND_JUDGES -> stringResource(ATMR.strings.ensemble_role_both) to Color(0xFFFFB020)
+        }
+        Text(
+            if (name != null) "$name · $text" else text,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = color,
+        )
     }
 
     @Composable

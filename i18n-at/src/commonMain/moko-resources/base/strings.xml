@@ -914,4 +914,21 @@
     <string name="ensemble_single">%1$s plays every role with %2$d keys. Download a second, lighter model and they split the work: one drafts while the other rereads.</string>
     <string name="ensemble_none">No model on the phone yet: the keys translate alone.</string>
     <string name="models_role_drafter">Drafts every line (the quickest)</string>
+    <string name="ensemble_header">Phone team · %1$d models with %2$d keys, all at once</string>
+    <string name="ensemble_add_more">Download a second model and switch it on: it becomes a helper (the quickest drafts, the others judge).</string>
+    <string name="ensemble_resting">Resting (switch on to join the team)</string>
+    <string name="ensemble_role_main">Main · rereads and leads</string>
+    <string name="ensemble_role_drafts">Helper · drafts every line</string>
+    <string name="ensemble_role_judges">Helper · judges and votes</string>
+    <string name="ensemble_role_both">Helper · drafts, judges and votes</string>
+    <string name="team_phone_all_on">%1$d phone models play with your keys in every chapter</string>
+    <string name="team_phone_all_paused">%1$d phone models resting now (hot phone, low battery or battery saver)</string>
+    <string name="wn_latest">In this update</string>
+    <string name="wn_earlier">Earlier updates</string>
+    <string name="wn_ensemble_t">Your phone models, all at once</string>
+    <string name="wn_ensemble_b">Every model you download has an on/off switch on the model shelf. One is the main model; the others you switch on become its helpers by strength: the quickest drafts every line, the others judge and vote. They all work at the same time with all your keys, and the team screen shows every model and its role.</string>
+    <string name="wn_shelf_t">Model downloads fixed, Gemma 3n ready</string>
+    <string name="wn_shelf_b">Downloads from Hugging Face no longer stop with error 403 after you accept a licence, a finished download joins the team by itself, and the on-device engine is updated for Gemma 3n.</string>
+    <string name="wn_whatsnew_t">Only what is new</string>
+    <string name="wn_whatsnew_b">This window now shows only what changed in this update; everything from before is in Settings, \"What\'s new\", under earlier updates.</string>
 </resources>

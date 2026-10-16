@@ -981,36 +981,52 @@ class TranslationTeamScreen : Screen() {
     }
 }
 
-/** The phone's model as a member of the team: what it does now, and the way to the model shelf. */
+/** The phone's models as members of the team: the main one and its helpers, what they do now, the way to the shelf. */
 @Composable
 private fun PhoneMemberCard(onOpen: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.appGraph.translationPreferences }
     val orchestra by prefs.translationOrchestra().collectPreference()
     val path by prefs.translationLocalModelPath().collectPreference()
-    val file = remember(path) { eu.kanade.translation.local.LocalAiEngine.modelFile(context) }
+    val inactive by prefs.translationInactiveModels().collectPreference()
+    val lineup = remember(path, inactive) { eu.kanade.translation.local.PhoneEnsemble.lineup(context) }
     val playing = remember(path, orchestra) { eu.kanade.translation.orchestra.OrchestraStore.active(context) }
-    val name = file?.nameWithoutExtension.orEmpty()
     val (text, color) = when {
-        file == null -> stringResource(ATMR.strings.team_phone_none) to Color(0xFFFFB020)
+        lineup == null -> stringResource(ATMR.strings.team_phone_none) to Color(0xFFFFB020)
         !orchestra -> stringResource(ATMR.strings.team_phone_off) to Color.White.copy(alpha = 0.6f)
-        playing -> stringResource(ATMR.strings.team_phone_on, name) to Color(0xFF3DDC97)
-        else -> stringResource(ATMR.strings.team_phone_paused, name) to Color(0xFFFFB020)
+        playing -> stringResource(ATMR.strings.team_phone_all_on, lineup.members.size) to Color(0xFF3DDC97)
+        else -> stringResource(ATMR.strings.team_phone_all_paused, lineup.members.size) to Color(0xFFFFB020)
     }
-    Row(
+    Column(
         Modifier
             .fillMaxWidth()
-            .glass(RoundedCornerShape(22.dp), accent = file != null && orchestra, alpha = 0.5f)
+            .glass(RoundedCornerShape(22.dp), accent = lineup != null && orchestra, alpha = 0.5f)
             .clickable(onClick = onOpen)
             .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        HubIconTile(MaterialSymbols.Rounded.AutoAwesome, size = 44)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(ATMR.strings.team_phone_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
-            Text(text, style = MaterialTheme.typography.bodySmall, color = color)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            HubIconTile(MaterialSymbols.Rounded.AutoAwesome, size = 44)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(ATMR.strings.team_phone_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                Text(text, style = MaterialTheme.typography.bodySmall, color = color)
+            }
+            Switch(checked = orchestra, onCheckedChange = { prefs.translationOrchestra().set(it) })
         }
-        Switch(checked = orchestra, onCheckedChange = { prefs.translationOrchestra().set(it) })
+        // Every model that plays, with its role
+        lineup?.members?.forEach { m ->
+            val (role, roleColor) = when (m.role) {
+                eu.kanade.translation.local.EnsembleRules.Role.MAIN -> stringResource(ATMR.strings.ensemble_role_main) to Color(0xFF3DDC97)
+                eu.kanade.translation.local.EnsembleRules.Role.DRAFTS -> stringResource(ATMR.strings.ensemble_role_drafts) to Color(0xFFFFB020)
+                eu.kanade.translation.local.EnsembleRules.Role.JUDGES -> stringResource(ATMR.strings.ensemble_role_judges) to Color(0xFF4FD8FF)
+                eu.kanade.translation.local.EnsembleRules.Role.DRAFTS_AND_JUDGES -> stringResource(ATMR.strings.ensemble_role_both) to Color(0xFFFFB020)
+            }
+            Row(Modifier.padding(start = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).background(roleColor, CircleShape))
+                Spacer(Modifier.width(8.dp))
+                Text("${m.name} · $role", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.85f))
+            }
+        }
     }
 }

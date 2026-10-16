@@ -157,6 +157,9 @@ class TranslationPreferences(
     /** The reader's own Hugging Face token, only to download gated models they accepted (kept on the phone). */
     fun translationHfToken() = preferenceStore.getString("manhwa_translation_hf_token", "")
 
+    /** MANHWA phone ensemble: models on the phone the reader switched off (every other model plays). */
+    fun translationInactiveModels() = preferenceStore.getStringSet("manhwa_translation_inactive_models", emptySet())
+
     /** What the orchestra did (lines by the phone, by the keys, judgements), as JSON (see OrchestraStats). */
     fun translationOrchestraStats() = preferenceStore.getString("manhwa_translation_orchestra_stats", "{}")
 }

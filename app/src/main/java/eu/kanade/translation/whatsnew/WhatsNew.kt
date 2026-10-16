@@ -62,6 +62,7 @@ import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.Autorenew
 import mihon.icons.materialsymbols.rounded.Bedtime
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
+import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.Key
 import mihon.icons.materialsymbols.rounded.NewReleases
@@ -98,7 +99,19 @@ object WhatsNew {
 
     class Feature(val icon: ImageVector, val title: StringResource, val body: StringResource)
 
-    val features: List<Feature>
+    /**
+     * What changed in this update only: the window after the intro shows these. Replaced with every update;
+     * what was here before moves to the top of [earlier].
+     */
+    val latest: List<Feature>
+        get() = listOf(
+            Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_ensemble_t, ATMR.strings.wn_ensemble_b),
+            Feature(MaterialSymbols.Rounded.Download, ATMR.strings.wn_shelf_t, ATMR.strings.wn_shelf_b),
+            Feature(MaterialSymbols.Rounded.NewReleases, ATMR.strings.wn_whatsnew_t, ATMR.strings.wn_whatsnew_b),
+        )
+
+    /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
+    val earlier: List<Feature>
         get() = listOf(
             // Build 39: the five big ones first, the orchestra that joins them
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_orchestra_t, ATMR.strings.wn_orchestra_b),
@@ -188,15 +201,31 @@ fun BoxScope.WhatsNewShowcase(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun ShowcaseBody(modifier: Modifier = Modifier) {
+private fun ShowcaseBody(modifier: Modifier = Modifier, withEarlier: Boolean = false) {
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { Header() }
-        items(WhatsNew.features) { f -> FeatureCard(f) }
+        if (withEarlier) item { SectionTitle(stringResource(ATMR.strings.wn_latest)) }
+        items(WhatsNew.latest) { f -> FeatureCard(f) }
+        if (withEarlier) {
+            item { SectionTitle(stringResource(ATMR.strings.wn_earlier)) }
+            items(WhatsNew.earlier) { f -> FeatureCard(f) }
+        }
     }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Black,
+        color = Ember,
+        modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+    )
 }
 
 @Composable
@@ -278,7 +307,7 @@ class WhatsNewScreen : Screen() {
         GlassBackdrop {
             Column(Modifier.fillMaxSize()) {
                 ManhwaKit.TopBar(title = stringResource(ATMR.strings.wn_menu), onBack = navigator::pop)
-                ShowcaseBody(Modifier.weight(1f))
+                ShowcaseBody(Modifier.weight(1f), withEarlier = true)
                 Box(Modifier.padding(18.dp)) {
                     ManhwaKit.NeonButton(stringResource(ATMR.strings.wn_start), icon = MaterialSymbols.Rounded.AutoAwesome, modifier = Modifier.fillMaxWidth()) { navigator.pop() }
                 }
