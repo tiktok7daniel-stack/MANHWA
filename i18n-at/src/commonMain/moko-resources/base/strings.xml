@@ -931,4 +931,21 @@
     <string name="wn_shelf_b">Downloads from Hugging Face no longer stop with error 403 after you accept a licence, a finished download joins the team by itself, and the on-device engine is updated for Gemma 3n.</string>
     <string name="wn_whatsnew_t">Only what is new</string>
     <string name="wn_whatsnew_b">This window now shows only what changed in this update; everything from before is in Settings, \"What\'s new\", under earlier updates.</string>
+    <string name="tn_title">Translating now</string>
+    <string name="tn_count">%1$d chapters translating or waiting</string>
+    <string name="tn_empty_short">Nothing right now</string>
+    <string name="tn_empty">Nothing is being translated right now. Chapters you ask to translate, from any work, show up here.</string>
+    <string name="tn_pause">Pause all</string>
+    <string name="tn_resume">Carry on</string>
+    <string name="tn_clear">Clear the queue</string>
+    <string name="tn_open">Open the work</string>
+    <string name="tn_stop">Stop this one</string>
+    <string name="models_count_title">How many phone models play</string>
+    <string name="models_count_all">All</string>
+    <string name="models_count_info">Only the strongest models you switched on play, up to this number (the main one always counts first).</string>
+    <string name="ensemble_over_count">Resting (over the number you chose)</string>
+    <string name="wn_tn_t">Translating now, from any work</string>
+    <string name="wn_tn_b">A translate button next to download in every work shows how many chapters are translating anywhere. It opens the list: the work, the chapter, the step and the percentage, with \"open the work\" and \"stop this one\", and pause, carry on or clear for all.</string>
+    <string name="wn_count_t">Choose how many phone models play</string>
+    <string name="wn_count_b">On the model shelf pick 1, 2, 3 or all: only that many of your strongest active models play (the main one first), the rest rest and free their memory.</string>
 </resources>

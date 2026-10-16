@@ -64,6 +64,8 @@ import mihon.icons.materialsymbols.rounded.Bedtime
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Group
+import mihon.icons.materialsymbols.rounded.Translate
+import mihon.icons.materialsymbols.rounded.Tune
 import mihon.icons.materialsymbols.rounded.Key
 import mihon.icons.materialsymbols.rounded.NewReleases
 import mihon.icons.materialsymbols.rounded.Psychology
@@ -105,14 +107,17 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_ensemble_t, ATMR.strings.wn_ensemble_b),
-            Feature(MaterialSymbols.Rounded.Download, ATMR.strings.wn_shelf_t, ATMR.strings.wn_shelf_b),
-            Feature(MaterialSymbols.Rounded.NewReleases, ATMR.strings.wn_whatsnew_t, ATMR.strings.wn_whatsnew_b),
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_tn_t, ATMR.strings.wn_tn_b),
+            Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_count_t, ATMR.strings.wn_count_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 45
+            Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_ensemble_t, ATMR.strings.wn_ensemble_b),
+            Feature(MaterialSymbols.Rounded.Download, ATMR.strings.wn_shelf_t, ATMR.strings.wn_shelf_b),
+            Feature(MaterialSymbols.Rounded.NewReleases, ATMR.strings.wn_whatsnew_t, ATMR.strings.wn_whatsnew_b),
             // Build 39: the five big ones first, the orchestra that joins them
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_orchestra_t, ATMR.strings.wn_orchestra_b),
             Feature(MaterialSymbols.Rounded.Psychology, ATMR.strings.wn_local_t, ATMR.strings.wn_local_b),

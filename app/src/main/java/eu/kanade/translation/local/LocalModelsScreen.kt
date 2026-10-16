@@ -90,7 +90,8 @@ class LocalModelsScreen : Screen() {
         val stats = remember(tick / 5) { OrchestraStore.stats(context) }
         // MANHWA phone ensemble: who drafts, who rereads, who judges, and how many keys play with them
         val inactive by prefs.translationInactiveModels().collectPreference()
-        val lineup = remember(tick / 5, mainPath, judgePath, inactive) { PhoneEnsemble.lineup(context) }
+        val size by prefs.translationEnsembleSize().collectPreference()
+        val lineup = remember(tick / 5, mainPath, judgePath, inactive, size) { PhoneEnsemble.lineup(context) }
         val keys = remember(tick / 5) { context.appGraph.teamStore.active().size }
         val gatedText = stringResource(ATMR.strings.models_gated)
         val missingText = stringResource(ATMR.strings.models_not_found)
@@ -126,6 +127,18 @@ class LocalModelsScreen : Screen() {
                                 lineup.members.forEach { m -> RoleLine(m.name, m.role) }
                                 if (!lineup.ensemble) Text(stringResource(ATMR.strings.ensemble_add_more), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.65f))
                             }
+                            // How many phone models play: 1, 2, 3 or all of the active ones
+                            Text(stringResource(ATMR.strings.models_count_title), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(1, 2, 3, 0).forEach { n ->
+                                    androidx.compose.material3.FilterChip(
+                                        selected = size == n,
+                                        onClick = { prefs.translationEnsembleSize().set(n) },
+                                        label = { Text(if (n == 0) stringResource(ATMR.strings.models_count_all) else n.toString(), fontWeight = FontWeight.Bold) },
+                                    )
+                                }
+                            }
+                            Text(stringResource(ATMR.strings.models_count_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
                             Text(stringResource(ATMR.strings.models_ram, ram), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
                         }
                     }
@@ -183,7 +196,7 @@ class LocalModelsScreen : Screen() {
                             if (ready != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
-                                        if (role != null) RoleLine(null, role) else Text(stringResource(ATMR.strings.ensemble_resting), color = Color.White.copy(alpha = 0.55f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                        if (role != null) RoleLine(null, role) else Text(stringResource(if (active) ATMR.strings.ensemble_over_count else ATMR.strings.ensemble_resting), color = Color.White.copy(alpha = 0.55f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                                     }
                                     Switch(
                                         checked = active,

@@ -872,4 +872,21 @@
     <string name="wn_shelf_b">التحميل من Hugging Face مبقاش بيقف بخطأ 403 بعد ما توافق على الرخصة، والموديل أول ما يخلص تحميل بيدخل الفريق لوحده، ومحرك الموبايل اتحدّث عشان Gemma 3n.</string>
     <string name="wn_whatsnew_t">الجديد بس</string>
     <string name="wn_whatsnew_b">الشاشة دي بقت بتعرض اللي اتغيّر في التحديث ده بس؛ وكل اللي قبل كده موجود في الإعدادات، \"سجل التحديثات\"، تحت التحديثات اللي قبل كده.</string>
+    <string name="tn_title">بيترجم دلوقتي</string>
+    <string name="tn_count">%1$d فصل بيترجم أو مستني</string>
+    <string name="tn_empty_short">مفيش حاجة دلوقتي</string>
+    <string name="tn_empty">مفيش حاجة بتترجم دلوقتي. أي فصل تطلب ترجمته، من أي عمل، هيظهر هنا.</string>
+    <string name="tn_pause">وقّف الكل مؤقتاً</string>
+    <string name="tn_resume">كمّل</string>
+    <string name="tn_clear">امسح الطابور</string>
+    <string name="tn_open">افتح العمل</string>
+    <string name="tn_stop">وقّف ده</string>
+    <string name="models_count_title">عدد موديلات الموبايل اللي تشتغل</string>
+    <string name="models_count_all">الكل</string>
+    <string name="models_count_info">بيشتغل أقوى الموديلات اللي فعّلتها لحد العدد ده بس (الأساسي دايماً أولهم).</string>
+    <string name="ensemble_over_count">مستريح (زيادة عن العدد اللي اخترته)</string>
+    <string name="wn_tn_t">بيترجم دلوقتي، من أي عمل</string>
+    <string name="wn_tn_b">زرار ترجمة جنب التحميل في كل عمل بيوريك كام فصل بيترجم في أي مكان. بيفتح قايمة فيها العمل والفصل والخطوة والنسبة، ومعاها \"افتح العمل\" و\"وقّف ده\"، وكمان توقيف مؤقت أو تكملة أو مسح للكل.</string>
+    <string name="wn_count_t">اختار عدد موديلات الموبايل</string>
+    <string name="wn_count_b">في خانة الموديلات اختار 1 أو 2 أو 3 أو الكل: بيشتغل العدد ده بس من أقوى موديلاتك المفعّلة (الأساسي أولهم)، والباقي بيستريح ويفضّي الرام.</string>
 </resources>

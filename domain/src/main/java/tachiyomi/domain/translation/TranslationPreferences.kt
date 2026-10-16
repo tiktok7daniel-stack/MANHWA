@@ -160,6 +160,9 @@ class TranslationPreferences(
     /** MANHWA phone ensemble: models on the phone the reader switched off (every other model plays). */
     fun translationInactiveModels() = preferenceStore.getStringSet("manhwa_translation_inactive_models", emptySet())
 
+    /** MANHWA phone ensemble: how many phone models play at most (0 = all the active ones). */
+    fun translationEnsembleSize() = preferenceStore.getInt("manhwa_translation_ensemble_size", 0)
+
     /** What the orchestra did (lines by the phone, by the keys, judgements), as JSON (see OrchestraStats). */
     fun translationOrchestraStats() = preferenceStore.getString("manhwa_translation_orchestra_stats", "{}")
 }

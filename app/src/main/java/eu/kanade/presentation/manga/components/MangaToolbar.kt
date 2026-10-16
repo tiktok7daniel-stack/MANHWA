@@ -73,6 +73,9 @@ fun MangaToolbar(
                 )
             }
 
+            // MANHWA: what is being translated right now, from any work (stop it or go to it)
+            if (!isActionMode) eu.kanade.translation.queue.TranslatingNowButton()
+
             val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
             AppBarActions(
                 actions = buildList {

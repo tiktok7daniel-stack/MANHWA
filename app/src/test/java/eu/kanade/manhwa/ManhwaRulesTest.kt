@@ -412,3 +412,19 @@ class PhoneEnsembleTest {
         EnsembleRules.budgetBytes(16 * gb) shouldBe 16 * gb * 45 / 100
     }
 }
+
+class EnsembleSizeTest {
+    private val gb = 1024L * 1024 * 1024
+    private fun c(path: String, strength: Int, gbs: Double) = EnsembleRules.Candidate(path, strength, (gbs * gb).toLong())
+
+    @Test
+    fun `only as many models as chosen, the main one first then the strongest`() {
+        val all = listOf(c("q15", 3, 1.6), c("gemma4b", 5, 4.4), c("phi4", 4, 3.9))
+        EnsembleRules.limit(all, "q15", 1).map { it.path } shouldBe listOf("q15")
+        EnsembleRules.limit(all, "q15", 2).map { it.path } shouldBe listOf("q15", "gemma4b")
+        EnsembleRules.limit(all, "q15", 0).size shouldBe 3
+        EnsembleRules.limit(all, "q15", 5).size shouldBe 3
+        val one = EnsembleRules.assign(EnsembleRules.limit(all, "gemma4b", 1), "gemma4b", "", 7 * gb)!!
+        one.members shouldBe listOf("gemma4b" to EnsembleRules.Role.MAIN)
+    }
+}

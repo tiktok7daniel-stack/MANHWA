@@ -45,6 +45,8 @@ object PhoneEnsemble {
         )).distinctBy { it.path }
             // The main model always plays; the others when the reader keeps them on
             .filter { it.path == main.absolutePath || it.path !in inactive }
+            // Only as many as the reader chose (the main one first, then the strongest)
+            .let { EnsembleRules.limit(it, main.absolutePath, prefs.translationEnsembleSize().get()) }
         val roles = EnsembleRules.assign(
             candidates,
             mainPath = main.absolutePath,
@@ -112,6 +114,14 @@ object EnsembleRules {
             }
         }
         return Roles(drafter.path, main.path, judges, members)
+    }
+
+    /** The main model and the strongest others, [max] models at most (0 or less: all of them). */
+    fun limit(candidates: List<Candidate>, mainPath: String, max: Int): List<Candidate> {
+        if (max <= 0 || candidates.size <= max) return candidates
+        val main = candidates.filter { it.path == mainPath }
+        val others = candidates.filter { it.path != mainPath }.sortedWith(compareByDescending<Candidate> { it.strength }.thenBy { it.bytes })
+        return (main + others).take(max)
     }
 
     /** The judges' answer: the most votes; a tie goes to the first (strongest) judge that voted. Null without votes. */
