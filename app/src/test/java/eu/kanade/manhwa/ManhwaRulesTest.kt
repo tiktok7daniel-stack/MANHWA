@@ -387,7 +387,7 @@ class PhoneEnsembleTest {
     }
 
     @Test
-    fun `two models: the helper drafts and judges, a model switched off does not play`() {
+    fun `two models, the helper drafts and judges`() {
         val r = EnsembleRules.assign(listOf(c("gemma4b", 5, 4.4), c("q15", 3, 1.6)), "gemma4b", "", budget = 6 * gb)!!
         r.members shouldBe listOf("gemma4b" to EnsembleRules.Role.MAIN, "q15" to EnsembleRules.Role.DRAFTS_AND_JUDGES)
         r.judges shouldBe listOf("q15")
