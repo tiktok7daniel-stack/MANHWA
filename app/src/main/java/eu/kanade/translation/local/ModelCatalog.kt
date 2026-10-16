@@ -134,14 +134,18 @@ object ModelCatalog {
         val file = pickFile(context, model, token)
         val target = File(folder(context), file.substringAfterLast('/'))
         if (target.exists()) target.delete()
-        val request = DownloadManager.Request(Uri.parse("https://huggingface.co/${model.repo}/resolve/main/$file"))
+        // Hugging Face answers with a short-lived signed link to its file store. The link is asked for here, with
+        // the token, and the download manager gets the signed link alone: carried on to the file store, the
+        // token's header makes it refuse the download (403).
+        val url = signedUrl(context, "https://huggingface.co/${model.repo}/resolve/main/$file", token)
+        val request = DownloadManager.Request(Uri.parse(url))
             .setTitle("MANHWA · ${model.name}")
             .setDescription(file)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationUri(Uri.fromFile(target))
             .setAllowedOverMetered(!wifiOnly)
             .setAllowedOverRoaming(false)
-        if (token.isNotEmpty()) request.addRequestHeader("Authorization", "Bearer $token")
+        if (token.isNotEmpty() && Uri.parse(url).host == "huggingface.co") request.addRequestHeader("Authorization", "Bearer $token")
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val id = dm.enqueue(request)
         prefs(context).edit().putLong("id:${model.repo}", id).putString("file:${model.repo}", target.name).apply()
@@ -161,6 +165,29 @@ object ModelCatalog {
             if (settings.translationLocalModelPath().get() == file.absolutePath) settings.translationLocalModelPath().set("")
             if (settings.translationLocalJudgePath().get() == file.absolutePath) settings.translationLocalJudgePath().set("")
         }
+    }
+
+    /**
+     * Follows Hugging Face's redirects with the token and returns the final signed link of the file. A 401/403
+     * here means the licence was not accepted on the model page (or the token is wrong).
+     */
+    private fun signedUrl(context: Context, start: String, token: String): String {
+        val client = context.appGraph.networkHelper.client.newBuilder().followRedirects(false).followSslRedirects(false).build()
+        var url = start
+        repeat(5) {
+            val request = Request.Builder().url(url).head()
+                .apply { if (token.isNotEmpty() && url.startsWith("https://huggingface.co/")) header("Authorization", "Bearer $token") }
+                .build()
+            client.newCall(request).execute().use { r ->
+                when {
+                    r.code == 401 || r.code == 403 -> throw IllegalStateException(GATED)
+                    r.code == 404 -> throw IllegalStateException(NOT_FOUND)
+                    r.isRedirect -> url = r.header("Location")?.let { loc -> r.request.url.resolve(loc)?.toString() } ?: return url
+                    else -> return url
+                }
+            }
+        }
+        return url
     }
 
     /** The .task file of the model, read from its page. */
