@@ -91,6 +91,10 @@ class HealthDashboardScreen : Screen() {
         val freed = remember { graph.translationPreferences.translationFreedBytes().get() }
         val lastFull = remember(organizerResult) { graph.libraryPreferences.organizerLastFull.get() }
         val hidden = sources.filterValues { it.hidden }
+        // Source names are read off the main thread
+        val names by produceState(emptyMap<Long, String>(), hidden.keys) {
+            value = withContext(Dispatchers.IO) { hidden.keys.associateWith { id -> graph.sourceManager.get(id)?.name ?: "$id" } }
+        }
         val bottom = WindowInsets.navigationBars.asPaddingValues()
 
         GlassBackdrop {
@@ -140,7 +144,7 @@ class HealthDashboardScreen : Screen() {
                                 Line(stringResource(ATMR.strings.health_sources_ok))
                             } else {
                                 hidden.forEach { (id, e) ->
-                                    val name = graph.sourceManager.get(id)?.name ?: "$id"
+                                    val name = names[id] ?: "$id"
                                     Line("$name · ${e.reason.orEmpty().take(80)}", Amber)
                                 }
                                 ManhwaKit.NeonButton(
