@@ -624,4 +624,25 @@
     <string name="crecap_title">Story so far</string>
     <string name="crecap_characters">Who is who</string>
     <string name="crecap_failed">Could not tell the story right now</string>
+    <string name="vault_title">MANHWA Vault</string>
+    <string name="vault_subtitle">Everything in one encrypted file, synced between your devices</string>
+    <string name="vault_password">Vault password</string>
+    <string name="vault_password_hint">At least 6 characters. Without it the vault can never be opened, keep it safe.</string>
+    <string name="vault_export">Export the vault</string>
+    <string name="vault_import">Import and merge a vault</string>
+    <string name="vault_contents">Library, categories, chapters, history, tracking, settings, glossaries, story summaries, lessons, bubble edits, the translation library and favorite drops.</string>
+    <string name="vault_sync">Sync between devices</string>
+    <string name="vault_sync_hint">Pick a folder that syncs (Google Drive, OneDrive, Syncthing). Each device writes its vault there every day and after reading, and merges a newer one from your other device first.</string>
+    <string name="vault_pick_folder">Pick the sync folder</string>
+    <string name="vault_sync_now">Sync now</string>
+    <string name="vault_last_sync">Last sync: %1$s</string>
+    <string name="vault_need_password">Write a password of at least 6 characters first</string>
+    <string name="vault_need_folder">Pick the sync folder first</string>
+    <string name="vault_exported">Vault exported</string>
+    <string name="vault_imported">Merged: %1$d files and %2$d translated lines; the library is being restored in the background</string>
+    <string name="vault_wrong_password">Wrong password, or the file was changed</string>
+    <string name="vault_not_vault">This is not a MANHWA vault</string>
+    <string name="vault_failed">The vault could not be written or read</string>
+    <string name="vault_sync_wrote">Synced: your vault is in the folder</string>
+    <string name="vault_sync_merged">Synced: the newer vault from your other device was merged, then yours was written</string>
 </resources>

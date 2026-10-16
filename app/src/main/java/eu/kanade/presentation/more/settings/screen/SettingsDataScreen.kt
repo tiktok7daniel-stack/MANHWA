@@ -253,6 +253,13 @@ object SettingsDataScreen : SearchableSettings {
                     )
                 },
 
+                // MANHWA Vault: everything in one encrypted file, and sync through a folder
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(tachiyomi.i18n.at.ATMR.strings.vault_title),
+                    subtitle = stringResource(tachiyomi.i18n.at.ATMR.strings.vault_subtitle),
+                    onClick = { navigator.push(eu.kanade.tachiyomi.data.backup.vault.ManhwaVaultScreen()) },
+                ),
+
                 // Automatic backups
                 Preference.PreferenceItem.ListPreference(
                     preference = backupPreferences.backupInterval,

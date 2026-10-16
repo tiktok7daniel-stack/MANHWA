@@ -565,4 +565,25 @@
     <string name="crecap_title">القصة لحد دلوقتي</string>
     <string name="crecap_characters">مين ده</string>
     <string name="crecap_failed">ما قدرتش أحكي القصة دلوقتي</string>
+    <string name="vault_title">خزنة MANHWA</string>
+    <string name="vault_subtitle">كل حاجة في ملف واحد مشفر، ومتزامن بين أجهزتك</string>
+    <string name="vault_password">باسورد الخزنة</string>
+    <string name="vault_password_hint">6 حروف على الأقل. من غيره الخزنة مستحيل تتفتح، فاحفظه كويس.</string>
+    <string name="vault_export">صدّر الخزنة</string>
+    <string name="vault_import">استورد خزنة وادمجها</string>
+    <string name="vault_contents">المكتبة، والفئات، والفصول، والسجل، والتتبع، والإعدادات، والقواميس، وملخصات القصص، والدروس، وتعديلات الفقاعات، ومكتبة الترجمة، وإشعارات المفضلة.</string>
+    <string name="vault_sync">مزامنة بين الأجهزة</string>
+    <string name="vault_sync_hint">اختار فولدر بيتزامن (Google Drive أو OneDrive أو Syncthing). كل جهاز بيكتب خزنته فيه كل يوم وبعد القراية، ولو جهازك التاني كتب خزنة أحدث بيدمجها الأول.</string>
+    <string name="vault_pick_folder">اختار فولدر المزامنة</string>
+    <string name="vault_sync_now">زامن دلوقتي</string>
+    <string name="vault_last_sync">آخر مزامنة: %1$s</string>
+    <string name="vault_need_password">اكتب باسورد 6 حروف على الأقل الأول</string>
+    <string name="vault_need_folder">اختار فولدر المزامنة الأول</string>
+    <string name="vault_exported">الخزنة اتصدّرت</string>
+    <string name="vault_imported">اتدمج %1$d ملف و%2$d جملة مترجمة، والمكتبة بتترجع في الخلفية</string>
+    <string name="vault_wrong_password">الباسورد غلط، أو الملف اتغير</string>
+    <string name="vault_not_vault">ده مش ملف خزنة MANHWA</string>
+    <string name="vault_failed">ما قدرتش أكتب أو أقرا الخزنة</string>
+    <string name="vault_sync_wrote">اتزامن: خزنتك في الفولدر</string>
+    <string name="vault_sync_merged">اتزامن: الخزنة الأحدث من جهازك التاني اتدمجت، وبعدها خزنتك اتكتبت</string>
 </resources>

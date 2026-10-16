@@ -508,6 +508,10 @@ class ReaderActivity : BaseActivity() {
 
     override fun onPause() {
         runCatching { saveSmartFocus() }
+        // MANHWA Vault: after a reading session, the sync folder gets a fresh copy (at most every hour)
+        if (isFinishing) {
+            appGraph.manhwaVault.syncSoon(eu.kanade.tachiyomi.data.backup.vault.ManhwaVault.HOUR_MS)
+        }
         viewModel.saveHistory()
         super.onPause()
     }

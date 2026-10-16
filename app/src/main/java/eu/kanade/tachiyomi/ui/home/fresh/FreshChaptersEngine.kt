@@ -280,6 +280,8 @@ class FreshChaptersWorker(context: Context, params: WorkerParameters) : Coroutin
         val graph = applicationContext.appGraph
         graph.freshChaptersEngine.refresh()
         runCatching { graph.libraryOrganizer.catchUp() }
+        // MANHWA Vault: the daily encrypted copy in the reader's sync folder
+        runCatching { graph.manhwaVault.syncIfDue() }
         // Sources keep themselves up to date too: the stores are checked a few times a day
         val prefs = graph.sourcePreferences
         val now = System.currentTimeMillis()
