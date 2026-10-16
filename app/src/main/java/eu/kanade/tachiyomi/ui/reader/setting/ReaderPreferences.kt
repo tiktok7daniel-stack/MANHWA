@@ -24,7 +24,7 @@ class ReaderPreferences(
 
     val loadAheadOnlyOverWifi: Preference<Boolean> = preferenceStore.getBoolean(
         "pref_reader_load_ahead_only_over_wifi",
-        true,
+        false,
     )
 
     val flashOnPageChange: Preference<Boolean> = preferenceStore.getBoolean("pref_reader_flash", false)

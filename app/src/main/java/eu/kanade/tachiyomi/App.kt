@@ -221,6 +221,16 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             // MANHWA: the bundled phrasebook goes into the translation collection once, and the organizer (which
             // pulls in the sources and the library database) starts, all off the main thread
             scope.launch(Dispatchers.IO) {
+                // MANHWA: chapters download and preload on any network (mobile data too), switched once for
+                // phones that kept the old Wi-Fi-only setting; the user can turn it back on in the settings
+                runCatching {
+                    val switched = preferenceStore.getBoolean("manhwa_any_network_downloads", false)
+                    if (!switched.get()) {
+                        preferenceStore.getBoolean("pref_download_only_over_wifi_key", false).set(false)
+                        preferenceStore.getBoolean("pref_reader_load_ahead_only_over_wifi", false).set(false)
+                        switched.set(true)
+                    }
+                }
                 runCatching { graph.libraryOrganizer.watch() }
                 // MANHWA dual OCR: PaddleOCR's models come by themselves on Wi-Fi when the engine needs them
                 runCatching {
