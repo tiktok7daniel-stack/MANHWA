@@ -433,6 +433,10 @@ private fun MangaScreenSmallImpl(
                         )
                     }
 
+                    // MANHWA: the cast of the work, in glass cards
+                    item(key = "manhwa_characters") {
+                        eu.kanade.translation.characters.CharacterGallery(state.manga.id, state.manga.title)
+                    }
                     if (translateBar != null) {
                         item(key = "manhwa_translate") { translateBar() }
                     }
@@ -656,6 +660,7 @@ fun MangaScreenLargeImpl(
                             onCopyTagToClipboard = onCopyTagToClipboard,
                             onEditNotes = onEditNotesClicked,
                         )
+                        eu.kanade.translation.characters.CharacterGallery(state.manga.id, state.manga.title)
                     }
                 },
                 endContent = {

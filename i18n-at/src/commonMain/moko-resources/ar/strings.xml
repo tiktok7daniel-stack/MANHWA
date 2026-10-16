@@ -675,4 +675,17 @@
     <string name="info_free_space_on_read">بعد ما السطور تتحفظ في المكتبة، ملف ترجمة الفصل نفسه بيتمسح. مكتبة الترجمة والقاموس وقاموس العمل والدروس والملخصات والأسماء والقوالب عمرها ما بتتمسح.</string>
     <string name="pref_delete_download_on_read">امسح الصفحات المحمّلة بعد القراءة</string>
     <string name="info_delete_download_on_read">مقفول من الأول عشان الفصول اللي حمّلتها للقراية من غير نت تفضل. لو فتحته، الصفحات المحمّلة للفصل المقروء بتتمسح هي كمان.</string>
+    <string name="chars_title">الشخصيات</string>
+    <string name="chars_not_this">مش العمل ده؟</string>
+    <string name="chars_hero">البطل</string>
+    <string name="chars_main">رئيسية</string>
+    <string name="chars_supporting">ثانوية</string>
+    <string name="chars_background">خلفية</string>
+    <string name="chars_male">ذكر</string>
+    <string name="chars_female">أنثى</string>
+    <string name="chars_about">مين هو/هي</string>
+    <string name="chars_no_about">لسه مفيش وصف.</string>
+    <string name="chars_in_translation">اللي الترجمة عارفاه</string>
+    <string name="chars_source">الشخصيات من AniList. الأسماء والجنس بيروحوا كمان لقاموس العمل ده، عشان الترجمة تكتبهم صح.</string>
+    <string name="chars_pick_work">اختار العمل الصح</string>
 </resources>

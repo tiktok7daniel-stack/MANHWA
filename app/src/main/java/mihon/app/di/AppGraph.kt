@@ -112,6 +112,7 @@ interface AppGraph : ViewModelGraph {
     val libraryOrganizer: eu.kanade.tachiyomi.ui.library.ai.LibraryOrganizer
     val manhwaVault: eu.kanade.tachiyomi.data.backup.vault.ManhwaVault
     val sourceHealthManager: eu.kanade.tachiyomi.ui.home.discover.SourceHealthManager
+    val characterStore: eu.kanade.translation.characters.CharacterStore
 
     val crashLogUtil: CrashLogUtil
 

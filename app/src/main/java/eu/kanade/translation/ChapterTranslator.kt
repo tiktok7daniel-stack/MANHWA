@@ -465,6 +465,8 @@ class ChapterTranslator(
             showProgress()
             val src = translation.fromLang.name
             val tgt = translation.toLang.name
+            // MANHWA: the same work from another source in the library shares this one's dictionary
+            if (translation.manga.favorite) glossaryStore.registerWork(translation.manga.id, translation.manga.title)
             val useLibrary = translationPreferences.translationCollection().get()
             collection.limitBytes = translationPreferences.translationCollectionLimitMb().get().toLong() * 1024 * 1024
 
@@ -611,6 +613,48 @@ class ChapterTranslator(
                     if (useLibrary && fixed.isNotEmpty()) {
                         collection.learn(src, tgt, translation.manga.id, glossaryAfter, fixed, TranslationCollection.Source.EDITOR)
                     }
+                }
+                // MANHWA second opinion: the doubtful and important lines are translated again by another key, and
+                // the better translation of each is kept
+                var consensus = eu.kanade.translation.team.TranslationConsensusEngine.Outcome(0, 0)
+                if (ai != null && translationPreferences.translationConsensus().get() && textTranslator is TeamTranslator) {
+                    val lines = eu.kanade.translation.team.TranslationConsensusEngine.pick(pages, doubts?.keys.orEmpty(), newTerms)
+                    val genders = glossaryStore.get(translation.manga.id).filter { it.gender.isNotBlank() }.associate { it.source to it.gender }
+                    consensus = runCatching {
+                        eu.kanade.translation.team.TranslationConsensusEngine.review(
+                            store = teamStore,
+                            firstKeyId = teamStore.lead()?.id,
+                            lines = lines,
+                            glossary = glossaryAfter,
+                            genders = genders,
+                            title = translation.manga.title,
+                            targetLabel = translation.toLang.label,
+                            targetLatin = translation.toLang.code !in NON_LATIN_TARGETS,
+                        )
+                    }.onFailure { if (it is CancellationException) throw it }.getOrDefault(consensus)
+                    if (useLibrary && consensus.replacedLines.isNotEmpty()) {
+                        collection.learn(
+                            src, tgt, translation.manga.id, glossaryAfter,
+                            consensus.replacedLines.map { (b, _) -> TranslationCollection.Line(b.text, b.translation, b.kind) },
+                            TranslationCollection.Source.EDITOR,
+                        )
+                    }
+                }
+                // MANHWA quality badge: where the lines came from and what is still doubtful
+                runCatching {
+                    val stillDoubtful = doubtful(pages, glossaryAfter, translation, emptySet()).keys.map { it.text }.take(20)
+                    val aiLines = work.values.sumOf { it.blocks.size }
+                    val allLines = pages.values.sumOf { it.blocks.count { b -> b.translation.isNotBlank() } }
+                    eu.kanade.translation.team.ChapterQuality(translationPreferences.translationChapterQuality()).save(
+                        translation.chapter.id,
+                        eu.kanade.translation.team.ChapterQuality.Report(
+                            fromLibrary = (allLines - aiLines).coerceAtLeast(0),
+                            byAi = aiLines.coerceAtMost(allLines),
+                            reviewed = consensus.reviewed + (doubts?.size ?: 0),
+                            changed = consensus.replaced,
+                            doubtful = stillDoubtful,
+                        ),
+                    )
                 }
                 translation.advance(Translation.Stage.REVIEWING, 2, 3)
                 showProgress()

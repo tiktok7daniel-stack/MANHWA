@@ -284,6 +284,8 @@ class FreshChaptersWorker(context: Context, params: WorkerParameters) : Coroutin
         runCatching { graph.libraryOrganizer.dailyIfDue() }
         // MANHWA source health: hidden home sources are tried again (6, 12, then 24 hours apart)
         runCatching { graph.sourceHealthManager.recheckDue() }
+        // MANHWA: library works read from more than one source share one dictionary
+        runCatching { graph.getFavorites.await().forEach { graph.glossaryStore.registerWork(it.id, it.title) } }
         // MANHWA team: every key's model is checked against its site once a day and replaced when gone
         runCatching { graph.teamStore.refreshModels() }
         // MANHWA Vault: the daily encrypted copy in the reader's sync folder

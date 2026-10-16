@@ -734,4 +734,17 @@
     <string name="info_free_space_on_read">After its lines are safe in the library, the chapter\'s own translation file is deleted. The translation library, glossary, work dictionary, lessons, summaries, names and templates are never deleted.</string>
     <string name="pref_delete_download_on_read">Delete downloaded pages after reading</string>
     <string name="info_delete_download_on_read">Off by default so chapters you downloaded for offline reading stay. When on, a read chapter\'s downloaded pages are deleted too.</string>
+    <string name="chars_title">Characters</string>
+    <string name="chars_not_this">Not this work?</string>
+    <string name="chars_hero">Hero</string>
+    <string name="chars_main">Main</string>
+    <string name="chars_supporting">Supporting</string>
+    <string name="chars_background">Background</string>
+    <string name="chars_male">Male</string>
+    <string name="chars_female">Female</string>
+    <string name="chars_about">Who they are</string>
+    <string name="chars_no_about">No description yet.</string>
+    <string name="chars_in_translation">What the translation knows</string>
+    <string name="chars_source">Characters from AniList. Names and genders also go to this work\'s dictionary, so the translation gets them right.</string>
+    <string name="chars_pick_work">Pick the right work</string>
 </resources>

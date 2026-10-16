@@ -66,8 +66,45 @@ class GlossaryStore(private val context: Context) {
 
     fun get(mangaId: Long): List<Entry> = state(mangaId).value
 
-    /** source term -> translation, for the translator prompt. */
-    fun asMap(mangaId: Long): Map<String, String> = get(mangaId).associate { it.source to it.translation }
+    /**
+     * source term -> translation, for the translator prompt. MANHWA: the same work in the library from other
+     * sources ([WorkIdentity]) shares its terms; this series' own entries win.
+     */
+    fun asMap(mangaId: Long): Map<String, String> {
+        val own = get(mangaId).associate { it.source to it.translation }
+        val shared = siblings(mangaId).flatMap { get(it) }.associate { it.source to it.translation }
+        if (shared.isEmpty()) return own
+        val ownLower = own.keys.map { it.lowercase() }.toSet()
+        return shared.filterKeys { it.lowercase() !in ownLower } + own
+    }
+
+    // ---------------------------------------------------------------- one work, many sources
+
+    private fun worksFile() = File(context.filesDir, "glossary_works.json")
+
+    private val works: MutableMap<Long, String> by lazy {
+        ConcurrentHashMap(
+            runCatching { json.decodeFromString<Map<String, String>>(worksFile().readText()) }.getOrDefault(emptyMap())
+                .mapNotNull { (k, v) -> k.toLongOrNull()?.let { it to v } }.toMap(),
+        )
+    }
+
+    /**
+     * Notes that [mangaId] (a series in the library) is the work called [title], so other sources of the same
+     * work share its dictionary. Only library series are registered.
+     */
+    fun registerWork(mangaId: Long, title: String) {
+        val key = WorkIdentity.key(title)
+        if (key.length < WorkIdentity.MIN_KEY || works[mangaId] == key) return
+        works[mangaId] = key
+        runCatching { worksFile().writeText(json.encodeToString(works.mapKeys { it.key.toString() })) }
+    }
+
+    /** Other series of the same work (another source), newest registered last. */
+    fun siblings(mangaId: Long): List<Long> {
+        val key = works[mangaId] ?: return emptyList()
+        return works.filter { (id, k) -> k == key && id != mangaId }.keys.toList()
+    }
 
     /**
      * Adds terms found by the AI without touching entries that already exist. MANHWA: [details] (kind and
@@ -97,7 +134,7 @@ class GlossaryStore(private val context: Context) {
     }
 
     /** MANHWA: what each term is, for the translator ("character, female, speaks coldly"); only terms that say something. */
-    fun notes(mangaId: Long): Map<String, String> = get(mangaId).mapNotNull { entry ->
+    fun notes(mangaId: Long): Map<String, String> = (siblings(mangaId).flatMap { get(it) } + get(mangaId)).mapNotNull { entry ->
         val parts = listOfNotNull(
             entry.kind.takeIf { it.isNotBlank() },
             entry.gender.takeIf { it.isNotBlank() },
@@ -138,9 +175,12 @@ class GlossaryStore(private val context: Context) {
     }
 
     /** The last chapters' summaries, oldest first, to give the translator the story so far. */
-    fun storySoFar(mangaId: Long): String = runCatching {
-        storyFile(mangaId).takeIf { it.exists() }?.readText()?.let { json.decodeFromString<List<ChapterSummary>>(it) }
-    }.getOrNull().orEmpty().takeLast(STORY_CHAPTERS).joinToString("\n") { "${it.chapter}: ${it.summary}" }
+    fun storySoFar(mangaId: Long): String {
+        // The same work from another source tells the story when this one has none yet
+        val own = story(mangaId)
+        val list = own.ifEmpty { siblings(mangaId).map { story(it) }.maxByOrNull { it.size }.orEmpty() }
+        return list.takeLast(STORY_CHAPTERS).joinToString("\n") { "${it.chapter}: ${it.summary}" }
+    }
 
     /** Keeps [summary] for [chapter] (the latest few chapters only). */
     @Synchronized
