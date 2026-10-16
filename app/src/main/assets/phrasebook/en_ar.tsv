@@ -240,3 +240,399 @@ Would you like to accept?	هل تريد القبول؟
 Yes/No	نعم/لا
 Accept	قبول
 Decline	رفض
+# More system templates (any number fits; counted nouns are agreed with the number when reused)
+You have gained 5 levels.	لقد ارتفع مستواك 5 مستويات.
+You have leveled up 5 times.	لقد ارتفع مستواك 5 مرات.
+Level up! You are now level 5.	ارتفع المستوى! أنت الآن في المستوى 5.
+Current level: 5	المستوى الحالي: 5
+Required level: 5	المستوى المطلوب: 5
+Level requirement: 5	شرط المستوى: 5
+Level 5 required.	مطلوب المستوى 5.
+Requires level 5.	يتطلب المستوى 5.
+EXP: 50%	الخبرة: 50%
+EXP +100	الخبرة +100
+EXP + 100	الخبرة + 100
++100 EXP	+100 نقطة خبرة
+EXP 100/1000	الخبرة 100/1000
+You have gained 100 EXP.	لقد حصلت على 100 نقطة خبرة.
+You gained 100 EXP.	لقد حصلت على 100 نقطة خبرة.
+Gained 100 EXP.	تم الحصول على 100 نقطة خبرة.
+Obtained 100 EXP.	تم الحصول على 100 نقطة خبرة.
+You have acquired 5 stat points.	لقد حصلت على 5 نقاط إحصائيات.
+You have received 5 stat points.	لقد تلقيت 5 نقاط إحصائيات.
+You have 5 stat points to distribute.	لديك 5 نقاط إحصائيات للتوزيع.
+Available stat points: 5	نقاط الإحصائيات المتاحة: 5
+Remaining points: 5	النقاط المتبقية: 5
+Available points: 5	النقاط المتاحة: 5
+Ability points: 5	نقاط القدرات: 5
+Skill points: 5	نقاط المهارة: 5
+You have gained 5 skill points.	لقد حصلت على 5 نقاط مهارة.
+Strength: 5	القوة: 5
+Agility: 5	الرشاقة: 5
+Intelligence: 5	الذكاء: 5
+Stamina: 5	التحمل: 5
+Vitality: 5	الحيوية: 5
+Sense: 5	الإدراك: 5
+Perception: 5	الإدراك: 5
+Luck: 5	الحظ: 5
+Dexterity: 5	البراعة: 5
+Wisdom: 5	الحكمة: 5
+Charisma: 5	الجاذبية: 5
+STR: 5	القوة: 5
+AGI: 5	الرشاقة: 5
+VIT: 5	الحيوية: 5
+INT: 5	الذكاء: 5
+LUK: 5	الحظ: 5
+DEX: 5	البراعة: 5
+Stamina +5	التحمل +5
+Vitality +5	الحيوية +5
+Sense +5	الإدراك +5
+Luck +5	الحظ +5
+All stats +5	جميع الإحصائيات +5
+All stats have increased by 5.	ارتفعت جميع الإحصائيات بمقدار 5.
+Strength has increased by 5.	ارتفعت القوة بمقدار 5.
+Agility has increased by 5.	ارتفعت الرشاقة بمقدار 5.
+Intelligence has increased by 5.	ارتفع الذكاء بمقدار 5.
+Stamina has increased by 5.	ارتفع التحمل بمقدار 5.
+Your strength has increased by 5.	ارتفعت قوتك بمقدار 5.
+Attack power +5%	قوة الهجوم +5%
+Attack power increased by 5%.	ارتفعت قوة الهجوم بنسبة 5%.
+Defense +5%	الدفاع +5%
+Defense increased by 5%.	ارتفع الدفاع بنسبة 5%.
+Movement speed +5%	سرعة الحركة +5%
+Attack speed +5%	سرعة الهجوم +5%
+Critical rate +5%	نسبة الضربة الحرجة +5%
+Damage +5%	الضرر +5%
+Damage dealt +5%	الضرر الذي تلحقه +5%
+Damage taken -5%	الضرر الذي تتلقاه -5%
+Damage increased by 5%.	زاد الضرر بنسبة 5%.
+Mana recovery +5%	استعادة المانا +5%
+HP recovery +5%	استعادة الصحة +5%
+HP: 100	نقاط الصحة: 100
+MP: 100	نقاط المانا: 100
+HP 100/100	نقاط الصحة 100/100
+MP 100/100	نقاط المانا 100/100
+Fatigue: 5	الإرهاق: 5
+Fatigue has decreased by 5.	انخفض الإرهاق بمقدار 5.
+Your HP has been restored by 100.	تمت استعادة 100 من نقاط صحتك.
+Your MP has been restored by 100.	تمت استعادة 100 من نقاط المانا.
+You have recovered 100 HP.	لقد استعدت 100 من نقاط الصحة.
+You have recovered 100 MP.	لقد استعدت 100 من نقاط المانا.
+MP cost: 100	تكلفة المانا: 100
+Mana cost: 100	تكلفة المانا: 100
+Mana consumption: 100	استهلاك المانا: 100
+Consumes 100 MP.	يستهلك 100 من نقاط المانا.
+Consumes 100 mana.	يستهلك 100 من المانا.
+Cooldown: 5 seconds	وقت الانتظار: 5 ثوانٍ
+Cooldown: 5 minutes	وقت الانتظار: 5 دقائق
+Cooldown: 5 hours	وقت الانتظار: 5 ساعات
+Cooldown time: 5 seconds	وقت الانتظار: 5 ثوانٍ
+Duration: 5 seconds	المدة: 5 ثوانٍ
+Duration: 5 minutes	المدة: 5 دقائق
+Duration: 5 hours	المدة: 5 ساعات
+Lasts 5 seconds.	يستمر 5 ثوانٍ.
+Lasts for 5 minutes.	يستمر لمدة 5 دقائق.
+Time remaining: 5 seconds	الوقت المتبقي: 5 ثوانٍ
+Time remaining: 5 minutes	الوقت المتبقي: 5 دقائق
+Time remaining: 5 hours	الوقت المتبقي: 5 ساعات
+Time remaining: 5 days	الوقت المتبقي: 5 أيام
+Remaining time: 5 seconds	الوقت المتبقي: 5 ثوانٍ
+Remaining time: 5 hours	الوقت المتبقي: 5 ساعات
+Time limit: 5 minutes	الوقت المحدد: 5 دقائق
+Time limit: 5 hours	الوقت المحدد: 5 ساعات
+Time limit: 5 days	الوقت المحدد: 5 أيام
+5 seconds remaining.	تبقت 5 ثوانٍ.
+5 minutes remaining.	تبقت 5 دقائق.
+5 hours remaining.	تبقت 5 ساعات.
+5 days remaining.	تبقت 5 أيام.
+5 seconds left.	تبقت 5 ثوانٍ.
+5 minutes left.	تبقت 5 دقائق.
+5 seconds later	بعد 5 ثوانٍ
+5 minutes later	بعد 5 دقائق
+5 weeks later	بعد 5 أسابيع
+5 days ago	قبل 5 أيام
+5 years ago	قبل 5 سنوات
+5 hours ago	قبل 5 ساعات
+5 minutes ago	قبل 5 دقائق
+5 months ago	قبل 5 أشهر
+5 years before	قبل 5 سنوات
+5 years from now	بعد 5 سنوات من الآن
+Countdown: 5	العد التنازلي: 5
+Countdown: 5 seconds	العد التنازلي: 5 ثوانٍ
+The dungeon will close in 5 minutes.	ستُغلق الزنزانة خلال 5 دقائق.
+The gate will close in 5 minutes.	ستُغلق البوابة خلال 5 دقائق.
+The gate will close in 5 hours.	ستُغلق البوابة خلال 5 ساعات.
+Dungeon break in 5 minutes.	انفجار الزنزانة خلال 5 دقائق.
+The dungeon break will occur in 5 hours.	سيقع انفجار الزنزانة خلال 5 ساعات.
+The penalty zone will last for 5 hours.	ستستمر منطقة العقوبة لمدة 5 ساعات.
+You will be moved to the penalty zone in 5 seconds.	سيتم نقلك إلى منطقة العقوبة خلال 5 ثوانٍ.
+Teleporting in 5 seconds.	الانتقال خلال 5 ثوانٍ.
+Returning in 5 seconds.	العودة خلال 5 ثوانٍ.
+Logging out in 5 seconds.	تسجيل الخروج خلال 5 ثوانٍ.
+The quest will begin in 5 seconds.	ستبدأ المهمة خلال 5 ثوانٍ.
+The trial will begin in 5 minutes.	سيبدأ الاختبار خلال 5 دقائق.
+The scenario will begin in 5 minutes.	سيبدأ السيناريو خلال 5 دقائق.
+Daily quest: run 10 km	المهمة اليومية: الجري 10 كيلومترات
+Push-ups: 100/100	تمارين الضغط: 100/100
+Sit-ups: 100/100	تمارين البطن: 100/100
+Squats: 100/100	تمارين القرفصاء: 100/100
+Running: 10/10 km	الجري: 10/10 كيلومترات
+Running 10 km	الجري 10 كيلومترات
+100 push-ups	100 تمرين ضغط
+100 sit-ups	100 تمرين بطن
+100 squats	100 تمرين قرفصاء
+Push-ups 0/100	تمارين الضغط 0/100
+Kill 5 monsters.	اقتل 5 وحوش.
+Defeat 5 monsters.	اهزم 5 وحوش.
+Kill 5 goblins.	اقتل 5 غوبلن.
+Kill 5 orcs.	اقتل 5 أوركس.
+Monsters killed: 5/10	الوحوش المقتولة: 5/10
+Enemies defeated: 5/10	الأعداء المهزومون: 5/10
+Survive for 5 minutes.	انجُ لمدة 5 دقائق.
+Survive for 5 hours.	انجُ لمدة 5 ساعات.
+Survive for 5 days.	انجُ لمدة 5 أيام.
+Clear floor 5.	أكمل الطابق 5.
+Clear the 5th floor.	أكمل الطابق 5.
+Floor 5 cleared.	تم إكمال الطابق 5.
+You have reached floor 5.	لقد وصلت إلى الطابق 5.
+Entering floor 5.	جارٍ دخول الطابق 5.
+Welcome to floor 5.	مرحبًا بك في الطابق 5.
+Welcome to the 5th floor.	مرحبًا بك في الطابق 5.
+The 5th floor	الطابق 5
+5th floor	الطابق 5
+Stage 5	المرحلة 5
+Stage 5 cleared.	تم إكمال المرحلة 5.
+Phase 5	المرحلة 5
+Round 5	الجولة 5
+Wave 5	الموجة 5
+Wave 5/10	الموجة 5/10
+Rank 5	المرتبة 5
+Ranked 5th.	احتللت المرتبة 5.
+Your ranking: 5	تصنيفك: 5
+Current ranking: 5	التصنيف الحالي: 5
+Ranking: 5th	التصنيف: 5
+Top 5	أفضل 5
+Participants: 5/10	المشاركون: 5/10
+Survivors: 5	الناجون: 5
+Remaining survivors: 5	الناجون المتبقون: 5
+Remaining players: 5	اللاعبون المتبقون: 5
+Players remaining: 5	اللاعبون المتبقون: 5
+Party members: 5/10	أعضاء الفريق: 5/10
+Success rate: 50%	نسبة النجاح: 50%
+Success chance: 50%	فرصة النجاح: 50%
+Probability: 50%	الاحتمال: 50%
+Drop rate: 5%	نسبة الإسقاط: 5%
+Synchronization: 50%	التزامن: 50%
+Synchronization rate: 50%	نسبة التزامن: 50%
+Proficiency: 50%	الإتقان: 50%
+Mastery: 50%	الإتقان: 50%
+Loading... 50%	جارٍ التحميل... 50%
+Completion: 50%	الإنجاز: 50%
+Quest progress: 5/10	تقدم المهمة: 5/10
+Progress: 5/10	التقدم: 5/10
+Collected: 5/10	تم جمع: 5/10
+5/10 completed	تم إكمال 5/10
+Skill level: 5	مستوى المهارة: 5
+Skill Lv. 5	مستوى المهارة 5
+Lv. 5 → Lv. 6	المستوى 5 ← المستوى 6
+Lv.5 → Lv.6	المستوى 5 ← المستوى 6
+Level 5 → Level 6	المستوى 5 ← المستوى 6
+The skill has reached level 5.	وصلت المهارة إلى المستوى 5.
+Skill level has increased to 5.	ارتفع مستوى المهارة إلى 5.
+Skill level up! Lv. 5	ارتفع مستوى المهارة! المستوى 5
+Proficiency has increased by 5%.	ارتفع الإتقان بنسبة 5%.
+You have acquired 100 gold.	لقد حصلت على 100 من الذهب.
+You have gained 100 gold.	لقد حصلت على 100 من الذهب.
+You obtained 100 gold.	لقد حصلت على 100 من الذهب.
+Gold: 100	الذهب: 100
+Gold +100	الذهب +100
+100 gold	100 من الذهب
+Coins: 100	العملات: 100
+You have received 100 coins.	لقد تلقيت 100 عملة.
+You have earned 100 coins.	لقد كسبت 100 عملة.
+100 coins have been deposited.	تم إيداع 100 عملة.
+Price: 100 gold	السعر: 100 من الذهب
+Price: 100 coins	السعر: 100 عملة
+Cost: 100 coins	التكلفة: 100 عملة
+Cost: 100 gold	التكلفة: 100 من الذهب
+Points: 100	النقاط: 100
+Points +100	النقاط +100
+You have earned 100 points.	لقد كسبت 100 نقطة.
+Contribution points: 100	نقاط المساهمة: 100
+Achievement points: 100	نقاط الإنجاز: 100
+Reward: 100 gold	المكافأة: 100 من الذهب
+Reward: 100 coins	المكافأة: 100 عملة
+Reward: 100 EXP	المكافأة: 100 نقطة خبرة
+Reward: 5 stat points	المكافأة: 5 نقاط إحصائيات
+Rewards: 100 gold	المكافآت: 100 من الذهب
+Quantity: 5	الكمية: 5
+Amount: 5	الكمية: 5
+Durability: 100/100	المتانة: 100/100
+Weight: 5 kg	الوزن: 5 كيلوغرامات
+Attack: 100	الهجوم: 100
+Defense: 100	الدفاع: 100
+Attack power: 100	قوة الهجوم: 100
+Magic power: 100	القوة السحرية: 100
+Damage: 100	الضرر: 100
+Damage: 100%	الضرر: 100%
+Dealt 100 damage.	تم إلحاق 100 من الضرر.
+You have taken 100 damage.	لقد تلقيت 100 من الضرر.
+Critical hit! 100 damage	ضربة حرجة! 100 من الضرر
+Combo 5	سلسلة 5
+5 combo	سلسلة 5
+5 hit combo	سلسلة من 5 ضربات
+Inventory: 5/10	المخزون: 5/10
+Uses remaining: 5	الاستخدامات المتبقية: 5
+Remaining uses: 5	الاستخدامات المتبقية: 5
+Can be used 5 times.	يمكن استخدامه 5 مرات.
+Can be used 5 times a day.	يمكن استخدامه 5 مرات في اليوم.
+Usable 5 times per day.	يمكن استخدامه 5 مرات يوميًا.
+Charges: 5	الشحنات: 5
+Stack: 5	الكومة: 5
+Enhancement +5	التعزيز +5
++5 Enhancement	التعزيز +5
+Enhancement succeeded! +5	نجح التعزيز! +5
+Enhancement failed.	فشل التعزيز.
+The item has been enhanced to +5.	تم تعزيز العنصر إلى +5.
+Grade: S	الدرجة: S
+Rank: S	الرتبة: S
+Item rank: S	رتبة العنصر: S
+Title acquired: 5	تم الحصول على اللقب: 5
+Achievement unlocked.	تم فتح إنجاز.
+Hidden achievement unlocked.	تم فتح إنجاز خفي.
+A new skill has been unlocked.	تم فتح مهارة جديدة.
+You have acquired a new skill.	لقد اكتسبت مهارة جديدة.
+You have acquired a passive skill.	لقد اكتسبت مهارة سلبية.
+You have acquired an active skill.	لقد اكتسبت مهارة نشطة.
+You have acquired a hidden skill.	لقد اكتسبت مهارة خفية.
+You have acquired a new title.	لقد حصلت على لقب جديد.
+You have acquired a new item.	لقد حصلت على عنصر جديد.
+You have acquired an item.	لقد حصلت على عنصر.
+Item acquired.	تم الحصول على العنصر.
+Skill acquired.	تم اكتساب المهارة.
+Title acquired.	تم الحصول على اللقب.
+Job change complete.	اكتمل تغيير الفئة.
+You have changed jobs.	لقد غيّرت فئتك.
+Your class has changed.	لقد تغيّرت فئتك.
+The quest has been completed.	اكتملت المهمة.
+The quest has failed.	فشلت المهمة.
+The quest has been updated.	تم تحديث المهمة.
+A new quest has arrived.	وصلت مهمة جديدة.
+An emergency quest has arrived.	وصلت مهمة طارئة.
+A hidden quest has arrived.	وصلت مهمة خفية.
+You have received a quest.	لقد تلقيت مهمة.
+Quest cleared.	تم إكمال المهمة.
+Quest cleared!	تم إكمال المهمة!
+Quest failed!	فشلت المهمة!
+Quest complete!	اكتملت المهمة!
+Mission complete.	اكتملت المهمة.
+Mission failed.	فشلت المهمة.
+Mission accomplished.	أُنجزت المهمة.
+Objective complete.	تم إنجاز الهدف.
+Clear conditions met.	تم استيفاء شروط الإتمام.
+Clear condition: kill the boss.	شرط الإتمام: اقتل الزعيم.
+Failure condition: death.	شرط الفشل: الموت.
+Penalty: death	العقوبة: الموت
+Penalty for failure: death	عقوبة الفشل: الموت
+Failure penalty: death	عقوبة الفشل: الموت
+You have entered the penalty zone.	لقد دخلت منطقة العقوبة.
+Warning! You have entered a dangerous area.	تحذير! لقد دخلت منطقة خطرة.
+Warning! Danger detected.	تحذير! تم رصد خطر.
+Warning! Your HP is low.	تحذير! نقاط صحتك منخفضة.
+Warning! Your mana is low.	تحذير! المانا لديك منخفضة.
+Warning! Insufficient mana.	تحذير! المانا غير كافية.
+Not enough stat points.	نقاط الإحصائيات غير كافية.
+Not enough gold.	الذهب غير كافٍ.
+Not enough coins.	العملات غير كافية.
+Insufficient coins.	العملات غير كافية.
+Insufficient level.	المستوى غير كافٍ.
+Your level is too low.	مستواك منخفض جدًا.
+Requirements not met.	لم تُستوفَ الشروط.
+Access denied.	تم رفض الوصول.
+Access granted.	تم منح الوصول.
+Unable to use.	لا يمكن الاستخدام.
+Cannot be used.	لا يمكن استخدامه.
+Cannot be used here.	لا يمكن استخدامه هنا.
+The skill is on cooldown.	المهارة في وقت الانتظار.
+Skill activated.	تم تفعيل المهارة.
+Skill deactivated.	تم إلغاء تفعيل المهارة.
+The skill has been activated.	تم تفعيل المهارة.
+The effect has ended.	انتهى التأثير.
+The buff has ended.	انتهى التعزيز.
+The debuff has been removed.	تمت إزالة الإضعاف.
+Status effect removed.	تمت إزالة تأثير الحالة.
+You have been poisoned.	لقد تسممت.
+You are bleeding.	أنت تنزف.
+You have been paralyzed.	لقد أصابك الشلل.
+You have been stunned.	لقد صُعقت.
+You have died.	لقد مت.
+You died.	لقد مت.
+You have been revived.	لقد تم إحياؤك.
+Resurrection in 5 seconds.	الإحياء خلال 5 ثوانٍ.
+Respawning in 5 seconds.	العودة للحياة خلال 5 ثوانٍ.
+The boss has appeared.	ظهر الزعيم.
+A boss monster has appeared.	ظهر وحش زعيم.
+The dungeon boss has appeared.	ظهر زعيم الزنزانة.
+The boss has been defeated.	تمت هزيمة الزعيم.
+You have defeated the boss.	لقد هزمت الزعيم.
+The gate has opened.	انفتحت البوابة.
+A gate has appeared.	ظهرت بوابة.
+A red gate has appeared.	ظهرت بوابة حمراء.
+The gate has closed.	أُغلقت البوابة.
+The dungeon has been cleared.	تم تطهير الزنزانة.
+Dungeon clear!	تم تطهير الزنزانة!
+You have entered the dungeon.	لقد دخلت الزنزانة.
+You have entered an instant dungeon.	لقد دخلت زنزانة فورية.
+Do you want to enter the dungeon?	هل تريد دخول الزنزانة؟
+Do you want to accept the quest?	هل تريد قبول المهمة؟
+Do you want to change your job?	هل تريد تغيير فئتك؟
+Do you want to use this item?	هل تريد استخدام هذا العنصر؟
+Do you want to purchase this item?	هل تريد شراء هذا العنصر؟
+Would you like to purchase it?	هل ترغب في شرائه؟
+Would you like to learn the skill?	هل ترغب في تعلم المهارة؟
+Purchase complete.	اكتملت عملية الشراء.
+Purchase successful.	تم الشراء بنجاح.
+Sale complete.	اكتمل البيع.
+The item has been added to your inventory.	تمت إضافة العنصر إلى مخزونك.
+Your inventory is full.	مخزونك ممتلئ.
+Inventory is full.	المخزون ممتلئ.
+Connection established.	تم الاتصال.
+Connection lost.	انقطع الاتصال.
+Synchronization complete.	اكتمل التزامن.
+Analysis complete.	اكتمل التحليل.
+Scanning...	جارٍ الفحص...
+Analyzing...	جارٍ التحليل...
+Loading...	جارٍ التحميل...
+Processing...	جارٍ المعالجة...
+Error.	خطأ.
+Error!	خطأ!
+Unknown.	مجهول.
+Unknown	مجهول
+???	???
+Name: Unknown	الاسم: مجهول
+Class: Unknown	الفئة: مجهولة
+Rank: Unknown	الرتبة: مجهولة
+Level: ???	المستوى: ???
+The system has been updated.	تم تحديث النظام.
+System message.	رسالة من النظام.
+System notification.	إشعار من النظام.
+A message has arrived.	وصلت رسالة.
+The constellations are watching you.	الكوكبات تراقبك.
+A constellation is interested in you.	كوكبة مهتمة بك.
+The constellations are pleased.	الكوكبات مسرورة.
+A constellation has sponsored you with 100 coins.	رعتك كوكبة بـ 100 عملة.
+You have received 100 coins from a constellation.	لقد تلقيت 100 عملة من كوكبة.
+The main scenario has begun.	بدأ السيناريو الرئيسي.
+The scenario has ended.	انتهى السيناريو.
+The scenario has been cleared.	تم إكمال السيناريو.
+The tutorial has begun.	بدأ البرنامج التعليمي.
+The tutorial is complete.	اكتمل البرنامج التعليمي.
+Your time is up.	انتهى وقتك.
+Time's up!	انتهى الوقت!
+Time is up.	انتهى الوقت.
+Game over.	انتهت اللعبة.
+Game Over	انتهت اللعبة
+Victory!	النصر!
+Defeat.	الهزيمة.
+Draw.	تعادل.
+Winner: 5	الفائز: 5

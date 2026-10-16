@@ -147,6 +147,7 @@ class LessonStore(
             .sortedWith(compareByDescending<Lesson> { it.origin == Origin.USER.name }.thenByDescending { it.at })
             .take(MAX_EXAMPLES)
         if (rules.isEmpty() && examples.isEmpty()) return ""
+        countApplied()
         return buildString {
             rules.forEach { appendLine("- $it") }
             examples.forEach { appendLine("- \"${it.source.take(120)}\": not \"${it.wrong.take(120)}\" but \"${it.right.take(120)}\"") }
@@ -160,6 +161,72 @@ class LessonStore(
     suspend fun compressIfDue(mangaId: Long, ai: AiTranslator) {
         val book = book(mangaId)
         if (book.fresh < COMPRESS_EVERY || book.lessons.isEmpty()) return
+        compress(mangaId, ai)
+    }
+
+    /** MANHWA stats for the lessons screen: what was learnt, of which kind, and how often it was used. */
+    data class Stats(
+        val books: Int,
+        val rules: Int,
+        val lessons: Int,
+        val fromReader: Int,
+        val fromEditor: Int,
+        val names: Int,
+        val gender: Int,
+        val style: Int,
+        val terms: Int,
+        val grammar: Int,
+        val applied: Long,
+    )
+
+    fun stats(): Stats {
+        val all = books().map { it.second }
+        val rules = all.flatMap { it.rules }
+        val lessons = all.flatMap { it.lessons }
+        fun count(vararg words: String) = rules.count { rule -> words.any { rule.contains(it, ignoreCase = true) } }
+        val names = count("name", "اسم", "أسماء")
+        val gender = count("gender", "male", "female", "مذكر", "مؤنث", "جنس", "تأنيث", "تذكير")
+        val style = count("tone", "style", "voice", "formal", "casual", "أسلوب", "نبرة", "لهجة", "رسمي")
+        val terms = count("term", "skill", "title", "مصطلح", "لقب", "مهارة")
+        return Stats(
+            books = all.count { it.rules.isNotEmpty() || it.lessons.isNotEmpty() },
+            rules = rules.size,
+            lessons = lessons.size,
+            fromReader = lessons.count { it.origin == Origin.USER.name },
+            fromEditor = lessons.count { it.origin == Origin.EDITOR.name },
+            names = names,
+            gender = gender,
+            style = style,
+            terms = terms,
+            grammar = (rules.size - names - gender - style - terms).coerceAtLeast(0),
+            applied = statsPrefs.getLong(KEY_APPLIED, 0L),
+        )
+    }
+
+    private val statsPrefs by lazy { context.getSharedPreferences("manhwa_lessons_stats", Context.MODE_PRIVATE) }
+
+    /** Counts a chapter or page that was translated with the lessons in its prompt. */
+    private fun countApplied() {
+        statsPrefs.edit().putLong(KEY_APPLIED, statsPrefs.getLong(KEY_APPLIED, 0L) + 1).apply()
+    }
+
+    /**
+     * MANHWA: turns every book's corrections into rules now, not only every [COMPRESS_EVERY] corrections, with
+     * the team's strongest key. Returns how many books got new rules.
+     */
+    suspend fun extractAll(): Int {
+        var updated = 0
+        books().filter { (_, book) -> book.lessons.isNotEmpty() }.forEach { (id, before) ->
+            runCatching { eu.kanade.translation.translator.appAsk(eu.kanade.translation.team.AiRouter.Lane.REVIEW) { ai -> compress(id, ai) } }
+            if (book(id).rules != before.rules) updated++
+        }
+        _revision.value = _revision.value + 1
+        return updated
+    }
+
+    private suspend fun compress(mangaId: Long, ai: AiTranslator) {
+        val book = book(mangaId)
+        if (book.lessons.isEmpty()) return
         runCatching {
             val prompt = buildString {
                 appendLine("These corrections were made to comic translations into ${ai.toLang.label}.")
@@ -191,5 +258,6 @@ class LessonStore(
         private const val MAX_EXAMPLES = 8
         private const val COMPRESS_EVERY = 10
         private const val COMPRESS_INPUT = 40
+        private const val KEY_APPLIED = "applied"
     }
 }

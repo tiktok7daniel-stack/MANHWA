@@ -139,9 +139,21 @@ class TranslationCollection(private val context: Context) {
         }
         if (keyed.isTemplate) {
             find(src, tgt, keyed.template)?.let { row ->
-                val filled = TextKey.fill(row.translation, keyed, glossary, row.arabic) ?: return@let
+                // MANHWA: the counted noun agrees with this line's number (11 دقيقة, not 11 دقائق)
+                val filled = TextKey.fill(row.translation, keyed, glossary, row.arabic)?.let(eu.kanade.translation.translator.ArabicGrammarEngine::fixCounts) ?: return@let
                 // A template is a system line or a counter by nature: sure unless it is context-sensitive
                 return Hit(filled, row.user || !row.sensitive, Match.TEMPLATE)
+            }
+        }
+        // MANHWA auto-templates: a learnt shape, its bracketed name translated from the glossary, the codex or here
+        TemplateShapes.lookupKey(text)?.let { shape ->
+            find(src, tgt, shape.key)?.takeIf { it.uses >= SHAPE_SURE_USES && !it.sensitive }?.let { row ->
+                val inner = glossary.entries.firstOrNull { it.key.equals(shape.inner, ignoreCase = true) }?.value
+                    ?: find(src, tgt, TextKey.key(shape.inner).exact)?.translation
+                    ?: ManhwaCodex.lookup(shape.inner, ManhwaCodex.defaultPacks)
+                if (inner != null) {
+                    TemplateShapes.fill(row.translation, shape, inner, row.arabic)?.let { return Hit(it, true, Match.TEMPLATE) }
+                }
             }
         }
         near(src, tgt, keyed.exact)?.let { return Hit(it, false, Match.NEAR) }
@@ -243,6 +255,10 @@ class TranslationCollection(private val context: Context) {
                     // Saved as a template when its numbers and names are found in the translation, else word for word
                     val (key, saved) = if (keyed.isTemplate && template != null) keyed.template to template else keyed.exact to translation
                     save(src, tgt, key, line.text.trim(), saved, TextKey.arabicStyle(translation), line.kind, mangaId, source, now)
+                    // MANHWA auto-templates: "[Fireball] has reached Lv. 3" teaches "[{skill}] has reached Lv. {n}"
+                    TemplateShapes.shapeOf(line.text, translation)?.let { (shapeKey, shapeTranslation) ->
+                        save(src, tgt, shapeKey, line.text.trim(), shapeTranslation, TextKey.arabicStyle(translation), "", mangaId, source, now)
+                    }
                 }
                 db.setTransactionSuccessful()
             } finally {
@@ -388,16 +404,17 @@ class TranslationCollection(private val context: Context) {
 
     /** The reader's own translation for a saved line: it wins from now on. */
     /** MANHWA optimizer: the lines worth a review, most reused first (the reader's own corrections are left alone). */
-    fun reviewCandidates(src: String, tgt: String, limit: Int): List<Entry> = runCatching {
+    fun reviewCandidates(src: String, tgt: String, limit: Int, offset: Int = 0): List<Entry> = runCatching {
         db.query(
             "segments",
             arrayOf("id", "original", "translation", "kind", "uses", "mangas", "sensitive", "user"),
-            "src = ? AND tgt = ? AND user = 0",
+            "src = ? AND tgt = ? AND user = 0 AND key NOT LIKE 'shape:%'",
             arrayOf(src, tgt),
             null,
             null,
-            "sensitive DESC, uses DESC, last_used DESC",
-            limit.toString(),
+            // A steady order, so batch after batch covers every line once while lines are being improved
+            "id",
+            "$offset, $limit",
         ).use { c ->
             buildList {
                 while (c.moveToNext()) {
@@ -534,6 +551,9 @@ class TranslationCollection(private val context: Context) {
 
         /** A plain line is reused as it is after it came back this many times with the same translation. */
         const val SURE_USES = 3
+
+        /** A learnt shape is used once it came back twice with the same translation. */
+        const val SHAPE_SURE_USES = 2
         const val NEAR_MIN_LENGTH = 10
         const val NEAR_PREFIX = 4
         const val NEAR_CANDIDATES = 40

@@ -620,8 +620,20 @@
     <string name="db_healer">معالج أخطاء القراءة</string>
     <string name="db_healer_summary">بيصلح أخطاء القراءة (الكلمات المقسومة، 0 بدل O، 1 بدل I، علامات الترقيم) قبل ما المكتبة والـ AI يشوفوا السطر.</string>
     <string name="db_optimize">طوّر المكتبة بالـ AI</string>
-    <string name="db_optimize_summary">أقوى مفتاح في الفريق بيراجع أكتر الجمل استخداماً زي المحرر: بيصلح الغلط والركيك ويوحّد المصطلحات. تصحيحاتك إنت ما بتتلمسش.</string>
+    <string name="db_optimize_summary">مفاتيح الفريق بتراجع المكتبة كلها دفعة ورا دفعة زي المحرر: بيصلح الغلط والركيك ويوحّد المصطلحات. تصحيحاتك إنت ما بتتلمسش.</string>
     <string name="db_optimize_go">راجع وطوّر دلوقتي</string>
     <string name="db_optimizing">بيراجع…</string>
     <string name="db_optimized">اتراجع %1$d سطر، واتحسّن %2$d</string>
+    <string name="db_pack_modern">الأكشن الحديث والمدارس والعصابات (%1$d مصطلح)</string>
+    <string name="db_pack_gaming">الألعاب والواقع الافتراضي والإحصائيات (%1$d مصطلح)</string>
+    <string name="db_pack_idioms">التعبيرات الدرامية وصرخات القتال (%1$d)</string>
+    <string name="db_optimizing_progress">اتراجع %1$d سطر لحد دلوقتي، واتحسّن %2$d…</string>
+    <string name="lessons_stats">اللي اتعلمه الفريق</string>
+    <string name="lessons_stats_totals">%1$d قاعدة و%2$d تصحيح، في %3$d كتاب</string>
+    <string name="lessons_stats_origin">من تعديلاتك: %1$d · من المحرر: %2$d</string>
+    <string name="lessons_stats_kinds">القواعد: أسماء %1$d · مذكر ومؤنث %2$d · أسلوب %3$d · مصطلحات %4$d · نحو وصياغة %5$d</string>
+    <string name="lessons_stats_applied">اتطبقت في %1$d ترجمة</string>
+    <string name="lessons_extract">استخلص دروس جديدة بالـ AI من تعديلاتي</string>
+    <string name="lessons_extracting">بيستخلص…</string>
+    <string name="lessons_extracted">اتكتبت قواعد جديدة لـ %1$d كتاب</string>
 </resources>

@@ -76,6 +76,7 @@ class TranslationCollectionScreen : Screen() {
         var optimizing by remember { mutableStateOf(false) }
         var optimized by remember { mutableStateOf<String?>(null) }
         val optimizedTemplate = stringResource(ATMR.strings.db_optimized)
+        val progressTemplate = stringResource(ATMR.strings.db_optimizing_progress)
         val noAi = stringResource(ATMR.strings.recs_setup)
 
         var refresh by remember { mutableIntStateOf(0) }
@@ -192,6 +193,9 @@ class TranslationCollectionScreen : Screen() {
                                             ManhwaCodex.Pack.SYSTEM -> ATMR.strings.db_pack_system
                                             ManhwaCodex.Pack.MURIM -> ATMR.strings.db_pack_murim
                                             ManhwaCodex.Pack.FANTASY -> ATMR.strings.db_pack_fantasy
+                                            ManhwaCodex.Pack.MODERN -> ATMR.strings.db_pack_modern
+                                            ManhwaCodex.Pack.GAMING -> ATMR.strings.db_pack_gaming
+                                            ManhwaCodex.Pack.IDIOMS -> ATMR.strings.db_pack_idioms
                                         },
                                         ManhwaCodex.size(pack),
                                     ),
@@ -230,7 +234,11 @@ class TranslationCollectionScreen : Screen() {
                                     scope.launch {
                                         val from = eu.kanade.translation.recognizer.TextRecognizerLanguage.fromPref(prefs.translateFromLanguage())
                                         val to = eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(prefs.translateToLanguage())
-                                        val result = runCatching { CollectionOptimizer.optimize(collection, from.name, to.name, to.label) }
+                                        val result = runCatching {
+                                            CollectionOptimizer.optimize(collection, from.name, to.name, to.label) { reviewed, improved ->
+                                                optimized = progressTemplate.replace("%1\$d", "$reviewed").replace("%2\$d", "$improved")
+                                            }
+                                        }
                                         optimizing = false
                                         optimized = result.fold(
                                             { optimizedTemplate.replace("%1\$d", "${it.reviewed}").replace("%2\$d", "${it.improved}") },

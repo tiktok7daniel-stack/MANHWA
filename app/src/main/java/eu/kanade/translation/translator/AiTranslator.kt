@@ -315,7 +315,7 @@ class AiTranslator(
                     // A sound effect left as drawn: no translation, nothing erased
                     text.isNullOrBlank() && skipSfx && sfx -> ""
                     text.isNullOrBlank() -> block.text
-                    else -> TextSanitizer.clean(text, block.text, toLang)
+                    else -> finishArabic(TextSanitizer.clean(text, block.text, toLang))
                 }
                 if (block.translation.isNotBlank()) context.remember(block.translation)
             }
@@ -344,12 +344,38 @@ class AiTranslator(
                 }
             }
         }
+        // MANHWA linked bubbles: one sentence running from a bubble into the next one below it
+        val linked = todo.mapValues { (name, ids) ->
+            val blocks = pages[name]!!.blocks
+            ids.zipWithNext().filter { (a, b) -> b == a + 1 && continuesInto(blocks[a], blocks[b]) }.map { (a, b) -> "$a>$b" }
+        }.filterValues { it.isNotEmpty() }
+        if (linked.isNotEmpty()) {
+            putJsonObject(LINKED_KEY) { linked.forEach { (name, pairs) -> putJsonArray(name) { pairs.forEach { add(it) } } } }
+        }
         // MANHWA: readings the OCR is not sure of, to be rebuilt from the context before translating
         val unsure = todo.mapValues { (name, ids) -> ids.filter { pages[name]!!.blocks[it].ocrConfidence < UNSURE_OCR } }
             .filterValues { it.isNotEmpty() }
         if (unsure.isNotEmpty()) {
             putJsonObject(UNSURE_KEY) { unsure.forEach { (name, ids) -> putJsonArray(name) { ids.forEach { add("$it") } } } }
         }
+    }
+
+    /**
+     * Whether [a]'s sentence carries on in [b]: [a] ends with no full stop (or with "...", a comma or a dash),
+     * [b] starts in lower case or with "...", and [b] sits just below [a].
+     */
+    private fun continuesInto(a: TranslationBlock, b: TranslationBlock): Boolean {
+        val first = a.text.trim()
+        val second = b.text.trim()
+        if (first.isEmpty() || second.isEmpty()) return false
+        val open = first.endsWith("...") || first.endsWith("…") || first.endsWith(",") || first.endsWith("-") || first.endsWith("—") ||
+            first.last().isLetterOrDigit()
+        val carries = second.startsWith("...") || second.startsWith("…") || second.first().isLowerCase()
+        if (!open || !carries) return false
+        val gap = b.y - (a.y + a.height)
+        val near = gap < maxOf(a.height, b.height) * 1.5f && gap > -a.height
+        val overlap = minOf(a.x + a.width, b.x + b.width) - maxOf(a.x, b.x) > -maxOf(a.width, b.width) * 0.5f
+        return near && overlap
     }
 
     /** A page of the reply: id to text, from the id object asked for, or a plain list in order from older models. */
@@ -418,7 +444,7 @@ class AiTranslator(
                     }
                     else -> {
                         bubble.string("text")?.takeIf { it.isNotBlank() }?.let { block.text = it }
-                        block.translation = TextSanitizer.clean(translation, block.text, toLang)
+                        block.translation = finishArabic(TextSanitizer.clean(translation, block.text, toLang))
                         bubble.string("kind")?.let { if (!block.kind.equals(ART_KIND, ignoreCase = true)) block.kind = it }
                         kept += block
                     }
@@ -600,6 +626,16 @@ class AiTranslator(
         return fixes
     }
 
+    /**
+     * MANHWA: the last touch on an Arabic translation: English terms and names left in it fixed on the phone
+     * (new names join the glossary), Arabic punctuation, and counted nouns agreed with their numbers.
+     */
+    private fun finishArabic(text: String): String {
+        if (toLang != TextTranslatorLanguage.ARABIC || text.isBlank()) return text
+        val repaired = LeakRepair.repair(text, glossary) { name, arabic -> if (learnTerms) discoveredTerms.putIfAbsent(name, arabic) }
+        return ArabicPolisher.polish(repaired)
+    }
+
     /** Whether this engine can search the web (Gemini, Claude and OpenRouter can). */
     val canSearchWeb: Boolean get() = provider == Provider.GEMINI || provider == Provider.CLAUDE || provider == Provider.OPENROUTER
 
@@ -681,6 +717,8 @@ class AiTranslator(
             appendLine("   of bubble id -> translation with EVERY id of the input, never merged, skipped or renumbered: {\"page\": {\"0\": \"...\", \"1\": \"...\"}}.")
             appendLine("   \"$UNSURE_KEY\", when present, lists per page the ids whose OCR reading is uncertain: rebuild the intended words from the")
             appendLine("   neighbouring bubbles, the scene and the glossary before translating them. Do not output it.")
+            appendLine("   \"$LINKED_KEY\", when present, lists per page pairs \"a>b\" where one sentence runs from bubble a into bubble b:")
+            appendLine("   translate that sentence as a whole and split the $target naturally between the two ids, in reading order. Do not output it.")
         }
         appendLine("0. kind of each bubble is one of: speech, shout (yelling, battle cries), thought (inner voice, whisper),")
         appendLine("   narration (captions), system (game/status windows, notifications), sfx (sound effects).")
@@ -708,6 +746,9 @@ class AiTranslator(
         appendLine("6. Replace watermarks, scanlation credits, site names and URLs with exactly \"$WATERMARK\".")
         if (toLang == TextTranslatorLanguage.ARABIC) {
             appendLine("7. Use clear Modern Standard Arabic suited to comics, with Arabic punctuation (، ؟ !).")
+            appendLine("   Agree verbs, adjectives and pronouns with the gender of the speaker and of the one spoken to (from the glossary notes")
+            appendLine("   and the scene); when the gender of \"you\" would be ambiguous, add the vowel mark: أنتَ / أنتِ، لكَ / لكِ، عليكَ / عليكِ.")
+            appendLine("   Agree counted nouns with their numbers (دقيقة واحدة، دقيقتان، 5 دقائق، 11 دقيقة) and keep names in Arabic letters.")
         }
         // MANHWA style guide: every kind of bubble has its own voice, like a professional scanlation team
         appendLine("8. Style by kind:")
@@ -1078,6 +1119,7 @@ class AiTranslator(
         const val UNSURE_KEY = "_unsure"
         const val SFX_KIND = "sfx"
         const val ART_KIND = "art"
+        const val LINKED_KEY = "_linked"
 
         /** Below this OCR confidence a reading is called uncertain (and re-read from the image when a key can). */
         const val UNSURE_OCR = 0.6f

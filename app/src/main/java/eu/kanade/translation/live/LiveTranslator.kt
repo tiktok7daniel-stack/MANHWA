@@ -443,7 +443,7 @@ class LiveTranslator(
             val id = mangaId()
             engine.aiPart?.apply {
                 // MANHWA master codex under the series glossary (English to Arabic)
-                val codex = if (from == TextRecognizerLanguage.ENGLISH && to == TextTranslatorLanguage.ARABIC) {
+                val codex = if ((from == TextRecognizerLanguage.ENGLISH || from == TextRecognizerLanguage.KOREAN) && to == TextTranslatorLanguage.ARABIC) {
                     eu.kanade.translation.collection.ManhwaCodex.termsIn(result.blocks.joinToString(" ") { it.text }, preferences.translationCodexPacks().get())
                 } else {
                     emptyMap()

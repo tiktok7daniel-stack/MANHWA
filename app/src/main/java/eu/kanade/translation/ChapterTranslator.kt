@@ -697,9 +697,9 @@ class ChapterTranslator(
         }
     }
 
-    /** The master codex terms of [text], for English to Arabic only (the packs are written for that pair). */
+    /** The master codex terms of [text], for English or Korean to Arabic (the packs are written for those). */
     private fun codexFor(from: TextRecognizerLanguage, to: TextTranslatorLanguage, text: String): Map<String, String> =
-        if (from == TextRecognizerLanguage.ENGLISH && to == TextTranslatorLanguage.ARABIC) {
+        if ((from == TextRecognizerLanguage.ENGLISH || from == TextRecognizerLanguage.KOREAN) && to == TextTranslatorLanguage.ARABIC) {
             eu.kanade.translation.collection.ManhwaCodex.termsIn(text, translationPreferences.translationCodexPacks().get())
         } else {
             emptyMap()

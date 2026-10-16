@@ -1,162 +1,100 @@
 package eu.kanade.translation.collection
 
+import android.app.Application
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+
 /**
- * MANHWA master codex: the standard Arabic for the terms every manhwa genre repeats (system windows and hunter
- * ranks, murim sects and martial arts, nobility and magic towers). The terms found in a chapter go to the team
- * with the series glossary, so the same term reads the same in every manhwa from the first chapter, without
- * waiting for the AI to settle on one. The series glossary always wins over the codex.
+ * MANHWA master codex: the standard Arabic for the terms every manhwa genre repeats, in six packs (system and
+ * hunters, murim and cultivation, fantasy and nobility, modern action, games and stats, dramatic expressions),
+ * with English and Korean sources. It lives in assets/codex/codex.tsv (pack, source, Arabic).
+ *
+ * The terms found in a chapter go to the team with the series glossary, so the same term reads the same in
+ * every manhwa from the first chapter, English or raw Korean, without waiting for the AI to settle on one. The
+ * series glossary always wins over the codex.
  */
 object ManhwaCodex {
 
-    enum class Pack(val id: String) { SYSTEM("system"), MURIM("murim"), FANTASY("fantasy") }
-
-    private val system = linkedMapOf(
-        "Status Window" to "نافذة الحالة",
-        "Quest" to "مهمة",
-        "Daily Quest" to "المهمة اليومية",
-        "Hidden Quest" to "مهمة خفية",
-        "Main Quest" to "المهمة الرئيسية",
-        "Passive Skill" to "مهارة سلبية",
-        "Active Skill" to "مهارة نشطة",
-        "Skill Cooldown" to "وقت انتظار المهارة",
-        "Cooldown" to "وقت الانتظار",
-        "Level Up" to "ارتفاع المستوى",
-        "EXP" to "نقاط الخبرة",
-        "Experience Points" to "نقاط الخبرة",
-        "Stat Points" to "نقاط الإحصائيات",
-        "Strength" to "القوة",
-        "Agility" to "الرشاقة",
-        "Intelligence" to "الذكاء",
-        "Stamina" to "التحمل",
-        "Inventory" to "المخزون",
-        "Dungeon" to "الزنزانة",
-        "Dungeon Break" to "انفجار الزنزانة",
-        "Red Gate" to "البوابة الحمراء",
-        "Hunter" to "صياد",
-        "Hunter Association" to "جمعية الصيادين",
-        "S-Rank Hunter" to "صياد من الرتبة S",
-        "S-Rank" to "الرتبة S",
-        "Guild" to "النقابة",
-        "Guild Master" to "سيد النقابة",
-        "Awakening" to "الاستيقاظ",
-        "Awakened" to "مستيقظ",
-        "Reawakening" to "الاستيقاظ الثاني",
-        "Mana" to "المانا",
-        "Mana Stone" to "حجر المانا",
-        "Magic Beast" to "وحش سحري",
-        "Boss Monster" to "الوحش الزعيم",
-        "Necromancer" to "مستحضر الأرواح",
-        "Shadow Soldier" to "جندي الظل",
-        "Shadow Extraction" to "استخراج الظل",
-        "Regression" to "العودة بالزمن",
-        "Regressor" to "العائد بالزمن",
-        "Constellation" to "الكوكبة",
-        "Tutorial" to "البرنامج التعليمي",
-        "Ranker" to "صاحب التصنيف",
-    )
-
-    private val murim = linkedMapOf(
-        "Murim" to "الموريم",
-        "Murim Alliance" to "تحالف الموريم",
-        "Heavenly Demon" to "الشيطان السماوي",
-        "Heavenly Demon Cult" to "طائفة الشيطان السماوي",
-        "Demonic Cult" to "الطائفة الشيطانية",
-        "Mount Hua Sect" to "طائفة جبل هوا",
-        "Mount Hua" to "جبل هوا",
-        "Shaolin" to "شاولين",
-        "Wudang" to "وودانغ",
-        "Orthodox Faction" to "الفصيل القويم",
-        "Unorthodox Faction" to "الفصيل المنحرف",
-        "Righteous Faction" to "فصيل الصالحين",
-        "Sect" to "الطائفة",
-        "Sect Leader" to "زعيم الطائفة",
-        "Elder" to "الشيخ",
-        "Disciple" to "التلميذ",
-        "Senior Brother" to "الأخ الأكبر",
-        "Junior Brother" to "الأخ الأصغر",
-        "Young Master" to "السيد الشاب",
-        "Dantian" to "الدانتيان",
-        "Qi" to "التشي",
-        "Internal Energy" to "الطاقة الداخلية",
-        "Sword Qi" to "تشي السيف",
-        "Sword Aura" to "هالة السيف",
-        "Martial Arts" to "الفنون القتالية",
-        "Martial Artist" to "فنان قتالي",
-        "Cultivation" to "الزراعة الروحية",
-        "Meridians" to "المسارات",
-        "Swordsmanship" to "فن المبارزة",
-        "Peak Master" to "سيد القمة",
-        "Grandmaster" to "الأستاذ الأعظم",
-        "Transcendent" to "المتسامي",
-    )
-
-    private val fantasy = linkedMapOf(
-        "Emperor" to "الإمبراطور",
-        "Empress" to "الإمبراطورة",
-        "Crown Prince" to "ولي العهد",
-        "Princess" to "الأميرة",
-        "Prince" to "الأمير",
-        "Archduke" to "الأرشيدوق",
-        "Grand Duke" to "الدوق الأكبر",
-        "Duke" to "الدوق",
-        "Duchess" to "الدوقة",
-        "Marquis" to "الماركيز",
-        "Countess" to "الكونتيسة",
-        "Viscount" to "الفيكونت",
-        "Baron" to "البارون",
-        "Knight" to "الفارس",
-        "Knight Commander" to "قائد الفرسان",
-        "Holy Knight" to "الفارس المقدس",
-        "Holy Sword" to "السيف المقدس",
-        "Demon King" to "ملك الشياطين",
-        "Hero" to "البطل",
-        "Saintess" to "القديسة",
-        "Temple" to "المعبد",
-        "Magic Tower" to "برج السحر",
-        "Tower Master" to "سيد البرج",
-        "Floor Master" to "سيد الطابق",
-        "Grand Mage" to "الساحر الأعظم",
-        "Archmage" to "رئيس السحرة",
-        "Mage" to "ساحر",
-        "Sword Master" to "سيد السيف",
-        "Aura" to "الهالة",
-        "Mana Heart" to "قلب المانا",
-        "Academy" to "الأكاديمية",
-        "Your Majesty" to "جلالتك",
-        "Your Highness" to "سموك",
-        "Your Grace" to "سيادتك",
-        "My Lady" to "سيدتي",
-        "My Lord" to "سيدي",
-        "Villainess" to "الشريرة",
-    )
-
-    fun terms(pack: Pack): Map<String, String> = when (pack) {
-        Pack.SYSTEM -> system
-        Pack.MURIM -> murim
-        Pack.FANTASY -> fantasy
+    enum class Pack(val id: String) {
+        SYSTEM("system"),
+        MURIM("murim"),
+        FANTASY("fantasy"),
+        MODERN("modern"),
+        GAMING("gaming"),
+        IDIOMS("idioms"),
     }
+
+    val defaultPacks: Set<String> = Pack.entries.map { it.id }.toSet()
+
+    @Volatile
+    private var data: Map<Pack, Map<String, String>>? = null
+
+    private fun load(): Map<Pack, Map<String, String>> {
+        data?.let { return it }
+        val packs = Pack.entries.associateWith { LinkedHashMap<String, String>() }
+        runCatching {
+            Injekt.get<Application>().assets.open(ASSET).bufferedReader().useLines { lines ->
+                lines.filter { it.isNotBlank() && !it.startsWith("#") }.forEach { line ->
+                    val parts = line.split('\t')
+                    if (parts.size != 3) return@forEach
+                    val pack = Pack.entries.firstOrNull { it.id == parts[0].trim() } ?: return@forEach
+                    val source = parts[1].trim()
+                    val arabic = parts[2].trim()
+                    if (source.isNotEmpty() && arabic.isNotEmpty()) packs.getValue(pack).putIfAbsent(source, arabic)
+                }
+            }
+        }.onFailure { logcat(LogPriority.ERROR, it) { "Could not read the master codex" } }
+        return packs.also { data = it }
+    }
+
+    fun terms(pack: Pack): Map<String, String> = load()[pack].orEmpty()
 
     fun size(pack: Pack): Int = terms(pack).size
 
+    /** Every term of every pack, for the optimizer's reference. */
+    fun all(packs: Set<String> = defaultPacks): Map<String, String> =
+        Pack.entries.filter { it.id in packs }.flatMap { terms(it).entries }.associate { it.key to it.value }
+
     private val regexes = HashMap<String, Regex>()
 
-    private fun regex(term: String) = synchronized(regexes) {
+    private fun latinRegex(term: String) = synchronized(regexes) {
         regexes.getOrPut(term) { Regex("(?<![\\p{L}\\p{N}])" + Regex.escape(term) + "(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE) }
     }
 
+    private fun isHangul(text: String) = text.any { it in '가'..'힯' }
+
     /**
-     * The codex terms of the enabled [packs] that appear in [text] (English source only, and only for an Arabic
-     * target), longest first so "Mana Stone" wins over "Mana".
+     * The codex terms of the enabled [packs] that appear in [text], longest first so "Mana Stone" wins over
+     * "Mana". English terms match whole words; Korean terms match inside words too, since Korean glues its
+     * particles on (헌터가, 던전에서).
      */
     fun termsIn(text: String, packs: Set<String>): Map<String, String> {
         if (packs.isEmpty() || text.isBlank()) return emptyMap()
+        val korean = isHangul(text)
         val found = LinkedHashMap<String, String>()
         Pack.entries.filter { it.id in packs }
             .flatMap { terms(it).entries }
+            .filter { (term, _) -> isHangul(term) == korean }
             .sortedByDescending { it.key.length }
             .forEach { (term, arabic) ->
-                if (found.keys.none { it.contains(term, ignoreCase = true) } && regex(term).containsMatchIn(text)) found[term] = arabic
+                if (found.size >= MAX_TERMS) return@forEach
+                if (found.keys.any { it.contains(term, ignoreCase = true) }) return@forEach
+                val present = if (korean) text.contains(term) else latinRegex(term).containsMatchIn(text)
+                if (present) found[term] = arabic
             }
         return found
     }
+
+    /** A term of the enabled packs, looked up exactly (any case), for the leak guard. */
+    fun lookup(term: String, packs: Set<String>): String? {
+        val wanted = term.trim()
+        return Pack.entries.filter { it.id in packs }.firstNotNullOfOrNull { pack ->
+            terms(pack).entries.firstOrNull { it.key.equals(wanted, ignoreCase = true) }?.value
+        }
+    }
+
+    private const val ASSET = "codex/codex.tsv"
+    private const val MAX_TERMS = 120
 }

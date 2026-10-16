@@ -1,0 +1,1186 @@
+# MANHWA master codex: pack<TAB>source term<TAB>Arabic. Sources in English or Korean.
+# ---------- system: system windows, hunters, gates, towers ----------
+system	Status Window	نافذة الحالة
+system	Status	الحالة
+system	System Message	رسالة النظام
+system	System Notification	إشعار النظام
+system	System Warning	تحذير النظام
+system	Quest	مهمة
+system	Daily Quest	المهمة اليومية
+system	Emergency Quest	مهمة طارئة
+system	Hidden Quest	مهمة خفية
+system	Main Quest	المهمة الرئيسية
+system	Sub Quest	مهمة فرعية
+system	Side Quest	مهمة جانبية
+system	Job Change Quest	مهمة تغيير الفئة
+system	Quest Reward	مكافأة المهمة
+system	Quest Failed	فشلت المهمة
+system	Quest Complete	اكتملت المهمة
+system	Penalty	العقوبة
+system	Penalty Zone	منطقة العقوبة
+system	Penalty Quest	مهمة العقوبة
+system	Reward	المكافأة
+system	Passive Skill	مهارة سلبية
+system	Active Skill	مهارة نشطة
+system	Unique Skill	مهارة فريدة
+system	Hidden Skill	مهارة خفية
+system	Ultimate Skill	المهارة النهائية
+system	Skill Level	مستوى المهارة
+system	Skill Cooldown	وقت انتظار المهارة
+system	Cooldown	وقت الانتظار
+system	Skill Book	كتاب المهارة
+system	Level Up	ارتفاع المستوى
+system	Level	المستوى
+system	Max Level	المستوى الأقصى
+system	EXP	نقاط الخبرة
+system	Experience Points	نقاط الخبرة
+system	Stat Points	نقاط الإحصائيات
+system	Available Points	النقاط المتاحة
+system	Ability Points	نقاط القدرات
+system	Strength	القوة
+system	Agility	الرشاقة
+system	Intelligence	الذكاء
+system	Stamina	التحمل
+system	Vitality	الحيوية
+system	Sense	الإدراك
+system	Perception	الإدراك
+system	Fatigue	الإرهاق
+system	Inventory	المخزون
+system	Store	المتجر
+system	Item	العنصر
+system	Job	الفئة
+system	Class	الفئة
+system	Title	اللقب
+system	Dungeon	الزنزانة
+system	Instant Dungeon	زنزانة فورية
+system	Dungeon Break	انفجار الزنزانة
+system	Dungeon Boss	زعيم الزنزانة
+system	Red Gate	البوابة الحمراء
+system	Double Dungeon	الزنزانة المزدوجة
+system	Gate Break	انفجار البوابة
+system	Hunter	صياد
+system	Hunters	الصيادون
+system	Hunter Association	جمعية الصيادين
+system	Hunter License	رخصة الصياد
+system	E-Rank	الرتبة E
+system	D-Rank	الرتبة D
+system	C-Rank	الرتبة C
+system	B-Rank	الرتبة B
+system	A-Rank	الرتبة A
+system	S-Rank	الرتبة S
+system	S-Rank Hunter	صياد من الرتبة S
+system	National Level Hunter	صياد بمستوى وطني
+system	Rank	الرتبة
+system	Raid	الغارة
+system	Raid Team	فريق الغارة
+system	Strike Team	فريق الهجوم
+system	Attack Team	فريق الهجوم
+system	Guild	النقابة
+system	Guild Master	سيد النقابة
+system	Guild Leader	قائد النقابة
+system	Awakening	الاستيقاظ
+system	Awakened	مستيقظ
+system	Awakened One	المستيقظ
+system	Reawakening	الاستيقاظ الثاني
+system	Re-Awakening	الاستيقاظ الثاني
+system	Mana	المانا
+system	Mana Stone	حجر المانا
+system	Mana Crystal	بلورة المانا
+system	Mana Core	نواة المانا
+system	Magic Beast	وحش سحري
+system	Magic Stone	حجر سحري
+system	Boss Monster	الوحش الزعيم
+system	Monster	وحش
+system	Monster Core	نواة الوحش
+system	Necromancer	مستحضر الأرواح
+system	Shadow Monarch	ملك الظلال
+system	Shadow Soldier	جندي الظل
+system	Shadow Army	جيش الظلال
+system	Shadow Extraction	استخراج الظل
+system	Arise	انهض
+system	Monarch	الملك
+system	Ruler	الحاكم
+system	Regression	العودة بالزمن
+system	Regressor	العائد بالزمن
+system	Returnee	العائد
+system	Reincarnation	التناسخ
+system	Reincarnator	المتناسخ
+system	Transmigration	انتقال الروح
+system	Constellation	الكوكبة
+system	Constellations	الكوكبات
+system	Sponsor	الراعي
+system	Coins	العملات
+system	Scenario	السيناريو
+system	Main Scenario	السيناريو الرئيسي
+system	Sub-Scenario	سيناريو فرعي
+system	Hidden Scenario	سيناريو خفي
+system	Incarnation	التجسد
+system	Dokkaebi	الدوكيبي
+system	Star Stream	تيار النجوم
+system	Tutorial	البرنامج التعليمي
+system	Tutorial Floor	طابق البرنامج التعليمي
+system	Floor	الطابق
+system	Tower of Trials	برج الاختبارات
+system	Tower Climber	متسلق البرج
+system	Ranker	صاحب التصنيف
+system	Regular	المنتظم
+system	Irregular	غير المنتظم
+system	Challenger	المتحدي
+system	Player	اللاعب
+system	Players	اللاعبون
+system	Trial	الاختبار
+system	Hidden Piece	القطعة الخفية
+system	Achievement	الإنجاز
+system	Buff	تعزيز
+system	Debuff	إضعاف
+system	Status Effect	تأثير الحالة
+system	Bleeding	النزيف
+system	Poison	السم
+system	Paralysis	الشلل
+system	Stun	الصعق
+system	Instant Death	الموت الفوري
+system	Revival	الإحياء
+system	Healer	المعالج
+system	Tanker	الدرع
+system	Tank	الدرع
+system	Assassin	القاتل
+system	Mage	ساحر
+system	Fighter	المقاتل
+system	Ranger	الرامي
+system	Summoner	المستدعي
+system	Summon	استدعاء
+system	Summoning	الاستدعاء
+system	Contract	العقد
+system	Familiar	التابع
+system	Artifact	القطعة الأثرية
+system	Relic	الأثر
+system	Rune	الرونية
+system	Runestone	حجر الرون
+system	Potion	الجرعة
+system	Healing Potion	جرعة الشفاء
+system	Elixir	الإكسير
+system	Hidden Class	الفئة الخفية
+system	Abyss	الهاوية
+system	Apocalypse	نهاية العالم
+system	Survivor	الناجي
+system	Calamity	الكارثة
+system	Disaster Level	مستوى الكارثة
+system	Hunter Ranking	تصنيف الصيادين
+system	상태창	نافذة الحالة
+system	시스템	النظام
+system	퀘스트	مهمة
+system	일일 퀘스트	المهمة اليومية
+system	긴급 퀘스트	مهمة طارئة
+system	히든 퀘스트	مهمة خفية
+system	보상	المكافأة
+system	페널티	العقوبة
+system	스킬	مهارة
+system	패시브 스킬	مهارة سلبية
+system	액티브 스킬	مهارة نشطة
+system	레벨 업	ارتفاع المستوى
+system	레벨업	ارتفاع المستوى
+system	레벨	المستوى
+system	경험치	نقاط الخبرة
+system	스탯	الإحصائيات
+system	근력	القوة
+system	민첩	الرشاقة
+system	지능	الذكاء
+system	체력	التحمل
+system	감각	الإدراك
+system	인벤토리	المخزون
+system	상점	المتجر
+system	아이템	العنصر
+system	직업	الفئة
+system	칭호	اللقب
+system	던전	الزنزانة
+system	인스턴스 던전	زنزانة فورية
+system	던전 브레이크	انفجار الزنزانة
+system	게이트	البوابة
+system	레드 게이트	البوابة الحمراء
+system	이중 던전	الزنزانة المزدوجة
+system	헌터	صياد
+system	헌터 협회	جمعية الصيادين
+system	S급	الرتبة S
+system	A급	الرتبة A
+system	B급	الرتبة B
+system	C급	الرتبة C
+system	D급	الرتبة D
+system	E급	الرتبة E
+system	S급 헌터	صياد من الرتبة S
+system	레이드	الغارة
+system	길드	النقابة
+system	길드장	سيد النقابة
+system	각성	الاستيقاظ
+system	각성자	المستيقظ
+system	재각성	الاستيقاظ الثاني
+system	마나	المانا
+system	마석	حجر المانا
+system	마수	وحش سحري
+system	보스	الزعيم
+system	몬스터	وحش
+system	네크로맨서	مستحضر الأرواح
+system	그림자 군주	ملك الظلال
+system	그림자 병사	جندي الظل
+system	그림자 추출	استخراج الظل
+system	일어나라	انهض
+system	군주	الملك
+system	회귀	العودة بالزمن
+system	회귀자	العائد بالزمن
+system	귀환자	العائد
+system	환생	التناسخ
+system	빙의	انتقال الروح
+system	성좌	الكوكبة
+system	성좌들	الكوكبات
+system	코인	العملات
+system	시나리오	السيناريو
+system	메인 시나리오	السيناريو الرئيسي
+system	서브 시나리오	سيناريو فرعي
+system	화신	التجسد
+system	도깨비	الدوكيبي
+system	튜토리얼	البرنامج التعليمي
+system	층	الطابق
+system	탑	البرج
+system	랭커	صاحب التصنيف
+system	플레이어	اللاعب
+system	업적	الإنجاز
+system	버프	تعزيز
+system	디버프	إضعاف
+system	출혈	النزيف
+system	독	السم
+system	마비	الشلل
+system	즉사	الموت الفوري
+system	힐러	المعالج
+system	탱커	الدرع
+system	암살자	القاتل
+system	마법사	ساحر
+system	소환사	المستدعي
+system	소환	استدعاء
+system	계약	العقد
+system	아티팩트	القطعة الأثرية
+system	포션	الجرعة
+system	엘릭서	الإكسير
+system	히든 클래스	الفئة الخفية
+system	심연	الهاوية
+system	종말	نهاية العالم
+system	재앙	الكارثة
+# ---------- murim: martial arts, sects, cultivation ----------
+murim	Murim	الموريم
+murim	Martial World	عالم الفنون القتالية
+murim	Jianghu	جيانغهو
+murim	Murim Alliance	تحالف الموريم
+murim	Martial Alliance	تحالف الفنون القتالية
+murim	Heavenly Demon	الشيطان السماوي
+murim	Heavenly Demon Cult	طائفة الشيطان السماوي
+murim	Demonic Cult	الطائفة الشيطانية
+murim	Demon Cult	الطائفة الشيطانية
+murim	Blood Cult	طائفة الدم
+murim	Mount Hua Sect	طائفة جبل هوا
+murim	Mount Hua	جبل هوا
+murim	Plum Blossom Sword	سيف زهرة البرقوق
+murim	Shaolin	شاولين
+murim	Shaolin Temple	معبد شاولين
+murim	Wudang	وودانغ
+murim	Wudang Sect	طائفة وودانغ
+murim	Emei Sect	طائفة إيمي
+murim	Kunlun Sect	طائفة كونلون
+murim	Kongtong Sect	طائفة كونغتونغ
+murim	Diancang Sect	طائفة ديانتسانغ
+murim	Qingcheng Sect	طائفة تشينغتشنغ
+murim	Beggars' Sect	طائفة المتسولين
+murim	Beggar Sect	طائفة المتسولين
+murim	Namgung Clan	عشيرة نامغونغ
+murim	Namgung Family	عائلة نامغونغ
+murim	Tang Clan	عشيرة تانغ
+murim	Sichuan Tang Clan	عشيرة تانغ السيتشوانية
+murim	Peng Clan	عشيرة بينغ
+murim	Hebei Peng Family	عائلة بينغ من خبي
+murim	Moyong Clan	عشيرة مويونغ
+murim	Jegal Clan	عشيرة جيغال
+murim	Five Great Families	العائلات الخمس الكبرى
+murim	Nine Great Sects	الطوائف التسع الكبرى
+murim	Nine Sects and Five Families	الطوائف التسع والعائلات الخمس
+murim	Orthodox Faction	الفصيل القويم
+murim	Unorthodox Faction	الفصيل المنحرف
+murim	Righteous Faction	فصيل الصالحين
+murim	Evil Faction	الفصيل الشرير
+murim	Demonic Faction	الفصيل الشيطاني
+murim	Sect	الطائفة
+murim	Sect Leader	زعيم الطائفة
+murim	Clan Head	رئيس العشيرة
+murim	Family Head	رب العائلة
+murim	Patriarch	الأب المؤسس
+murim	Elder	الشيخ
+murim	Great Elder	الشيخ الأكبر
+murim	Grand Elder	الشيخ الأعظم
+murim	Disciple	التلميذ
+murim	Direct Disciple	التلميذ المباشر
+murim	Outer Disciple	تلميذ خارجي
+murim	Inner Disciple	تلميذ داخلي
+murim	Senior Brother	الأخ الأكبر
+murim	Junior Brother	الأخ الأصغر
+murim	Senior Sister	الأخت الكبرى
+murim	Junior Sister	الأخت الصغرى
+murim	Sahyung	الأخ الأكبر
+murim	Sajae	الأخ الأصغر
+murim	Sabu	المعلم
+murim	Shifu	المعلم
+murim	Young Master	السيد الشاب
+murim	Young Lady	السيدة الشابة
+murim	Dantian	الدانتيان
+murim	Lower Dantian	الدانتيان السفلي
+murim	Upper Dantian	الدانتيان العلوي
+murim	Qi	التشي
+murim	Internal Energy	الطاقة الداخلية
+murim	Inner Energy	الطاقة الداخلية
+murim	Internal Injury	إصابة داخلية
+murim	Qi Deviation	انحراف التشي
+murim	Sword Qi	تشي السيف
+murim	Sword Energy	طاقة السيف
+murim	Sword Aura	هالة السيف
+murim	Sword Intent	نية السيف
+murim	Sword Light	ضوء السيف
+murim	Sword Force	قوة السيف
+murim	Sword Wind	ريح السيف
+murim	Blade Qi	تشي النصل
+murim	Killing Intent	نية القتل
+murim	Martial Arts	الفنون القتالية
+murim	Martial Artist	فنان قتالي
+murim	Martial Art	فن قتالي
+murim	Martial Path	طريق الفنون القتالية
+murim	Martial Realm	مرتبة الفنون القتالية
+murim	Realm	المرتبة
+murim	Cultivation	الزراعة الروحية
+murim	Cultivator	المزارع الروحي
+murim	Meridians	المسارات
+murim	Acupoints	نقاط الضغط
+murim	Pressure Point	نقطة الضغط
+murim	Footwork	خطوات القدم
+murim	Movement Technique	تقنية الحركة
+murim	Breathing Technique	تقنية التنفس
+murim	Mental Cultivation Method	طريقة التنمية الذهنية
+murim	Secret Manual	الكتاب السري
+murim	Martial Arts Manual	كتاب الفنون القتالية
+murim	Sword Technique	تقنية السيف
+murim	Sword Art	فن السيف
+murim	Swordsmanship	فن المبارزة
+murim	Swordsman	المبارز
+murim	Sword Saint	قديس السيف
+murim	Sword Demon	شيطان السيف
+murim	Sword God	إله السيف
+murim	Peak Master	سيد القمة
+murim	Grandmaster	الأستاذ الأعظم
+murim	Transcendent	المتسامي
+murim	Transcendent Realm	مرتبة التسامي
+murim	Peak Realm	مرتبة القمة
+murim	First-Rate	الدرجة الأولى
+murim	Second-Rate	الدرجة الثانية
+murim	Third-Rate	الدرجة الثالثة
+murim	Profound Realm	المرتبة العميقة
+murim	Life and Death Realm	مرتبة الحياة والموت
+murim	Core	النواة
+murim	Golden Core	النواة الذهبية
+murim	Foundation Establishment	تأسيس الأساس
+murim	Qi Condensation	تكثيف التشي
+murim	Nascent Soul	الروح الوليدة
+murim	Tribulation	المحنة
+murim	Heavenly Tribulation	المحنة السماوية
+murim	Breakthrough	الاختراق
+murim	Bottleneck	عنق الزجاجة
+murim	Elixir	الإكسير
+murim	Spirit Pill	حبة الروح
+murim	Spirit Stone	حجر الروح
+murim	Heavenly Treasure	كنز سماوي
+murim	Divine Beast	الوحش الإلهي
+murim	Demonic Beast	الوحش الشيطاني
+murim	Demonic Energy	الطاقة الشيطانية
+murim	Demonic Arts	الفنون الشيطانية
+murim	Heavenly Demon Divine Art	فن الشيطان السماوي الإلهي
+murim	Black Sky Sword	سيف السماء السوداء
+murim	Twin Swords	السيفان التوأم
+murim	Escort Agency	وكالة الحراسة
+murim	Merchant Guild	نقابة التجار
+murim	Imperial Guard	الحرس الإمبراطوري
+murim	Eunuch	الخصي
+murim	Imperial Court	البلاط الإمبراطوري
+murim	Hidden Expert	الخبير الخفي
+murim	Rogue Cultivator	المزارع المتجول
+murim	Wandering Swordsman	المبارز المتجول
+murim	Righteous Path	الطريق القويم
+murim	Demonic Path	الطريق الشيطاني
+murim	Retreat	العزلة
+murim	Closed-Door Cultivation	التدريب المنعزل
+murim	Spar	المبارزة الودية
+murim	Duel	المبارزة
+murim	Mount Tai	جبل تاي
+murim	Dragon and Phoenix Gathering	تجمع التنين والعنقاء
+murim	무림	الموريم
+murim	무림맹	تحالف الموريم
+murim	천마	الشيطان السماوي
+murim	천마신교	طائفة الشيطان السماوي
+murim	마교	الطائفة الشيطانية
+murim	혈교	طائفة الدم
+murim	화산파	طائفة جبل هوا
+murim	화산	جبل هوا
+murim	매화검법	فن سيف زهرة البرقوق
+murim	소림사	معبد شاولين
+murim	소림	شاولين
+murim	무당파	طائفة وودانغ
+murim	무당	وودانغ
+murim	아미파	طائفة إيمي
+murim	곤륜파	طائفة كونلون
+murim	개방	طائفة المتسولين
+murim	남궁세가	عائلة نامغونغ
+murim	사천당가	عشيرة تانغ السيتشوانية
+murim	당가	عشيرة تانغ
+murim	하북팽가	عائلة بينغ من خبي
+murim	모용세가	عائلة مويونغ
+murim	제갈세가	عائلة جيغال
+murim	오대세가	العائلات الخمس الكبرى
+murim	구파일방	الطوائف التسع والعصبة الواحدة
+murim	정파	الفصيل القويم
+murim	사파	الفصيل المنحرف
+murim	마도	الطريق الشيطاني
+murim	장문인	زعيم الطائفة
+murim	가주	رب العائلة
+murim	장로	الشيخ
+murim	태상장로	الشيخ الأعظم
+murim	제자	التلميذ
+murim	사형	الأخ الأكبر
+murim	사제	الأخ الأصغر
+murim	사저	الأخت الكبرى
+murim	사매	الأخت الصغرى
+murim	사부	المعلم
+murim	공자	السيد الشاب
+murim	소저	الآنسة
+murim	단전	الدانتيان
+murim	내공	الطاقة الداخلية
+murim	내기	الطاقة الداخلية
+murim	내상	إصابة داخلية
+murim	주화입마	انحراف التشي
+murim	검기	تشي السيف
+murim	검강	هالة السيف
+murim	검의	نية السيف
+murim	살기	نية القتل
+murim	무공	الفنون القتالية
+murim	무인	فنان قتالي
+murim	경지	المرتبة
+murim	혈도	نقاط الضغط
+murim	보법	خطوات القدم
+murim	경공	تقنية الحركة
+murim	심법	طريقة التنمية الذهنية
+murim	비급	الكتاب السري
+murim	검법	فن السيف
+murim	검수	المبارز
+murim	검성	قديس السيف
+murim	검마	شيطان السيف
+murim	검신	إله السيف
+murim	초절정	مرتبة ما فوق القمة
+murim	절정	مرتبة القمة
+murim	화경	مرتبة التحول
+murim	현경	المرتبة العميقة
+murim	일류	الدرجة الأولى
+murim	이류	الدرجة الثانية
+murim	삼류	الدرجة الثالثة
+murim	영약	الإكسير
+murim	마기	الطاقة الشيطانية
+murim	표국	وكالة الحراسة
+murim	폐관수련	التدريب المنعزل
+murim	비무	المبارزة الودية
+# ---------- fantasy: nobility, magic, knights, regression ----------
+fantasy	Emperor	الإمبراطور
+fantasy	Empress	الإمبراطورة
+fantasy	Empire	الإمبراطورية
+fantasy	Imperial Palace	القصر الإمبراطوري
+fantasy	Imperial Family	العائلة الإمبراطورية
+fantasy	King	الملك
+fantasy	Queen	الملكة
+fantasy	Kingdom	المملكة
+fantasy	Royal Family	العائلة المالكة
+fantasy	Crown Prince	ولي العهد
+fantasy	Crown Princess	ولية العهد
+fantasy	Prince	الأمير
+fantasy	Princess	الأميرة
+fantasy	First Prince	الأمير الأول
+fantasy	Second Prince	الأمير الثاني
+fantasy	Archduke	الأرشيدوق
+fantasy	Archduchess	الأرشيدوقة
+fantasy	Grand Duke	الدوق الأكبر
+fantasy	Grand Duchess	الدوقة الكبرى
+fantasy	Duke	الدوق
+fantasy	Duchess	الدوقة
+fantasy	Dukedom	الدوقية
+fantasy	Marquis	الماركيز
+fantasy	Marquess	الماركيز
+fantasy	Marchioness	الماركيزة
+fantasy	Margrave	المارغريف
+fantasy	Countess	الكونتيسة
+fantasy	Viscount	الفيكونت
+fantasy	Viscountess	الفيكونتيسة
+fantasy	Baron	البارون
+fantasy	Baroness	البارونة
+fantasy	Lord	اللورد
+fantasy	Lady	السيدة
+fantasy	Young Lord	اللورد الشاب
+fantasy	Noble	النبيل
+fantasy	Nobles	النبلاء
+fantasy	Commoner	العامي
+fantasy	Butler	كبير الخدم
+fantasy	Head Maid	كبيرة الخادمات
+fantasy	Maid	الخادمة
+fantasy	Knight	الفارس
+fantasy	Knights	الفرسان
+fantasy	Knight Order	فرقة الفرسان
+fantasy	Order of Knights	فرقة الفرسان
+fantasy	Knight Commander	قائد الفرسان
+fantasy	Vice Commander	نائب القائد
+fantasy	Holy Knight	الفارس المقدس
+fantasy	Paladin	الفارس المقدس
+fantasy	Royal Guard	الحرس الملكي
+fantasy	Squire	المرافق
+fantasy	Sword Master	سيد السيف
+fantasy	Aura	الهالة
+fantasy	Aura Blade	نصل الهالة
+fantasy	Aura User	مستخدم الهالة
+fantasy	Mana Heart	قلب المانا
+fantasy	Mana Circuit	دائرة المانا
+fantasy	1st Circle	الدائرة الأولى
+fantasy	2nd Circle	الدائرة الثانية
+fantasy	3rd Circle	الدائرة الثالثة
+fantasy	4th Circle	الدائرة الرابعة
+fantasy	5th Circle	الدائرة الخامسة
+fantasy	6th Circle	الدائرة السادسة
+fantasy	7th Circle	الدائرة السابعة
+fantasy	8th Circle	الدائرة الثامنة
+fantasy	9th Circle	الدائرة التاسعة
+fantasy	Magic Circle	الدائرة السحرية
+fantasy	Magic Tower	برج السحر
+fantasy	Tower Master	سيد البرج
+fantasy	Tower Lord	سيد البرج
+fantasy	Floor Master	سيد الطابق
+fantasy	Grand Mage	الساحر الأعظم
+fantasy	Archmage	رئيس السحرة
+fantasy	Great Mage	الساحر العظيم
+fantasy	Court Mage	ساحر البلاط
+fantasy	Apprentice Mage	ساحر متدرب
+fantasy	Wizard	ساحر
+fantasy	Witch	الساحرة
+fantasy	Sorcerer	المشعوذ
+fantasy	Warlock	الساحر الأسود
+fantasy	Black Magic	السحر الأسود
+fantasy	White Magic	السحر الأبيض
+fantasy	Spell	تعويذة
+fantasy	Incantation	ترنيمة التعويذة
+fantasy	Magic Formula	الصيغة السحرية
+fantasy	Barrier	الحاجز
+fantasy	Teleportation	الانتقال الآني
+fantasy	Teleportation Circle	دائرة الانتقال الآني
+fantasy	Holy Sword	السيف المقدس
+fantasy	Demon Sword	السيف الشيطاني
+fantasy	Divine Power	القوة الإلهية
+fantasy	Holy Power	القوة المقدسة
+fantasy	Divine Beast	الوحش الإلهي
+fantasy	Demon King	ملك الشياطين
+fantasy	Demon Lord	سيد الشياطين
+fantasy	Demon Realm	عالم الشياطين
+fantasy	Demons	الشياطين
+fantasy	Hero	البطل
+fantasy	Heroes	الأبطال
+fantasy	Saint	القديس
+fantasy	Saintess	القديسة
+fantasy	Pope	البابا
+fantasy	High Priest	الكاهن الأعلى
+fantasy	Priest	الكاهن
+fantasy	Priestess	الكاهنة
+fantasy	Temple	المعبد
+fantasy	Church	الكنيسة
+fantasy	Holy Kingdom	المملكة المقدسة
+fantasy	Oracle	النبوءة
+fantasy	Goddess	الإلهة
+fantasy	Dragon	التنين
+fantasy	Dragons	التنانين
+fantasy	Dragon Slayer	قاتل التنانين
+fantasy	Elf	الإلف
+fantasy	Elves	الإلف
+fantasy	Dwarf	القزم
+fantasy	Dwarves	الأقزام
+fantasy	Orc	الأورك
+fantasy	Orcs	الأوركس
+fantasy	Goblin	الغوبلن
+fantasy	Goblins	الغوبلن
+fantasy	Beastman	الرجل الوحش
+fantasy	Beastmen	البشر الوحوش
+fantasy	Vampire	مصاص الدماء
+fantasy	Werewolf	المستذئب
+fantasy	Spirit	الروح
+fantasy	Spirit King	ملك الأرواح
+fantasy	Elemental	الروح العنصرية
+fantasy	Contractor	المتعاقد
+fantasy	Academy	الأكاديمية
+fantasy	Royal Academy	الأكاديمية الملكية
+fantasy	Imperial Academy	الأكاديمية الإمبراطورية
+fantasy	Freshman	طالب السنة الأولى
+fantasy	Your Majesty	جلالتك
+fantasy	His Majesty	جلالته
+fantasy	Her Majesty	جلالتها
+fantasy	Your Highness	سموك
+fantasy	His Highness	سموه
+fantasy	Her Highness	سموها
+fantasy	Your Grace	سيادتك
+fantasy	His Grace	سيادته
+fantasy	Her Grace	سيادتها
+fantasy	Your Excellency	سعادتك
+fantasy	My Lady	سيدتي
+fantasy	My Lord	سيدي
+fantasy	Milady	سيدتي
+fantasy	Young Miss	الآنسة الصغيرة
+fantasy	Villainess	الشريرة
+fantasy	Female Lead	البطلة
+fantasy	Male Lead	البطل
+fantasy	Original Story	القصة الأصلية
+fantasy	Novel	الرواية
+fantasy	Debutante	حفلة الظهور الأول
+fantasy	Ball	الحفل الراقص
+fantasy	Banquet	المأدبة
+fantasy	Engagement	الخطوبة
+fantasy	Marriage Contract	عقد الزواج
+fantasy	Contract Marriage	زواج تعاقدي
+fantasy	Duke's Castle	قلعة الدوق
+fantasy	Northern Duke	دوق الشمال
+fantasy	Grand Duke of the North	الدوق الأكبر للشمال
+fantasy	Second Life	الحياة الثانية
+fantasy	Past Life	الحياة السابقة
+fantasy	Previous Life	الحياة السابقة
+fantasy	Returned	عاد
+fantasy	황제	الإمبراطور
+fantasy	황후	الإمبراطورة
+fantasy	제국	الإمبراطورية
+fantasy	황궁	القصر الإمبراطوري
+fantasy	황실	العائلة الإمبراطورية
+fantasy	왕	الملك
+fantasy	왕비	الملكة
+fantasy	왕국	المملكة
+fantasy	황태자	ولي العهد
+fantasy	황태자비	زوجة ولي العهد
+fantasy	왕자	الأمير
+fantasy	공주	الأميرة
+fantasy	황녀	الأميرة الإمبراطورية
+fantasy	대공	الدوق الأكبر
+fantasy	대공비	الدوقة الكبرى
+fantasy	공작	الدوق
+fantasy	공작부인	الدوقة
+fantasy	후작	الماركيز
+fantasy	백작	الكونت
+fantasy	백작부인	الكونتيسة
+fantasy	자작	الفيكونت
+fantasy	남작	البارون
+fantasy	영애	الآنسة النبيلة
+fantasy	영식	السيد النبيل
+fantasy	귀족	النبيل
+fantasy	평민	العامي
+fantasy	집사	كبير الخدم
+fantasy	하녀	الخادمة
+fantasy	기사	الفارس
+fantasy	기사단	فرقة الفرسان
+fantasy	기사단장	قائد الفرسان
+fantasy	성기사	الفارس المقدس
+fantasy	소드 마스터	سيد السيف
+fantasy	소드마스터	سيد السيف
+fantasy	오러	الهالة
+fantasy	마나 하트	قلب المانا
+fantasy	서클	الدائرة
+fantasy	마탑	برج السحر
+fantasy	마탑주	سيد البرج
+fantasy	대마법사	الساحر الأعظم
+fantasy	흑마법	السحر الأسود
+fantasy	주문	تعويذة
+fantasy	결계	الحاجز
+fantasy	성검	السيف المقدس
+fantasy	신성력	القوة المقدسة
+fantasy	마왕	ملك الشياطين
+fantasy	마족	الشياطين
+fantasy	용사	البطل
+fantasy	성녀	القديسة
+fantasy	교황	البابا
+fantasy	신전	المعبد
+fantasy	신탁	النبوءة
+fantasy	여신	الإلهة
+fantasy	드래곤	التنين
+fantasy	용	التنين
+fantasy	엘프	الإلف
+fantasy	드워프	القزم
+fantasy	오크	الأورك
+fantasy	고블린	الغوبلن
+fantasy	수인	البشر الوحوش
+fantasy	뱀파이어	مصاص الدماء
+fantasy	정령	الروح
+fantasy	정령왕	ملك الأرواح
+fantasy	아카데미	الأكاديمية
+fantasy	폐하	جلالتك
+fantasy	전하	سموك
+fantasy	각하	سعادتك
+fantasy	악녀	الشريرة
+fantasy	여주	البطلة
+fantasy	남주	البطل
+fantasy	원작	القصة الأصلية
+fantasy	데뷔탕트	حفلة الظهور الأول
+fantasy	무도회	الحفل الراقص
+fantasy	약혼	الخطوبة
+fantasy	계약 결혼	زواج تعاقدي
+fantasy	전생	الحياة السابقة
+# ---------- modern: school action, gangs, street fights ----------
+modern	Gang	العصابة
+modern	Gang Leader	زعيم العصابة
+modern	Crew	الطاقم
+modern	Crew Leader	قائد الطاقم
+modern	Boss	الزعيم
+modern	Big Boss	الزعيم الكبير
+modern	Underboss	نائب الزعيم
+modern	Delinquent	المشاغب
+modern	Delinquents	المشاغبون
+modern	Thug	البلطجي
+modern	Thugs	البلطجية
+modern	Punk	الأزعر
+modern	Bully	المتنمر
+modern	Bullying	التنمر
+modern	Victim	الضحية
+modern	Transfer Student	الطالب المنقول
+modern	Class President	رئيس الفصل
+modern	Student Council	مجلس الطلاب
+modern	Student Council President	رئيس مجلس الطلاب
+modern	Homeroom Teacher	مربي الفصل
+modern	Principal	مدير المدرسة
+modern	Senior	الأكبر
+modern	Junior	الأصغر
+modern	Freshman	طالب السنة الأولى
+modern	Sophomore	طالب السنة الثانية
+modern	First Year	السنة الأولى
+modern	Second Year	السنة الثانية
+modern	Third Year	السنة الثالثة
+modern	High School	المدرسة الثانوية
+modern	Middle School	المدرسة الإعدادية
+modern	Rooftop	السطح
+modern	Back Alley	الزقاق الخلفي
+modern	Turf	المنطقة
+modern	Territory	المنطقة
+modern	Alliance	التحالف
+modern	Union	الاتحاد
+modern	Affiliate	التابع
+modern	Workers	العمال
+modern	Fixer	الوسيط
+modern	Loan Shark	المرابي
+modern	Chairman	الرئيس
+modern	CEO	المدير التنفيذي
+modern	Chaebol	التشايبول
+modern	Conglomerate	التكتل
+modern	Heir	الوريث
+modern	Secretary	السكرتير
+modern	Bodyguard	الحارس الشخصي
+modern	Detective	المحقق
+modern	Prosecutor	المدعي العام
+modern	Police Station	مركز الشرطة
+modern	Gym	الصالة الرياضية
+modern	Boxing	الملاكمة
+modern	Boxer	الملاكم
+modern	Taekwondo	التايكوندو
+modern	Judo	الجودو
+modern	Jiu-Jitsu	الجوجيتسو
+modern	Kickboxing	الكيك بوكسينغ
+modern	Muay Thai	المواي تاي
+modern	Wrestling	المصارعة
+modern	Karate	الكاراتيه
+modern	MMA	فنون القتال المختلطة
+modern	Street Fighting	قتال الشوارع
+modern	Jab	لكمة مستقيمة
+modern	Hook	لكمة خطافية
+modern	Uppercut	لكمة صاعدة
+modern	Straight	لكمة مستقيمة
+modern	Low Kick	ركلة منخفضة
+modern	High Kick	ركلة عالية
+modern	Roundhouse Kick	ركلة دائرية
+modern	Knee Strike	ضربة الركبة
+modern	Elbow Strike	ضربة الكوع
+modern	Headbutt	نطحة الرأس
+modern	Counter	الضربة المضادة
+modern	Guard	الحراسة
+modern	Stance	الوقفة
+modern	Sparring	المبارزة التدريبية
+modern	Knockout	الضربة القاضية
+modern	Ultra Instinct	الغريزة الفائقة
+modern	Copy	النسخ
+modern	Genius	العبقري
+modern	Monster Rookie	الوحش الصاعد
+modern	Legend	الأسطورة
+modern	King	الملك
+modern	Kings	الملوك
+modern	Gen 1	الجيل الأول
+modern	First Generation	الجيل الأول
+modern	Second Generation	الجيل الثاني
+modern	Idol	النجم
+modern	Trainee	المتدرب
+modern	Agency	الوكالة
+modern	Debut	الظهور الأول
+modern	Streamer	البث المباشر
+modern	Webtoon Artist	رسام الويبتون
+modern	일진	المشاغب
+modern	양아치	البلطجي
+modern	짱	الزعيم
+modern	전학생	الطالب المنقول
+modern	반장	رئيس الفصل
+modern	학생회장	رئيس مجلس الطلاب
+modern	담임	مربي الفصل
+modern	교장	مدير المدرسة
+modern	선배	الأكبر
+modern	후배	الأصغر
+modern	고등학교	المدرسة الثانوية
+modern	옥상	السطح
+modern	골목	الزقاق
+modern	연합	التحالف
+modern	회장	الرئيس
+modern	재벌	التشايبول
+modern	비서	السكرتير
+modern	경호원	الحارس الشخصي
+modern	형사	المحقق
+modern	검사	المدعي العام
+modern	복싱	الملاكمة
+modern	태권도	التايكوندو
+modern	유도	الجودو
+modern	주짓수	الجوجيتسو
+modern	킥복싱	الكيك بوكسينغ
+modern	레슬링	المصارعة
+modern	잽	لكمة مستقيمة
+modern	훅	لكمة خطافية
+modern	어퍼컷	لكمة صاعدة
+modern	로우킥	ركلة منخفضة
+modern	하이킥	ركلة عالية
+modern	카운터	الضربة المضادة
+modern	천재	العبقري
+modern	전설	الأسطورة
+modern	1세대	الجيل الأول
+modern	2세대	الجيل الثاني
+modern	아이돌	النجم
+modern	연습생	المتدرب
+# ---------- gaming: VRMMO, stats, items, rarity ----------
+gaming	STR	القوة
+gaming	AGI	الرشاقة
+gaming	VIT	الحيوية
+gaming	INT	الذكاء
+gaming	LUK	الحظ
+gaming	DEX	البراعة
+gaming	WIS	الحكمة
+gaming	CHA	الجاذبية
+gaming	HP	نقاط الصحة
+gaming	MP	نقاط المانا
+gaming	SP	نقاط التحمل
+gaming	ATK	الهجوم
+gaming	DEF	الدفاع
+gaming	DPS	الضرر في الثانية
+gaming	Critical Hit	ضربة حرجة
+gaming	Critical	ضربة حرجة
+gaming	Critical Rate	نسبة الضربة الحرجة
+gaming	Damage	الضرر
+gaming	True Damage	ضرر حقيقي
+gaming	Attack Power	قوة الهجوم
+gaming	Defense	الدفاع
+gaming	Magic Power	القوة السحرية
+gaming	Magic Resistance	المقاومة السحرية
+gaming	Attack Speed	سرعة الهجوم
+gaming	Movement Speed	سرعة الحركة
+gaming	Evasion	المراوغة
+gaming	Accuracy	الدقة
+gaming	Luck	الحظ
+gaming	Dexterity	البراعة
+gaming	Wisdom	الحكمة
+gaming	Charm	الجاذبية
+gaming	Durability	المتانة
+gaming	Aggro	الاستفزاز
+gaming	Taunt	الاستفزاز
+gaming	Party	الفريق
+gaming	Party Member	عضو الفريق
+gaming	Party Leader	قائد الفريق
+gaming	Solo Play	اللعب الفردي
+gaming	Raid Boss	زعيم الغارة
+gaming	Field Boss	زعيم الحقل
+gaming	World Boss	زعيم العالم
+gaming	Named Monster	الوحش المسمى
+gaming	Elite Monster	الوحش النخبوي
+gaming	Mob	الوحش العادي
+gaming	Drop	الغنيمة
+gaming	Drop Item	غنيمة
+gaming	Loot	الغنائم
+gaming	Drop Rate	نسبة الإسقاط
+gaming	Common	عادي
+gaming	Uncommon	غير شائع
+gaming	Rare	نادر
+gaming	Epic	ملحمي
+gaming	Unique	فريد
+gaming	Legendary	أسطوري
+gaming	Mythic	خرافي
+gaming	Mythical	خرافي
+gaming	Divine	إلهي
+gaming	Set Item	طقم
+gaming	Set Effect	تأثير الطقم
+gaming	Equipment	المعدات
+gaming	Weapon	السلاح
+gaming	Armor	الدرع
+gaming	Accessory	الإكسسوار
+gaming	Enhancement	التعزيز
+gaming	Upgrade	الترقية
+gaming	Crafting	الصناعة
+gaming	Blacksmith	الحداد
+gaming	Alchemy	الخيمياء
+gaming	Alchemist	الخيميائي
+gaming	Auction House	دار المزاد
+gaming	Server	الخادم
+gaming	Log In	تسجيل الدخول
+gaming	Log Out	تسجيل الخروج
+gaming	Respawn	العودة للحياة
+gaming	Death Penalty	عقوبة الموت
+gaming	NPC	الشخصية غير القابلة للعب
+gaming	PvP	قتال اللاعبين
+gaming	PK	قتل اللاعبين
+gaming	Guild War	حرب النقابات
+gaming	Siege	الحصار
+gaming	Castle Siege	حصار القلعة
+gaming	Ranking	التصنيف
+gaming	Leaderboard	لوحة الصدارة
+gaming	First Clear	أول إتمام
+gaming	Hidden Piece	القطعة الخفية
+gaming	Easter Egg	مفاجأة مخفية
+gaming	Bug	خلل
+gaming	Glitch	خلل
+gaming	Patch	التحديث
+gaming	Beta Tester	مختبر النسخة التجريبية
+gaming	Capsule	الكبسولة
+gaming	Virtual Reality	الواقع الافتراضي
+gaming	Game Over	انتهت اللعبة
+gaming	Character	الشخصية
+gaming	Nickname	الاسم المستعار
+gaming	Mana Potion	جرعة المانا
+gaming	Skill Tree	شجرة المهارات
+gaming	Proficiency	الإتقان
+gaming	Mastery	الإتقان
+gaming	Combo	سلسلة ضربات
+gaming	Chain	السلسلة
+gaming	Area of Effect	هجوم واسع
+gaming	AoE	هجوم واسع
+gaming	Cast	إلقاء
+gaming	Casting	الإلقاء
+gaming	Channeling	التركيز
+gaming	Overload	التحميل الزائد
+gaming	Berserk	الهياج
+gaming	Stealth	التخفي
+gaming	Invisibility	الاختفاء
+gaming	Invincibility	المناعة المطلقة
+gaming	Immunity	المناعة
+gaming	Resistance	المقاومة
+gaming	Recovery	التعافي
+gaming	Regeneration	التجدد
+gaming	공격력	قوة الهجوم
+gaming	방어력	الدفاع
+gaming	마력	القوة السحرية
+gaming	치명타	ضربة حرجة
+gaming	데미지	الضرر
+gaming	파티	الفريق
+gaming	파티장	قائد الفريق
+gaming	드랍	الغنيمة
+gaming	드롭	الغنيمة
+gaming	전리품	الغنائم
+gaming	일반	عادي
+gaming	레어	نادر
+gaming	에픽	ملحمي
+gaming	유니크	فريد
+gaming	레전드	أسطوري
+gaming	전설급	أسطوري
+gaming	신화급	خرافي
+gaming	신화	خرافي
+gaming	장비	المعدات
+gaming	무기	السلاح
+gaming	방어구	الدرع
+gaming	강화	التعزيز
+gaming	제작	الصناعة
+gaming	대장장이	الحداد
+gaming	연금술	الخيمياء
+gaming	경매장	دار المزاد
+gaming	서버	الخادم
+gaming	로그아웃	تسجيل الخروج
+gaming	부활	العودة للحياة
+gaming	랭킹	التصنيف
+gaming	히든 피스	القطعة الخفية
+gaming	버그	خلل
+gaming	캡슐	الكبسولة
+gaming	가상현실	الواقع الافتراضي
+gaming	캐릭터	الشخصية
+gaming	숙련도	الإتقان
+gaming	콤보	سلسلة ضربات
+gaming	광폭화	الهياج
+gaming	은신	التخفي
+gaming	무적	المناعة المطلقة
+gaming	저항	المقاومة
+gaming	재생	التجدد
+# ---------- idioms: dramatic expressions and battle cries ----------
+idioms	over my dead body	على جثتي
+idioms	you've got guts	لديك الجرأة
+idioms	you have guts	لديك الجرأة
+idioms	know your place	اعرف حجمك
+idioms	how dare you	كيف تجرؤ
+idioms	you dare	أتجرؤ
+idioms	what a joke	يا لها من مزحة
+idioms	don't make me laugh	لا تضحكني
+idioms	you must have a death wish	يبدو أنك تتمنى الموت
+idioms	death wish	رغبة في الموت
+idioms	bring it on	هات ما عندك
+idioms	come at me	هاجمني
+idioms	is that all you've got	أهذا كل ما لديك
+idioms	is that all you got	أهذا كل ما لديك
+idioms	you're no match for me	لست ندًا لي
+idioms	you're not even worth it	أنت لا تستحق حتى
+idioms	this is the end	هذه هي النهاية
+idioms	it's over for you	انتهى أمرك
+idioms	you're finished	انتهى أمرك
+idioms	you're dead	أنت ميت
+idioms	I'll make you pay	سأجعلك تدفع الثمن
+idioms	pay the price	تدفع الثمن
+idioms	mark my words	تذكر كلامي جيدًا
+idioms	I swear	أقسم
+idioms	I swear on my life	أقسم بحياتي
+idioms	on my honor	بشرفي
+idioms	as you wish	كما تشاء
+idioms	as you command	أمرك
+idioms	yes, sir	حاضر يا سيدي
+idioms	understood, sir	مفهوم يا سيدي
+idioms	it can't be helped	لا حيلة في ذلك
+idioms	no way	مستحيل
+idioms	what the hell	ما هذا بحق الجحيم
+idioms	what the heck	ما هذا بحق السماء
+idioms	go to hell	اذهب إلى الجحيم
+idioms	damn it	تبًا
+idioms	son of a bitch	ابن الحرام
+idioms	piece of trash	قطعة قمامة
+idioms	you trash	أيها الحثالة
+idioms	bastard	وغد
+idioms	scum	حثالة
+idioms	worthless	عديم القيمة
+idioms	insect	حشرة
+idioms	little brat	أيها الشقي الصغير
+idioms	brat	شقي
+idioms	old man	أيها العجوز
+idioms	old geezer	أيها العجوز الخرف
+idioms	pipsqueak	يا قزم
+idioms	weakling	ضعيف
+idioms	coward	جبان
+idioms	monster	وحش
+idioms	freak	مسخ
+idioms	keep your mouth shut	أغلق فمك
+idioms	shut your mouth	أغلق فمك
+idioms	watch your mouth	انتبه لكلامك
+idioms	mind your manners	انتبه لأدبك
+idioms	stay out of this	لا تتدخل في هذا
+idioms	none of your business	هذا ليس من شأنك
+idioms	leave it to me	اترك الأمر لي
+idioms	count on me	اعتمد علي
+idioms	trust me	ثق بي
+idioms	I've got your back	أنا أساندك
+idioms	got it	فهمت
+idioms	my bad	خطئي
+idioms	no hard feelings	بلا ضغينة
+idioms	long time no see	لم أرك منذ زمن
+idioms	it's been a while	مر وقت طويل
+idioms	speak of the devil	بالحديث عن الشيطان
+idioms	in the blink of an eye	في طرفة عين
+idioms	at last	أخيرًا
+idioms	finally	أخيرًا
+idioms	all of a sudden	فجأة
+idioms	out of nowhere	من العدم
+idioms	once and for all	مرة واحدة وإلى الأبد
+idioms	from now on	من الآن فصاعدًا
+idioms	no matter what	مهما حدث
+idioms	at any cost	مهما كان الثمن
+idioms	whatever it takes	مهما تطلب الأمر
+idioms	to the death	حتى الموت
+idioms	fight to the death	القتال حتى الموت
+idioms	life or death	حياة أو موت
+idioms	a matter of life and death	مسألة حياة أو موت
+idioms	sooner or later	عاجلًا أم آجلًا
+idioms	one way or another	بطريقة أو بأخرى
+idioms	behind my back	من وراء ظهري
+idioms	stab in the back	طعنة في الظهر
+idioms	on thin ice	على حافة الخطر
+idioms	the last straw	القشة التي قصمت ظهر البعير
+idioms	no turning back	لا مجال للتراجع
+idioms	point of no return	نقطة اللاعودة
+idioms	face to face	وجهًا لوجه
+idioms	head-on	وجهًا لوجه
+idioms	off guard	على حين غرة
+idioms	caught off guard	أُخذ على حين غرة
+idioms	out of breath	لاهث الأنفاس
+idioms	cold sweat	عرق بارد
+idioms	shivers down my spine	قشعريرة تسري في عمودي الفقري
+idioms	killing intent	نية القتل
+idioms	bloodlust	التعطش للدماء
+idioms	pressure	الضغط
+idioms	overwhelming	ساحق
+idioms	overwhelming power	قوة ساحقة
+idioms	the difference in level	فارق المستوى
+idioms	on another level	في مستوى آخر
+idioms	this guy is dangerous	هذا الشخص خطير
+idioms	he's strong	إنه قوي
+idioms	she's strong	إنها قوية
+idioms	impossible	مستحيل
+idioms	unbelievable	لا يصدق
+idioms	ridiculous	سخيف
+idioms	absurd	سخيف
+idioms	crazy	مجنون
+idioms	insane	جنوني
+idioms	you're insane	أنت مجنون
+idioms	have you lost your mind	هل فقدت عقلك
+idioms	are you out of your mind	هل جننت
+idioms	get a hold of yourself	تمالك نفسك
+idioms	pull yourself together	تماسك
+idioms	snap out of it	استفق
+idioms	wake up	استيقظ
+idioms	hang in there	اصمد
+idioms	don't give up	لا تستسلم
+idioms	never give up	لا تستسلم أبدًا
+idioms	I won't lose	لن أخسر
+idioms	I won't die here	لن أموت هنا
+idioms	not yet	ليس بعد
+idioms	it's not over yet	لم ينتهِ الأمر بعد
+idioms	this time for sure	هذه المرة بالتأكيد
+idioms	let's settle this	لننهِ هذا
+idioms	settle the score	تصفية الحساب
+idioms	take revenge	الانتقام
+idioms	revenge	الانتقام
+idioms	vengeance	الثأر
+idioms	debt of gratitude	دين بالامتنان
+idioms	I owe you one	أنا مدين لك
+idioms	we're even	نحن متعادلان
+idioms	fair and square	بنزاهة
+idioms	dirty trick	حيلة قذرة
+idioms	underhanded	خسيس
+idioms	shameless	وقح
+idioms	how shameless	يا لك من وقح
+idioms	what nonsense	يا له من هراء
+idioms	nonsense	هراء
+idioms	cut the crap	كفى هراء
+idioms	enough	كفى
+idioms	that's enough	هذا يكفي
+idioms	stop it	توقف
+idioms	knock it off	كف عن ذلك
+idioms	get out of my way	ابتعد عن طريقي
+idioms	out of my way	ابتعد عن طريقي
+idioms	step aside	تنحَّ جانبًا
+idioms	back off	تراجع
+idioms	stand back	ابقَ بعيدًا
+idioms	behind me	خلفي
+idioms	cover me	غطني
+idioms	fall back	انسحبوا
+idioms	retreat	تراجع
+idioms	charge	هجوم
+idioms	all units	جميع الوحدات
+idioms	open fire	أطلقوا النار
+idioms	hold the line	اصمدوا في مواقعكم
+idioms	for the empire	من أجل الإمبراطورية
+idioms	for the sect	من أجل الطائفة
+idioms	long live the emperor	عاش الإمبراطور
+idioms	so be it	ليكن كذلك
+idioms	let's go	هيا بنا

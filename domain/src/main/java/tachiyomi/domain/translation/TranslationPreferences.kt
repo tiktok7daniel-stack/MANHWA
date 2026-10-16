@@ -35,7 +35,7 @@ class TranslationPreferences(
     fun translationArtText() = preferenceStore.getBoolean("manhwa_translation_art_text", true)
 
     /** MANHWA master codex packs in use (system, murim, fantasy): standard Arabic for each genre's terms. */
-    fun translationCodexPacks() = preferenceStore.getStringSet("manhwa_codex_packs", setOf("system", "murim", "fantasy"))
+    fun translationCodexPacks() = preferenceStore.getStringSet("manhwa_codex_packs", setOf("system", "murim", "fantasy", "modern", "gaming", "idioms"))
 
     /** MANHWA: OCR slips (split words, 0 for O, 1 for I) mended before the collection and the AI see a line. */
     fun translationOcrHealer() = preferenceStore.getBoolean("manhwa_ocr_healer", true)

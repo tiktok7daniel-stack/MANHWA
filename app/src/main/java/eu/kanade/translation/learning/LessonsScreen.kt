@@ -71,6 +71,7 @@ class LessonsScreen : Screen() {
             books = withContext(Dispatchers.IO) { store.books() }
         }
         val scope = rememberCoroutineScope()
+        var extracting by remember { mutableStateOf(false) }
         val backup = remember { KnowledgeBackup(context.appGraph.glossaryStore, store) }
         val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
@@ -117,6 +118,39 @@ class LessonsScreen : Screen() {
                         }
                         OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }) {
                             Text(stringResource(ATMR.strings.lessons_import))
+                        }
+                    }
+                }
+                // MANHWA: what the team learnt, by kind, and how often it was used
+                item {
+                    val st = remember(revision, books) { store.stats() }
+                    Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(ATMR.strings.lessons_stats), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(ATMR.strings.lessons_stats_totals, st.rules, st.lessons, st.books))
+                            Text(stringResource(ATMR.strings.lessons_stats_origin, st.fromReader, st.fromEditor), style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                stringResource(ATMR.strings.lessons_stats_kinds, st.names, st.gender, st.style, st.terms, st.grammar),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(stringResource(ATMR.strings.lessons_stats_applied, st.applied), color = MaterialTheme.colorScheme.primary)
+                            OutlinedButton(
+                                enabled = !extracting,
+                                onClick = {
+                                    if (!eu.kanade.translation.translator.appAiConfigured()) {
+                                        context.toast(context.stringResource(ATMR.strings.recs_setup))
+                                    } else {
+                                        extracting = true
+                                        scope.launch {
+                                            val updated = withContext(Dispatchers.IO) { runCatching { store.extractAll() }.getOrDefault(0) }
+                                            extracting = false
+                                            context.toast(context.stringResource(ATMR.strings.lessons_extracted, updated))
+                                        }
+                                    }
+                                },
+                            ) {
+                                Text(stringResource(if (extracting) ATMR.strings.lessons_extracting else ATMR.strings.lessons_extract))
+                            }
                         }
                     }
                 }

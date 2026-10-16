@@ -679,8 +679,20 @@
     <string name="db_healer">OCR healer</string>
     <string name="db_healer_summary">Mends reading slips (split words, 0 for O, 1 for I, messy punctuation) before the library and the AI see a line.</string>
     <string name="db_optimize">Optimize with AI</string>
-    <string name="db_optimize_summary">The team\'s strongest key reviews the most reused lines like an editor: fixes wrong or clumsy ones and makes terms consistent. Your own corrections are never touched.</string>
+    <string name="db_optimize_summary">The team\'s keys review the whole library, batch after batch like an editor: fixes wrong or clumsy ones and makes terms consistent. Your own corrections are never touched.</string>
     <string name="db_optimize_go">Review and improve now</string>
     <string name="db_optimizing">Reviewing…</string>
     <string name="db_optimized">Reviewed %1$d lines, improved %2$d</string>
+    <string name="db_pack_modern">Modern action, school and gangs (%1$d terms)</string>
+    <string name="db_pack_gaming">Games, VRMMO and stats (%1$d terms)</string>
+    <string name="db_pack_idioms">Dramatic expressions and battle cries (%1$d)</string>
+    <string name="db_optimizing_progress">Reviewed %1$d lines so far, improved %2$d…</string>
+    <string name="lessons_stats">What the team learnt</string>
+    <string name="lessons_stats_totals">%1$d rules and %2$d corrections, in %3$d books</string>
+    <string name="lessons_stats_origin">From your edits: %1$d · from the editor: %2$d</string>
+    <string name="lessons_stats_kinds">Rules: names %1$d · gender %2$d · style %3$d · terms %4$d · grammar and wording %5$d</string>
+    <string name="lessons_stats_applied">Used in %1$d translations</string>
+    <string name="lessons_extract">Extract new lessons from my edits with AI</string>
+    <string name="lessons_extracting">Extracting…</string>
+    <string name="lessons_extracted">New rules written for %1$d books</string>
 </resources>
