@@ -163,6 +163,9 @@ class MainActivity : BaseActivity() {
     // To be checked by splash screen. If true then splash screen will be removed.
     var ready = false
 
+    /** True once the system splash is gone, so the MANHWA opening starts where the reader can see it. */
+    private val splashGone = kotlinx.coroutines.flow.MutableStateFlow(false)
+
     private var navigator: Navigator? = null
 
     init {
@@ -175,6 +178,7 @@ class MainActivity : BaseActivity() {
 
         // Prevent splash screen showing up on configuration changes
         val splashScreen = if (isLaunch) installSplashScreen() else null
+        if (splashScreen == null) splashGone.value = true
 
         super.onCreate(savedInstanceState)
 
@@ -300,7 +304,10 @@ class MainActivity : BaseActivity() {
 
                         // MANHWA LEGENDS opening, on cold start only
                         if (showIntro) {
-                            ManhwaIntro(onFinished = { showIntro = false })
+                            // The opening replaces the wait: let the system splash go at once
+                            LaunchedEffect(Unit) { ready = true }
+                            val started by splashGone.collectAsState()
+                            ManhwaIntro(started = started, onFinished = { showIntro = false })
                         }
                     }
                 }
@@ -334,7 +341,9 @@ class MainActivity : BaseActivity() {
         val startTime = System.currentTimeMillis()
         splashScreen?.setKeepOnScreenCondition {
             val elapsed = System.currentTimeMillis() - startTime
-            elapsed <= SPLASH_MIN_DURATION || (!ready && elapsed <= SPLASH_MAX_DURATION)
+            val keep = elapsed <= SPLASH_MIN_DURATION || (!ready && elapsed <= SPLASH_MAX_DURATION)
+            if (!keep && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) splashGone.value = true
+            keep
         }
         setSplashScreenExitAnimation(splashScreen)
 
@@ -568,6 +577,13 @@ class MainActivity : BaseActivity() {
     @Suppress("Deprecation")
     private fun setSplashScreenExitAnimation(splashScreen: SplashScreen?) {
         val root = findViewById<View>(android.R.id.content)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && splashScreen != null) {
+            // No system fade on Android 12+: the MANHWA opening starts on the same colour, straight away
+            splashScreen.setOnExitAnimationListener { splashProvider ->
+                splashProvider.remove()
+                splashGone.value = true
+            }
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && splashScreen != null) {
             window.statusBarColor = Color.TRANSPARENT
             window.navigationBarColor = Color.TRANSPARENT
@@ -594,6 +610,7 @@ class MainActivity : BaseActivity() {
                     }
                     doOnEnd {
                         splashProvider.remove()
+                        splashGone.value = true
                     }
                 }
 

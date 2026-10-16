@@ -180,6 +180,8 @@ data object DiscoverTab : Tab {
         val navigator = LocalNavigator.currentOrThrow
         val tabNavigator = LocalTabNavigator.current
         val context = LocalContext.current
+        // The home is the first screen: release the system splash as soon as it is drawn
+        LaunchedEffect(Unit) { (context as? eu.kanade.tachiyomi.ui.main.MainActivity)?.ready = true }
         val viewModel = metroViewModel<DiscoverViewModel>()
         val state by viewModel.state.collectAsState()
         val uiPreferences = remember { context.appGraph.uiPreferences }

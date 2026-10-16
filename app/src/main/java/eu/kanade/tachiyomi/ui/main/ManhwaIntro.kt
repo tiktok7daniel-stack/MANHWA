@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -60,6 +61,8 @@ private const val STAR_Y = 0.135f
 /** Layers of the extruded depth behind the logo's face. */
 private const val DEPTH_LAYERS = 12
 
+private const val START_TIMEOUT_MS = 3_000L
+
 /** Room kept around the logo inside its layer, for the depth and the bloom. */
 private const val INSET = 0.04f
 
@@ -77,7 +80,14 @@ private class Mote(val angle: Float, val z: Float, val speed: Float, val size: F
  * stays at the screen's full frame rate without allocating per frame.
  */
 @Composable
-fun ManhwaIntro(onFinished: () -> Unit, modifier: Modifier = Modifier) {
+fun ManhwaIntro(started: Boolean, onFinished: () -> Unit, modifier: Modifier = Modifier) {
+    val currentStarted by rememberUpdatedState(started)
+    val finish by rememberUpdatedState(onFinished)
+    // Safety: if the system splash never reports leaving, the opening does not hold the app
+    LaunchedEffect(Unit) {
+        delay(START_TIMEOUT_MS)
+        if (!currentStarted) finish()
+    }
     val rift = remember { Animatable(0f) }
     val enter = remember { Animatable(0f) }
     val turn = remember { Animatable(0f) }
@@ -86,7 +96,9 @@ fun ManhwaIntro(onFinished: () -> Unit, modifier: Modifier = Modifier) {
     val sweep = remember { Animatable(-0.5f) }
     val exit = remember { Animatable(0f) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(started) {
+        // The clock starts once the system splash is gone, so the whole opening is seen
+        if (!started) return@LaunchedEffect
         launch { rift.animateTo(1f, tween(520, easing = FastOutSlowInEasing)) }
         delay(160)
         launch { enter.animateTo(1f, spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessLow)) }
