@@ -26,6 +26,11 @@ class NetworkHelper(
 
     val cookieJar = AndroidCookieJar()
 
+    // MANHWA: used when no DNS provider is chosen in the settings, so sites open on any network
+    private val smartDns: SmartDns? by lazy {
+        if (preferences.dohProvider.get() == -1) runCatching { SmartDns(context) }.getOrNull() else null
+    }
+
     private fun clientBuilder(): OkHttpClient.Builder = run {
         val builder = OkHttpClient.Builder()
             .cookieJar(cookieJar)
@@ -40,6 +45,8 @@ class NetworkHelper(
             )
             .addInterceptor(UncaughtExceptionInterceptor())
             .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
+            // MANHWA: a dropped connection (switching networks) is tried again rather than failing the page
+            .retryOnConnectionFailure(true)
 
         if (preferences.verboseLogging.get()) {
             val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
@@ -61,7 +68,7 @@ class NetworkHelper(
             PREF_DOH_CONTROLD -> builder.dohControlD()
             PREF_DOH_NJALLA -> builder.dohNajalla()
             PREF_DOH_SHECAN -> builder.dohShecan()
-            else -> builder
+            else -> smartDns?.let { builder.dns(it).addInterceptor(it.RetryInterceptor()) } ?: builder
         }
     }
 
@@ -71,6 +78,7 @@ class NetworkHelper(
                 CloudflareInterceptor(context, cookieJar, scope, ::defaultUserAgentProvider),
             )
             .build()
+            .also { built -> smartDns?.onNetworkChanged = { built.connectionPool.evictAll() } }
     }
 
     /**
