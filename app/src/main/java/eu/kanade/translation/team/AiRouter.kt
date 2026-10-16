@@ -170,10 +170,16 @@ class AiRouter internal constructor(
     /** The model [member] uses for [lane]: the reader's choice, or the one that suits the work. */
     fun modelFor(member: TeamStore.Member, lane: Lane): String {
         if (member.model.isNotBlank()) return member.model
+        // Automatic: the model picked from the key's own live list, kept up to date by the team
+        val site = KeySites.byId(member.site)
+        val auto = member.autoModel.ifBlank { site?.defaultModel.orEmpty() }
+        // Sites of their own (Mistral, Cerebras, a custom router...) have one automatic model for everything
+        val ownSite = member.site == KeySites.CUSTOM ||
+            (site != null && site.protocol == eu.kanade.translation.translator.AiTranslator.Provider.OPENAI_COMPATIBLE && site.id != "openai")
         return when (lane) {
-            Lane.CHAT, Lane.BACKGROUND -> member.providerEnum.lightModel
-            Lane.REVIEW -> member.providerEnum.strongModel
-            Lane.LIVE, Lane.CHAPTER -> ""
+            Lane.CHAT, Lane.BACKGROUND -> if (ownSite) auto else member.providerEnum.lightModel
+            Lane.REVIEW -> if (ownSite) auto else member.providerEnum.strongModel
+            Lane.LIVE, Lane.CHAPTER -> auto
         }
     }
 

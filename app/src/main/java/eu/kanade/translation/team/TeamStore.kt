@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -59,7 +60,42 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         val dailyLimit: Int = 0,
         /** Server address for OpenAI-compatible keys (empty = the provider's own). */
         val baseUrl: String = "",
+        /** MANHWA: the site the key comes from ([KeySites] id, or [KeySites.CUSTOM]). */
+        val site: String = "",
+        /** The name the reader gave a custom site. */
+        val siteName: String = "",
+        /** The model picked automatically from the key's live list (when no model is chosen by hand). */
+        val autoModel: String = "",
+        /** When [autoModel] was last checked against the live list. */
+        val modelCheckedAt: Long = 0,
     ) {
+        /** The site of this key; keys added before sites existed are told from their provider and server. */
+        val siteOrGuess: String
+            get() = site.ifBlank {
+                when (providerEnum) {
+                    AiTranslator.Provider.GEMINI -> "gemini"
+                    AiTranslator.Provider.OPENROUTER -> "openrouter"
+                    AiTranslator.Provider.GROQ -> "groq"
+                    AiTranslator.Provider.DEEPSEEK -> "deepseek"
+                    AiTranslator.Provider.CLAUDE -> "claude"
+                    AiTranslator.Provider.OPENAI_COMPATIBLE ->
+                        if (baseUrl.isBlank()) "openai" else KeySites.byUrl(baseUrl)?.id ?: KeySites.CUSTOM
+                }
+            }
+
+        /** "Groq", "NaraRouter", or the custom site's name. */
+        val displayName: String
+            get() = siteName.ifBlank { KeySites.byId(site)?.name.orEmpty() }.ifBlank {
+                when (providerEnum) {
+                    AiTranslator.Provider.GEMINI -> "Gemini"
+                    AiTranslator.Provider.OPENROUTER -> "OpenRouter"
+                    AiTranslator.Provider.OPENAI_COMPATIBLE -> "OpenAI"
+                    AiTranslator.Provider.CLAUDE -> "Claude"
+                    AiTranslator.Provider.GROQ -> "Groq"
+                    AiTranslator.Provider.DEEPSEEK -> "DeepSeek"
+                }
+            }
+
         val providerEnum: AiTranslator.Provider
             get() = AiTranslator.Provider.entries.firstOrNull { it.name == provider } ?: AiTranslator.Provider.GEMINI
     }
@@ -91,6 +127,8 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     }
 
     private val json = Json { ignoreUnknownKeys = true }
+
+    private val healScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
 
     private val _members = MutableStateFlow(load())
     val members: StateFlow<List<Member>> = _members.asStateFlow()
@@ -141,7 +179,12 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
     /** Adds a key; its provider is told from how it looks unless given. Returns the new member. */
     fun add(key: String, provider: AiTranslator.Provider? = null, model: String = ""): Member {
-        val member = Member(provider = (provider ?: detectProvider(key)).name, key = key.trim(), model = model.trim())
+        val member = Member(
+            provider = (provider ?: detectProvider(key)).name,
+            key = key.trim(),
+            model = model.trim(),
+            site = if (provider == null) KeySites.forKey(key)?.id.orEmpty() else "",
+        )
         save(_members.value + member)
         return member
     }
@@ -204,6 +247,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
     /** Keys never checked (or changed since) are checked now, one after the other. */
     suspend fun analyzeUnchecked() = withContext(Dispatchers.IO) {
+        runCatching { refreshModels() }
         _members.value.filter { it.enabled && it.key.isNotBlank() && _analysis.value[it.id] == null && it.id !in analyzing }
             .forEach { analyze(it) }
     }
@@ -245,6 +289,10 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
                 )
                 )
         }
+        // MANHWA: the site dropped or renamed the model: a working one is picked from its list by itself
+        if (error is AiTranslator.ApiException && (error.code == 400 || error.code == 404) && modelProblem(error.message)) {
+            _members.value.firstOrNull { it.id == id }?.let { member -> healScope.launch { runCatching { refreshModel(member) } } }
+        }
         // A key the provider refuses (wrong or revoked) is out until it is analysed again
         if (error is AiTranslator.ApiException && (error.code == 401 || error.code == 403)) {
             saveAnalysis(_analysis.value + (id to Analysis(ok = false, error = error.message?.take(160))))
@@ -265,12 +313,15 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         model = router.modelFor(member, lane),
         baseUrl = when {
             member.baseUrl.isNotBlank() -> member.baseUrl.trim()
+            KeySites.byId(member.site) != null -> KeySites.byId(member.site)!!.baseUrl
             member.providerEnum == AiTranslator.Provider.OPENAI_COMPATIBLE -> prefs.translationEngineBaseUrl().get().trim()
             else -> ""
         },
         maxOutputTokens = prefs.translationEngineMaxOutputTokens().get().toIntOrNull() ?: 16000,
         temperature = prefs.translationEngineTemperature().get().toFloatOrNull() ?: 0.4f,
         instructions = prefs.translationInstructions().get(),
+        // A model the site retired is replaced by itself: the automatic choice follows
+        onModelReplaced = { next -> if (member.model.isBlank()) setAutoModel(member.id, next) },
     ).apply {
         onResponse = { code, headers, body ->
             usage.record(member, code, headers, body)
@@ -285,13 +336,82 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         if (!out && level.percent >= LOW_PERCENT) return
         val tag = "${member.id}:${UsageMeter.today()}:${if (out) "out" else "low"}"
         if (!warned.add(tag)) return
-        val name = "${member.providerEnum.name.lowercase().replaceFirstChar { it.uppercase() }} ${member.key.takeLast(4)}"
+        val name = "${member.displayName} ${member.key.takeLast(4)}"
         context.notify(NOTIFICATION_BASE + (member.id.hashCode() and 0xFFF), Notifications.CHANNEL_COMMON) {
             setSmallIcon(R.drawable.ic_translate)
             setContentTitle(context.stringResource(if (out) ATMR.strings.team_out_title else ATMR.strings.team_low_title, name))
             setContentText(context.stringResource(ATMR.strings.team_low_text, level.percent))
             setAutoCancel(true)
         }
+    }
+
+    /** Saves the automatic model of [id] without forgetting what was learnt about the key. */
+    private fun setAutoModel(id: String, model: String) {
+        save(_members.value.map { if (it.id == id) it.copy(autoModel = model, modelCheckedAt = System.currentTimeMillis()) else it })
+    }
+
+    /**
+     * MANHWA: keeps [member]'s model alive by itself. Reads the key's live model list and picks the best one
+     * (the newest Gemini Flash, the site's known good model, or the best translation model by name). A model
+     * chosen by hand that the site no longer has is dropped, so the key goes back to automatic.
+     * Returns the member as saved.
+     */
+    suspend fun refreshModel(member: Member): Member = withContext(Dispatchers.IO) {
+        val models = runCatching { fetchModels(member) }.onFailure { logcat(LogPriority.WARN, it) { "Models of ${member.displayName} not read" } }
+            .getOrNull() ?: return@withContext member
+        val site = KeySites.byId(member.site)
+        val best = KeySites.bestModel(models, member.providerEnum, site?.defaultModel ?: member.providerEnum.defaultModel)
+        val manualGone = member.model.isNotBlank() && models.isNotEmpty() && member.model !in models
+        val updated = member.copy(
+            model = if (manualGone) "" else member.model,
+            autoModel = best ?: member.autoModel,
+            modelCheckedAt = System.currentTimeMillis(),
+        )
+        if (manualGone) logcat(LogPriority.WARN) { "Model ${member.model} is gone from ${member.displayName}, back to automatic ($best)" }
+        save(_members.value.map { if (it.id == member.id) updated else it })
+        updated
+    }
+
+    /** Every automatic key gets its model checked against its site once a day (or now with [force]). */
+    suspend fun refreshModels(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        _members.value.filter { it.enabled && it.key.isNotBlank() && (force || now - it.modelCheckedAt > MODEL_CHECK_MS) }
+            .forEach { refreshModel(it) }
+    }
+
+    /** What a pasted site address turned out to be: its API server, the protocol it speaks and its models. */
+    data class ResolvedSite(val baseUrl: String, val protocol: AiTranslator.Provider, val models: List<String>)
+
+    /**
+     * MANHWA any-site keys: finds the API server of whatever the reader pasted ("router.bynara.id",
+     * "https://api.example.com", a page of the site...) by trying the usual paths (/v1, /api/v1, /openai/v1...)
+     * until one lists models for [key]. Null when none answers; throws when the key is refused.
+     */
+    suspend fun resolveSite(input: String, key: String): ResolvedSite? = withContext(Dispatchers.IO) {
+        KeySites.byUrl(input)?.let { site ->
+            val probe = Member(provider = site.protocol.name, key = key, site = site.id)
+            val models = runCatching { fetchModels(probe) }.getOrDefault(emptyList())
+            return@withContext ResolvedSite(site.baseUrl, site.protocol, models)
+        }
+        val host = KeySites.hostOf(input).orEmpty()
+        val protocol = when {
+            "anthropic" in host -> AiTranslator.Provider.CLAUDE
+            "googleapis" in host -> AiTranslator.Provider.GEMINI
+            else -> AiTranslator.Provider.OPENAI_COMPATIBLE
+        }
+        var refused: Exception? = null
+        for (candidate in KeySites.candidates(input)) {
+            val probe = Member(provider = protocol.name, key = key, baseUrl = candidate, site = KeySites.CUSTOM)
+            try {
+                val models = fetchModels(probe)
+                if (models.isNotEmpty()) return@withContext ResolvedSite(candidate, protocol, models)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is AiTranslator.ApiException && (e.code == 401 || e.code == 403)) refused = e
+            }
+        }
+        refused?.let { throw it }
+        null
     }
 
     /**
@@ -305,9 +425,12 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         translatorFor(member, TextRecognizerLanguage.ENGLISH, TextTranslatorLanguage.ENGLISH).listModels()
     }
 
-    private suspend fun analyzeNow(member: Member): Analysis {
+    private suspend fun analyzeNow(member: Member, healed: Boolean = false): Analysis {
         analyzing += member.id
         _analyzingIds.value = analyzing.toSet()
+        // Automatic keys start on a model their site really has
+        @Suppress("NAME_SHADOWING")
+        val member = if (!healed && member.model.isBlank() && member.autoModel.isBlank()) refreshModel(member) else member
         val result = try {
             val translator = translatorFor(member, TextRecognizerLanguage.ENGLISH, TextTranslatorLanguage.fromPref(prefs.translateToLanguage()))
             try {
@@ -345,9 +468,20 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             analyzing -= member.id
             _analyzingIds.value = analyzing.toSet()
         }
+        // The model is gone or wrong: pick a working one from the site's list and try once more
+        if (!result.ok && !result.limited && !healed && modelProblem(result.error)) {
+            val fixed = refreshModel(member)
+            if (fixed.autoModel != member.autoModel || fixed.model != member.model) return analyzeNow(fixed, healed = true)
+        }
         saveAnalysis(_analysis.value + (member.id to result))
         _health.update { it - member.id }
         return result
+    }
+
+    private fun modelProblem(error: String?): Boolean {
+        val e = error.orEmpty().lowercase()
+        return "model" in e && listOf("not found", "not exist", "does not exist", "invalid", "unknown", "deprecated", "no longer", "decommissioned", "unsupported", "not available")
+            .any { it in e }
     }
 
     companion object {
@@ -365,6 +499,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         }
 
         private const val DEFAULT_STRENGTH = 50
+        private const val MODEL_CHECK_MS = 24 * 60 * 60 * 1000L
         private const val LOW_PERCENT = 20
         private const val NOTIFICATION_BASE = 0x3A000
         private const val SPEED_REFERENCE_MS = 2_500f

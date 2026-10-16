@@ -65,6 +65,10 @@ import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
+import mihon.icons.materialsymbols.rounded.Search
+import mihon.icons.materialsymbols.rounded.Public
+import mihon.icons.materialsymbols.rounded.OpenInNew
+import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Edit
 import mihon.icons.materialsymbols.rounded.Error
@@ -109,6 +113,8 @@ class TranslationTeamScreen : Screen() {
         val capacities by store.router.capacities.collectAsState()
         var adding by remember { mutableStateOf(false) }
         var editing by remember { mutableStateOf<TeamStore.Member?>(null) }
+        var prefill by remember { mutableStateOf<KeyPrefill?>(null) }
+        var advisor by remember { mutableStateOf(false) }
 
         // Recomputed whenever something changes: strength, share and the lead
         val shares = remember(members, analysis, health) { store.shares() }
@@ -208,6 +214,8 @@ class TranslationTeamScreen : Screen() {
                                     modifier = Modifier.weight(1f),
                                 ) { members.forEach(::analyze) }
                             }
+                            // MANHWA: the AI that knows where free keys are, with one-tap links and quick add
+                            SiteLinkButton(stringResource(ATMR.strings.keys_ask_ai), MaterialSymbols.Rounded.AutoAwesome) { advisor = true }
                         }
                     }
                     if (members.isEmpty()) {
@@ -254,15 +262,18 @@ class TranslationTeamScreen : Screen() {
             KeyDialog(
                 member = editing,
                 store = store,
+                prefill = prefill,
                 onDismiss = {
                     adding = false
                     editing = null
+                    prefill = null
                 },
+                onAdvisor = { advisor = true },
                 onSave = { edited ->
                     val current = editing
                     val saved = if (current == null) {
                         store.add(edited.key, edited.providerEnum, edited.model)
-                            .copy(dailyLimit = edited.dailyLimit, baseUrl = edited.baseUrl)
+                            .copy(dailyLimit = edited.dailyLimit, baseUrl = edited.baseUrl, site = edited.site, siteName = edited.siteName)
                             .also(store::update)
                     } else {
                         current.copy(
@@ -271,12 +282,28 @@ class TranslationTeamScreen : Screen() {
                             model = edited.model.trim(),
                             dailyLimit = edited.dailyLimit,
                             baseUrl = edited.baseUrl.trim(),
+                            site = edited.site,
+                            siteName = edited.siteName,
+                            // A changed site or model is checked again against the site's list
+                            autoModel = if (edited.site == current.site && edited.provider == current.provider) current.autoModel else "",
                         ).also(store::update)
                     }
                     adding = false
                     editing = null
+                    prefill = null
                     // Every key is checked as soon as it is added or changed
                     analyze(saved)
+                },
+            )
+        }
+        if (advisor) {
+            KeyAdvisorSheet(
+                onDismiss = { advisor = false },
+                onAddFrom = { fill ->
+                    advisor = false
+                    editing = null
+                    prefill = fill
+                    adding = true
                 },
             )
         }
@@ -364,7 +391,7 @@ class TranslationTeamScreen : Screen() {
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "${providerLabel(member.providerEnum)} · ${maskKey(member.key)}",
+                        "${member.displayName} · ${maskKey(member.key)}",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -471,27 +498,49 @@ class TranslationTeamScreen : Screen() {
         }
     }
 
-    /** Add or change a key: provider, automatic or chosen model (from a list or the key's own), server, limit. */
+    /**
+     * Add or change a key: the site it comes from (any site in the world: listed ones, or a custom address whose
+     * API server is found by itself), a one-tap link to the site's key page, automatic or chosen model, limit.
+     */
     @Composable
     private fun KeyDialog(
         member: TeamStore.Member?,
         store: TeamStore,
+        prefill: KeyPrefill?,
         onDismiss: () -> Unit,
+        onAdvisor: () -> Unit,
         onSave: (TeamStore.Member) -> Unit,
     ) {
+        val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        val colors = MaterialTheme.colorScheme
         var key by remember { mutableStateOf(member?.key.orEmpty()) }
         var dailyLimit by remember { mutableStateOf(member?.dailyLimit?.takeIf { it > 0 }?.toString().orEmpty()) }
         var model by remember { mutableStateOf(member?.model.orEmpty()) }
         var manual by remember { mutableStateOf(member?.model?.isNotBlank() == true) }
-        var baseUrl by remember { mutableStateOf(member?.baseUrl.orEmpty()) }
-        var chosen by remember { mutableStateOf(member?.providerEnum) }
+        var baseUrl by remember { mutableStateOf(member?.baseUrl ?: prefill?.baseUrl.orEmpty()) }
+        // The site picked by the reader; until then it is told from the key as it is typed
+        var chosenSite by remember { mutableStateOf(member?.siteOrGuess ?: prefill?.site) }
+        var siteName by remember { mutableStateOf(member?.siteName ?: prefill?.name.orEmpty()) }
+        var customProtocol by remember { mutableStateOf(member?.providerEnum ?: AiTranslator.Provider.OPENAI_COMPATIBLE) }
         var liveModels by remember { mutableStateOf<List<String>?>(null) }
         var fetching by remember { mutableStateOf(false) }
         var fetchError by remember { mutableStateOf<String?>(null) }
         var filter by remember { mutableStateOf("") }
-        // Told from the key as it is typed, until the reader picks one
-        val provider = chosen ?: TeamStore.detectProvider(key)
+        var resolving by remember { mutableStateOf(false) }
+        var resolveNote by remember { mutableStateOf<String?>(null) }
+        var showDirectory by remember { mutableStateOf(false) }
+        val siteId = chosenSite ?: KeySites.forKey(key)?.id
+        val site = KeySites.byId(siteId)
+        val custom = siteId == KeySites.CUSTOM
+        val provider = when {
+            custom -> customProtocol
+            site != null -> site.protocol
+            member != null -> member.providerEnum
+            else -> TeamStore.detectProvider(key)
+        }
+        val notFound = stringResource(ATMR.strings.keys_site_not_found)
+        val foundTemplate = stringResource(ATMR.strings.keys_site_found)
 
         fun draft() = TeamStore.Member(
             id = member?.id ?: "draft",
@@ -500,7 +549,35 @@ class TranslationTeamScreen : Screen() {
             model = if (manual) model.trim() else "",
             dailyLimit = dailyLimit.toIntOrNull() ?: 0,
             baseUrl = baseUrl.trim(),
+            site = siteId.orEmpty(),
+            siteName = if (custom) siteName.trim().ifBlank { KeySites.hostOf(baseUrl).orEmpty() } else "",
+            autoModel = member?.autoModel.orEmpty(),
         )
+
+        /** Finds the custom site's API server from what was pasted; true when found. */
+        suspend fun resolve(): Boolean {
+            resolving = true
+            resolveNote = null
+            return try {
+                val found = store.resolveSite(baseUrl, key.trim())
+                if (found == null) {
+                    resolveNote = notFound
+                    false
+                } else {
+                    baseUrl = found.baseUrl
+                    customProtocol = found.protocol
+                    if (found.models.isNotEmpty()) liveModels = found.models
+                    resolveNote = foundTemplate.replace("%1\$s", found.baseUrl).replace("%2\$d", "${found.models.size}")
+                    true
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                resolveNote = e.message ?: notFound
+                false
+            } finally {
+                resolving = false
+            }
+        }
 
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -519,15 +596,71 @@ class TranslationTeamScreen : Screen() {
                     )
                     Text(stringResource(ATMR.strings.team_provider), style = MaterialTheme.typography.labelLarge)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        AiTranslator.Provider.entries.forEach { p ->
+                        FilterChip(
+                            selected = custom,
+                            onClick = {
+                                chosenSite = KeySites.CUSTOM
+                                liveModels = null
+                            },
+                            leadingIcon = { Icon(MaterialSymbols.Rounded.Public, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            label = { Text(stringResource(ATMR.strings.keys_custom)) },
+                        )
+                        KeySites.all.forEach { s ->
                             FilterChip(
-                                selected = provider == p,
+                                selected = siteId == s.id,
                                 onClick = {
-                                    chosen = p
+                                    chosenSite = s.id
+                                    baseUrl = ""
                                     liveModels = null
+                                    resolveNote = null
                                 },
-                                label = { Text(providerLabel(p)) },
+                                label = { Text(s.name) },
                             )
+                        }
+                    }
+                    // One tap to the exact page where this site's keys are made
+                    if (site != null) {
+                        SiteLinkButton(stringResource(ATMR.strings.keys_get_key, site.name)) { openInBrowser(context, site.keysUrl) }
+                        Text(
+                            if (isArabicUi()) site.freeAr else site.freeEn,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (custom) {
+                        OutlinedTextField(
+                            value = baseUrl,
+                            onValueChange = {
+                                baseUrl = it
+                                resolveNote = null
+                            },
+                            label = { Text(stringResource(ATMR.strings.keys_site_url)) },
+                            placeholder = { Text("https://router.bynara.id") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        OutlinedTextField(
+                            value = siteName,
+                            onValueChange = { siteName = it },
+                            label = { Text(stringResource(ATMR.strings.keys_site_name)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        TextButton(
+                            enabled = key.isNotBlank() && baseUrl.isNotBlank() && !resolving,
+                            onClick = { scope.launch { resolve() } },
+                        ) {
+                            if (resolving) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(MaterialSymbols.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(ATMR.strings.keys_site_detect))
+                        }
+                        resolveNote?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+                        if (baseUrl.isNotBlank()) {
+                            SiteLinkButton(stringResource(ATMR.strings.keys_open_site)) { openInBrowser(context, baseUrl) }
                         }
                     }
                     Text(stringResource(ATMR.strings.team_model_mode), style = MaterialTheme.typography.labelLarge)
@@ -536,8 +669,18 @@ class TranslationTeamScreen : Screen() {
                         FilterChip(selected = manual, onClick = { manual = true }, label = { Text(stringResource(ATMR.strings.team_model_manual)) })
                     }
                     if (!manual) {
+                        // The model automatic mode uses now: picked from the live list, else the site's known good one
+                        val autoNow = member?.autoModel?.takeIf { it.isNotBlank() }
+                            ?: liveModels?.let { KeySites.bestModel(it, provider, site?.defaultModel ?: provider.defaultModel) }
+                            ?: site?.defaultModel?.takeIf { it.isNotBlank() }
+                            ?: if (custom) null else provider.defaultModel
                         Text(
-                            stringResource(ATMR.strings.team_model_auto_summary) + " (" + provider.defaultModel + ")",
+                            stringResource(ATMR.strings.team_model_auto_summary) + (autoNow?.let { " ($it)" } ?: ""),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            stringResource(ATMR.strings.keys_auto_heal),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -546,18 +689,19 @@ class TranslationTeamScreen : Screen() {
                             value = model,
                             onValueChange = { model = it },
                             label = { Text(stringResource(ATMR.strings.team_model)) },
-                            placeholder = { Text(provider.defaultModel) },
+                            placeholder = { Text(site?.defaultModel?.takeIf { it.isNotBlank() } ?: provider.defaultModel) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                         TextButton(
-                            enabled = key.isNotBlank() && !fetching,
+                            enabled = key.isNotBlank() && !fetching && (!custom || baseUrl.isNotBlank()),
                             onClick = {
                                 fetching = true
                                 fetchError = null
                                 scope.launch {
                                     try {
-                                        // fetchModels() works on the IO dispatcher
+                                        // A custom site's server is found first; fetchModels() works on the IO dispatcher
+                                        if (custom && liveModels == null && !resolve()) return@launch
                                         liveModels = store.fetchModels(draft())
                                     } catch (e: Exception) {
                                         if (e is CancellationException) throw e
@@ -585,7 +729,11 @@ class TranslationTeamScreen : Screen() {
                                 color = MaterialTheme.colorScheme.error,
                             )
                         }
-                        val options = liveModels ?: provider.suggestedModels
+                        val options = liveModels ?: if (site == null || site.protocol != AiTranslator.Provider.OPENAI_COMPATIBLE || site.id == "openai") {
+                            if (custom) emptyList() else provider.suggestedModels
+                        } else {
+                            listOfNotNull(site.defaultModel.takeIf { it.isNotBlank() })
+                        }
                         if (liveModels != null) {
                             Text(
                                 stringResource(ATMR.strings.team_models_found, options.size),
@@ -631,13 +779,13 @@ class TranslationTeamScreen : Screen() {
                             }
                         }
                     }
-                    // Own server for OpenAI-compatible keys (any provider can be given one)
-                    if (provider == AiTranslator.Provider.OPENAI_COMPATIBLE || baseUrl.isNotBlank()) {
+                    // Own server for a listed OpenAI-compatible key (any provider can be given one)
+                    if (!custom && (provider == AiTranslator.Provider.OPENAI_COMPATIBLE || baseUrl.isNotBlank())) {
                         OutlinedTextField(
                             value = baseUrl,
                             onValueChange = { baseUrl = it },
                             label = { Text(stringResource(ATMR.strings.team_base_url)) },
-                            placeholder = { Text(provider.defaultBaseUrl) },
+                            placeholder = { Text(site?.baseUrl ?: provider.defaultBaseUrl) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -652,10 +800,42 @@ class TranslationTeamScreen : Screen() {
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
+                    // Where to get keys: every site, its key page and one tap to use it, and the AI that knows more
+                    SiteLinkButton(stringResource(ATMR.strings.keys_ask_ai), MaterialSymbols.Rounded.AutoAwesome) { onAdvisor() }
+                    TextButton(onClick = { showDirectory = !showDirectory }) {
+                        Text(stringResource(if (showDirectory) ATMR.strings.keys_directory_hide else ATMR.strings.keys_directory))
+                    }
+                    if (showDirectory) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            KeySites.all.forEach { s ->
+                                SiteRow(
+                                    name = s.name,
+                                    note = if (isArabicUi()) s.freeAr else s.freeEn,
+                                    onOpen = { openInBrowser(context, s.keysUrl) },
+                                    onUse = {
+                                        chosenSite = s.id
+                                        baseUrl = ""
+                                        liveModels = null
+                                        showDirectory = false
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { onSave(draft()) }, enabled = key.isNotBlank()) {
+                TextButton(
+                    onClick = {
+                        if (custom && liveModels == null) {
+                            // A custom site is saved with its real API server
+                            scope.launch { if (resolve()) onSave(draft()) }
+                        } else {
+                            onSave(draft())
+                        }
+                    },
+                    enabled = key.isNotBlank() && !resolving && (!custom || baseUrl.isNotBlank()),
+                ) {
                     Text(stringResource(ATMR.strings.team_save))
                 }
             },
@@ -677,17 +857,35 @@ class TranslationTeamScreen : Screen() {
         return AiRouter.Lane.entries.filter { (lanes[it] ?: 0) > 0 }.joinToString(" · ") { "${names[it]} ${lanes[it]}" }
     }
 
-    private fun providerLabel(provider: AiTranslator.Provider) = when (provider) {
-        AiTranslator.Provider.GEMINI -> "Gemini"
-        AiTranslator.Provider.OPENROUTER -> "OpenRouter"
-        AiTranslator.Provider.OPENAI_COMPATIBLE -> "OpenAI"
-        AiTranslator.Provider.CLAUDE -> "Claude"
-        AiTranslator.Provider.GROQ -> "Groq"
-        AiTranslator.Provider.DEEPSEEK -> "DeepSeek"
-    }
-
     /** Only the start and the end of a key are shown. */
     private fun maskKey(key: String) = if (key.length <= 10) "••••" else key.take(6) + "…" + key.takeLast(4)
+
+    @Composable
+    private fun SiteRow(name: String, note: String, onOpen: () -> Unit, onUse: () -> Unit) {
+        val colors = MaterialTheme.colorScheme
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(colors.primary.copy(alpha = 0.07f))
+                .padding(10.dp),
+        ) {
+            Text(name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(note, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                TextButton(onClick = onOpen) {
+                    Icon(MaterialSymbols.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(ATMR.strings.keys_open_chrome))
+                }
+                TextButton(onClick = onUse) {
+                    Icon(MaterialSymbols.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(ATMR.strings.keys_use_site))
+                }
+            }
+        }
+    }
 
     private companion object {
         const val MAX_SHOWN_MODELS = 300

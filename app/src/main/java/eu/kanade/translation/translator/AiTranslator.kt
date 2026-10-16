@@ -57,7 +57,7 @@ class AiTranslator(
 ) : TextTranslator {
 
     enum class Provider(val defaultModel: String, val defaultBaseUrl: String) {
-        GEMINI("gemini-3.8-flash", "https://generativelanguage.googleapis.com/v1beta"),
+        GEMINI("gemini-2.5-flash", "https://generativelanguage.googleapis.com/v1beta"),
         OPENROUTER("google/gemini-2.5-flash", "https://openrouter.ai/api/v1"),
         OPENAI_COMPATIBLE("gpt-4o-mini", "https://api.openai.com/v1"),
         CLAUDE("claude-opus-5-5", "https://api.anthropic.com/v1"),
