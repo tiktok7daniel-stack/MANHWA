@@ -68,6 +68,7 @@ class DiscoverViewModel(
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val fresh: eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine,
     private val readingProgress: eu.kanade.tachiyomi.ui.home.stats.ReadingProgressEngine,
+    private val sourceHealth: SourceHealthManager,
     context: android.content.Context,
     getUpdates: GetUpdates,
     getHistory: GetHistory,
@@ -116,9 +117,12 @@ class DiscoverViewModel(
         val recsProblem: RecsProblem? = null,
         val alerts: List<HomeIntelligence.SourceAlert> = emptyList(),
         val progress: Progress? = null,
+        /** MANHWA: home sources that kept failing, left out of the home screen until they work again. */
+        val hiddenSourceIds: Set<Long> = emptySet(),
     ) {
         val needsSetup: Boolean get() = selectedSourceIds.isEmpty()
-        val visibleFeeds: List<SourceFeed> get() = feeds.filter { sourceFilter == null || it.source.id == sourceFilter }
+        val shownFeeds: List<SourceFeed> get() = feeds.filterNot { it.source.id in hiddenSourceIds }
+        val visibleFeeds: List<SourceFeed> get() = shownFeeds.filter { sourceFilter == null || it.source.id == sourceFilter }
 
         /** Latest titles of every chosen source, interleaved so no single source floods the list. */
         val latest: List<Pair<Manga, Source>> get() = interleave { it.latest }
@@ -171,10 +175,28 @@ class DiscoverViewModel(
 
     private var loadJob: Job? = null
 
+    /** Why each source failed in the last round (shown in the Source Hub). */
+    private val lastErrors = java.util.concurrent.ConcurrentHashMap<Long, String>()
+
     init {
+        // MANHWA source health: a source that comes back is loaded again by itself
+        sourceHealth.entries
+            .onEach { map ->
+                val hidden = map.filterValues { it.hidden }.keys
+                val before = _state.value.hiddenSourceIds
+                _state.update { it.copy(hiddenSourceIds = hidden) }
+                val back = before - hidden
+                if (back.isNotEmpty()) {
+                    _state.value.feeds.filter { it.source.id in back && it.failed }.forEach { feed ->
+                        viewModelScope.launch(Dispatchers.IO) { loadFeed(feed.source) }
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
         setUpBuiltinStore()
         // Global chapter sync: hourly in the background, and now when the data is old
         eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine.schedule(context)
+        eu.kanade.translation.night.NightTranslateWorker.schedule(context)
         fresh.state
             .onEach { snap -> _state.update { it.copy(fresh = snap.items, freshRunning = snap.running) } }
             .launchIn(viewModelScope)
@@ -323,20 +345,29 @@ class DiscoverViewModel(
         _state.update { s -> s.copy(feeds = sources.map { SourceFeed(it) }, refreshing = refreshing) }
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             val gate = Semaphore(PARALLEL_SOURCES)
-            coroutineScope {
+            val results = coroutineScope {
                 sources.map { source ->
                     async {
-                        gate.withPermit { loadFeed(source) }
+                        // A hidden source is not asked: the background worker tries it again on its own schedule
+                        if (sourceHealth.isHidden(source.id)) {
+                            _state.update { s -> s.copy(feeds = s.feeds.map { if (it.source.id == source.id) SourceFeed(source, loading = false, failed = true) else it }) }
+                            null
+                        } else {
+                            source.id to gate.withPermit { loadFeed(source) }
+                        }
                     }
-                }.awaitAll()
+                }.awaitAll().filterNotNull().toMap()
             }
+            sourceHealth.recordRound(results)
             _state.update { it.copy(refreshing = false) }
             // Pull to refresh only reloads the feeds; picks and alerts keep their own cache times
             loadIntelligence(force = false)
         }
     }
 
-    private suspend fun loadFeed(source: Source) {
+    /** Loads the feed of [source]; returns whether it answered, and why not. */
+    private suspend fun loadFeed(source: Source): Pair<Boolean, String?> {
+        lastErrors.remove(source.id)
         val latest = fetch(source) { source.getLatestUpdates(1) }
         val popular = fetch(source) { source.getPopularManga(1) }
         currentCoroutineContext().ensureActive()
@@ -348,6 +379,7 @@ class DiscoverViewModel(
             failed = latest == null && popular == null,
         )
         _state.update { s -> s.copy(feeds = s.feeds.map { if (it.source.id == source.id) feed else it }) }
+        return !feed.failed to lastErrors[source.id]
     }
 
     private fun changeFeeds(added: List<Source>, removed: Set<String>) {
@@ -362,7 +394,8 @@ class DiscoverViewModel(
         viewModelScope.launch(Dispatchers.IO) { fresh.refresh() }
         viewModelScope.launch(Dispatchers.IO) {
             val gate = Semaphore(PARALLEL_SOURCES)
-            coroutineScope { added.map { source -> async { gate.withPermit { loadFeed(source) } } }.awaitAll() }
+            val results = coroutineScope { added.map { source -> async { source.id to gate.withPermit { loadFeed(source) } } }.awaitAll() }
+            sourceHealth.recordRound(results.toMap())
         }
     }
 
@@ -435,9 +468,10 @@ class DiscoverViewModel(
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
+                lastErrors[source.id] = e.message?.take(160) ?: e.javaClass.simpleName
                 null
             }
-        } ?: return null
+        } ?: return null.also { lastErrors.putIfAbsent(source.id, "No answer in 30 s") }
         val mangas = page.mangas.take(MAX_PER_LIST).map { it.toDomainManga(source.id) }.distinctBy { it.url }
         return runCatching { networkToLocalManga(mangas) }.getOrNull()
     }

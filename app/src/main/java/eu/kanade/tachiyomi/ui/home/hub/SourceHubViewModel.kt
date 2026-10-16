@@ -50,12 +50,13 @@ import java.util.concurrent.TimeUnit
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class SourceHubViewModel(
-    sourceManager: SourceManager,
+    private val sourceManager: SourceManager,
     private val sourcePreferences: SourcePreferences,
     private val extensionManager: ExtensionManager,
     private val basePreferences: BasePreferences,
     getLibraryManga: GetLibraryManga,
     private val adultFilter: AdultFilter,
+    private val sourceHealth: eu.kanade.tachiyomi.ui.home.discover.SourceHealthManager,
 ) : ViewModel() {
 
     /** One source the AI picked: an installed one or one to add, with why and whether its site answers. */
@@ -101,6 +102,11 @@ class SourceHubViewModel(
         /** Sources being updated now, in order; each leaves the list a moment after it is done. */
         val updateQueue: List<Extension.Loaded> = emptyList(),
         val ai: AiSearch = AiSearch(),
+        /** MANHWA source health: sources left out of the home screen by themselves, with why. */
+        val hiddenFromHome: Map<Long, eu.kanade.tachiyomi.ui.home.discover.SourceHealthManager.Entry> = emptyMap(),
+        /** Names of sources just installed that did not answer and were hidden from home (shown once). */
+        val newlyHidden: List<String> = emptyList(),
+        val recheckingHidden: Boolean = false,
     ) {
         /** Installed extensions with an update waiting. */
         val updatable: List<Extension.Loaded>
@@ -187,6 +193,9 @@ class SourceHubViewModel(
     private var pingJob = kotlinx.coroutines.SupervisorJob(viewModelScope.coroutineContext[kotlinx.coroutines.Job])
 
     init {
+        sourceHealth.entries
+            .onEach { map -> _state.update { it.copy(hiddenFromHome = map.filterValues { e -> e.hidden }) } }
+            .launchIn(viewModelScope)
         SourceFame.loadAi(sourcePreferences.sourceFameAi.get())
         combine(
             sourceManager.sources,
@@ -574,13 +583,57 @@ class SourceHubViewModel(
     }
 
     private suspend fun runInstall(extension: Extension.Available) = withContext(Dispatchers.IO) {
+        var installed = false
         runCatching {
             extensionManager.installExtension(extension)
                 .untilDone()
                 .catch { emit(InstallStep.Error) }
-                .collect { step -> _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to step)) } }
+                .collect { step ->
+                    if (step == InstallStep.Installed) installed = true
+                    _state.update { s -> s.copy(installing = s.installing + (extension.pkgName to step)) }
+                }
+        }
+        if (installed) viewModelScope.launch(Dispatchers.IO) { checkNewSources(extension) }
+    }
+
+    /**
+     * MANHWA: a source just added is tried once as soon as it loads; one that does not answer is hidden from
+     * the home screen at once (never removed), and comes back by itself when it works.
+     */
+    private suspend fun checkNewSources(extension: Extension.Available) {
+        val ids = extension.sources.map { it.id }
+        // The new extension's sources take a moment to load after the install
+        repeat(20) {
+            if (ids.all { sourceManager.get(it) != null }) return@repeat
+            kotlinx.coroutines.delay(500)
+        }
+        val home = sourcePreferences.homeSources.get()
+        val hidden = runCatching { sourceHealth.checkNew(ids.filter { "$it" in home && sourceManager.get(it) != null }) }.getOrDefault(emptyList())
+        if (hidden.isNotEmpty()) {
+            val names = hidden.mapNotNull { id -> sourceManager.get(id)?.name }
+            _state.update { it.copy(newlyHidden = it.newlyHidden + names) }
         }
     }
+
+    fun consumeNewlyHidden() {
+        _state.update { it.copy(newlyHidden = emptyList()) }
+    }
+
+    /** Tries every source hidden from home again now. */
+    fun recheckHidden() {
+        if (_state.value.recheckingHidden) return
+        _state.update { it.copy(recheckingHidden = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                runCatching { sourceHealth.recheckAll() }
+            } finally {
+                _state.update { it.copy(recheckingHidden = false) }
+            }
+        }
+    }
+
+    /** Puts a hidden source back on the home screen by hand. */
+    fun restoreToHome(sourceId: Long) = sourceHealth.restore(sourceId)
 
     /** The installer's step flow never completes on its own; stop at the first final step. */
     private fun Flow<InstallStep>.untilDone() = transformWhile { step ->

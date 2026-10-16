@@ -712,4 +712,26 @@
     <string name="key_limit_tokens">Answers up to %1$d tokens</string>
     <string name="key_quota_forecast">Enough for about %1$d more chapters today</string>
     <string name="key_quota_calls">%1$d calls today</string>
+    <string name="source_hidden_title">Hidden from home</string>
+    <string name="source_hidden_body">Removed from the home screen automatically because it is not available right now. It comes back by itself when it works again; nothing was deleted.</string>
+    <string name="source_hidden_stats">Failed %1$d times · last worked %2$s · next try %3$s</string>
+    <string name="source_hidden_check">Try now</string>
+    <string name="source_hidden_restore">Show on home anyway</string>
+    <string name="source_hidden_never">never</string>
+    <string name="source_hidden_new">Hidden from home because it is not available right now: %1$s</string>
+    <string name="lib_organize_now">Organize the library</string>
+    <string name="lib_organize_done">Library organized · %1$d works moved · %2$d new categories · %3$d removed</string>
+    <string name="lib_organize_nothing">Library organized · everything was already in place</string>
+    <string name="pref_auto_prefetch">Translate the next chapter by itself</string>
+    <string name="info_auto_prefetch">While you read, the next chapter is translated in the background when the team has at least 3 working keys with quota left. It starts at 35% of the chapter, never on low battery, battery saver or without internet, and never slows the page you are reading. The translation library is used first; only what is missing goes to the AI.</string>
+    <string name="pref_nightly">Night translation</string>
+    <string name="info_nightly">At night, while the phone charges on Wi-Fi, new chapters of the works in your library are translated so they are ready in the morning. Only works from English sources: Arabic sources and chapters already translated are skipped. At most 2 new chapters per work and 20 a night, never more than 70% of each key\'s daily quota.</string>
+    <string name="pref_consensus">Second opinion on doubtful lines</string>
+    <string name="info_consensus">Up to 12 lines a chapter (doubtful ones, new names, system windows, lines saved with more than one meaning) are translated again by another key, and the better translation is kept: the one that follows the glossary and the codex, leaves no English, fits its bubble, passes the quality check and agrees with the character\'s gender.</string>
+    <string name="pref_save_on_read">Save the translation when a chapter is read</string>
+    <string name="info_save_on_read">When you finish a chapter or mark it read, every line of its translation that the translation library does not have yet is saved there, so opening it again (or the same lines in another work) needs no AI.</string>
+    <string name="pref_free_space_on_read">Free space after reading</string>
+    <string name="info_free_space_on_read">After its lines are safe in the library, the chapter\'s own translation file is deleted. The translation library, glossary, work dictionary, lessons, summaries, names and templates are never deleted.</string>
+    <string name="pref_delete_download_on_read">Delete downloaded pages after reading</string>
+    <string name="info_delete_download_on_read">Off by default so chapters you downloaded for offline reading stay. When on, a read chapter\'s downloaded pages are deleted too.</string>
 </resources>

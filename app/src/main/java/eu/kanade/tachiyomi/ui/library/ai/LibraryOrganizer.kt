@@ -58,6 +58,7 @@ class LibraryOrganizer(
     private val getLibraryManga: GetLibraryManga,
     private val getCategories: GetCategories,
     private val createCategoryWithName: CreateCategoryWithName,
+    private val deleteCategory: tachiyomi.domain.category.interactor.DeleteCategory,
     private val setMangaCategories: SetMangaCategories,
     private val sourceManager: SourceManager,
     private val preferences: LibraryPreferences,
@@ -92,6 +93,17 @@ class LibraryOrganizer(
 
     /** The latest automatic placements, newest first. */
     val log: StateFlow<List<Placed>> = _log.asStateFlow()
+
+    /** What a full reorganize did, for the library bar's button. */
+    data class Result(val changed: Int, val created: Int, val removed: Int, val at: Long = System.currentTimeMillis())
+
+    private val _running = MutableStateFlow(false)
+
+    /** True while the organizer works (the library bar's button spins). */
+    val running: StateFlow<Boolean> = _running.asStateFlow()
+
+    private val _lastResult = MutableStateFlow<Result?>(null)
+    val lastResult: StateFlow<Result?> = _lastResult.asStateFlow()
 
     /** Ids already handled by the watcher in this run of the app. */
     private val handled = HashSet<Long>()
@@ -171,9 +183,12 @@ class LibraryOrganizer(
      * automatic organizer. Returns how many series changed.
      */
     suspend fun apply(groups: List<Group>, keepExisting: Boolean, remember: Boolean = true): Int {
+        val library = getLibraryManga.await().associateBy { it.manga.id }
+        // The strict completed rule, whatever the AI answered: only what the source calls finished
+        @Suppress("NAME_SHADOWING")
+        val groups = LibraryRules.clean(groups, library.mapValues { it.value.manga.status })
         if (groups.all { it.mangaIds.isEmpty() }) return 0
         val assigned = assign(groups)
-        val library = getLibraryManga.await().associateBy { it.manga.id }
         assigned.forEach { (mangaId, ids) ->
             val current = library[mangaId]?.categories.orEmpty().filter { it != 0L }
             val result = if (keepExisting) (current + ids).distinct() else ids.toList()
@@ -190,13 +205,18 @@ class LibraryOrganizer(
     /** Category ids for each series of [groups], creating the categories that don't exist yet. */
     private suspend fun assign(groups: List<Group>): Map<Long, Set<Long>> {
         val existing = userCategories()
-        groups.map { it.name }.distinctBy { it.lowercase() }.forEach { name ->
-            if (existing.none { it.name.equals(name, ignoreCase = true) }) createCategoryWithName.await(name)
+        val made = mutableListOf<String>()
+        groups.map { it.name }.distinctBy { LibraryRules.normalize(it) }.forEach { name ->
+            if (existing.none { LibraryRules.normalize(it.name) == LibraryRules.normalize(name) }) {
+                createCategoryWithName.await(name)
+                made += name
+            }
         }
-        val byName = userCategories().associateBy { it.name.lowercase() }
+        if (made.isNotEmpty()) preferences.organizerCreated.set(preferences.organizerCreated.get() + made)
+        val byName = userCategories().associateBy { LibraryRules.normalize(it.name) }
         val assigned = HashMap<Long, MutableSet<Long>>()
         groups.forEach { group ->
-            val categoryId = byName[group.name.lowercase()]?.id ?: return@forEach
+            val categoryId = byName[LibraryRules.normalize(group.name)]?.id ?: return@forEach
             group.mangaIds.forEach { assigned.getOrPut(it) { mutableSetOf() } += categoryId }
         }
         return assigned
@@ -283,16 +303,146 @@ class LibraryOrganizer(
         return parseGroups(reply, items.map { it.manga.id }.toSet())
     }
 
-    /** Series that finished go to the reader's "Completed" category, when the reader has one. */
-    private suspend fun moveCompleted(library: List<LibraryManga>) {
-        val name = context.stringResource(ATMR.strings.org_completed_category)
-        val category = userCategories().firstOrNull { it.name.equals(name, ignoreCase = true) } ?: return
-        library.filter { item ->
-            val status = item.manga.status.toInt()
-            (status == SManga.COMPLETED || status == SManga.PUBLISHING_FINISHED) && category.id !in item.categories
-        }.forEach { item ->
-            setMangaCategories.await(item.manga.id, (item.categories.filter { it != 0L } + category.id).distinct())
+    /** The reader's "Completed" category, in any usual spelling. */
+    private suspend fun completedCategory() = context.stringResource(ATMR.strings.org_completed_category).let { name ->
+        userCategories().firstOrNull { it.name.equals(name, ignoreCase = true) || LibraryRules.isCompletedName(it.name) }
+    }
+
+    /**
+     * The strict "Completed" rule both ways: a series the source calls finished goes into the reader's
+     * "Completed" category, and one the source does not call finished leaves it (reading progress never counts).
+     * Returns how many series changed.
+     */
+    private suspend fun moveCompleted(library: List<LibraryManga>): Int {
+        val category = completedCategory() ?: return 0
+        var changed = 0
+        library.forEach { item ->
+            val finished = LibraryRules.isFinished(item.manga.status)
+            val inside = category.id in item.categories
+            if (finished == inside) return@forEach
+            val mine = item.categories.filter { it != 0L && it != category.id }
+            setMangaCategories.await(item.manga.id, if (finished) (mine + category.id).distinct() else mine)
+            changed++
         }
+        return changed
+    }
+
+    /**
+     * MANHWA full reorganize (the library bar's button, and once a day by itself): the saved scheme is used to
+     * put every series in its right categories, wrong ones are corrected, missing categories are created,
+     * duplicates with the same meaning are merged, the strict "Completed" rule is applied, and categories the
+     * organizer itself created that are now empty are removed. The reader's own categories are never removed or
+     * emptied. Never runs twice at once.
+     */
+    suspend fun reorganize(): Result? {
+        if (_running.value) return null
+        return mutex.withLock {
+            _running.value = true
+            try {
+                reorganizeLocked()
+            } finally {
+                _running.value = false
+            }
+        }
+    }
+
+    private suspend fun reorganizeLocked(): Result {
+        val library = getLibraryManga.await()
+        val beforeCategories = userCategories()
+        val before = library.associate { it.manga.id to it.categories.filter { c -> c != 0L }.toSet() }
+        if (library.isEmpty()) return Result(0, 0, 0).also { _lastResult.value = it }
+        val scheme = scheme()
+        val raw = runCatching { if (appAiConfigured()) placeAllWithScheme(library, scheme) else emptyList() }
+            .onFailure { logcat(LogPriority.WARN, it) { "The organizer AI failed, using the genre map" } }
+            .getOrDefault(emptyList())
+            .ifEmpty { localGroups(library) }
+        val groups = LibraryRules.clean(raw, library.associate { it.manga.id to it.manga.status })
+        val assigned = assign(groups)
+        val categories = userCategories()
+        val completed = completedCategory()
+        // Managed: what the scheme and the organizer stand for; everything else belongs to the reader alone
+        val schemeKeys = (scheme.map { it.name } + groups.map { it.name } + preferences.organizerCreated.get()).map(LibraryRules::normalize).toSet()
+        val managed = categories.filter { LibraryRules.normalize(it.name) in schemeKeys }.map { it.id }.toSet()
+        var changed = 0
+        library.forEach { item ->
+            val id = item.manga.id
+            val target = assigned[id] ?: return@forEach
+            val next = LibraryRules.finalCategories(
+                current = item.categories,
+                assigned = target,
+                managed = managed,
+                completedId = completed?.id,
+                finished = LibraryRules.isFinished(item.manga.status),
+            )
+            if (next.toSet() != before[id]) {
+                setMangaCategories.await(id, next)
+                changed++
+            }
+        }
+        // Series the AI did not place still follow the completed rule
+        changed += moveCompleted(getLibraryManga.await().filter { it.manga.id !in assigned })
+        // Duplicates of one meaning made by the organizer: their series move to the first, then they go
+        val created = preferences.organizerCreated.get()
+        var removed = 0
+        userCategories().groupBy { LibraryRules.normalize(it.name) }.values.filter { it.size > 1 }.forEach { same ->
+            val keep = same.firstOrNull { c -> created.none { LibraryRules.normalize(it) == LibraryRules.normalize(c.name) } && c.name !in created } ?: same.first()
+            same.filter { it.id != keep.id && it.name in created }.forEach { dup ->
+                getLibraryManga.await().filter { dup.id in it.categories }.forEach { item ->
+                    setMangaCategories.await(item.manga.id, (item.categories.filter { it != 0L && it != dup.id } + keep.id).distinct())
+                }
+                deleteCategory.await(dup.id)
+                removed++
+            }
+        }
+        // Empty categories the organizer created (never the reader's own)
+        val nowLibrary = getLibraryManga.await()
+        val counts = userCategories().associate { c -> c.name to nowLibrary.count { c.id in it.categories } }
+        val empty = LibraryRules.removableEmpty(created, counts)
+        userCategories().filter { it.name in empty && it.id != completed?.id }.forEach {
+            deleteCategory.await(it.id)
+            removed++
+        }
+        if (removed > 0) preferences.organizerCreated.set(created.filterNot { name -> userCategories().none { it.name == name } }.toSet())
+        val newCount = userCategories().count { c -> beforeCategories.none { it.id == c.id } }
+        preferences.organizerLastFull.set(System.currentTimeMillis())
+        return Result(changed, newCount, removed).also { _lastResult.value = it }
+    }
+
+    /** Every series of the library put in the saved scheme's categories (new ones only when nothing fits). */
+    private suspend fun placeAllWithScheme(library: List<LibraryManga>, scheme: List<SchemeCategory>): List<Group> {
+        val known = scheme.ifEmpty { userCategories().map { SchemeCategory(it.name) } }
+        val instruction = preferences.organizerInstruction.get()
+        val merged = mutableListOf<Group>()
+        library.chunked(BATCH).forEach { batch ->
+            val categories = (known + merged.map { SchemeCategory(it.name, it.about) }).distinctBy { LibraryRules.normalize(it.name) }
+            val reply = appAsk(AiRouter.Lane.REVIEW) { ai ->
+                ai.askJson(
+                    system = librarianRules() + "\n" + """
+                        Put every series below in 1 or 2 of these categories (name: about):
+                        ${categories.joinToString("\n") { "- ${it.name}${if (it.about.isNotBlank()) ": ${it.about}" else ""}" }}
+                        Fix series that are in a wrong category. Create a new category (short name in ${language()}) only
+                        when a series fits none of them. Never put a series in a "Completed" category unless its status
+                        is "completed": reading progress never makes a series completed.
+                        Reply with ONLY: {"categories":[{"name":"...","about":"...","ids":[123,456]}]}
+                    """.trimIndent(),
+                    prompt = buildString {
+                        if (instruction.isNotBlank()) appendLine("Reader's instruction (follow it first): $instruction")
+                        appendLine("Library, one series per line (id|title|genres|origin|status|progress|author|story):")
+                        append(describe(batch))
+                    },
+                )
+            }
+            merged += parseGroups(reply, batch.map { it.manga.id }.toSet())
+        }
+        return merged
+    }
+
+    /** The full reorganize by itself, at most once a day (from the background worker). */
+    suspend fun dailyIfDue() {
+        if (!preferences.autoOrganize.get()) return
+        if (System.currentTimeMillis() - preferences.organizerLastFull.get() < DAY_MS) return
+        if (scheme().isEmpty() && userCategories().isEmpty()) return
+        reorganize()
     }
 
     /** Puts a series back where it was before the organizer placed it. */
@@ -320,6 +470,8 @@ class LibraryOrganizer(
         school and drama, revenge, horror and thriller, comedy, slice of life, historical, sports, apocalypse.
         Merge themes that always go together (for example "System & Leveling"). Never make a category of one series
         unless the reader asks. Do not make categories by reading progress unless the reader asks.
+        A "Completed" category holds ONLY series whose status is "completed". Never judge a series completed from
+        how much of it was read.
         Every series goes in at least 1 and at most 2 categories, the main one first.
     """.trimIndent()
 
@@ -443,5 +595,6 @@ class LibraryOrganizer(
         const val MAX_NAME = 40
         const val MAX_LOG = 40
         const val SETTLE_MS = 3_000L
+        const val DAY_MS = 24 * 60 * 60 * 1000L
     }
 }

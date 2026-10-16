@@ -118,6 +118,12 @@ class TranslationHubScreen : Screen() {
         val readerButton by prefs.translationReaderButton().collectPreference()
         val font by prefs.translationFont().collectPreference()
         val pretranslate by prefs.translationPretranslateNext().collectPreference()
+        val autoPrefetch by prefs.translationAutoPrefetch().collectPreference()
+        val saveOnRead by prefs.translationSaveOnRead().collectPreference()
+        val freeSpace by prefs.translationFreeSpaceOnRead().collectPreference()
+        val deleteDownload by prefs.translationDeleteDownloadOnRead().collectPreference()
+        val consensus by prefs.translationConsensus().collectPreference()
+        val nightly by prefs.translationNightly().collectPreference()
         val dramatic by prefs.translationDramaticStyle().collectPreference()
         val smartScroll by prefs.translationSmartScroll().collectPreference()
         val noKeyEngine = if (TextTranslators.entries.getOrNull(engineIndex) == TextTranslators.MLKIT) TextTranslators.MLKIT else TextTranslators.GOOGLE
@@ -329,6 +335,57 @@ class TranslationHubScreen : Screen() {
                                 info = stringResource(ATMR.strings.info_pretranslate),
                                 checked = pretranslate,
                                 onChange = { prefs.translationPretranslateNext().set(it) },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.SkipNext,
+                                title = stringResource(ATMR.strings.pref_auto_prefetch),
+                                info = stringResource(ATMR.strings.info_auto_prefetch),
+                                checked = autoPrefetch,
+                                onChange = { prefs.translationAutoPrefetch().set(it) },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.SkipNext,
+                                title = stringResource(ATMR.strings.pref_nightly),
+                                info = stringResource(ATMR.strings.info_nightly),
+                                checked = nightly,
+                                onChange = {
+                                    prefs.translationNightly().set(it)
+                                    eu.kanade.translation.night.NightTranslateWorker.schedule(context)
+                                },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.Psychology,
+                                title = stringResource(ATMR.strings.pref_consensus),
+                                info = stringResource(ATMR.strings.info_consensus),
+                                checked = consensus,
+                                onChange = { prefs.translationConsensus().set(it) },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.CollectionsBookmark,
+                                title = stringResource(ATMR.strings.pref_save_on_read),
+                                info = stringResource(ATMR.strings.info_save_on_read),
+                                checked = saveOnRead,
+                                onChange = { prefs.translationSaveOnRead().set(it) },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.CollectionsBookmark,
+                                title = stringResource(ATMR.strings.pref_free_space_on_read),
+                                info = stringResource(ATMR.strings.info_free_space_on_read),
+                                checked = freeSpace,
+                                onChange = { prefs.translationFreeSpaceOnRead().set(it) },
+                            )
+                            HubDivider()
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.CollectionsBookmark,
+                                title = stringResource(ATMR.strings.pref_delete_download_on_read),
+                                info = stringResource(ATMR.strings.info_delete_download_on_read),
+                                checked = deleteDownload,
+                                onChange = { prefs.translationDeleteDownloadOnRead().set(it) },
                             )
                         }
                     }

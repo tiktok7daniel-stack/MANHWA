@@ -140,6 +140,12 @@ class LibraryPreferences(
 
     val organizerInstruction: Preference<String> = preferenceStore.getString("manhwa_organizer_instruction", "")
 
+    /** Names of the categories the organizer itself created (only these are ever removed when empty). */
+    val organizerCreated: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_organizer_created", emptySet())
+
+    /** When the organizer last went through the whole library (at most once a day by itself). */
+    val organizerLastFull: Preference<Long> = preferenceStore.getLong(Preference.appStateKey("manhwa_organizer_last_full"), 0L)
+
     val lastUsedCategory: Preference<Int> = preferenceStore.getInt(Preference.appStateKey("last_used_category"), 0)
 
     val categoryTabs: Preference<Boolean> = preferenceStore.getBoolean("display_category_tabs", true)

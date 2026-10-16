@@ -653,4 +653,26 @@
     <string name="key_limit_tokens">الرد لحد %1$d توكن</string>
     <string name="key_quota_forecast">يكفّي حوالي %1$d فصل كمان النهارده</string>
     <string name="key_quota_calls">%1$d طلب النهارده</string>
+    <string name="source_hidden_title">مخفي من الرئيسية</string>
+    <string name="source_hidden_body">أُزيل من الرئيسية تلقائيًا لأنه غير متاح حاليًا. هيرجع لوحده أول ما يشتغل تاني، ومفيش حاجة اتمسحت.</string>
+    <string name="source_hidden_stats">فشل %1$d مرات · آخر مرة اشتغل %2$s · المحاولة الجاية %3$s</string>
+    <string name="source_hidden_check">جرّب دلوقتي</string>
+    <string name="source_hidden_restore">اعرضه في الرئيسية برضه</string>
+    <string name="source_hidden_never">أبدًا</string>
+    <string name="source_hidden_new">تم إخفاء المصدر من الرئيسية لأنه غير متاح حاليًا: %1$s</string>
+    <string name="lib_organize_now">رتّب المكتبة</string>
+    <string name="lib_organize_done">المكتبة اترتبت · %1$d عمل اتنقل · %2$d فئة جديدة · %3$d اتشالت</string>
+    <string name="lib_organize_nothing">المكتبة اترتبت · كل حاجة كانت في مكانها</string>
+    <string name="pref_auto_prefetch">ترجمة الفصل الجاي لوحده</string>
+    <string name="info_auto_prefetch">وإنت بتقرا، الفصل الجاي بيتترجم في الخلفية لو الفريق فيه 3 مفاتيح شغالة أو أكتر ولسه فيها حصة. بيبدأ لما توصل 35% من الفصل، ومش بيشتغل والبطارية واطية أو في وضع توفير البطارية أو من غير نت، ومش بيبطّأ الصفحة اللي بتقراها. مكتبة الترجمة بتشتغل الأول، والناقص بس هو اللي بيروح للـ AI.</string>
+    <string name="pref_nightly">الترجمة بالليل</string>
+    <string name="info_nightly">بالليل والموبايل بيشحن وعلى واي فاي، الفصول الجديدة للأعمال اللي في مكتبتك بتتترجم عشان تبقى جاهزة الصبح. بس الأعمال اللي من مصادر إنجليزي: المصادر العربي والفصول المترجمة قبل كده بتتساب. بالكتير فصلين جداد لكل عمل و20 في الليلة، وعمره ما بيعدّي 70% من الحصة اليومية لكل مفتاح.</string>
+    <string name="pref_consensus">رأي تاني للسطور المشكوك فيها</string>
+    <string name="info_consensus">لحد 12 سطر في الفصل (المشكوك فيها، والأسماء الجديدة، ونوافذ النظام، والسطور المحفوظة بأكتر من معنى) بتتترجم تاني بمفتاح تاني، والترجمة الأحسن هي اللي بتفضل: اللي ماشية على القاموس والموسوعة، ومفيهاش إنجليزي، وبتطلع في الفقاعة، وبتعدّي فحص الجودة، ومتماشية مع جنس الشخصية.</string>
+    <string name="pref_save_on_read">احفظ الترجمة لما الفصل يتقرا</string>
+    <string name="info_save_on_read">لما تخلّص فصل أو تعلّمه مقروء، كل سطر من ترجمته مش موجود في مكتبة الترجمة بيتحفظ فيها، فلو فتحته تاني (أو نفس السطور في عمل تاني) مش هتحتاج AI.</string>
+    <string name="pref_free_space_on_read">وفّر المساحة بعد القراءة</string>
+    <string name="info_free_space_on_read">بعد ما السطور تتحفظ في المكتبة، ملف ترجمة الفصل نفسه بيتمسح. مكتبة الترجمة والقاموس وقاموس العمل والدروس والملخصات والأسماء والقوالب عمرها ما بتتمسح.</string>
+    <string name="pref_delete_download_on_read">امسح الصفحات المحمّلة بعد القراءة</string>
+    <string name="info_delete_download_on_read">مقفول من الأول عشان الفصول اللي حمّلتها للقراية من غير نت تفضل. لو فتحته، الصفحات المحمّلة للفصل المقروء بتتمسح هي كمان.</string>
 </resources>

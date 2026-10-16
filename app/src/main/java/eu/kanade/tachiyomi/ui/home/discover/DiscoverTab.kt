@@ -1946,7 +1946,7 @@ data object DiscoverTab : Tab {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item { Chip(stringResource(ATMR.strings.home_all), state.sourceFilter == null) { onFilter(null) } }
-                items(state.feeds, key = { it.source.id }) { feed ->
+                items(state.shownFeeds, key = { it.source.id }) { feed ->
                     Chip(feed.source.name, state.sourceFilter == feed.source.id) { onFilter(feed.source.id) }
                 }
             }

@@ -17,6 +17,7 @@ class SetReadStatus(
     private val deleteDownload: DeleteDownload,
     private val mangaRepository: MangaRepository,
     private val chapterRepository: ChapterRepository,
+    private val translationManager: Lazy<eu.kanade.translation.TranslationManager>,
 ) {
 
     private val mapper = { chapter: Chapter, read: Boolean ->
@@ -44,6 +45,16 @@ class SetReadStatus(
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             return Result.InternalError(e)
+        }
+
+        // MANHWA: chapters marked read keep their lines in the translation library; their temporary files go
+        if (read) {
+            chaptersToUpdate.groupBy { it.mangaId }.forEach { (mangaId, list) ->
+                runCatching {
+                    val manga = mangaRepository.getMangaById(mangaId)
+                    translationManager.value.archiveOnReadLater(manga, list.map { it.copy(read = true) })
+                }.onFailure { logcat(LogPriority.WARN, it) }
+            }
         }
 
         if (read && downloadPreferences.removeAfterMarkedAsRead.get()) {

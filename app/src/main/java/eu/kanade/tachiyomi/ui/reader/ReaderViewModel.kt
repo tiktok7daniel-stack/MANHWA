@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader
 
+import mihon.app.di.appGraph
 import android.content.Context
 import android.net.Uri
 import androidx.annotation.IntRange
@@ -570,8 +571,8 @@ class ReaderViewModel(
         if (inDownloadRange) {
             downloadNextChapters()
         }
-        // MANHWA: halfway through, the next chapter starts translating in the background (setting, off by default)
-        if (page.number.toDouble() / pages.size > 0.5) {
+        // MANHWA prefetch: a third of the way through, the next chapter starts translating in the background
+        if (page.number.toDouble() / pages.size > eu.kanade.translation.ChapterPrefetchManager.START_AT) {
             pretranslateNextChapter()
         }
 
@@ -587,11 +588,11 @@ class ReaderViewModel(
      * ([eu.kanade.translation.HeavyWork]), so reading stays smooth.
      */
     private fun pretranslateNextChapter() {
-        if (!translationPreferences.translationPretranslateNext().get()) return
         val manga = manga ?: return
         if (manga.isLocal()) return
         val next = state.value.viewerChapters?.nextChapter?.chapter ?: return
         if (pretranslatedChapterId == next.id) return
+        if (!eu.kanade.translation.ChapterPrefetchManager.shouldPrefetch(context, context.appGraph.teamStore, translationPreferences)) return
         pretranslatedChapterId = next.id
         appScope.launch(Dispatchers.IO) {
             val downloaded = downloadManager.isChapterDownloaded(next.name, next.scanlator, next.url, manga.title, manga.source)
@@ -750,6 +751,8 @@ class ReaderViewModel(
     private suspend fun updateChapterProgressOnComplete(readerChapter: ReaderChapter) {
         updateTrackChapterRead(readerChapter)
         deleteChapterIfNeeded(readerChapter)
+        // MANHWA: the chapter's lines go to the translation library and its temporary translation files are freed
+        manga?.let { m -> appScope.launch(Dispatchers.IO) { runCatching { translationManager.archiveOnRead(m, listOf(readerChapter.chapter)) } } }
 
         val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead.get()
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)

@@ -280,6 +280,10 @@ class FreshChaptersWorker(context: Context, params: WorkerParameters) : Coroutin
         val graph = applicationContext.appGraph
         graph.freshChaptersEngine.refresh()
         runCatching { graph.libraryOrganizer.catchUp() }
+        // MANHWA organizer: the whole library is checked once a day at most (never two runs at once)
+        runCatching { graph.libraryOrganizer.dailyIfDue() }
+        // MANHWA source health: hidden home sources are tried again (6, 12, then 24 hours apart)
+        runCatching { graph.sourceHealthManager.recheckDue() }
         // MANHWA team: every key's model is checked against its site once a day and replaced when gone
         runCatching { graph.teamStore.refreshModels() }
         // MANHWA Vault: the daily encrypted copy in the reader's sync folder

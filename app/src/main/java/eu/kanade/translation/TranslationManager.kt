@@ -38,6 +38,9 @@ class TranslationManager(
     private val translator: ChapterTranslator,
     private val getManga: tachiyomi.domain.manga.interactor.GetManga,
     private val getChapter: tachiyomi.domain.chapter.interactor.GetChapter,
+    private val collection: eu.kanade.translation.collection.TranslationCollection,
+    private val glossaryStore: eu.kanade.translation.glossary.GlossaryStore,
+    private val downloadManager: Lazy<eu.kanade.tachiyomi.data.download.DownloadManager>,
 ) {
 
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
@@ -194,6 +197,59 @@ class TranslationManager(
             file.delete()
         }
         return emptyMap()
+    }
+
+    /**
+     * MANHWA "save the translation when the chapter is read": every line of the chapter's translation that the
+     * translation library does not have yet is saved there, then what is only needed to show this one chapter
+     * goes (its translation file, and its downloaded pages when the reader chose so), to free space. The
+     * library, the glossary, the series dictionary, lessons, summaries, names and templates are never touched,
+     * so opening the chapter again takes its lines from the library and only what is missing goes to the AI.
+     * Returns the bytes freed.
+     */
+    suspend fun archiveOnRead(manga: Manga, chapters: List<Chapter>): Long = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (!translationPreferences.translationSaveOnRead().get() && !translationPreferences.translationFreeSpaceOnRead().get()) return@withContext 0L
+        val source = sourceManager.get(manga.source) ?: return@withContext 0L
+        val src = eu.kanade.translation.recognizer.TextRecognizerLanguage.fromPref(translationPreferences.translateFromLanguage()).name
+        val tgt = eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(translationPreferences.translateToLanguage()).name
+        var freed = 0L
+        for (chapter in chapters) {
+            // Never while it is still being translated
+            if (translator.queueState.value.any { it.chapter.id == chapter.id && TranslationJob.active(it.status) }) continue
+            val file = runCatching { provider.findTranslationFile(chapter.name, chapter.scanlator, manga.title, source) }.getOrNull() ?: continue
+            val pages = runCatching { Json.decodeFromStream<Map<String, PageTranslation>>(file.openInputStream()) }.getOrNull() ?: continue
+            var saved = true
+            if (translationPreferences.translationSaveOnRead().get() && translationPreferences.translationCollection().get()) {
+                val lines = pages.values.flatMap { it.blocks }
+                    .filter { it.text.isNotBlank() && it.translation.isNotBlank() }
+                    .map { eu.kanade.translation.collection.TranslationCollection.Line(it.text, it.translation, it.kind) }
+                saved = runCatching {
+                    // Only what is missing: lines the library already gives back are not saved again
+                    val glossary = glossaryStore.asMap(manga.id)
+                    val missing = lines.filter { collection.lookup(src, tgt, it.text, glossary)?.sure != true }
+                    collection.learn(src, tgt, manga.id, glossary, missing, eu.kanade.translation.collection.TranslationCollection.Source.TEAM)
+                }.isSuccess
+            }
+            // The file goes only once its lines are safe in the library
+            if (saved && translationPreferences.translationFreeSpaceOnRead().get()) {
+                val size = runCatching { file.length() }.getOrDefault(0L)
+                if (file.delete()) freed += size
+            }
+        }
+        if (translationPreferences.translationDeleteDownloadOnRead().get()) {
+            runCatching {
+                val dm = downloadManager.value
+                val downloaded = chapters.filter { dm.isChapterDownloaded(it.name, it.scanlator, it.url, manga.title, manga.source) }
+                if (downloaded.isNotEmpty()) dm.enqueueChaptersToDelete(downloaded, manga)
+            }
+        }
+        if (freed > 0) translationPreferences.translationFreedBytes().set(translationPreferences.translationFreedBytes().get() + freed)
+        freed
+    }
+
+    /** [archiveOnRead] in the background, for callers that must not wait (marking chapters read from a list). */
+    fun archiveOnReadLater(manga: Manga, chapters: List<Chapter>) {
+        scope.launch { runCatching { archiveOnRead(manga, chapters) } }
     }
 
     fun deleteTranslation(chapter: Chapter, manga: Manga, source: Source) {

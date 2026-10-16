@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,7 +71,9 @@ import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
+import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.Refresh
+import tachiyomi.core.common.i18n.stringResource
 import mihon.icons.materialsymbols.rounded.Shield
 import mihon.icons.materialsymbols.rounded.SortByAlpha
 import mihon.icons.materialsymbols.rounded.Speed
@@ -241,6 +244,59 @@ class SourceHubScreen : Screen() {
                 onDone = navigator::pop,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
+        }
+        // MANHWA: why a source left the home screen, with "try now" and "show it anyway"
+        val hiddenInfo by hiddenInfoRequest.collectAsState()
+        hiddenInfo?.let { sourceId ->
+            val entry = state.hiddenFromHome[sourceId]
+            val name = state.installed.firstOrNull { it.id == sourceId }?.name.orEmpty()
+            if (entry == null) {
+                hiddenInfoRequest.value = null
+            } else {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { hiddenInfoRequest.value = null },
+                    containerColor = Color(0xFF0E0B0F),
+                    icon = { Icon(MaterialSymbols.Rounded.Info, contentDescription = null, tint = Color(0xFFFFB020)) },
+                    title = { Text(name, color = Color.White, fontWeight = FontWeight.Black) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(stringResource(ATMR.strings.source_hidden_body), color = Color.White.copy(alpha = 0.85f))
+                            Text(
+                                stringResource(ATMR.strings.source_hidden_stats, entry.fails, timeAgo(entry.lastSuccess), timeAgo(entry.nextCheck)),
+                                color = Color.White.copy(alpha = 0.6f),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            entry.reason?.let {
+                                Text(it, color = Color.White.copy(alpha = 0.5f), style = MaterialTheme.typography.labelSmall, maxLines = 3)
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        ManhwaKit.NeonButton(
+                            stringResource(if (state.recheckingHidden) ATMR.strings.hub_checking else ATMR.strings.source_hidden_check),
+                            icon = MaterialSymbols.Rounded.Refresh,
+                        ) { viewModel.recheckHidden() }
+                    },
+                    dismissButton = {
+                        ManhwaKit.GhostButton(stringResource(ATMR.strings.source_hidden_restore)) {
+                            viewModel.restoreToHome(sourceId)
+                            hiddenInfoRequest.value = null
+                        }
+                    },
+                )
+            }
+        }
+        // A source just added that did not answer: said once
+        val toastContext = androidx.compose.ui.platform.LocalContext.current
+        LaunchedEffect(state.newlyHidden) {
+            if (state.newlyHidden.isNotEmpty()) {
+                android.widget.Toast.makeText(
+                    toastContext,
+                    toastContext.stringResource(ATMR.strings.source_hidden_new, state.newlyHidden.joinToString("، ")),
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+                viewModel.consumeNewlyHidden()
+            }
         }
         confirmUninstall?.let { sourceId ->
             val extension = state.extensionBySource[sourceId]
@@ -512,6 +568,19 @@ class SourceHubScreen : Screen() {
                 )
                 Spacer(Modifier.width(6.dp))
                 HealthDot(state.health[source.id])
+                // MANHWA source health: left out of the home screen by itself; the (i) says why
+                if (state.hiddenFromHome[source.id] != null) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        MaterialSymbols.Rounded.Info,
+                        contentDescription = stringResource(ATMR.strings.source_hidden_title),
+                        tint = Color(0xFFFFB020),
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .clickable { hiddenInfoRequest.value = source.id },
+                    )
+                }
             }
             FameBadge(source.name, rank)
             val inLibrary = state.libraryBySource[source.id] ?: 0
@@ -585,6 +654,13 @@ class SourceHubScreen : Screen() {
                 modifier = Modifier.fillMaxSize(),
             )
         }
+    }
+
+    /** "3 h ago" / "in 6 h" for the hidden-source dialog; "never" for 0. */
+    @Composable
+    private fun timeAgo(at: Long): String {
+        if (at <= 0L) return stringResource(ATMR.strings.source_hidden_never)
+        return android.text.format.DateUtils.getRelativeTimeSpanString(at, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS).toString()
     }
 
     @Composable
@@ -1164,5 +1240,8 @@ class SourceHubScreen : Screen() {
     private companion object {
         const val TOP = "__top"
         const val TOP_SCORE = 85
+
+        /** The source whose "hidden from home" dialog is open. */
+        val hiddenInfoRequest = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
     }
 }
