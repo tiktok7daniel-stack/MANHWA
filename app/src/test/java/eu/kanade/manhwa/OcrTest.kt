@@ -119,7 +119,7 @@ class OcrFusionTest {
 
     @Test
     fun `unsure ML Kit reading is replaced by a sure PaddleOCR one, a sure one stays`() {
-        val unsure = OcrFusion.block("W#@RE ~~|", 0.5f, 100, 100, 120, 30)
+        val unsure = OcrFusion.block("W@@RE |¦|", 0.5f, 100, 100, 120, 30)
         val sure = OcrFusion.block("HELLO", 0.97f, 100, 300, 120, 30)
         val paddle = listOf(
             OcrFusion.block("WHERE", 0.95f, 105, 102, 110, 26),
@@ -145,7 +145,7 @@ class OcrFusionTest {
 
     @Test
     fun `garbled text is spotted`() {
-        OcrFusion.garbled("W#@RE ~~|") shouldBe true
+        OcrFusion.garbled("W@@RE |¦|") shouldBe true
         OcrFusion.garbled("What... is this?") shouldBe false
         OcrFusion.garbled("") shouldBe true
     }
