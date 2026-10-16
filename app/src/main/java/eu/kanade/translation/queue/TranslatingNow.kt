@@ -101,6 +101,46 @@ fun TranslatingNowButton() {
     }
 }
 
+/** The same button as a glass orb, for the home screen's header (next to the bell). */
+@Composable
+fun TranslatingNowOrb() {
+    val context = LocalContext.current
+    val navigator = LocalNavigator.current
+    val manager = remember { context.appGraph.translationManager }
+    val queue by manager.queueState.collectAsState()
+    val active = queue.isNotEmpty()
+    Box {
+        Box(
+            Modifier
+                .size(42.dp)
+                .glass(RoundedCornerShape(14.dp), accent = active, alpha = 0.45f)
+                .clickable { navigator?.push(TranslatingNowScreen()) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                MaterialSymbols.Rounded.Translate,
+                contentDescription = stringResource(ATMR.strings.tn_title),
+                tint = if (active) Ember else Color.White,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        if (active) {
+            Text(
+                if (queue.size > 99) "99+" else "${queue.size}",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 4.dp, y = (-4).dp)
+                    .clip(CircleShape)
+                    .background(Ember)
+                    .padding(horizontal = 6.dp, vertical = 1.dp),
+            )
+        }
+    }
+}
+
 /**
  * Every chapter being translated or waiting, from every work: the work, the chapter, where it is and how far,
  * with "open the work" and "stop this one", and pause / carry on / clear for the whole queue.

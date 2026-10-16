@@ -761,6 +761,9 @@ data object DiscoverTab : Tab {
                         color = Color.White.copy(alpha = 0.6f),
                     )
                 }
+                // MANHWA: what is being translated right now, one tap from home
+                eu.kanade.translation.queue.TranslatingNowOrb()
+                Spacer(Modifier.width(10.dp))
                 Box {
                     HeaderButton(MaterialSymbols.Rounded.Notifications, onBell)
                     if (newCount > 0) {
