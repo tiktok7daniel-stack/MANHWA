@@ -829,8 +829,8 @@
     <string name="wn_learning_b">Every line read, every correction and every name joins the library and the dictionary, shared across sources, so each chapter needs less AI than the one before.</string>
     <string name="local_ai_title">On-device AI</string>
     <string name="local_ai_ready">Model ready · %1$s · translates with no key and no internet</string>
-    <string name="local_ai_none">No model yet</string>
-    <string name="local_ai_info">A small AI model that runs on your phone: it translates when no key works, replaces Google as the last fallback, and makes night translation free. Download a MediaPipe model (.task, such as Gemma 3 1B) from its official page, then import it here. It needs about 0.5 to 1.5 GB and a recent phone; quality is below the big online models.</string>
+    <string name="local_ai_none">No model yet · pick one from the model shelf</string>
+    <string name="local_ai_info">A member of your team that lives on your phone: in every chapter it works with all your keys at once. The phone drafts every line, the keys polish it, the phone judges when keys disagree and learns from every correction. When no key works it carries on alone, and it makes night translation free. Pick a model from the model shelf below: the download is used by the team as soon as it finishes.</string>
     <string name="local_ai_import">Import a model</string>
     <string name="local_ai_importing">Importing…</string>
     <string name="local_ai_get">Official models page</string>
@@ -905,4 +905,9 @@
     <string name="by_library">From the translation library</string>
     <string name="wn_orchestra_t">Hybrid orchestra</string>
     <string name="wn_orchestra_b">The strongest phone models (Gemma 3n, Phi-4, Qwen) download from the model shelf and work with all your keys: the phone drafts, the keys polish, the phone judges and learns. Quotas last three to four times longer.</string>
+    <string name="team_phone_title">Phone model · team member</string>
+    <string name="team_phone_on">%1$s · drafts, judges and learns with your keys in every chapter</string>
+    <string name="team_phone_paused">%1$s · resting now (hot phone, low battery or battery saver)</string>
+    <string name="team_phone_none">No phone model yet: add one so it works with your keys</string>
+    <string name="team_phone_off">The orchestra is off: your keys translate without the phone</string>
 </resources>

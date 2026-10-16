@@ -272,6 +272,8 @@ class TranslationTeamScreen : Screen() {
                             SiteLinkButton(stringResource(ATMR.strings.keys_ask_ai), MaterialSymbols.Rounded.AutoAwesome) { advisor = true }
                         }
                     }
+                    // MANHWA: the phone's own model plays in the team with every key
+                    item { PhoneMemberCard { navigator.push(eu.kanade.translation.local.LocalModelsScreen()) } }
                     if (members.isEmpty()) {
                         item {
                             Text(
@@ -976,5 +978,39 @@ class TranslationTeamScreen : Screen() {
         val Green = Color(0xFF2ECC71)
         val Amber = Color(0xFFF2B01E)
         val Crimson = Color(0xFFFF4D5E)
+    }
+}
+
+/** The phone's model as a member of the team: what it does now, and the way to the model shelf. */
+@Composable
+private fun PhoneMemberCard(onOpen: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.appGraph.translationPreferences }
+    val orchestra by prefs.translationOrchestra().collectPreference()
+    val path by prefs.translationLocalModelPath().collectPreference()
+    val file = remember(path) { eu.kanade.translation.local.LocalAiEngine.modelFile(context) }
+    val playing = remember(path, orchestra) { eu.kanade.translation.orchestra.OrchestraStore.active(context) }
+    val name = file?.nameWithoutExtension.orEmpty()
+    val (text, color) = when {
+        file == null -> stringResource(ATMR.strings.team_phone_none) to Color(0xFFFFB020)
+        !orchestra -> stringResource(ATMR.strings.team_phone_off) to Color.White.copy(alpha = 0.6f)
+        playing -> stringResource(ATMR.strings.team_phone_on, name) to Color(0xFF3DDC97)
+        else -> stringResource(ATMR.strings.team_phone_paused, name) to Color(0xFFFFB020)
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .glass(RoundedCornerShape(22.dp), accent = file != null && orchestra, alpha = 0.5f)
+            .clickable(onClick = onOpen)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HubIconTile(MaterialSymbols.Rounded.AutoAwesome, size = 44)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(ATMR.strings.team_phone_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+            Text(text, style = MaterialTheme.typography.bodySmall, color = color)
+        }
+        Switch(checked = orchestra, onCheckedChange = { prefs.translationOrchestra().set(it) })
     }
 }

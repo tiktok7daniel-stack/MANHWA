@@ -117,7 +117,12 @@ object ModelCatalog {
             }
         }
         val file = fileName?.let { File(folder(context), it) }
-        return if (file != null && file.isFile && file.length() > 10L * 1024 * 1024) Status.Ready(file) else Status.NotDownloaded
+        if (file == null || !file.isFile || file.length() <= 10L * 1024 * 1024) return Status.NotDownloaded
+        // A finished download joins the team at once when the phone has no working model yet
+        val settings = context.appGraph.translationPreferences
+        val main = settings.translationLocalModelPath().get()
+        if (main.isBlank() || !File(main).isFile) LocalAiEngine.use(context, file)
+        return Status.Ready(file)
     }
 
     /**
