@@ -32,6 +32,8 @@ object OrchestraStore {
         val prefs = context.appGraph.translationPreferences
         if (!prefs.translationOrchestra().get() || !LocalAiEngine.available(context)) return false
         if (slowNow(context)) return false
+        // MANHWA home server: while the laptop translates, it does all of it (far faster than the phone's drafts)
+        if (context.appGraph.teamStore.servingOn() == eu.kanade.translation.team.LocalServerRules.Serving.HOME) return false
         val device = ChapterPrefetchManager.device(context)
         val thermal = runCatching {
             if (android.os.Build.VERSION.SDK_INT >= 29) (context.getSystemService(Context.POWER_SERVICE) as PowerManager).currentThermalStatus else 0
