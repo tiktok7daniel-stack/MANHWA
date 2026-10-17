@@ -47,6 +47,10 @@ https://github.com/tiktok7daniel-stack/MANHWA/actions/runs/39014241527/artifacts
 
 ---
 
+## 2.1 قاعدة البناء (مهمة)
+ما يتعملش بناء بعد كل طلب. التعديلات تتسجّل في `docs/PENDING_CHANGES.md`، وتترفع ومعاها `[skip ci]`. البناء
+يتعمل بس لما المستخدم يقول "اعمل بيلد نهائي". التفاصيل في الملف ده.
+
 ## 3. طريقة البناء والدمج
 
 1. التعديل يتعمل على فرع `claude/fix-live-crash-and-batch-loading`، وبعدين commit وpush.
