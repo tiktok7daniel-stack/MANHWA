@@ -9,4 +9,4 @@
 
 ## مستني البناء النهائي
 
-(فاضية)
+1. **أدوات ECC للكود (من غير ما التطبيق يتغير):** 5 سكيلز Kotlin/Android/Compose، و3 agents (`kotlin-reviewer`، و`kotlin-build-resolver`، و`silent-failure-hunter`)، وقواعد Kotlin في `docs/ecc-kotlin-rules/`، وملف `CLAUDE.md` فيه قواعد المشروع.

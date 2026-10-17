@@ -11,6 +11,20 @@ binaries. Each file was read before it was added.
 | changelog-generator | github.com/ComposioHQ/awesome-claude-skills | see source | "What's new" text and release notes from git commits |
 | diagram-design | github.com/cathrynlavery/diagram-design | MIT | Architecture and flow diagrams for the docs (scripts left out) |
 
+| kotlin-patterns | github.com/affaan-m/everything-claude-code (ECC, `76aaa77`) | MIT | Idiomatic Kotlin |
+| kotlin-coroutines-flows | ECC | MIT | Coroutines, Flow and StateFlow on Android |
+| kotlin-testing | ECC | MIT | Kotest and MockK tests |
+| android-clean-architecture | ECC | MIT | Module layers and data flow |
+| compose-multiplatform-patterns | ECC | MIT | Compose state, recomposition and performance |
+
+ECC agents in `.claude/agents/` (MIT, same version): `kotlin-reviewer` (report-only review of Kotlin changes),
+`kotlin-build-resolver` (smallest fix for a failing build), `silent-failure-hunter` (swallowed errors and bad
+fallbacks). ECC's Kotlin rules are in `docs/ecc-kotlin-rules/` with its licence.
+
+From ECC, not added: its hooks (they run code on every action), its MCP configs, the other 300 skills and 68
+agents (other languages and platforms), `verification-loop` and `performance-optimizer` (written for npm and
+web pages, not Gradle and Android), `foundation-models-on-device` (Apple only).
+
 Looked at and not added:
 
 | Skill | Why not |
