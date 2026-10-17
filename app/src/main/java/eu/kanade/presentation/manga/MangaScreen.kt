@@ -2,6 +2,7 @@ package eu.kanade.presentation.manga
 
 import eu.kanade.translation.model.Translation
 import eu.kanade.translation.unified.fusionContinuationItems
+import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
