@@ -84,10 +84,14 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
             }
             if (manager.isPaused || !manager.hasWork()) break
             if (!manager.isRunning) {
-                // Stopped with chapters still waiting (a failure stopped it): carry on, a few times at most
-                if (restarts >= MAX_RESTARTS) break
+                // Stopped with chapters still waiting (a failure stopped it): carry on, waiting longer each time,
+                // and never let the queue go while chapters wait
                 restarts++
-                manager.startTranslation()
+                delay((RESTART_BASE_S * restarts.coerceAtMost(MAX_BACKOFF_STEPS)).seconds)
+                if (isStopped || manager.isPaused || !manager.hasWork()) break
+                if (!manager.isRunning) manager.startTranslation()
+            } else {
+                restarts = 0
             }
         }
         return Result.success()
@@ -95,7 +99,8 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
 
     companion object {
         private const val TAG = "MANHWA-translation"
-        private const val MAX_RESTARTS = 3
+        private const val RESTART_BASE_S = 10
+        private const val MAX_BACKOFF_STEPS = 6
         private const val NOTIFICATION_ID = Notifications.ID_NEW_CHAPTERS - 3000
 
         fun start(context: Context) {

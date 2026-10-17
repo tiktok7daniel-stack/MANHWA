@@ -66,6 +66,9 @@ class TranslationManager(
                     translationPreferences.translationPendingQueue().set(if (pending.isEmpty()) "" else "0|$pending")
                     // MANHWA: chapters waiting are carried on even after Android closed the app
                     val waiting = pending.isNotEmpty()
+                    // Whatever queued the chapter (a button, a download, the reader, a fused work), it runs as a
+                    // foreground job with its notification: without it Android freezes the app in the background
+                    if (waiting && !translator.isPaused) runCatching { TranslationJob.start(context) }
                     if (waiting != resuming) {
                         resuming = waiting
                         runCatching { TranslationJob.keepResuming(context, waiting) }
@@ -134,8 +137,9 @@ class TranslationManager(
     fun translatorStop(reason: String? = null) = translator.stop(reason)
 
     fun startTranslation() {
-        if (translator.isRunning) return
-        translator.start()
+        if (!translator.isRunning) translator.start()
+        // MANHWA: always with the "translating" notification, so Android keeps it going while other apps are used
+        if (hasWork()) TranslationJob.start(context)
     }
 
     fun pauseTranslation() {
