@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
@@ -85,9 +86,16 @@ object LocalAiEngine {
      * The model works in its own scope: a caller that stops waiting (time out, chapter cancelled) is never held
      * by the phone, and the model finishes its answer in the background before its next one.
      */
-    suspend fun generate(context: Context, prompt: String, model: File? = null, timeoutMs: Long = CALL_TIMEOUT_MS): String? {
+    suspend fun generate(
+        context: Context,
+        prompt: String,
+        model: File? = null,
+        timeoutMs: Long = CALL_TIMEOUT_MS,
+        /** Forces a backend (the speed test compares them); null: the GPU when the phone can, else the CPU. */
+        backend: LlmInference.Backend? = null,
+    ): String? {
         val file = model?.takeIf { it.isFile } ?: modelFile(context) ?: return null
-        val call = scope.async { answer(context, file, prompt) }
+        val call = scope.async { answer(context, file, prompt, backend) }
         try {
             val reply = withTimeoutOrNull(timeoutMs) { call.await() }
             if (reply == null && !call.isCompleted) logcat(LogPriority.WARN) { "The on-device AI took over ${timeoutMs / 1000}s (${file.name})" }
@@ -98,9 +106,33 @@ object LocalAiEngine {
         }
     }
 
-    private suspend fun answer(context: Context, file: File, prompt: String): String? {
+    /**
+     * MANHWA: loads the model now, in the background, so the first page does not wait for it (loading takes
+     * seconds; reading the page with the OCR happens meanwhile).
+     */
+    fun warm(context: Context, model: File? = null) {
+        val file = model?.takeIf { it.isFile } ?: runCatching { modelFile(context) }.getOrNull() ?: return
+        if (slots.keys.any { it.startsWith(file.absolutePath + "|") }) return
+        scope.launch { runCatching { slotFor(context, file, null) } }
+    }
+
+    /** How many tokens [text] is for [model] (the speed test counts real tokens); null when it can't tell. */
+    suspend fun tokens(context: Context, text: String, model: File? = null, backend: LlmInference.Backend? = null): Int? {
+        val file = model?.takeIf { it.isFile } ?: modelFile(context) ?: return null
+        val slot = runCatching { slotFor(context, file, backend) }.getOrNull() ?: return null
+        return slot.lock.withLock { runCatching { slot.engine.sizeInTokens(text) }.getOrNull() }
+    }
+
+    /** The backend [model] runs on now ("GPU", "CPU"), when it is loaded. */
+    fun backendOf(model: File): String? = slots.values.firstOrNull { it.path.startsWith(model.absolutePath + "|") }?.backend?.name
+
+    /** How long loading the model took the last time, in ms (shown by the speed test). */
+    @Volatile var lastLoadMs: Long = 0
+        private set
+
+    private suspend fun answer(context: Context, file: File, prompt: String, backend: LlmInference.Backend?): String? {
         repeat(2) {
-            val slot = runCatching { slotFor(context, file) }
+            val slot = runCatching { slotFor(context, file, backend) }
                 .onFailure { logcat(LogPriority.WARN, it) { "The on-device AI could not load ${file.name}" } }
                 .getOrNull() ?: return null
             // Each model answers one prompt at a time; different models answer at the same time
@@ -123,8 +155,14 @@ object LocalAiEngine {
      * MANHWA phone ensemble: several models stay loaded together while they fit in the memory budget (part of
      * the phone's RAM); a model that does not fit frees the one used longest ago first.
      */
-    private suspend fun slotFor(context: Context, file: File): Slot = gate.withLock {
-        slots[file.absolutePath]?.let { return@withLock it }
+    private suspend fun slotFor(context: Context, file: File, backend: LlmInference.Backend?): Slot = gate.withLock {
+        // The model as it is loaded already (any backend when none is asked for)
+        val loaded = if (backend == null) {
+            slots.values.firstOrNull { it.path.startsWith(file.absolutePath + "|") }
+        } else {
+            slots["${file.absolutePath}|${backend.name}"]
+        }
+        loaded?.let { return@withLock it }
         val budget = EnsembleRules.budgetBytes(LocalModelRam.totalBytes(context))
         while (slots.isNotEmpty() && !EnsembleRules.fits(slots.values.map { it.bytes }, file.length(), budget)) {
             val oldest = slots.values.minBy { it.lastUse }
@@ -132,14 +170,17 @@ object LocalAiEngine {
             oldest.lock.withLock { runCatching { oldest.engine.close() } }
             slots.remove(oldest.path)
         }
-        Slot(file.absolutePath, file.length(), create(context, file)).also { slots[it.path] = it }
+        val started = System.currentTimeMillis()
+        val (engine, used) = create(context, file, backend)
+        lastLoadMs = System.currentTimeMillis() - started
+        Slot("${file.absolutePath}|${used.name}", file.length(), engine, used).also { slots[it.path] = it }
     }
 
     /**
      * MANHWA: the model runs on the phone's GPU (several times faster on most phones); a phone whose GPU can't run
      * it falls back to the CPU, and is remembered so it is not tried again.
      */
-    private fun create(context: Context, file: File): LlmInference {
+    private fun create(context: Context, file: File, forced: LlmInference.Backend?): Pair<LlmInference, LlmInference.Backend> {
         val prefs = context.appGraph.translationPreferences
         fun build(backend: LlmInference.Backend) = LlmInference.createFromOptions(
             context.applicationContext,
@@ -149,18 +190,19 @@ object LocalAiEngine {
                 .setPreferredBackend(backend)
                 .build(),
         )
+        if (forced != null) return build(forced) to forced
         if (!prefs.translationLocalGpuFailed().get()) {
-            runCatching { return build(LlmInference.Backend.GPU) }
+            runCatching { return build(LlmInference.Backend.GPU) to LlmInference.Backend.GPU }
                 .onFailure {
                     logcat(LogPriority.WARN, it) { "The on-device AI can't run on this GPU, using the CPU" }
                     prefs.translationLocalGpuFailed().set(true)
                 }
         }
-        return build(LlmInference.Backend.CPU)
+        return build(LlmInference.Backend.CPU) to LlmInference.Backend.CPU
     }
 
     /** The models loaded now (for the screen). */
-    fun loadedPaths(): Set<String> = slots.keys.toSet()
+    fun loadedPaths(): Set<String> = slots.keys.map { it.substringBeforeLast('|') }.toSet()
 
     /** Frees the models not used for a while (called by the background worker). */
     suspend fun trim() {
@@ -185,14 +227,16 @@ object LocalAiEngine {
         slots.clear()
     }
 
-    private class Slot(val path: String, val bytes: Long, val engine: LlmInference) {
+    /** [path] is the model's file and its backend ("file|GPU"): the speed test can hold both at once. */
+    private class Slot(val path: String, val bytes: Long, val engine: LlmInference, val backend: LlmInference.Backend) {
         val lock = Mutex()
         @Volatile var lastUse = System.currentTimeMillis()
     }
 
     private val slots = java.util.concurrent.ConcurrentHashMap<String, Slot>()
 
-    private const val MAX_TOKENS = 1_536
+    /** Prompt and answer together: room for 12 lines with their context and the glossary. */
+    private const val MAX_TOKENS = 2_048
     const val CALL_TIMEOUT_MS = 60_000L
     private const val MIN_MODEL_BYTES = 10L * 1024 * 1024
     private const val IDLE_MS = 5 * 60 * 1000L

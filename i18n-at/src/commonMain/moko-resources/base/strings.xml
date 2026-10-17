@@ -1070,4 +1070,17 @@
     <string name="wn_fast_b">A new mode next to the AI: the text read on the page goes straight to machine translation (DeepL, Microsoft, Google, or ML Kit offline), so pages are translated in a moment without spending any key. Your translation collection is used first, close matches included, and names stay the same. Switch between Fast and Smart from the reader\'s quick buttons.</string>
     <string name="wn_sharp_t">Sharper translation</string>
     <string name="wn_sharp_b">Each part of a chapter now sees what was said on the two pages before it, even while another key is still on them, so who speaks and to whom stays right. Names spelt a little differently from the work\'s glossary are written its way, the reader learns whether a new character is a man or a woman, and your own corrections are found again (they were saved under another key with the Egyptian dialect).</string>
+    <string name="bench_title">Speed and accuracy test</string>
+    <string name="bench_info">Translates the same 24 English manhwa lines into Arabic the old way (CPU, 8 lines a call, JSON answer) and the new way (GPU when the phone can, 12 lines a call, numbered answer), on this phone, and measures each: time per line (p50, p95), tokens written a second, memory and accuracy (chrF against the right translations, 0-100). Takes a few minutes; nothing leaves the phone.</string>
+    <string name="bench_run">Run the test</string>
+    <string name="bench_running">Testing… %1$s</string>
+    <string name="bench_before">Before</string>
+    <string name="bench_now">Now</string>
+    <string name="bench_line">%1$s [%2$s] · p50 %3$d ms · p95 %4$d ms per line · %5$s tok/s · chrF %6$s · %7$d/%8$d lines · %9$d MB</string>
+    <string name="bench_pass">Passed: %1$sx faster, as accurate or more</string>
+    <string name="bench_fail">Not passed (%1$sx): copy the result and send it</string>
+    <string name="bench_copy">Copy the result</string>
+    <string name="bench_no_model">Download or import a phone model first.</string>
+    <string name="wn_phone_t">The phone model, much faster</string>
+    <string name="wn_phone_b">The model on your phone now runs on its GPU when it can, answers in fewer words (numbered lines instead of JSON), does 12 lines a call, loads while the page is read, and its second model rereads only the lines that need it. A speed and accuracy test in Phone models measures before and now on your own phone.</string>
 </resources>

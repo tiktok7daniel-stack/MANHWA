@@ -66,6 +66,7 @@ import mihon.icons.materialsymbols.rounded.CallMerge
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.TextFields
+import mihon.icons.materialsymbols.rounded.Speed
 import mihon.icons.materialsymbols.rounded.Translate
 import mihon.icons.materialsymbols.rounded.Tune
 import mihon.icons.materialsymbols.rounded.Key
@@ -109,6 +110,7 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
+            Feature(MaterialSymbols.Rounded.Speed, ATMR.strings.wn_phone_t, ATMR.strings.wn_phone_b),
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_sharp_t, ATMR.strings.wn_sharp_b),
             Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_fast_t, ATMR.strings.wn_fast_b),
             Feature(MaterialSymbols.Rounded.Public, ATMR.strings.wn_steady_t, ATMR.strings.wn_steady_b),
