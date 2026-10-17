@@ -305,3 +305,13 @@
   - GitHub وMaven كانوا متاحين.
   - تحميل الـ artifacts مباشرة كان ممنوع.
   - سجلات البناء كانت بتتقري من GitHub API.
+
+---
+
+## 8. البيلد النهائي (17 أكتوبر)
+
+- **البناء 89** على commit `c50c347e4`: نجح البناء ونجحت الاختبارات.
+- صفحة البناء: https://github.com/tiktok7daniel-stack/MANHWA/actions/runs/39061413771
+- **الـ APK:** https://github.com/tiktok7daniel-stack/MANHWA/actions/runs/39061413771/artifacts/12111878000 (جوه الـ zip: `app-arm64-v8a-debug.apk`)
+- main اتعمله fast-forward بعد ما البناء نجح.
+- **الذاكرة الكاملة للسيشن:** `docs/SESSION_MEMORY.md`
