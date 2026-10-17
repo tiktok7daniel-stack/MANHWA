@@ -145,7 +145,30 @@ class TranslationManager(
         translator.queueChapter(manga, chapters)
         startTranslation()
         // Kept alive in the background until the queue is done, even with the app closed
-        if (hasWork()) TranslationJob.start(context)
+        if (hasWork()) {
+            TranslationJob.start(context)
+            askToKeepRunningOnce()
+        }
+    }
+
+    /**
+     * MANHWA: the first time a chapter is queued, Android is asked once to let the app run in the background
+     * without its battery limits (several phone makers stop a translation otherwise when the app is left).
+     * Never asked again, whatever the answer.
+     */
+    private fun askToKeepRunningOnce() {
+        runCatching {
+            val prefs = context.getSharedPreferences("manhwa_background", Context.MODE_PRIVATE)
+            if (prefs.getBoolean("battery_asked", false)) return
+            val power = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            prefs.edit().putBoolean("battery_asked", true).apply()
+            if (power.isIgnoringBatteryOptimizations(context.packageName)) return
+            @android.annotation.SuppressLint("BatteryLife")
+            val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                .setData(android.net.Uri.parse("package:${context.packageName}"))
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }
     }
 
     /**

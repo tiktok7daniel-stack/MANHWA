@@ -293,11 +293,15 @@ class LocalModelsScreen : Screen() {
             Text(stringResource(ATMR.strings.bench_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
             val r = report
             if (r != null) {
-                listOfNotNull(r.legacy, r.fast).forEach { run ->
+                listOfNotNull(r.legacy, r.fast, r.edit).forEach { run ->
                     Text(
                         stringResource(
                             ATMR.strings.bench_line,
-                            if (run === r.fast) stringResource(ATMR.strings.bench_now) else stringResource(ATMR.strings.bench_before),
+                            when {
+                                run === r.edit -> stringResource(ATMR.strings.bench_edit)
+                                run === r.fast -> stringResource(ATMR.strings.bench_now)
+                                else -> stringResource(ATMR.strings.bench_before)
+                            },
                             run.backend,
                             run.p50Ms,
                             run.p95Ms,
@@ -311,11 +315,12 @@ class LocalModelsScreen : Screen() {
                         color = Color.White,
                     )
                 }
-                if (r.legacy != null && r.fast != null) {
+                val chosen = r.best
+                if (r.legacy != null && chosen != null) {
                     Text(
                         stringResource(
                             if (r.passed) ATMR.strings.bench_pass else ATMR.strings.bench_fail,
-                            String.format(Locale.US, "%.2f", r.legacy.p50Ms.toDouble() / r.fast.p50Ms.coerceAtLeast(1)),
+                            String.format(Locale.US, "%.2f", r.legacy.p50Ms.toDouble() / chosen.p50Ms.coerceAtLeast(1)),
                         ),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Black,
@@ -350,8 +355,24 @@ class LocalModelsScreen : Screen() {
                     }
                 }
             }
+            // MANHWA: the way the test found best for this phone, kept for every translation from now on
+            val r2 = report
+            if (r2 != null && r2.best != null) {
+                val tuningPref = remember { context.appGraph.translationPreferences.translationLocalTuning() }
+                val current by tuningPref.collectPreference()
+                val bestName = r2.bestTuning.name
+                ManhwaKit.NeonButton(
+                    if (current == bestName) stringResource(ATMR.strings.bench_using, r2.bestTuning.label()) else stringResource(ATMR.strings.bench_use_best, r2.bestTuning.label()),
+                    icon = MaterialSymbols.Rounded.Verified,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { tuningPref.set(bestName) }
+            }
         }
     }
+
+    @Composable
+    private fun LocalAiRules.Tuning.label(): String =
+        if (editOnly) stringResource(ATMR.strings.bench_edit) else stringResource(ATMR.strings.bench_now)
 
     /** "Gemma 3n E4B · main" style line in the colour of the role. */
     @Composable

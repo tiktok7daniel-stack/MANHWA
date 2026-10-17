@@ -141,12 +141,34 @@ object LocalAiEngine {
                 if (slots[slot.path] === slot) {
                     return runCatching {
                         slot.lastUse = System.currentTimeMillis()
-                        slot.engine.generateResponse(prompt)
+                        greedy(slot.engine, prompt)
                     }.onFailure { logcat(LogPriority.WARN, it) { "The on-device AI failed" } }.getOrNull()
                 }
             }
         }
         return null
+    }
+
+    /**
+     * MANHWA: the model's most likely answer (top-1, no sampling): a translation is not creative writing, and the
+     * same line gives the same answer every time. A fresh session per call (nothing carried over between calls);
+     * when the session can't be made, the model's plain answer as before.
+     */
+    private fun greedy(engine: LlmInference, prompt: String): String {
+        val session = runCatching {
+            com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.createFromOptions(
+                engine,
+                com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.LlmInferenceSessionOptions.builder()
+                    .setTopK(1)
+                    .build(),
+            )
+        }.getOrNull() ?: return engine.generateResponse(prompt)
+        return try {
+            session.addQueryChunk(prompt)
+            session.generateResponse()
+        } finally {
+            runCatching { session.close() }
+        }
     }
 
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Default)
@@ -249,4 +271,19 @@ object LocalModelRam {
         (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(info)
         info.totalMem
     }.getOrDefault(0L)
+}
+
+/** MANHWA: the phone's heat and battery now, for [LocalAiRules.governor]. */
+object PhoneState {
+    fun read(context: Context): LocalAiRules.State = runCatching {
+        val power = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        val thermal = if (android.os.Build.VERSION.SDK_INT >= 29) power.currentThermalStatus else 0
+        val battery = context.getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager
+        LocalAiRules.State(
+            thermal = thermal,
+            battery = battery.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY),
+            charging = battery.isCharging,
+            saver = power.isPowerSaveMode,
+        )
+    }.getOrDefault(LocalAiRules.State(thermal = 0, battery = 100, charging = true, saver = false))
 }

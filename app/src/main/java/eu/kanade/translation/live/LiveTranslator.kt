@@ -484,6 +484,15 @@ class LiveTranslator(
                 preferences,
                 teamStore.appContext.appGraph.networkHelper.client,
             )
+            // MANHWA: no key but a model on the phone: the phone translates the page being read, as it does chapters
+            team.isEmpty() && eu.kanade.translation.local.LocalAiEngine.available(teamStore.appContext) ->
+                eu.kanade.translation.local.LocalAiTranslator(
+                    teamStore.appContext,
+                    from,
+                    to,
+                    instructions = eu.kanade.translation.style.StyleProfile.instruction(preferences, to.name),
+                    tuning = eu.kanade.translation.local.LocalAiRules.Tuning.named(preferences.translationLocalTuning().get()),
+                ).also { eu.kanade.translation.local.LocalAiEngine.warm(teamStore.appContext) }
             team.isEmpty() -> TextTranslators.withoutKeys(preferences).build(preferences, from, to)
             // The page being read goes first through the router, even while chapters are translated
             quickDraft -> HybridTranslator(from, to, GoogleTranslator(from, to), TeamTranslator(from, to, teamStore, team, AiRouter.Lane.LIVE))
@@ -507,7 +516,8 @@ class LiveTranslator(
             val team = teamStore.active()
             val quickDraft = preferences.translationQuickDraft().get()
             val teamSignature = team.joinToString(",") { "${it.id}:${it.model}:${it.key.hashCode()}:${it.baseUrl}" } +
-                "|$quickDraft|${preferences.translationEngine().get()}|${preferences.translationFastMode().get()}:${preferences.translationFastEngine().get()}"
+                "|$quickDraft|${preferences.translationEngine().get()}|${preferences.translationFastMode().get()}:${preferences.translationFastEngine().get()}" +
+                "|${eu.kanade.translation.local.LocalAiEngine.available(teamStore.appContext)}:${preferences.translationLocalModelPath().get()}:${preferences.translationLocalTuning().get()}"
             if (teamSignature != builtForTeam) {
                 builtForTeam = teamSignature
                 translator?.close()
@@ -598,6 +608,16 @@ class LiveTranslator(
                 // The work's own names win over the codex
                 fast.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(id?.let(glossaryStore::asMap).orEmpty(), codex)
             }
+            // MANHWA phone model: the work's names, the codex and who the characters are
+            (engine as? eu.kanade.translation.local.LocalAiTranslator)?.let { phone ->
+                val codex = if ((from == TextRecognizerLanguage.ENGLISH || from == TextRecognizerLanguage.KOREAN) && to == TextTranslatorLanguage.ARABIC) {
+                    eu.kanade.translation.collection.ManhwaCodex.termsIn(result.blocks.joinToString(" ") { it.text }, preferences.translationCodexPacks().get())
+                } else {
+                    emptyMap()
+                }
+                phone.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(id?.let(glossaryStore::asMap).orEmpty(), codex)
+                phone.notes = id?.let(glossaryStore::notes).orEmpty()
+            }
             // MANHWA: lines from the collection are written at once; only the rest goes to the translator
             val known: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
             val useLibrary = preferences.translationCollection().get()
@@ -614,6 +634,9 @@ class LiveTranslator(
                     if (hit?.sure == true) {
                         block.translation = hit.translation
                         known += block
+                    } else if (hit != null && engine is eu.kanade.translation.local.LocalAiTranslator) {
+                        // MANHWA: a line the collection is not sure of is the phone model's draft to start from
+                        block.translation = hit.translation
                     }
                 }
                 collection.record(result.blocks.size, known.size)
@@ -700,6 +723,18 @@ class LiveTranslator(
                     glossaryStore.asMap(id),
                     result.blocks.filter { it.translation.isNotBlank() }.map { TranslationCollection.Line(it.text, it.translation, it.kind) },
                     TranslationCollection.Source.TEAM,
+                )
+            }
+            // MANHWA phone memory: the phone's checked lines, below every key's
+            val phone = engine as? eu.kanade.translation.local.LocalAiTranslator
+            if (useLibrary && id != null && phone != null) {
+                collection.learn(
+                    from.name,
+                    eu.kanade.translation.style.StyleProfile.libraryTarget(preferences, to.name),
+                    id,
+                    glossaryStore.asMap(id),
+                    phone.learnable(listOf(result)),
+                    TranslationCollection.Source.LOCAL,
                 )
             }
 

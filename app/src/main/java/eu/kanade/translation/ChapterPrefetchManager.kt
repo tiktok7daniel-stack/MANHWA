@@ -28,10 +28,12 @@ object ChapterPrefetchManager {
     data class Device(val batteryPercent: Int, val charging: Boolean, val powerSave: Boolean, val online: Boolean)
 
     /** The pure rule, so it can be tested without a phone. */
-    fun allowed(manual: Boolean, auto: Boolean, workingKeys: Int, device: Device): Boolean {
-        if (!device.online) return false
+    fun allowed(manual: Boolean, auto: Boolean, workingKeys: Int, device: Device, phoneModel: Boolean = false): Boolean {
+        // MANHWA: the phone model needs no internet for a chapter already downloaded
+        if (!device.online && !phoneModel) return false
         if (manual) return true
-        if (!auto || workingKeys < MIN_KEYS) return false
+        // MANHWA: the phone model translates ahead with no key at all (when the phone is cool enough, see below)
+        if (!auto || (workingKeys < MIN_KEYS && !phoneModel)) return false
         if (device.powerSave) return false
         return device.charging || device.batteryPercent >= MIN_BATTERY
     }
@@ -62,5 +64,9 @@ object ChapterPrefetchManager {
             auto = prefs.translationAutoPrefetch().get(),
             workingKeys = workingKeys(store),
             device = device(context),
+            // Only a cool phone, on charge or with battery to spare: the heat and battery guard says FULL
+            phoneModel = eu.kanade.translation.local.LocalAiEngine.available(context) &&
+                eu.kanade.translation.local.LocalAiRules.governor(eu.kanade.translation.local.PhoneState.read(context)) ==
+                eu.kanade.translation.local.LocalAiRules.Power.FULL,
         )
 }

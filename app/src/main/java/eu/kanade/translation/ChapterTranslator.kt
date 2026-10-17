@@ -354,6 +354,8 @@ class ChapterTranslator(
                 translation.fromLang,
                 translation.toLang,
                 instructions = eu.kanade.translation.style.StyleProfile.instruction(translationPreferences, translation.toLang.name),
+                // The way this phone's speed test chose (the fix-only way only when it measured faster and as accurate)
+                tuning = eu.kanade.translation.local.LocalAiRules.Tuning.named(translationPreferences.translationLocalTuning().get()),
             )
         } else {
             TextTranslators.withoutKeys(translationPreferences)
@@ -565,6 +567,8 @@ class ChapterTranslator(
                 // MANHWA on-device AI: the series glossary and the codex for the model on the phone too
                 (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.apply {
                     glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
+                    // Who the characters are (man or woman, how they speak), for "you", "he" and "she"
+                    notes = glossaryStore.notes(translation.manga.id)
                     // The phone shows its progress as it goes (it can be slow): never "stopped moving"
                     onBatchDone = { done, total ->
                         translation.advance(Translation.Stage.TRANSLATING, done, total)
@@ -602,7 +606,7 @@ class ChapterTranslator(
                 // Every finished batch goes to a reader waiting for this chapter (the whole page: the collection's
                 // lines and the new ones, which are the same blocks), before the review and the save
                 val chapterId = translation.chapter.id
-                (textTranslator as? TeamTranslator)?.onPagesDone = { done ->
+                val pagesDone: (Map<String, PageTranslation>) -> Unit = { done ->
                     val ready = done.keys.mapNotNull { name ->
                         pages[name]?.let { page ->
                             name to page.copy(blocks = page.blocks.filter { it.translation.isNotBlank() }.map { it.copy() }.toMutableList())
@@ -610,6 +614,9 @@ class ChapterTranslator(
                     }.toMap()
                     _partial.update { it + (chapterId to (it[chapterId].orEmpty() + ready)) }
                 }
+                (textTranslator as? TeamTranslator)?.onPagesDone = pagesDone
+                // MANHWA: the phone's pages too, as each is done (a slow phone shows the first pages long before the end)
+                (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.onPagesDone = pagesDone
                 translation.advance(Translation.Stage.TRANSLATING)
                 translation.note(if (ai != null && work.isNotEmpty()) Translation.Note.AI else null)
                 showProgress()
@@ -797,6 +804,16 @@ class ChapterTranslator(
                         .filter { it.translation.isNotBlank() && !(skipSfx && it.kind.equals(PageOcr.SFX, ignoreCase = true)) }
                         .map { TranslationCollection.Line(it.text, it.translation, it.kind) }
                     collection.learn(src, tgt, translation.manga.id, glossaryStore.asMap(translation.manga.id), lines, TranslationCollection.Source.TEAM)
+                }
+            }
+            // MANHWA phone memory: the phone model's own lines that pass the checks, below every key's, so the next
+            // chapters write them at once (sure only once seen three times; the reader's correction always wins)
+            (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.let { phone ->
+                if (useLibrary) {
+                    withContext(Dispatchers.IO) {
+                        val glossary = glossaryStore.asMap(translation.manga.id)
+                        collection.learn(src, tgt, translation.manga.id, glossary, phone.learnable(pages.values), TranslationCollection.Source.LOCAL)
+                    }
                 }
             }
             // MANHWA: the chapter's lines can be searched later from the search in translations

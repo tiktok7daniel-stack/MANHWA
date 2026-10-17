@@ -31,11 +31,28 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
     private val manager: TranslationManager by lazy { applicationContext.appGraph.translationManager }
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
+        // MANHWA: the chapter being translated, how far it is and how many wait, kept up to date while the app is
+        // closed (the translation goes on in the background until the queue is done)
+        val queue = manager.queueState.value
+        val now = queue.firstOrNull { it.status == Translation.State.TRANSLATING }
+        val waiting = queue.count { it.status == Translation.State.QUEUE }
+        val percent = now?.progress?.value?.percent ?: 0
         val notification = applicationContext.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
-            setContentTitle(applicationContext.stringResource(ATMR.strings.tj_title))
-            setContentText(applicationContext.stringResource(ATMR.strings.tj_text))
+            setContentTitle(
+                now?.let { applicationContext.stringResource(ATMR.strings.tj_now, it.manga.title, it.chapter.name) }
+                    ?: applicationContext.stringResource(ATMR.strings.tj_title),
+            )
+            setContentText(
+                if (waiting > 0) {
+                    applicationContext.stringResource(ATMR.strings.tj_waiting, percent, waiting)
+                } else {
+                    applicationContext.stringResource(ATMR.strings.tj_text)
+                },
+            )
             setSmallIcon(R.drawable.ic_translate)
             setOngoing(true)
+            setOnlyAlertOnce(true)
+            if (now != null) setProgress(100, percent, percent == 0)
         }.build()
         return ForegroundInfo(
             NOTIFICATION_ID,
@@ -51,8 +68,17 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
         setForegroundSafely()
         manager.startTranslation()
         var restarts = 0
+        var shown = ""
         while (!isStopped) {
             delay(2.seconds)
+            // The notification follows the chapter and its percentage (only when they change)
+            val queue = manager.queueState.value
+            val now = queue.firstOrNull { it.status == Translation.State.TRANSLATING }
+            val key = "${now?.chapter?.id}:${now?.progress?.value?.percent}:${queue.count { it.status == Translation.State.QUEUE }}"
+            if (key != shown) {
+                shown = key
+                runCatching { setForeground(getForegroundInfo()) }
+            }
             if (manager.isPaused || !manager.hasWork()) break
             if (!manager.isRunning) {
                 // Stopped with chapters still waiting (a failure stopped it): carry on, a few times at most

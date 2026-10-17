@@ -601,6 +601,13 @@ class ReaderViewModel(
         val next = state.value.viewerChapters?.nextChapter?.chapter ?: return
         if (pretranslatedChapterId == next.id) return
         if (!eu.kanade.translation.ChapterPrefetchManager.shouldPrefetch(context, context.appGraph.teamStore, translationPreferences)) return
+        // MANHWA: with only the phone model, the page being read goes first: the next chapter waits until the live
+        // translation of this one is done (one model answers one call at a time)
+        if (context.appGraph.teamStore.active().isEmpty() &&
+            liveTranslation.status.value.phase == eu.kanade.translation.live.LiveTranslator.Phase.WORKING
+        ) {
+            return
+        }
         pretranslatedChapterId = next.id
         appScope.launch(Dispatchers.IO) {
             val downloaded = downloadManager.isChapterDownloaded(next.name, next.scanlator, next.url, manga.title, manga.source)

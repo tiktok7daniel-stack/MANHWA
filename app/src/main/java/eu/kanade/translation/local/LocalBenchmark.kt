@@ -34,14 +34,23 @@ object LocalBenchmark {
         val totalMs: Long,
     )
 
-    data class Report(val model: String, val legacy: Run?, val fast: Run?) {
+    data class Report(val model: String, val legacy: Run?, val fast: Run?, val edit: Run? = null) {
         /** The new way is faster and at least as accurate (within a point of chrF, the noise of a short test). */
         val passed: Boolean
-            get() = legacy != null && fast != null && fast.p50Ms < legacy.p50Ms && fast.chrF >= legacy.chrF - 1.0 && fast.usable >= legacy.usable
+            get() = legacy != null && best != null && best!!.p50Ms < legacy.p50Ms && best!!.chrF >= legacy.chrF - 1.0 && best!!.usable >= legacy.usable
+
+        /**
+         * The way this phone should use: the fix-only way only when it measured faster than the plain new way and
+         * as accurate (within a point); otherwise the plain new way.
+         */
+        val bestTuning: LocalAiRules.Tuning
+            get() = if (LocalBenchmarkRules.editWins(fast?.let { it.p50Ms to it.chrF }, edit?.let { it.p50Ms to it.chrF })) LocalAiRules.Tuning.EDIT else LocalAiRules.Tuning.FAST
+
+        val best: Run? get() = if (bestTuning == LocalAiRules.Tuning.EDIT) edit else fast
 
         fun text(): String = buildString {
             appendLine("MANHWA phone model test · $model")
-            listOfNotNull(legacy, fast).forEach { r ->
+            listOfNotNull(legacy, fast, edit).forEach { r ->
                 appendLine(
                     String.format(
                         Locale.US,
@@ -51,8 +60,14 @@ object LocalBenchmark {
                     ),
                 )
             }
-            if (legacy != null && fast != null) {
-                appendLine(String.format(Locale.US, "Speed-up p50: %.2fx · chrF %+.1f · %s", legacy.p50Ms.toDouble() / fast.p50Ms.coerceAtLeast(1), fast.chrF - legacy.chrF, if (passed) "PASS" else "FAIL"))
+            val chosen = best
+            if (legacy != null && chosen != null) {
+                appendLine(
+                    String.format(
+                        Locale.US, "Best: %s · speed-up p50 %.2fx · chrF %+.1f · %s",
+                        bestTuning.name, legacy.p50Ms.toDouble() / chosen.p50Ms.coerceAtLeast(1), chosen.chrF - legacy.chrF, if (passed) "PASS" else "FAIL",
+                    ),
+                )
             }
         }
     }
@@ -65,7 +80,9 @@ object LocalBenchmark {
         val legacy = runCatching { measure(context, file, "Before", LocalAiRules.Tuning.LEGACY) }.getOrNull()
         onStep("fast")
         val fast = runCatching { measure(context, file, "Now", LocalAiRules.Tuning.FAST) }.getOrNull()
-        Report(name, legacy, fast)
+        onStep("fix-only")
+        val edit = runCatching { measure(context, file, "Fix-only", LocalAiRules.Tuning.EDIT) }.getOrNull()
+        Report(name, legacy, fast, edit)
     }
 
     private suspend fun measure(context: Context, file: File, label: String, tuning: LocalAiRules.Tuning): Run {
@@ -149,4 +166,14 @@ object LocalBenchmark {
         "Stay behind me." to "ابقَ خلفي.",
         "It's been a long time, old friend." to "لقد مر وقت طويل يا صديقي القديم.",
     )
+}
+
+/** The pure rule of the speed test's choice (tested without a phone). */
+object LocalBenchmarkRules {
+    /** [fast] and [edit] as (p50 ms, chrF): the fix-only way wins only faster and within a point of chrF. */
+    fun editWins(fast: Pair<Long, Double>?, edit: Pair<Long, Double>?): Boolean {
+        if (edit == null) return false
+        if (fast == null) return true
+        return edit.first < fast.first && edit.second >= fast.second - 1.0
+    }
 }
