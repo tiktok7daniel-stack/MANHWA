@@ -79,6 +79,13 @@ class TranslationManager(
     }
 
     /** Puts the saved queue back after the app was closed (once), and keeps translating it in the background. */
+    /** Why Android ended the app's last run (ApplicationExitInfo.REASON_*), when it can tell (Android 11+). */
+    private fun lastExitReason(): Int? = runCatching {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return null
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        am.getHistoricalProcessExitReasons(context.packageName, 0, 1).firstOrNull()?.reason
+    }.getOrNull()
+
     suspend fun restorePending() {
         if (!restoring.compareAndSet(false, true)) return restored.await()
         try {
@@ -91,7 +98,10 @@ class TranslationManager(
                 translationPreferences.translationPendingQueue().set("")
                 return
             }
-            translationPreferences.translationPendingQueue().set("${restores + 1}|$saved")
+            // MANHWA: only a crash counts against the queue; Android or the phone maker closing the app to free
+            // memory (with the model on the phone, the app is the biggest one) is not the queue's fault
+            val crashed = RestoreRules.crashed(lastExitReason())
+            translationPreferences.translationPendingQueue().set("${if (crashed) restores + 1 else restores}|$saved")
             saved.split(',').mapNotNull { entry ->
                 val (mangaId, chapterId) = entry.split(':').takeIf { it.size == 2 } ?: return@mapNotNull null
                 (mangaId.toLongOrNull() ?: return@mapNotNull null) to (chapterId.toLongOrNull() ?: return@mapNotNull null)
@@ -382,4 +392,14 @@ class TranslationManager(
     private companion object {
         const val MAX_RESTORES = 3
     }
+}
+
+/** MANHWA: the pure rule of putting the saved queue back (tested without a phone). */
+object RestoreRules {
+    /**
+     * The last run ended in a crash or a freeze (ApplicationExitInfo REASON_CRASH 4, REASON_CRASH_NATIVE 5,
+     * REASON_ANR 6); unknown counts as a crash (older Android), so a queue that keeps bringing the app down is let go.
+     * Closed for memory, by the phone maker, by the reader or for an update: not a crash.
+     */
+    fun crashed(reason: Int?): Boolean = reason == null || reason == 4 || reason == 5 || reason == 6
 }

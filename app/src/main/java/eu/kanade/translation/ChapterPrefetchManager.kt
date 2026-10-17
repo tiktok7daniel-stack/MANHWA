@@ -34,6 +34,8 @@ object ChapterPrefetchManager {
         if (manual) return true
         // MANHWA: the phone model translates ahead with no key at all (when the phone is cool enough, see below)
         if (!auto || (workingKeys < MIN_KEYS && !phoneModel)) return false
+        // MANHWA: the phone model works at full strength whatever the battery (the reader's choice)
+        if (phoneModel) return true
         if (device.powerSave) return false
         return device.charging || device.batteryPercent >= MIN_BATTERY
     }

@@ -414,19 +414,17 @@ object LocalAiRules {
     data class State(val thermal: Int, val battery: Int, val charging: Boolean, val saver: Boolean)
 
     /**
-     * MANHWA heat and battery guard. Charging and cool: everything. Warm, or on battery under 20% or with the
-     * battery saver: one model, nothing ahead. Severe heat: nothing in the background (only what is read now).
+     * MANHWA power guard: full strength whatever the battery (the reader's choice: translation never slows down for
+     * a low battery or the battery saver). Only when Android says the phone is critically hot (it is already cutting
+     * its own speed) does the translation keep to one model with nothing ahead; it never stops for heat.
      */
     fun governor(state: State): Power = when {
-        state.thermal >= THERMAL_SEVERE -> Power.PAUSE
-        state.thermal >= THERMAL_MODERATE -> Power.LIGHT
-        !state.charging && (state.battery in 0 until LOW_BATTERY || state.saver) -> Power.LIGHT
+        state.thermal >= THERMAL_CRITICAL -> Power.LIGHT
         else -> Power.FULL
     }
 
-    private const val THERMAL_MODERATE = 2
-    private const val THERMAL_SEVERE = 3
-    private const val LOW_BATTERY = 20
+    /** PowerManager.THERMAL_STATUS_CRITICAL. */
+    private const val THERMAL_CRITICAL = 4
 
     fun replyRule(tuning: Tuning, count: Int): String =
         if (tuning.numbered) {

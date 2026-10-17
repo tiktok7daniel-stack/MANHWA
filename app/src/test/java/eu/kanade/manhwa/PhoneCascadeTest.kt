@@ -28,14 +28,14 @@ class PhoneCascadeTest {
     }
 
     @Test
-    fun `the guard keeps a hot or tired phone light`() {
+    fun `full strength at any battery, one model only when critically hot`() {
         val cool = LocalAiRules.State(thermal = 0, battery = 80, charging = false, saver = false)
         LocalAiRules.governor(cool) shouldBe LocalAiRules.Power.FULL
-        LocalAiRules.governor(cool.copy(thermal = 2)) shouldBe LocalAiRules.Power.LIGHT
-        LocalAiRules.governor(cool.copy(thermal = 4)) shouldBe LocalAiRules.Power.PAUSE
-        LocalAiRules.governor(cool.copy(battery = 15)) shouldBe LocalAiRules.Power.LIGHT
-        LocalAiRules.governor(cool.copy(battery = 15, charging = true)) shouldBe LocalAiRules.Power.FULL
-        LocalAiRules.governor(cool.copy(saver = true)) shouldBe LocalAiRules.Power.LIGHT
+        LocalAiRules.governor(cool.copy(battery = 1)) shouldBe LocalAiRules.Power.FULL
+        LocalAiRules.governor(cool.copy(battery = 15, saver = true)) shouldBe LocalAiRules.Power.FULL
+        LocalAiRules.governor(cool.copy(thermal = 3)) shouldBe LocalAiRules.Power.FULL
+        LocalAiRules.governor(cool.copy(thermal = 4)) shouldBe LocalAiRules.Power.LIGHT
+        LocalAiRules.governor(cool.copy(thermal = 6)) shouldBe LocalAiRules.Power.LIGHT
     }
 
     @Test
@@ -79,5 +79,17 @@ class PhoneCascadeTest {
         ChapterPrefetchManager.allowed(manual = false, auto = true, workingKeys = 0, device = good, phoneModel = true) shouldBe true
         ChapterPrefetchManager.allowed(manual = false, auto = true, workingKeys = 0, device = good.copy(online = false), phoneModel = true) shouldBe true
         ChapterPrefetchManager.allowed(manual = false, auto = false, workingKeys = 0, device = good, phoneModel = true) shouldBe false
+        ChapterPrefetchManager.allowed(manual = false, auto = true, workingKeys = 0, device = good.copy(batteryPercent = 1, powerSave = true), phoneModel = true) shouldBe true
+    }
+
+    @Test
+    fun `closing the app for memory does not count against the saved queue`() {
+        eu.kanade.translation.RestoreRules.crashed(3) shouldBe false // low memory
+        eu.kanade.translation.RestoreRules.crashed(13) shouldBe false // other (the phone maker)
+        eu.kanade.translation.RestoreRules.crashed(10) shouldBe false // user requested
+        eu.kanade.translation.RestoreRules.crashed(4) shouldBe true
+        eu.kanade.translation.RestoreRules.crashed(5) shouldBe true
+        eu.kanade.translation.RestoreRules.crashed(6) shouldBe true
+        eu.kanade.translation.RestoreRules.crashed(null) shouldBe true
     }
 }

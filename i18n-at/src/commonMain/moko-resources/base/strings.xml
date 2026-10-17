@@ -1096,4 +1096,7 @@
     <string name="speed_backend_none">Runs on: not loaded yet (it loads with the first page)</string>
     <string name="speed_info">Every line is drafted first by Google\'s on-device translator (instant, offline), and the phone model fixes only what is wrong. The rules of the chapter are read by the model once, not on every call. On a Snapdragon phone the model tries the NPU first, then the GPU.</string>
     <string name="speed_tips">For the most speed: turn on the phone\'s performance mode (on RedMagic: the Game Space / turbo slider, or Settings › Battery › Performance), keep it charging and cool (the fan helps), and keep the app\'s battery use on Unrestricted. An app cannot switch the performance mode on by itself.</string>
+    <string name="tn_bg_title">Keep translating with the app closed</string>
+    <string name="tn_bg_info">Android still limits the app in the background, so it can stop the translation a minute after you leave. Allow it once: translation then goes on at full strength with the app left or the screen off. On RedMagic, also set Auto-start, Secondary launch and Background running to Allowed and the battery to Unrestricted in the app's settings.</string>
+    <string name="tn_bg_allow">Allow in the background</string>
 </resources>

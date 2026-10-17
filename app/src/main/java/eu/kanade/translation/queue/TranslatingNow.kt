@@ -58,6 +58,7 @@ import eu.kanade.translation.model.Translation
 import kotlinx.coroutines.delay
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Speed
 import mihon.icons.materialsymbols.rounded.DeleteSweep
 import mihon.icons.materialsymbols.rounded.OpenInNew
 import mihon.icons.materialsymbols.rounded.Translate
@@ -241,6 +242,9 @@ class TranslatingNowScreen : Screen() {
                             )
                         }
                     } else {
+                        // MANHWA: Android's battery limits still on for the app: one tap so the translation goes on
+                        // with the app left or the screen off
+                        item(key = "background") { BackgroundCard() }
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 if (running) {
@@ -351,6 +355,39 @@ class TranslatingNowScreen : Screen() {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ManhwaKit.GhostButton(stringResource(ATMR.strings.tn_open), icon = MaterialSymbols.Rounded.OpenInNew, modifier = Modifier.weight(1f), onClick = onOpen)
                 ManhwaKit.GhostButton(stringResource(ATMR.strings.tn_stop), icon = MaterialSymbols.RoundedFilled.Cancel, modifier = Modifier.weight(1f), onClick = onStop)
+            }
+        }
+    }
+}
+
+/** Shown while Android's battery limits apply to the app; it opens Android's own question to lift them. */
+@Composable
+private fun BackgroundCard() {
+    val context = LocalContext.current
+    var limited by remember { mutableStateOf(false) }
+    // Asked again when the reader comes back from Android's question
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            limited = runCatching {
+                !(context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager)
+                    .isIgnoringBatteryOptimizations(context.packageName)
+            }.getOrDefault(false)
+            kotlinx.coroutines.delay(2_000)
+        }
+    }
+    if (!limited) return
+    Column(
+        Modifier.fillMaxWidth().glass(RoundedCornerShape(20.dp), accent = true, alpha = 0.45f).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(ATMR.strings.tn_bg_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+        Text(stringResource(ATMR.strings.tn_bg_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+        ManhwaKit.NeonButton(stringResource(ATMR.strings.tn_bg_allow), icon = MaterialSymbols.Rounded.Speed, modifier = Modifier.fillMaxWidth()) {
+            runCatching {
+                @android.annotation.SuppressLint("BatteryLife")
+                val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    .setData(android.net.Uri.parse("package:${context.packageName}"))
+                context.startActivity(intent)
             }
         }
     }

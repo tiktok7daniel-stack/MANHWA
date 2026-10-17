@@ -69,6 +69,8 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
         manager.restorePending()
         if (!manager.hasWork()) return Result.success()
         setForegroundSafely()
+        // In the foreground now, Android lets the service start: it carries on there (sticky, kept awake)
+        if (TranslationService.start(applicationContext)) return Result.success()
         manager.startTranslation()
         var restarts = 0
         var shown = ""
@@ -103,7 +105,15 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
         private const val MAX_BACKOFF_STEPS = 6
         private const val NOTIFICATION_ID = Notifications.ID_NEW_CHAPTERS - 3000
 
+        /**
+         * MANHWA: translation goes on in [TranslationService] (sticky, the processor kept awake); this job only
+         * when Android does not let a service start right now (it starts the service itself when it can).
+         */
         fun start(context: Context) {
+            if (!TranslationService.start(context)) startJob(context)
+        }
+
+        fun startJob(context: Context) {
             val request = OneTimeWorkRequestBuilder<TranslationJob>().addTag(TAG).build()
             WorkManager.getInstance(context).enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
         }
