@@ -91,4 +91,18 @@ class FusionRulesTest {
         FusionRules.langCode("ko") shouldBe "KO"
         FusionRules.langCode("") shouldBe "EN"
     }
+
+    @Test
+    fun `changing source keeps the chapters translated on the first one, the new one gives the rest`() {
+        val ours = (1..26).map { it.toDouble() }
+        // Translated on the first English source: 27 to 30
+        val kept = (27..30).map { it.toDouble() to "a$it" }
+        val newSource = (1..144).map { it.toDouble() to "b$it" }
+        val out = FusionRules.layered(ours, kept, newSource)
+        out.first().second shouldBe "b144"
+        out.filter { it.second.startsWith("a") }.map { it.second } shouldBe listOf("a30", "a29", "a28", "a27")
+        out.any { it.second == "b27" || it.second == "b30" } shouldBe false
+        out.any { it.second == "b31" } shouldBe true
+        out.size shouldBe 144 - 26
+    }
 }

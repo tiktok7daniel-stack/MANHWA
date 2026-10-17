@@ -117,12 +117,13 @@ class HistoryViewModel(
         fusions: Map<Long, ChapterFusion.Fusion>,
     ): List<Pair<HistoryWithRelations, String?>> {
         if (fusions.isEmpty()) return map { it to null }
-        val baseOf = fusions.values.associate { it.otherMangaId to it }
+        val baseOf = fusions.values.flatMap { f -> f.continuationIds().map { it to f } }.toMap()
         val kept = FusionRules.mergeHistory(this, { it.mangaId }, { baseOf[it]?.baseMangaId })
         return kept.map { history ->
             val fusion = baseOf[history.mangaId] ?: return@map history to null
             val base = getManga.await(fusion.baseMangaId) ?: return@map history to null
-            history.copy(title = base.title, coverData = base.asMangaCover()) to FusionRules.langCode(fusion.otherLang)
+            val lang = fusion.kept.firstOrNull { it.mangaId == history.mangaId }?.lang?.ifBlank { null } ?: fusion.otherLang
+            history.copy(title = base.title, coverData = base.asMangaCover()) to FusionRules.langCode(lang)
         }
     }
 
@@ -165,8 +166,7 @@ class HistoryViewModel(
             removeHistory.await(mangaId)
             // MANHWA fusion: a fused work's history goes with its continuation's, both ways
             val fusion = chapterFusion.continuationOf(mangaId) ?: chapterFusion.fusionOf(mangaId) ?: return@launch
-            val other = if (fusion.baseMangaId == mangaId) fusion.otherMangaId else fusion.baseMangaId
-            removeHistory.await(other)
+            (listOf(fusion.baseMangaId) + fusion.continuationIds()).filter { it != mangaId }.forEach { removeHistory.await(it) }
         }
     }
 

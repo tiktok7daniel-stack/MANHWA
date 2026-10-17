@@ -239,8 +239,10 @@ class ReaderViewModel(
             }
             // MANHWA fusion: in a work's continuation, the chapters the work reads from its own source are left out
             .let { list ->
-                val replacedUpTo = runCatching { chapterFusion.replacedUpTo(manga.id) }.getOrNull()
-                list.filter { it.id == chapterId || eu.kanade.translation.unified.FusionRules.keepInContinuation(it.chapterNumber, replacedUpTo) }
+                // MANHWA: only this entry's chapters in the fused list (kept ones from an earlier source included);
+                // unnumbered extras stay
+                val allowed = runCatching { chapterFusion.readerChapterIds(manga.id) }.getOrNull()
+                list.filter { it.id == chapterId || allowed == null || it.id in allowed || !eu.kanade.translation.unified.FusionRules.countable(it.chapterNumber) }
             }
 
         val selectedChapter = chapters.find { it.id == chapterId }
@@ -837,11 +839,8 @@ class ReaderViewModel(
         val manga = manga ?: return null
         val chapter = getCurrentChapter()?.chapter ?: return null
         val target = runCatching { chapterFusion.neighbour(manga.id, chapter.chapterNumber, forward) }.getOrNull() ?: return null
-        val sourceName = if (chapterFusion.fusionOf(manga.id) != null) {
-            chapterFusion.fusionOf(manga.id)?.otherSourceName
-        } else {
-            chapterFusion.continuationOf(manga.id)?.baseSourceName
-        }
+        // The source the next chapter is read from (the work's own, the continuation, or a kept one)
+        val sourceName = (chapterFusion.fusionOf(manga.id) ?: chapterFusion.continuationOf(manga.id))?.sourceNameOf(target.first)
         return Triple(target.first, target.second, sourceName.orEmpty())
     }
 

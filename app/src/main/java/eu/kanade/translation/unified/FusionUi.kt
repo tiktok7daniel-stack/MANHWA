@@ -92,6 +92,12 @@ class FusionUi(val manga: Manga) {
     var choices by mutableStateOf<List<ChapterFusion.Offer>>(emptyList())
     var continuation by mutableStateOf<List<ChapterFusion.Continuation>>(emptyList())
     var other by mutableStateOf<Manga?>(null)
+
+    /** MANHWA: the entries of earlier continuations whose translated chapters were kept, by id. */
+    var layers by mutableStateOf<Map<Long, Manga>>(emptyMap())
+
+    /** The entry a continuation chapter belongs to: the current continuation, or a kept one. */
+    fun mangaOf(mangaId: Long): Manga? = other?.takeIf { it.id == mangaId } ?: layers[mangaId]
     var oursMin by mutableStateOf<Double?>(null)
     var oursMax by mutableStateOf<Double?>(null)
     var baseLang by mutableStateOf("")
@@ -133,6 +139,9 @@ fun rememberFusionUi(manga: Manga): FusionUi {
             ui.offer = null
             ui.other = engine.otherOf(fusion)
             if (ui.other == null) return@LaunchedEffect
+            ui.layers = withContext(Dispatchers.IO) {
+                fusion.kept.mapNotNull { layer -> graph.getMangaById.await(layer.mangaId) }.associateBy { it.id }
+            }
             // What is already known first, then what the other source has now
             ui.continuation = engine.continuation(manga.id, refresh = false)
             ui.continuation = engine.continuation(manga.id, refresh = true)
@@ -160,6 +169,7 @@ private suspend fun search(context: android.content.Context, ui: FusionUi, force
 @Composable
 fun FusionBanner(ui: FusionUi, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     // The reader always picks the work to join with: nothing is fused without seeing it first
     var picking by remember { mutableStateOf(false) }
     val fusion = ui.fusion
@@ -178,9 +188,28 @@ fun FusionBanner(ui: FusionUi, modifier: Modifier = Modifier) {
     if (picking) {
         FusionPicker(
             ui,
-            onPick = {
-                context.appGraph.chapterFusion.fuse(it)
+            onPick = { picked ->
                 picking = false
+                val current = ui.fusion
+                scope.launch {
+                    // MANHWA: moving the continuation to another source keeps the chapters translated on the
+                    // current one in their place; the new source only gives the chapters they do not have
+                    val engine = context.appGraph.chapterFusion
+                    val kept = if (current != null && current.otherMangaId != picked.other.id) {
+                        engine.keptOnChange(current) { chapter -> translatedOrWorking(context, chapter) }
+                    } else {
+                        current?.kept.orEmpty()
+                    }
+                    engine.fuse(picked, kept)
+                    val count = kept.filter { it.mangaId != picked.other.id }.sumOf { it.chapters.size }
+                    if (count > 0) {
+                        Toast.makeText(
+                            context,
+                            context.stringResource(ATMR.strings.fusion_kept_chapters, count),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
             },
             onDismiss = { picking = false },
         )
@@ -398,7 +427,8 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
     val queue by graph.downloadManager.queueState.collectAsState()
     val queued = queue.firstOrNull { it.chapter.id == item.chapter.id }
     val status = queued?.statusFlow?.collectAsState()?.value
-    val other = ui.other
+    // The entry this chapter comes from: the current continuation, or one kept from an earlier source
+    val other = ui.mangaOf(item.chapter.mangaId)
     val downloaded = remember(queue, other) {
         other != null && graph.downloadManager.isChapterDownloaded(item.chapter.name, item.chapter.scanlator, item.chapter.url, other.title, other.source)
     }
@@ -421,7 +451,7 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            ContinuationBadge(fusion, translation.state, translation.working)
+            ContinuationBadge(fusion, item, translation.state, translation.working)
             // What the translation is doing now: the stage with its counter, or the live reader's pages
             val live = translation.live
             if (live != null) {
@@ -481,7 +511,10 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
 
 /** The continuation's badge: "EN continuation · source", pulsing while it is translated, "Translated · EN" after. */
 @Composable
-private fun ContinuationBadge(fusion: ChapterFusion.Fusion, state: Translation.State, working: Boolean) {
+private fun ContinuationBadge(fusion: ChapterFusion.Fusion, item: ChapterFusion.Continuation, state: Translation.State, working: Boolean) {
+    val layer = fusion.kept.firstOrNull { it.mangaId == item.chapter.mangaId }
+    val lang = layer?.lang?.ifBlank { null } ?: fusion.otherLang
+    val sourceName = item.sourceName.ifBlank { fusion.otherSourceName }
     val translated = state == Translation.State.TRANSLATED
     val tint = if (translated) Mint else Ember
     val pulse = if (working) {
@@ -512,9 +545,9 @@ private fun ContinuationBadge(fusion: ChapterFusion.Fusion, state: Translation.S
             Spacer(Modifier.width(4.dp))
             Text(
                 if (translated) {
-                    stringResource(ATMR.strings.fusion_badge_translated, langCode(fusion.otherLang))
+                    stringResource(ATMR.strings.fusion_badge_translated, langCode(lang))
                 } else {
-                    stringResource(ATMR.strings.fusion_badge_next, langCode(fusion.otherLang), fusion.otherSourceName)
+                    stringResource(ATMR.strings.fusion_badge_next, langCode(lang), sourceName)
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = tint,
@@ -596,6 +629,14 @@ private fun rememberContinuationTranslation(
         else -> Translation.State.NOT_TRANSLATED
     }
     return ContinuationTranslation(state, progress, live, reload)
+}
+
+/** Whether [chapter] is translated, or in the translation queue now. */
+private suspend fun translatedOrWorking(context: android.content.Context, chapter: tachiyomi.domain.chapter.model.Chapter): Boolean {
+    val graph = context.appGraph
+    if (graph.translationManager.getQueuedTranslationOrNull(chapter.id) != null) return true
+    val manga = graph.getMangaById.await(chapter.mangaId) ?: return false
+    return graph.translationManager.isChapterTranslated(chapter.name, chapter.scanlator, manga.title, manga.source)
 }
 
 private suspend fun cancelTranslation(graph: mihon.app.di.AppGraph, item: ChapterFusion.Continuation) {

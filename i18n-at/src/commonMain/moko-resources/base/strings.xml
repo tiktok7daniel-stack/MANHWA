@@ -1008,9 +1008,10 @@
     <string name="fusion_live_translating">Translating live %1$d/%2$d</string>
     <string name="history_continuation">%1$s continuation</string>
     <string name="wn_fusion2_t">Fused works, one story</string>
-    <string name="wn_fusion2_b">The continuation\'s chapters show their translation live (a moving ring with the real percentage, then \"Translated\"), one that is not downloaded is fetched first, \"Translate chapters\" offers only the continuation, a chapter read live is saved as translated, and the history shows a fused work once.</string>
+    <string name="wn_fusion2_b">The continuation\'s chapters show their translation live (a moving ring with the real percentage, then \"Translated\"), one that is not downloaded is fetched first, \"Translate chapters\" offers only the continuation, a chapter read live is saved as translated, and the history shows a fused work once. Changing the source keeps the chapters already translated in their place; the new source gives only the rest.</string>
     <string name="wn_typeset_t">Cleaner pages</string>
     <string name="wn_typeset_b">Big shouts inside a bubble are erased and replaced, lines the AI joined into the next bubble no longer stay in English, text keeps away from the spikes of a bubble, and the stretching mark is gone from words.</string>
     <string name="wn_onecat_t">One place for every series</string>
     <string name="wn_onecat_b">A series is in one category only (yours first, then Completed, then its genre), and the same work added from two sources shows once.</string>
+    <string name="fusion_kept_chapters">%1$d chapters already translated stay in their place; the new source gives the rest</string>
 </resources>

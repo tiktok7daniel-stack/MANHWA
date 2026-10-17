@@ -85,7 +85,7 @@ class DiscoverViewModel(
     private suspend fun mergeFusedHistory(
         list: List<tachiyomi.domain.history.model.HistoryWithRelations>,
     ): List<tachiyomi.domain.history.model.HistoryWithRelations> {
-        val fusions = chapterFusion.fusions.value.values.associateBy { it.otherMangaId }
+        val fusions = chapterFusion.fusions.value.values.flatMap { f -> f.continuationIds().map { it to f } }.toMap()
         val merged = eu.kanade.translation.unified.FusionRules.mergeHistory(list, { it.mangaId }, { fusions[it]?.baseMangaId })
             .distinctBy { it.mangaId }
         if (fusions.isEmpty()) return merged

@@ -203,14 +203,14 @@ class MangaViewModel(
 
     private val chapterFusion = context.appGraph.chapterFusion
 
-    /** MANHWA fusion: the entry whose chapters continue this work, when it is fused. */
-    private val fusionOther: StateFlow<Long?> = chapterFusion.fusions
-        .map { it[mangaId]?.otherMangaId }
+    /** MANHWA fusion: the entries whose chapters continue this work (kept ones included), when it is fused. */
+    private val fusionOther: StateFlow<Set<Long>> = chapterFusion.fusions
+        .map { it[mangaId]?.continuationIds().orEmpty().toSet() }
         .distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, chapterFusion.fusionOf(mangaId)?.otherMangaId)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, chapterFusion.fusionOf(mangaId)?.continuationIds().orEmpty().toSet())
 
     /** This work's chapters, or those of its fused continuation. */
-    private fun isOurs(id: Long): Boolean = id == mangaId || id == fusionOther.value
+    private fun isOurs(id: Long): Boolean = id == mangaId || id in fusionOther.value
 
     /** MANHWA fusion: the continuation's chapters the translate sheet offered last, by id. */
     private var continuationChapters: Map<Long, Chapter> = emptyMap()
@@ -953,7 +953,7 @@ class MangaViewModel(
         val manga = successState?.manga ?: return@withContext TranslateCandidates(emptyList(), 0, continuation = false)
         val baseLang = (sourceManager.get(manga.source) as? CatalogueSource)?.lang.orEmpty()
         val toLang = TextTranslatorLanguage.fromPref(context.appGraph.translationPreferences.translateToLanguage()).code
-        if (fusionOther.value == null || !eu.kanade.translation.unified.FusionRules.sameLanguage(baseLang, toLang)) {
+        if (fusionOther.value.isEmpty() || !eu.kanade.translation.unified.FusionRules.sameLanguage(baseLang, toLang)) {
             continuationChapters = emptyMap()
             return@withContext TranslateCandidates(translateCandidates(), totalChapterCount(), continuation = false)
         }
@@ -969,11 +969,12 @@ class MangaViewModel(
      * translated as soon as it arrives, as on this work's own chapters.
      */
     fun translateContinuation(chapter: Chapter) {
-        val otherId = fusionOther.value ?: return
+        if (chapter.mangaId !in fusionOther.value) return
         val chapterId = chapter.id
         translationStates.update { it + (chapterId to Translation.State.QUEUE) }
         appScope.launch(Dispatchers.IO) {
-            val other = context.appGraph.getMangaById.await(otherId) ?: return@launch
+            // The chapter's own entry: the current continuation, or one kept from an earlier source
+            val other = context.appGraph.getMangaById.await(chapter.mangaId) ?: return@launch
             // Shown as fetching from the start; dropped at once when it was downloaded already
             downloadStage.update { it + (chapterId to Translation.Progress()) }
             if (!translationManager.translateOrFetch(other, chapter)) downloadStage.update { it - chapterId }
