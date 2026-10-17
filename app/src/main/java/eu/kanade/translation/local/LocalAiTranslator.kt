@@ -382,10 +382,11 @@ object LocalAiRules {
             val LEGACY = Tuning(numbered = false, linesPerCall = 8, backend = com.google.mediapipe.tasks.genai.llminference.LlmInference.Backend.CPU, name = "LEGACY")
 
             /**
-             * The way saved for this phone by its speed test; until it has been measured, the fix-only way: ML Kit
-             * drafts every line at once (milliseconds, on the phone) and the model writes only what is wrong.
+             * The way saved for this phone by its speed test; until it has been measured, the plain way: the model
+             * translates each line once. The fix-only way (a small model tends to copy its drafts back) only when
+             * the speed test chose it on this phone.
              */
-            fun named(name: String): Tuning = if (name == FAST.name) FAST else EDIT
+            fun named(name: String): Tuning = if (name == EDIT.name) EDIT else FAST
         }
     }
 

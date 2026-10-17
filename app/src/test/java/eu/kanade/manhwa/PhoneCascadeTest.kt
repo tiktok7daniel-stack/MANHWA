@@ -85,8 +85,8 @@ class PhoneCascadeTest {
         LocalBenchmarkRules.editWins(fast = 3000L to 60.0, edit = 3200L to 70.0) shouldBe false
         LocalBenchmarkRules.editWins(fast = 3000L to 60.0, edit = null) shouldBe false
         LocalAiRules.Tuning.named("EDIT") shouldBe LocalAiRules.Tuning.EDIT
-        // Not measured yet: the on-device translator drafts first
-        LocalAiRules.Tuning.named("AUTO") shouldBe LocalAiRules.Tuning.EDIT
+        // Not measured yet: the model translates each line once
+        LocalAiRules.Tuning.named("AUTO") shouldBe LocalAiRules.Tuning.FAST
         LocalAiRules.Tuning.named("FAST") shouldBe LocalAiRules.Tuning.FAST
     }
 
