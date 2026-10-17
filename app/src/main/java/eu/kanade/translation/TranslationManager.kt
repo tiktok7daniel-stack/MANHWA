@@ -78,7 +78,6 @@ class TranslationManager(
         }
     }
 
-    /** Puts the saved queue back after the app was closed (once), and keeps translating it in the background. */
     /** Why Android ended the app's last run (ApplicationExitInfo.REASON_*), when it can tell (Android 11+). */
     private fun lastExitReason(): Int? = runCatching {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return null
@@ -86,6 +85,7 @@ class TranslationManager(
         am.getHistoricalProcessExitReasons(context.packageName, 0, 1).firstOrNull()?.reason
     }.getOrNull()
 
+    /** Puts the saved queue back after the app was closed (once), and keeps translating it in the background. */
     suspend fun restorePending() {
         if (!restoring.compareAndSet(false, true)) return restored.await()
         try {

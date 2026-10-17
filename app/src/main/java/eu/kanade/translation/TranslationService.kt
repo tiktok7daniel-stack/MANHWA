@@ -42,10 +42,15 @@ class TranslationService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    @Volatile private var lastStartId = 0
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         // Foreground at once: Android gives a started service a few seconds to show its notification
         if (!goForeground()) {
-            stopSelf()
+            // Android did not let it into the foreground now (started again from the background): the job carries on
+            TranslationJob.startJob(applicationContext)
+            stopSelf(startId)
             return START_NOT_STICKY
         }
         if (loop?.isActive != true) loop = scope.launch { run() }
@@ -66,6 +71,8 @@ class TranslationService : Service() {
         var shown = ""
         while (scope.isActive) {
             delay(2.seconds)
+            // Renewed every turn (cheap when held): a long stuck page never lets the lock lapse for good
+            hold(true)
             val queue = manager.queueState.value
             val now = queue.firstOrNull { it.status == Translation.State.TRANSLATING }
             val key = "${now?.chapter?.id}:${now?.progress?.value?.percent}:${queue.count { it.status == Translation.State.QUEUE }}"
@@ -89,14 +96,23 @@ class TranslationService : Service() {
 
     private fun stop() {
         hold(false)
+        // A chapter queued while this one winds down is not dropped: the latest start keeps the service, and
+        // work that appeared at the last moment goes to the job
+        if (applicationContext.appGraph.translationManager.hasWork() && !applicationContext.appGraph.translationManager.isPaused) {
+            TranslationJob.startJob(applicationContext)
+        }
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        stopSelf(lastStartId)
     }
 
     /** The processor stays awake while chapters are translated (the screen may go off). */
     private fun hold(on: Boolean) {
         if (on) {
-            if (wakeLock?.isHeld == true) return
+            // Held: its time is pushed back, so it lasts as long as the queue
+            wakeLock?.takeIf { it.isHeld }?.let {
+                it.acquire(WAKE_LOCK_MS)
+                return
+            }
             wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MANHWA:translation")
                 .apply {
@@ -110,8 +126,6 @@ class TranslationService : Service() {
     }
 
     private fun goForeground(): Boolean = runCatching {
-        // Renewed with every notification update, so a long queue never outlives it
-        if (wakeLock?.isHeld == true) wakeLock?.acquire(WAKE_LOCK_MS)
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
