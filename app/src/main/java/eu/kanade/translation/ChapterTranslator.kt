@@ -287,6 +287,18 @@ class ChapterTranslator(
         if (!part.renameTo(name)) throw IOException("Could not rename $partName")
     }
 
+    /**
+     * MANHWA: a page read or translated is progress: the count of times the saved queue was put back without any
+     * progress starts again, so a queue Android keeps closing mid-chapter is never given up on.
+     */
+    private fun madeProgress() {
+        runCatching {
+            val pref = translationPreferences.translationPendingQueue()
+            val value = pref.get()
+            if (value.isNotEmpty() && !value.startsWith("0|")) pref.set("0|" + value.substringAfter('|'))
+        }
+    }
+
     private fun cancelTranslatorJob() {
         translationJob?.cancel()
         translationJob = null
@@ -431,9 +443,14 @@ class ChapterTranslator(
 
             // 1. Read the text of every page (25–55%), or carry on from an earlier try
             val earlier = readCache.get(translation.chapter.id)
-            val pages = earlier?.pages?.copied() ?: mutableMapOf()
+            // MANHWA: what was read before the app was closed, kept on the disk
+            val kept = if (earlier == null) ChapterCheckpoint.loadRead(context, translation.chapter.id) else null
+            val pages = earlier?.pages?.copied() ?: kept?.pages?.toMutableMap() ?: mutableMapOf()
             val images = earlier?.images?.toMutableMap() ?: mutableMapOf()
-            if (earlier == null) {
+            val processed = kept?.processed.orEmpty().toMutableSet()
+            if (earlier == null && kept?.complete == true) {
+                readCache.put(translation.chapter.id, ReadPages(pages.copied(), images.toMap()))
+            } else if (earlier == null) {
                 translation.advance(Translation.Stage.READING, 0, streams.size)
                 showProgress()
                 val tmpFile = translationMangaDir.createFile("tmp")!!
@@ -445,6 +462,11 @@ class ChapterTranslator(
                     for ((index, entry) in streams.withIndex()) {
                         val (fileName, streamFn) = entry
                         coroutineContext.ensureActive()
+                        // Read before the app was closed: carried on from the next page
+                        if (fileName in processed) {
+                            translation.advance(Translation.Stage.READING, index + 1, streams.size)
+                            continue
+                        }
                         // Shown while the reader goes first through the shared gate
                         translation.note(if (HeavyWork.readerBusy) Translation.Note.READER else null)
                         // One page at a time through the shared gate: the reader's live translation and drawing go first.
@@ -483,8 +505,12 @@ class ChapterTranslator(
                         }
                         translation.advance(Translation.Stage.READING, index + 1, streams.size)
                         showProgress()
-                        if (pageTranslation == null) continue
-                        if (pageTranslation.blocks.isNotEmpty() || fileName in images) pages[fileName] = pageTranslation
+                        processed += fileName
+                        if (pageTranslation != null && (pageTranslation.blocks.isNotEmpty() || fileName in images)) {
+                            pages[fileName] = pageTranslation
+                        }
+                        ChapterCheckpoint.saveRead(context, translation.chapter.id, ChapterCheckpoint.Read(processed.toSet(), pages.copied()))
+                        madeProgress()
                     }
                 }
                 tmpFile.delete()
@@ -502,6 +528,7 @@ class ChapterTranslator(
                     logcat { "Re-read ${fixed.size} of ${unsureCrops.size} unsure bubbles from their image" }
                 }
                 readCache.put(translation.chapter.id, ReadPages(pages.copied(), images.toMap()))
+                ChapterCheckpoint.saveRead(context, translation.chapter.id, ChapterCheckpoint.Read(processed.toSet(), pages.copied(), complete = true))
             }
 
             // 2. Plan (55–60%)
@@ -577,13 +604,20 @@ class ChapterTranslator(
                 }
                 // MANHWA collection: lines translated before, in any manhwa, are written at once; repeats inside
                 // the chapter are translated once; only what is left goes to the translator
+                // MANHWA: pages translated before the app was closed are not sent again
+                val restored = CheckpointRules.applyDone(pages, ChapterCheckpoint.loadDone(context, translation.chapter.id))
+                if (restored.isNotEmpty()) {
+                    val shown = restored.associateWith { pages.getValue(it) }
+                    _partial.update { it + (translation.chapter.id to (it[translation.chapter.id].orEmpty() + shown)) }
+                }
                 val library = if (useLibrary) {
-                    fromLibrary(pages, src, tgt, glossaryStore.asMap(translation.manga.id), acceptNear = textTranslator is eu.kanade.translation.translator.FastTranslator)
+                    fromLibrary(pages.filterKeys { it !in restored }.toMutableMap(), src, tgt, glossaryStore.asMap(translation.manga.id), acceptNear = textTranslator is eu.kanade.translation.translator.FastTranslator)
                 } else {
                     LibraryPass.NONE
                 }
                 translation.fromLibrary(library.percent)
                 val work = pages.mapNotNull { (name, page) ->
+                    if (name in restored) return@mapNotNull null
                     val rest = page.blocks.filter { it !in library.known && !library.copies.containsKey(it) }
                     if (rest.isEmpty()) null else name to page.copy(blocks = rest.toMutableList())
                 }.toMap(mutableMapOf())
@@ -613,6 +647,13 @@ class ChapterTranslator(
                         }
                     }.toMap()
                     _partial.update { it + (chapterId to (it[chapterId].orEmpty() + ready)) }
+                    // Kept on the disk with every line, so a closed app carries on after these pages
+                    ChapterCheckpoint.addDone(
+                        context,
+                        chapterId,
+                        done.keys.mapNotNull { name -> pages[name]?.let { name to it.copy(blocks = it.blocks.map { b -> b.copy() }.toMutableList()) } }.toMap(),
+                    )
+                    madeProgress()
                 }
                 (textTranslator as? TeamTranslator)?.onPagesDone = pagesDone
                 // MANHWA: the phone's pages too, as each is done (a slow phone shows the first pages long before the end)
@@ -795,6 +836,7 @@ class ChapterTranslator(
             if (saved == null || saved.length() <= 0L) throw StepFailure(Translation.Note.SAVE_FAILED)
             translation.advance(Translation.Stage.SAVING, 1, 1)
             readCache.remove(translation.chapter.id)
+            ChapterCheckpoint.clear(context, translation.chapter.id)
             // Enough new lessons: the lead turns them into short rules for the next chapters
             textTranslator.aiPart?.let { lead -> lessonStore.compressIfDue(translation.manga.id, lead) }
             // Everything this chapter taught goes into the collection, for every manhwa after it
@@ -1165,9 +1207,11 @@ class ChapterTranslator(
 
     fun removeFromQueue(chapter: Chapter) {
         removeFromQueueIf { it.chapter.id == chapter.id }
+        ChapterCheckpoint.clear(context, chapter.id)
     }
 
     fun removeFromQueue(manga: Manga) {
+        _queueState.value.filter { it.manga.id == manga.id }.forEach { ChapterCheckpoint.clear(context, it.chapter.id) }
         removeFromQueueIf { it.manga.id == manga.id }
     }
 

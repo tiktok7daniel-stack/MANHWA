@@ -239,6 +239,9 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                         done.set(true)
                     }
                 }
+                // MANHWA: chapters that were being translated when Android closed the app carry on at once
+                runCatching { graph.translationManager.restorePending() }
+                runCatching { eu.kanade.translation.ChapterCheckpoint.prune(this@App) }
                 runCatching { graph.libraryOrganizer.watch() }
                 // MANHWA dual OCR: PaddleOCR's models come by themselves on Wi-Fi when the engine needs them
                 runCatching {

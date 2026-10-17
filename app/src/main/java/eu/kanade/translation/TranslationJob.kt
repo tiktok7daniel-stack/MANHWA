@@ -6,7 +6,9 @@ import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import eu.kanade.tachiyomi.R
@@ -18,6 +20,7 @@ import kotlinx.coroutines.delay
 import mihon.app.di.appGraph
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.at.ATMR
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -100,7 +103,33 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
             WorkManager.getInstance(context).enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
         }
 
+        private const val RESUME_TAG = "MANHWA-translation-resume"
+
+        /**
+         * While chapters wait, Android wakes the app every 15 minutes to carry on, even after it closed the app
+         * to free memory or the screen has been off for long; stopped again when the queue is empty.
+         */
+        fun keepResuming(context: Context, on: Boolean) {
+            val work = WorkManager.getInstance(context)
+            if (on) {
+                val request = PeriodicWorkRequestBuilder<TranslationResumeJob>(15, TimeUnit.MINUTES).addTag(RESUME_TAG).build()
+                work.enqueueUniquePeriodicWork(RESUME_TAG, ExistingPeriodicWorkPolicy.KEEP, request)
+            } else {
+                work.cancelUniqueWork(RESUME_TAG)
+            }
+        }
+
         /** Chapters waiting or being translated. */
         fun active(state: Translation.State) = state == Translation.State.QUEUE || state == Translation.State.TRANSLATING
+    }
+}
+
+/** MANHWA: puts the saved queue back and starts the translation again when Android had stopped the app. */
+class TranslationResumeJob(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val manager = applicationContext.appGraph.translationManager
+        manager.restorePending()
+        if (manager.hasWork() && !manager.isPaused) TranslationJob.start(applicationContext)
+        return Result.success()
     }
 }

@@ -52,6 +52,8 @@ class TranslationManager(
     private val restored = kotlinx.coroutines.CompletableDeferred<Unit>()
     private val restoring = java.util.concurrent.atomic.AtomicBoolean(false)
 
+    @Volatile private var resuming: Boolean? = null
+
     init {
         scope.launch {
             restorePending()
@@ -62,6 +64,12 @@ class TranslationManager(
                 .onEach { queue ->
                     val pending = queue.filter { TranslationJob.active(it.status) }.joinToString(",") { "${it.manga.id}:${it.chapter.id}" }
                     translationPreferences.translationPendingQueue().set(if (pending.isEmpty()) "" else "0|$pending")
+                    // MANHWA: chapters waiting are carried on even after Android closed the app
+                    val waiting = pending.isNotEmpty()
+                    if (waiting != resuming) {
+                        resuming = waiting
+                        runCatching { TranslationJob.keepResuming(context, waiting) }
+                    }
                 }
                 .launchIn(this)
         }
@@ -90,7 +98,10 @@ class TranslationManager(
                 val chapter = getChapter.await(chapterId) ?: return@forEach
                 runCatching { translator.queueChapter(manga, chapter) }
             }
-            if (hasWork()) TranslationJob.start(context)
+            if (hasWork()) {
+                TranslationJob.start(context)
+                runCatching { TranslationJob.keepResuming(context, true) }
+            }
         } finally {
             restored.complete(Unit)
         }
