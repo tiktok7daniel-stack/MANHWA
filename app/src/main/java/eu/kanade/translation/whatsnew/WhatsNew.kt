@@ -72,6 +72,7 @@ import mihon.icons.materialsymbols.rounded.Tune
 import mihon.icons.materialsymbols.rounded.Key
 import mihon.icons.materialsymbols.rounded.NewReleases
 import mihon.icons.materialsymbols.rounded.Psychology
+import mihon.icons.materialsymbols.rounded.PictureInPictureAlt
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.RecordVoiceOver
 import mihon.icons.materialsymbols.rounded.School
@@ -110,6 +111,16 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
+            Feature(MaterialSymbols.Rounded.Speed, ATMR.strings.wn_bg_t, ATMR.strings.wn_bg_b),
+            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_pip_t, ATMR.strings.wn_pip_b),
+            Feature(MaterialSymbols.Rounded.Widgets, ATMR.strings.wn_float_t, ATMR.strings.wn_float_b),
+            Feature(MaterialSymbols.Rounded.Key, ATMR.strings.wn_nara_t, ATMR.strings.wn_nara_b),
+        )
+
+    /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
+    val earlier: List<Feature>
+        get() = listOf(
+            // Builds 64-90
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_cascade_t, ATMR.strings.wn_cascade_b),
             Feature(MaterialSymbols.Rounded.Speed, ATMR.strings.wn_phone_t, ATMR.strings.wn_phone_b),
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_sharp_t, ATMR.strings.wn_sharp_b),
@@ -120,11 +131,6 @@ object WhatsNew {
             Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_fusion2_t, ATMR.strings.wn_fusion2_b),
             Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_typeset_t, ATMR.strings.wn_typeset_b),
             Feature(MaterialSymbols.Rounded.CollectionsBookmark, ATMR.strings.wn_onecat_t, ATMR.strings.wn_onecat_b),
-        )
-
-    /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
-    val earlier: List<Feature>
-        get() = listOf(
             // Builds 58-63
             Feature(MaterialSymbols.Rounded.CallMerge, ATMR.strings.wn_fusion_t, ATMR.strings.wn_fusion_b),
             Feature(MaterialSymbols.Rounded.Download, ATMR.strings.wn_networks_t, ATMR.strings.wn_networks_b),

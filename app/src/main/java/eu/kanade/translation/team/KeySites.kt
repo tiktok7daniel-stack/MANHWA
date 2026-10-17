@@ -193,6 +193,18 @@ object KeySites {
         }
     }
 
+    /** Listed sites whose keys start with "sk-" like OpenAI's, most likely first. */
+    private val SK_SITES = listOf("openai", "nara", "deepseek", "siliconflow", "moonshot", "qwen")
+
+    /**
+     * MANHWA: the other sites a key refused by [current] may belong to. A plain "sk-" key looks like OpenAI's but
+     * NaraRouter, DeepSeek, SiliconFlow, Kimi and Qwen make keys that look the same; empty for any other key.
+     */
+    fun skAlternatives(key: String, current: String): List<Site> {
+        if (forKey(key)?.id != "openai" || current !in SK_SITES) return emptyList()
+        return SK_SITES.filter { it != current }.mapNotNull(::byId)
+    }
+
     fun hostOf(url: String): String? = runCatching {
         val withScheme = if ("://" in url) url else "https://$url"
         java.net.URI(withScheme.trim()).host?.lowercase()?.removePrefix("www.")
@@ -231,15 +243,21 @@ object KeySites {
             }.maxByOrNull { it.first }?.second
             return flash ?: models.firstOrNull { it == "gemini-flash-latest" } ?: models.firstOrNull { it == siteDefault }
         }
-        // OpenRouter: the free models (":free") first, so a key with no credit never lands on a paid one
-        if (protocol == Provider.OPENROUTER) {
-            val free = models.filter { it.lowercase().endsWith(":free") && SKIP.none { s -> s in it.lowercase() } }
+        // The free models first on OpenRouter, and on any router with no known good model (NaraRouter), so a key
+        // with no credit never lands on a paid one
+        if (protocol == Provider.OPENROUTER || siteDefault.isBlank() || siteDefault !in models) {
+            val free = models.filter { isFree(it) && SKIP.none { s -> s in it.lowercase() } }
             if (free.isNotEmpty()) return siteDefault.takeIf { it in free } ?: free.minWith(compareBy<String>({ rank(it) }, { it.length }))
         }
         if (siteDefault.isNotBlank() && siteDefault in models) return siteDefault
         val usable = models.filterNot { id -> SKIP.any { it in id.lowercase() } }.ifEmpty { return null }
         return usable.minWithOrNull(compareBy<String>({ rank(it) }, { it.length }))
     }
+
+    /** "model:free", "model-free", "free/model": a model the site names as free. */
+    fun isFree(id: String): Boolean = FREE.containsMatchIn(id)
+
+    private val FREE = Regex("(^|[-:/_.])free($|[-:/_.])", RegexOption.IGNORE_CASE)
 
     private val SKIP = listOf(
         "embed", "tts", "whisper", "transcribe", "audio", "image", "dall-e", "moderation", "guard", "rerank", "realtime",
@@ -255,7 +273,7 @@ object KeySites {
 
     private fun rank(id: String): Int {
         val m = id.lowercase()
-        val free = if (m.endsWith(":free")) 0 else 1
+        val free = if (isFree(m)) 0 else 1
         val family = FAMILIES.indexOfFirst { it in m }.let { if (it < 0) FAMILIES.size else it }
         return family * 2 + free
     }

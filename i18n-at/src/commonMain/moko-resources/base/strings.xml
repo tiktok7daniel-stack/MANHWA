@@ -1103,4 +1103,13 @@
     <string name="pip_summary">Swipe home and the reader shrinks into a small window you can move to the side, over other apps; the translation goes on in it. Tap it to come back.</string>
     <string name="hud_pip">Small window</string>
     <string name="tj_failed">%1$d chapters could not be translated</string>
+    <string name="team_sites_tried">Not taken by any site whose keys look like this (tried %1$s): %2$s</string>
+    <string name="wn_bg_t">Translation keeps going when you leave</string>
+    <string name="wn_bg_b">Leave the app for TikTok or turn the screen off: the chapter goes on translating at full speed in the background, from the page it reached, and its progress shows in the notification. If the phone closes the app, it starts again by itself. A chapter that failed for a passing reason (no internet, a busy key) is tried again by itself.</string>
+    <string name="wn_pip_t">The reader in a small window</string>
+    <string name="wn_pip_b">Swipe home while reading and the reader shrinks into a small window over other apps, and goes on translating. There is also a quick button in the reader, and a switch in the reader settings.</string>
+    <string name="wn_float_t">Floating windows and split screen</string>
+    <string name="wn_float_b">The app now works in the floating window of the phone (like Hang app on RedMagic) and in split screen, and the main screen no longer reloads when the window is resized or turned.</string>
+    <string name="wn_nara_t">NaraRouter keys and keys that start with sk-</string>
+    <string name="wn_nara_b">A key starting with sk- that OpenAI refuses is now tried on NaraRouter, DeepSeek, SiliconFlow, Kimi and Qwen, and moves to the site that takes it. On NaraRouter the free models are picked first, and up to 3 models are tried before a key is called broken. When none works, the message names every site tried and what it answered.</string>
 </resources>

@@ -7,6 +7,8 @@ Full history and file map: `docs/SESSION_MEMORY.md`, `docs/MANHWA_HANDOFF.md`.
 - No build after each request: commit with `[skip ci]` and list the change in `docs/PENDING_CHANGES.md`. Build only
   when the user says "اعمل بيلد نهائي" (workflow_dispatch of `build_branch.yml`), then fast-forward `main` and send
   the arm64 artifact link.
+- What's new (`translation/whatsnew/WhatsNew.kt`): before every final build, `latest` holds only that build's new
+  items (shown on first open); the previous `latest` moves to the top of `earlier`.
 - Icons: Material Symbols only (`mihon.icons.materialsymbols.*`), no emoji in the app. UI in ManhwaKit
   (`glass()`, NeonButton, GhostButton, TopBar, GlowIcon).
 - Never delete a feature or the user's data; new stored fields get backward-compatible defaults.

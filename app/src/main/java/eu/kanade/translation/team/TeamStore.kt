@@ -572,12 +572,17 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         translatorFor(member, TextRecognizerLanguage.ENGLISH, TextTranslatorLanguage.ENGLISH).listModels()
     }
 
-    private suspend fun analyzeNow(member: Member, healed: Boolean = false): Analysis {
+    /**
+     * [heals]: models already replaced in this check (up to [MAX_HEALS]); [probing]: the key is being tried on
+     * another site, which is not looked for again.
+     */
+    private suspend fun analyzeNow(member: Member, heals: Int = 0, probing: Boolean = false): Analysis {
         analyzing += member.id
         _analyzingIds.value = analyzing.toSet()
         // Automatic keys start on a model their site really has
         @Suppress("NAME_SHADOWING")
-        val member = if (!healed && member.model.isBlank() && member.autoModel.isBlank()) refreshModel(member) else member
+        val member = if (heals == 0 && member.model.isBlank() && member.autoModel.isBlank()) refreshModel(member) else member
+        var failCode: Int? = null
         val result = try {
             val translator = translatorFor(member, TextRecognizerLanguage.ENGLISH, TextTranslatorLanguage.fromPref(prefs.translateToLanguage()))
             try {
@@ -604,6 +609,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             val code = (e as? AiTranslator.ApiException)?.code
+            failCode = code
             Analysis(
                 ok = false,
                 // Busy or out of quota for now: still a working key, it just rests
@@ -615,11 +621,66 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             analyzing -= member.id
             _analyzingIds.value = analyzing.toSet()
         }
-        // The model is gone or wrong: pick a working one from the site's list and try once more
-        if (!result.ok && !result.limited && !healed && modelProblem(result.error)) {
-            val fixed = refreshModel(member)
-            if (fixed.autoModel != member.autoModel || fixed.model != member.model) return analyzeNow(fixed, healed = true)
+        // The model is gone or wrong: it is left out and another from the site's list is tried, a few times
+        if (!result.ok && !result.limited && heals < MAX_HEALS && modelProblem(result.error)) {
+            val failed = member.model.ifBlank { member.autoModel }
+            val fixed = refreshModel(withDeadModel(member, failed))
+            val next = fixed.model.ifBlank { fixed.autoModel }
+            if (next.isNotBlank() && next != failed) return analyzeNow(fixed, heals + 1, probing)
         }
+        // MANHWA: a plain "sk-" key refused here may be from another site whose keys look the same (NaraRouter,
+        // DeepSeek...): each is tried, and the key moves to the first that takes it. Only on 401 (the key is not
+        // this site's at all): a 403 can be a working key held back, which is never shown to other sites
+        if (!result.ok && !probing && failCode == 401) {
+            val others = KeySites.skAlternatives(member.key, member.siteOrGuess)
+            if (others.isNotEmpty()) return probeSites(member, result, others)
+        }
+        mutateAnalysis { map -> map + (member.id to result) }
+        _health.update { it - member.id }
+        return result
+    }
+
+    /** [member] with [dead] left out of its models (a hand-picked one goes back to automatic), saved. */
+    private fun withDeadModel(member: Member, dead: String): Member {
+        if (dead.isBlank()) return member
+        val updated = member.copy(
+            model = if (member.model == dead) "" else member.model,
+            autoModel = if (member.autoModel == dead) "" else member.autoModel,
+            deadModels = (member.deadModels + dead).distinct().takeLast(20),
+        )
+        mutate { list -> list.map { if (it.id == member.id) updated else it } }
+        return updated
+    }
+
+    /**
+     * Tries the key refused on [member]'s site on each of [others]: a site that lists models for it and then
+     * answers keeps it. When none does, the key stays as it was and the error names every site tried.
+     */
+    private suspend fun probeSites(member: Member, refused: Analysis, others: List<KeySites.Site>): Analysis {
+        for (site in others) {
+            val moved = member.copy(
+                provider = site.protocol.name,
+                site = site.id,
+                siteName = "",
+                baseUrl = "",
+                model = "",
+                autoModel = "",
+                deadModels = emptyList(),
+            )
+            val models = runCatching { fetchModels(moved) }.getOrDefault(emptyList())
+            if (models.isEmpty()) continue
+            mutate { list -> list.map { if (it.id == member.id) moved else it } }
+            val result = analyzeNow(moved, probing = true)
+            if (result.ok || result.limited) {
+                keyHealth.forget(member.id)
+                logcat(LogPriority.INFO) { "Key ${member.key.takeLast(4)} moved from ${member.displayName} to ${site.name}" }
+                return result
+            }
+        }
+        // None took it: back to where it was, with every site tried named
+        mutate { list -> list.map { if (it.id == member.id) member else it } }
+        val tried = (listOf(member.displayName) + others.map { it.name }).joinToString(", ")
+        val result = refused.copy(error = context.stringResource(ATMR.strings.team_sites_tried, tried, refused.error.orEmpty()).take(300))
         mutateAnalysis { map -> map + (member.id to result) }
         _health.update { it - member.id }
         return result
@@ -646,6 +707,9 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         }
 
         private const val DEFAULT_STRENGTH = 50
+
+        /** Models replaced in one check before the key is called broken. */
+        private const val MAX_HEALS = 3
         private const val MODEL_CHECK_MS = 24 * 60 * 60 * 1000L
         private const val LOW_PERCENT = 20
         private const val NOTIFICATION_BASE = 0x3A000
