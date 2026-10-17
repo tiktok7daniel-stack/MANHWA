@@ -42,3 +42,13 @@ class NetworkRulesTest {
         NetworkRules.retryable("GET", IOException("Canceled")) shouldBe false
     }
 }
+
+class DownloadRetryRulesTest {
+
+    @Test
+    fun `a failed chapter waits longer each time`() {
+        eu.kanade.tachiyomi.data.download.DownloadRetryRules.backoffSeconds(1) shouldBe 5L
+        eu.kanade.tachiyomi.data.download.DownloadRetryRules.backoffSeconds(2) shouldBe 15L
+        eu.kanade.tachiyomi.data.download.DownloadRetryRules.backoffSeconds(3) shouldBe 30L
+    }
+}

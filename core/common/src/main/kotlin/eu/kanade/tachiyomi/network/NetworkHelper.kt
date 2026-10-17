@@ -36,7 +36,7 @@ class NetworkHelper(
             .cookieJar(cookieJar)
             .connectTimeout(30.seconds)
             .readTimeout(30.seconds)
-            .callTimeout(2.minutes)
+            .callTimeout(5.minutes) // MANHWA: big pages on slow networks
             .cache(
                 Cache(
                     directory = File(context.cacheDir, "network_cache"),

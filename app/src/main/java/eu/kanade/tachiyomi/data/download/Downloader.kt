@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.DiskUtil.NOMEDIA_FILE
 import eu.kanade.tachiyomi.util.storage.saveTo
+import eu.kanade.tachiyomi.util.system.activeNetworkState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -324,6 +325,18 @@ class Downloader(
 
             downloadChapter(download, slots, pagesStarted)
 
+            // MANHWA: a chapter cut by a weak or changing network is tried again by itself (pages already saved
+            // are kept), waiting for the network to be back first
+            var tries = 1
+            while (download.status == Download.State.ERROR && tries < CHAPTER_TRIES && download in queueState.value) {
+                download.status = Download.State.QUEUE
+                waitForNetwork()
+                delay(DownloadRetryRules.backoffSeconds(tries).seconds)
+                if (download !in queueState.value) return@launch
+                tries++
+                downloadChapter(download, slots, CompletableDeferred())
+            }
+
             // Remove successful download from queue
             if (download.status == Download.State.DOWNLOADED) {
                 removeFromQueue(download)
@@ -342,6 +355,14 @@ class Downloader(
         } finally {
             // Also when the chapter fails before its pages, so the source moves on to the next one
             pagesStarted.complete(Unit)
+        }
+    }
+
+    /** Waits (up to a few minutes) until the phone is online again. */
+    private suspend fun waitForNetwork() {
+        repeat(NETWORK_WAIT_STEPS) {
+            if (context.activeNetworkState().isOnline) return
+            delay(2.seconds)
         }
     }
 
@@ -608,10 +629,10 @@ class Downloader(
             }
             emit(file)
         }
-            // Retry 3 times, waiting 2, 4 and 8 seconds between attempts.
+            // MANHWA: retry 5 times, waiting 2, 4, 8, 16 and 16 seconds, so slow or changing networks still finish
             .retryWhen { _, attempt ->
-                if (attempt < 3) {
-                    delay((2L shl attempt.toInt()).seconds)
+                if (attempt < 5) {
+                    delay((2L shl attempt.toInt()).coerceAtMost(16L).seconds)
                     true
                 } else {
                     false
@@ -876,8 +897,19 @@ class Downloader(
         const val WARNING_NOTIF_TIMEOUT_MS = 30_000L
         const val CHAPTERS_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 15
         private const val DOWNLOADS_QUEUED_WARNING_THRESHOLD = 30
+        private const val CHAPTER_TRIES = 4
+        private const val NETWORK_WAIT_STEPS = 90
     }
 }
 
 // Arbitrary minimum required space to start a download: 200 MB
 private const val MIN_DISK_SPACE = 200L * 1024 * 1024
+
+/** MANHWA: how long a failed chapter waits before it is tried again: 5 s, then 15 s, then 30 s. */
+object DownloadRetryRules {
+    fun backoffSeconds(triesSoFar: Int): Long = when {
+        triesSoFar <= 1 -> 5L
+        triesSoFar == 2 -> 15L
+        else -> 30L
+    }
+}
