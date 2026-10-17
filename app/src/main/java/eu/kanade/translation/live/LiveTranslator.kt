@@ -581,9 +581,12 @@ class LiveTranslator(
                 } else {
                     emptyMap()
                 }
-                glossary = codex + id?.let(glossaryStore::asMap).orEmpty()
+                glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(id?.let(glossaryStore::asMap).orEmpty(), codex)
                 learnTerms = id != null
+                // MANHWA: new names come with who they are (kind, man or woman), so the next pages agree with them
+                richTerms = id != null
                 discoveredTerms.clear()
+                discoveredDetails.clear()
             }
             // MANHWA fast mode: the work's names and the codex go in before the lines are sent
             (engine as? eu.kanade.translation.translator.FastTranslator)?.let { fast ->
@@ -593,7 +596,7 @@ class LiveTranslator(
                     emptyMap()
                 }
                 // The work's own names win over the codex
-                fast.glossary = codex + id?.let(glossaryStore::asMap).orEmpty()
+                fast.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(id?.let(glossaryStore::asMap).orEmpty(), codex)
             }
             // MANHWA: lines from the collection are written at once; only the rest goes to the translator
             val known: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
@@ -687,7 +690,7 @@ class LiveTranslator(
             // One translation per place: duplicates and empty pieces merged, nothing drawn twice
             PageOcr.finish(result, keepSfxArt = skipSfx)
             editStore.restore(result, "l${page.chapter.chapter.id}", "${page.index}")
-            if (id != null) engine.aiPart?.let { glossaryStore.merge(id, it.discoveredTerms) }
+            if (id != null) engine.aiPart?.let { ai -> glossaryStore.merge(id, ai.discoveredTerms, ai.discoveredDetails.mapValues { (_, info) -> info.kind to info.gender }) }
             // MANHWA: what this page taught goes into the collection too
             if (useLibrary && id != null && engine.aiPart != null && !engine.fellBack) {
                 collection.learn(

@@ -1068,4 +1068,6 @@
     <string name="hud_smart">Smart</string>
     <string name="wn_fast_t">Fast translation, like Google Lens</string>
     <string name="wn_fast_b">A new mode next to the AI: the text read on the page goes straight to machine translation (DeepL, Microsoft, Google, or ML Kit offline), so pages are translated in a moment without spending any key. Your translation collection is used first, close matches included, and names stay the same. Switch between Fast and Smart from the reader\'s quick buttons.</string>
+    <string name="wn_sharp_t">Sharper translation</string>
+    <string name="wn_sharp_b">Each part of a chapter now sees what was said on the two pages before it, even while another key is still on them, so who speaks and to whom stays right. Names spelt a little differently from the work\'s glossary are written its way, the reader learns whether a new character is a man or a woman, and your own corrections are found again (they were saved under another key with the Egyptian dialect).</string>
 </resources>

@@ -147,7 +147,8 @@ object PageOcr {
         // PaddleOCR can't: ML Kit alone, as before.
         if (paddle != null) {
             val dual = mode != eu.kanade.translation.ocr.PaddleOcrEngine.Mode.PADDLE
-            val mlkit = if (dual) runCatching { readAt(recognizer, strip, 1f) }.getOrDefault(emptyList()) else emptyList()
+            // Light letters on dark panels are looked for here too (they used to be read in the ML Kit-only mode only)
+            val mlkit = if (dual) runCatching { readWithDark(recognizer, strip, 1f) }.getOrDefault(emptyList()) else emptyList()
             val sure = mlkit.filter { it.ocrConfidence >= eu.kanade.translation.ocr.OcrFusion.TRUST && !eu.kanade.translation.ocr.OcrFusion.garbled(it.text) }
             val lines = runCatching { paddle(strip) { box -> sure.none { covers(it, box) } } }.getOrNull()
             if (lines != null) {
@@ -155,6 +156,11 @@ object PageOcr {
                 return if (dual) eu.kanade.translation.ocr.OcrFusion.fuse(mlkit, found) else found
             }
         }
+        return readWithDark(recognizer, strip, scale)
+    }
+
+    /** ML Kit's reading of [strip], with a second reading of its dark panels in reverse colours added. */
+    private fun readWithDark(recognizer: TextRecognizer, strip: Bitmap, scale: Float): List<TranslationBlock> {
         val base = readAt(recognizer, strip, scale)
         if (!hasDarkPanels(strip)) return base
         val inverted = runCatching { invertedGray(strip) }.getOrNull() ?: return base

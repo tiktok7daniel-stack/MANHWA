@@ -520,7 +520,7 @@ class ChapterTranslator(
                 // MANHWA master codex: each genre's standard terms found in this chapter, under the series glossary
                 val codex = codexFor(translation.fromLang, translation.toLang, pages.values.joinToString("\n") { page -> page.blocks.joinToString(" ") { it.text } })
                 ai?.apply {
-                    glossary = codex + glossaryStore.asMap(translation.manga.id)
+                    glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
                     learnTerms = true
                     discoveredTerms.clear()
                     // MANHWA smart glossary: who each name is (gender, how they speak) and the story so far
@@ -553,7 +553,7 @@ class ChapterTranslator(
                             found.associate { it.source to (it.kind to it.gender) },
                             found.filter { it.note.isNotBlank() }.associate { it.source to it.note },
                         )
-                        ai.glossary = codex + glossaryStore.asMap(translation.manga.id)
+                        ai.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
                         ai.glossaryNotes = glossaryStore.notes(translation.manga.id)
                     }.onFailure {
                         if (it is CancellationException) throw it
@@ -561,10 +561,10 @@ class ChapterTranslator(
                     }
                 }
                 // MANHWA fast mode: the work's names and the codex go in before the lines are sent
-                (textTranslator as? eu.kanade.translation.translator.FastTranslator)?.glossary = codex + glossaryStore.asMap(translation.manga.id)
+                (textTranslator as? eu.kanade.translation.translator.FastTranslator)?.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
                 // MANHWA on-device AI: the series glossary and the codex for the model on the phone too
                 (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.apply {
-                    glossary = codex + glossaryStore.asMap(translation.manga.id)
+                    glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
                     // The phone shows its progress as it goes (it can be slow): never "stopped moving"
                     onBatchDone = { done, total ->
                         translation.advance(Translation.Stage.TRANSLATING, done, total)
@@ -704,6 +704,7 @@ class ChapterTranslator(
                             targetLatin = translation.toLang.code !in NON_LATIN_TARGETS,
                         )
                     }.onFailure { if (it is CancellationException) throw it }.getOrDefault(consensus)
+                    consensus.replacedLines.forEach { (block, _) -> block.translation = ai.finishLine(block.translation, block.text) }
                     if (useLibrary && consensus.replacedLines.isNotEmpty()) {
                         collection.learn(
                             src, tgt, translation.manga.id, glossaryAfter,
@@ -1028,8 +1029,9 @@ class ChapterTranslator(
                 val block = blocks[id] ?: return@mapNotNull null
                 // Every fix is a lesson for the next chapters
                 lessonStore.add(mangaId, LessonStore.Lesson(block.text, block.translation, text, LessonStore.Origin.EDITOR.name), title)
-                block.translation = text
-                TranslationCollection.Line(block.text, text, block.kind)
+                // Finished like every other line: names as the glossary writes them, clean Arabic
+                block.translation = ai.finishLine(text, block.text)
+                TranslationCollection.Line(block.text, block.translation, block.kind)
             }
         } finally {
             ai.glossaryNotes = emptyMap()

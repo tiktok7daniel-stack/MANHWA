@@ -34,8 +34,13 @@ object BubbleTextEditor {
             val prefs = graph.translationPreferences
             val glossary = graph.glossaryStore.asMap(mangaId)
             graph.translationCollection.learn(
-                sourceLanguage(graph.translationEditStore.sourceLang(), prefs.translateFromLanguage().get()),
-                prefs.translateToLanguage().get(),
+                // The same keys the chapter and the reader look lines up by (dialect included), or the
+                // correction would never be found again
+                sourceLanguage(graph.translationEditStore.sourceLang(), TextRecognizerLanguage.fromPref(prefs.translateFromLanguage()).name),
+                eu.kanade.translation.style.StyleProfile.libraryTarget(
+                    prefs,
+                    eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(prefs.translateToLanguage()).name,
+                ),
                 mangaId,
                 glossary,
                 listOf(TranslationCollection.Line(block.text, new.trim(), block.kind)),
@@ -83,7 +88,8 @@ object BubbleTextEditor {
     }
 
     /** The OCR language of the source, as live translation picks it, so the collection finds the line again. */
-    private fun sourceLanguage(sourceLang: String?, preferred: String): String =
+    /** The collection's source key for a work in [sourceLang] (the reader's choice when the source has none). */
+    fun sourceLanguage(sourceLang: String?, preferred: String): String =
         when (sourceLang?.lowercase()?.substringBefore('-')) {
             "ko" -> TextRecognizerLanguage.KOREAN.name
             "ja" -> TextRecognizerLanguage.JAPANESE.name
