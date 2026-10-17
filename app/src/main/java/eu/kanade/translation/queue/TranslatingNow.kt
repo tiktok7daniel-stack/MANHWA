@@ -276,15 +276,17 @@ class TranslatingNowScreen : Screen() {
     @Composable
     private fun LiveCard(live: eu.kanade.translation.live.LiveChapterProgress.Live, onOpen: (sourceName: String) -> Unit) {
         val context = LocalContext.current
-        val manga by androidx.compose.runtime.produceState<tachiyomi.domain.manga.model.Manga?>(null, live.mangaId) {
-            value = context.appGraph.getMangaById.await(live.mangaId)
+        // The work's title and its source's name, read off the main thread
+        val work by androidx.compose.runtime.produceState("" to "", live.mangaId) {
+            val manga = context.appGraph.getMangaById.await(live.mangaId)
+            value = manga?.title.orEmpty() to manga?.let { context.appGraph.sourceManager.get(it.source)?.name }.orEmpty()
         }
-        val title = manga?.title.orEmpty()
+        val title = work.first
         Column(
             Modifier
                 .fillMaxWidth()
                 .glass(RoundedCornerShape(22.dp), accent = true, alpha = 0.5f)
-                .clickable { onOpen(manga?.let { context.appGraph.sourceManager.get(it.source)?.name }.orEmpty()) }
+                .clickable { onOpen(work.second) }
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
