@@ -1,6 +1,7 @@
 package eu.kanade.manhwa
 
 import eu.kanade.translation.team.KeySites
+import eu.kanade.translation.team.KeyReportRules as R
 import eu.kanade.translation.team.ModelHealthManager
 import eu.kanade.translation.team.ModelHealthManager.Problem
 import eu.kanade.translation.team.ModelHealthManager.Status
@@ -107,4 +108,31 @@ class ModelHealthTest {
         QuotaForecast.chaptersLeft(percentLeft = 0, usedToday = 30, callsPerChapter = 6f) shouldBe 0
         QuotaForecast.callsLeft(percentLeft = 100, usedToday = 0) shouldBe null
     }
+
+    @Test
+    fun `the new key sites are told from their keys and each has its own id`() {
+        KeySites.forKey("nvapi-abc")?.id shouldBe "nvidia"
+        KeySites.forKey("hf_abc")?.id shouldBe "huggingface"
+        KeySites.forKey("xai-abc")?.id shouldBe "xai"
+        KeySites.all.map { it.id }.toSet().size shouldBe KeySites.all.size
+        KeySites.byUrl("https://integrate.api.nvidia.com/v1")?.id shouldBe "nvidia"
+    }
+
+    @Test
+    fun `the best keys report scores keys by how they did lately`() {
+        val unused = R.Totals(ok = 0, failed = 0, avgLatencyMs = 0)
+        R.score(unused, 80) shouldBe 0
+        R.verdict(unused, 0) shouldBe R.Verdict.UNUSED
+        val great = R.Totals(ok = 60, failed = 2, avgLatencyMs = 2_500)
+        R.verdict(great, R.score(great, 80)) shouldBe R.Verdict.EXCELLENT
+        val bad = R.Totals(ok = 5, failed = 10, avgLatencyMs = 20_000)
+        R.verdict(bad, R.score(bad, 40)) shouldBe R.Verdict.WEAK
+        (R.score(great, 80) > R.score(bad, 40)) shouldBe true
+    }
+
+    @Test
+    fun `sites are ranked by their used keys`() {
+        R.rankSites(listOf("groq" to 90, "groq" to 70, "gemini" to 60, "mistral" to 0)) shouldBe listOf("groq" to 80, "gemini" to 60)
+    }
 }
+

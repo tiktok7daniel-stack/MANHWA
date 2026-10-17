@@ -55,6 +55,9 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     /** MANHWA: each key's health, limits and errors (see [KeyHealthStore]). */
     val keyHealth = KeyHealthStore(prefs.translationTeamKeyHealth())
 
+    /** MANHWA: each key's record of the last days, for the "best keys" report. */
+    val record = KeyRecord(prefs.translationTeamRecord())
+
     /** Keys already warned about today ("almost out", "out"), so each warning comes once. */
     private val warned = ConcurrentHashMap.newKeySet<String>()
 
@@ -164,6 +167,12 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     private val _analyzingIds = MutableStateFlow<Set<String>>(emptySet())
     val analyzingIds: StateFlow<Set<String>> = _analyzingIds.asStateFlow()
 
+    /**
+     * Every change to the keys goes through here: two threads never write over each other's change. Made before
+     * the init block below, which may add the first key (made after it, it was still null there: a crash).
+     */
+    private val membersLock = Any()
+
     init {
         // First time: the key already saved for the translation engine becomes the first member
         if (_members.value.isEmpty()) {
@@ -181,9 +190,6 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     private fun loadAnalysis(): Map<String, Analysis> = runCatching {
         json.decodeFromString<Map<String, Analysis>>(prefs.translationTeamAnalysis().get())
     }.getOrDefault(emptyMap())
-
-    /** Every change to the keys goes through here: two threads never write over each other's change. */
-    private val membersLock = Any()
 
     private fun mutate(change: (List<Member>) -> List<Member>) = synchronized(membersLock) { save(change(_members.value)) }
 
@@ -227,6 +233,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     fun remove(id: String) {
         usage.forget(id)
         keyHealth.forget(id)
+        record.forget(id)
         mutate { list -> list.filterNot { it.id == id } }
         mutateAnalysis { map -> map - id }
         _health.update { it - id }
@@ -285,6 +292,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             map + (id to old.copy(latencyMs = latency, done = old.done + 1, restingUntil = 0, streak = 0))
         }
         keyHealth.success(id, "")
+        record.success(id, latencyMs)
     }
 
     /** A call that worked, whose time says nothing about the key's speed (chat, search, review). */
@@ -294,6 +302,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             map + (id to old.copy(done = old.done + 1, restingUntil = 0, streak = 0))
         }
         keyHealth.success(id, "")
+        record.success(id, null)
     }
 
     /** A failed call: a busy or limited key rests for [restMs] while the others carry on. */
@@ -325,6 +334,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         val problem = (error as? AiTranslator.ApiException)?.problem
             ?: if (error is java.io.IOException || error is kotlinx.coroutines.TimeoutCancellationException) ModelHealthManager.Problem.Temporary else ModelHealthManager.Problem.Other
         val status = keyHealth.failure(id, problem, error.message)
+        record.failure(id, problem)
         // A key the provider refused twice in a row (wrong or revoked) is out until it is checked again
         if (status == ModelHealthManager.Status.DISABLED) {
             mutateAnalysis { map -> map + (id to Analysis(ok = false, error = error.message?.take(160))) }

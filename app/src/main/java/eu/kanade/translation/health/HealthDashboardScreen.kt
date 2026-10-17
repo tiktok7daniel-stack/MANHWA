@@ -51,6 +51,10 @@ import kotlinx.coroutines.withContext
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Autorenew
+import mihon.icons.materialsymbols.rounded.ContentCopy
+import mihon.icons.materialsymbols.rounded.DeleteSweep
+import mihon.icons.materialsymbols.rounded.Share
+import eu.kanade.tachiyomi.network.NetworkProblemLog
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.Key
 import mihon.icons.materialsymbols.rounded.Public
@@ -62,6 +66,9 @@ import tachiyomi.presentation.core.i18n.stringResource
 private val Green = Color(0xFF3DDC97)
 private val Amber = Color(0xFFFFB020)
 private val Crimson = Color(0xFFFF4D6A)
+
+// MANHWA: network problems shown on the health screen (the full log is copied or shared)
+private const val SHOWN_PROBLEMS = 8
 
 /**
  * MANHWA app health: one glass screen for everything that keeps itself alive: the keys (working, repaired,
@@ -95,6 +102,8 @@ class HealthDashboardScreen : Screen() {
         val names by produceState(emptyMap<Long, String>(), hidden.keys) {
             value = withContext(Dispatchers.IO) { hidden.keys.associateWith { id -> graph.sourceManager.get(id)?.name ?: "$id" } }
         }
+        // MANHWA: the sites that could not be opened, and why
+        val problems by eu.kanade.tachiyomi.network.NetworkProblemLog.entries.collectAsState()
         val bottom = WindowInsets.navigationBars.asPaddingValues()
 
         GlassBackdrop {
@@ -206,6 +215,10 @@ class HealthDashboardScreen : Screen() {
                             }
                         }
                     }
+                    // Network problems
+                    item {
+                        NetworkProblemsCard(problems)
+                    }
                 }
             }
         }
@@ -232,6 +245,65 @@ class HealthDashboardScreen : Screen() {
             }
             content()
         }
+    }
+
+    /** MANHWA: the last sites that could not be opened: where, on which network, and what it most likely means. */
+    @Composable
+    private fun NetworkProblemsCard(problems: List<NetworkProblemLog.Entry>) {
+        val context = LocalContext.current
+        Card(MaterialSymbols.Rounded.Public, stringResource(ATMR.strings.net_title), if (problems.isEmpty()) Green else Amber) {
+            if (problems.isEmpty()) {
+                Line(stringResource(ATMR.strings.net_none))
+                return@Card
+            }
+            problems.take(SHOWN_PROBLEMS).forEach { p ->
+                val time = DateUtils.getRelativeTimeSpanString(p.at, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+                Text(
+                    "${p.host} · ${networkName(p.network)} · $time",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+                Line(stringResource(causeText(p.cause)), color = if (p.cause == NetworkProblemLog.Cause.UNREACHABLE) Crimson else Amber)
+                Line(p.error, color = Color.White.copy(alpha = 0.5f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ManhwaKit.GhostButton(stringResource(ATMR.strings.net_copy), icon = MaterialSymbols.Rounded.ContentCopy, modifier = Modifier.weight(1f)) {
+                    val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                    clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("MANHWA network", NetworkProblemLog.text()))
+                    android.widget.Toast.makeText(context, context.getString(android.R.string.copy), android.widget.Toast.LENGTH_SHORT).show()
+                }
+                ManhwaKit.GhostButton(stringResource(ATMR.strings.net_share), icon = MaterialSymbols.Rounded.Share, modifier = Modifier.weight(1f)) {
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_TEXT, NetworkProblemLog.text())
+                    }
+                    runCatching { context.startActivity(android.content.Intent.createChooser(send, null)) }
+                }
+            }
+            ManhwaKit.GhostButton(stringResource(ATMR.strings.net_clear), icon = MaterialSymbols.Rounded.DeleteSweep, modifier = Modifier.fillMaxWidth()) {
+                NetworkProblemLog.clear()
+            }
+        }
+    }
+
+    @Composable
+    private fun networkName(type: String): String = when (type) {
+        "wifi" -> stringResource(ATMR.strings.net_wifi)
+        "mobile" -> stringResource(ATMR.strings.net_mobile)
+        "vpn" -> "VPN"
+        "none" -> stringResource(ATMR.strings.net_offline_short)
+        else -> type
+    }
+
+    private fun causeText(cause: NetworkProblemLog.Cause) = when (cause) {
+        NetworkProblemLog.Cause.IPV6 -> ATMR.strings.net_cause_ipv6
+        NetworkProblemLog.Cause.DNS -> ATMR.strings.net_cause_dns
+        NetworkProblemLog.Cause.UNREACHABLE -> ATMR.strings.net_cause_unreachable
+        NetworkProblemLog.Cause.PROTECTION -> ATMR.strings.net_cause_protection
+        NetworkProblemLog.Cause.SERVER -> ATMR.strings.net_cause_server
+        NetworkProblemLog.Cause.OFFLINE -> ATMR.strings.net_cause_offline
+        NetworkProblemLog.Cause.OTHER -> ATMR.strings.net_cause_other
     }
 
     @Composable

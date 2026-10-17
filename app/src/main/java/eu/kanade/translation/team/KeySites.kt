@@ -104,6 +104,67 @@ object KeySites {
             "Starting credit, fast open models.",
             "رصيد بداية، موديلات مفتوحة سريعة.",
         ),
+        // MANHWA: more official sites with a free tier or a starting credit (the reader makes the key on the site)
+        Site(
+            "nvidia", "NVIDIA NIM", Provider.OPENAI_COMPATIBLE, "https://integrate.api.nvidia.com/v1", "https://build.nvidia.com/settings/api-keys", "meta/llama-3.3-70b-instruct",
+            "Free credits for developers, many open models (Llama, Qwen, DeepSeek).",
+            "رصيد مجاني للمطورين، وموديلات مفتوحة كتير (Llama وQwen وDeepSeek).",
+        ),
+        Site(
+            "huggingface", "Hugging Face", Provider.OPENAI_COMPATIBLE, "https://router.huggingface.co/v1", "https://huggingface.co/settings/tokens", "meta-llama/Llama-3.3-70B-Instruct",
+            "A free monthly credit with an access token (Inference permission).",
+            "رصيد مجاني شهري بتوكن (صلاحية Inference).",
+        ),
+        Site(
+            "deepinfra", "DeepInfra", Provider.OPENAI_COMPATIBLE, "https://api.deepinfra.com/v1/openai", "https://deepinfra.com/dash/api_keys", "meta-llama/Llama-3.3-70B-Instruct",
+            "Very cheap open models; a small starting credit.",
+            "موديلات مفتوحة رخيصة جداً؛ رصيد بداية صغير.",
+        ),
+        Site(
+            "hyperbolic", "Hyperbolic", Provider.OPENAI_COMPATIBLE, "https://api.hyperbolic.xyz/v1", "https://app.hyperbolic.xyz/settings", "meta-llama/Llama-3.3-70B-Instruct",
+            "Starting credit, cheap open models.",
+            "رصيد بداية، موديلات مفتوحة رخيصة.",
+        ),
+        Site(
+            "nebius", "Nebius AI Studio", Provider.OPENAI_COMPATIBLE, "https://api.studio.nebius.com/v1", "https://studio.nebius.com/settings/api-keys", "meta-llama/Llama-3.3-70B-Instruct",
+            "Starting credit, fast open models (Llama, Qwen, DeepSeek).",
+            "رصيد بداية، موديلات مفتوحة سريعة (Llama وQwen وDeepSeek).",
+        ),
+        Site(
+            "novita", "Novita", Provider.OPENAI_COMPATIBLE, "https://api.novita.ai/v3/openai", "https://novita.ai/settings/key-management", "meta-llama/llama-3.3-70b-instruct",
+            "Starting credit and cheap open models.",
+            "رصيد بداية وموديلات مفتوحة رخيصة.",
+        ),
+        Site(
+            "kluster", "Kluster", Provider.OPENAI_COMPATIBLE, "https://api.kluster.ai/v1", "https://platform.kluster.ai/apikeys", "klusterai/Meta-Llama-3.3-70B-Instruct-Turbo",
+            "Starting credit, big open models.",
+            "رصيد بداية، موديلات مفتوحة كبيرة.",
+        ),
+        Site(
+            "featherless", "Featherless", Provider.OPENAI_COMPATIBLE, "https://api.featherless.ai/v1", "https://featherless.ai/account/api-keys", "meta-llama/Meta-Llama-3.1-8B-Instruct",
+            "Thousands of open models for a flat plan.",
+            "آلاف الموديلات المفتوحة باشتراك ثابت.",
+        ),
+        Site(
+            "xai", "xAI Grok", Provider.OPENAI_COMPATIBLE, "https://api.x.ai/v1", "https://console.x.ai", "grok-3-mini",
+            "Grok models; credits on the console.",
+            "موديلات Grok؛ رصيد من الكونسول.",
+        ),
+        Site(
+            "moonshot", "Moonshot Kimi", Provider.OPENAI_COMPATIBLE, "https://api.moonshot.ai/v1", "https://platform.moonshot.ai/console/api-keys", "kimi-k2-0711-preview",
+            "Kimi models, strong and cheap; a small starting credit.",
+            "موديلات Kimi، قوية ورخيصة؛ رصيد بداية صغير.",
+        ),
+        Site(
+            "zai", "Z.ai GLM", Provider.OPENAI_COMPATIBLE, "https://api.z.ai/api/paas/v4", "https://z.ai/manage-apikey/apikey-list", "glm-4.5-flash",
+            "GLM models, a free flash model.",
+            "موديلات GLM، وفيه موديل flash مجاني.",
+        ),
+        Site(
+            "qwen", "Alibaba Qwen", Provider.OPENAI_COMPATIBLE, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "https://modelstudio.console.alibabacloud.com/", "qwen-plus",
+            "Qwen models with a free quota for new accounts; strong in Arabic.",
+            "موديلات Qwen بحصة مجانية للحسابات الجديدة؛ قوية في العربي.",
+        ),
     )
 
     fun byId(id: String?): Site? = all.firstOrNull { it.id == id }
@@ -124,6 +185,9 @@ object KeySites {
             k.startsWith("csk-") -> byId("cerebras")
             k.startsWith("github_pat_") || k.startsWith("ghp_") -> byId("github")
             k.startsWith("AIza") -> byId("gemini")
+            k.startsWith("nvapi-") -> byId("nvidia")
+            k.startsWith("hf_") -> byId("huggingface")
+            k.startsWith("xai-") -> byId("xai")
             k.startsWith("sk-") -> byId("openai")
             else -> null
         }

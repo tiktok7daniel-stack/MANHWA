@@ -100,6 +100,9 @@ class TranslationPreferences(
     /** MANHWA: each key's health (status, limits, errors, cooldown, models, use today), as JSON (see KeyHealthStore). */
     fun translationTeamKeyHealth() = preferenceStore.getString("manhwa_translation_team_key_health", "{}")
 
+    /** MANHWA: each key's calls of the last days (worked, failed, speed), as JSON (see KeyRecord). */
+    fun translationTeamRecord() = preferenceStore.getString("manhwa_translation_team_record", "{}")
+
     /** When a chapter is read, its lines missing from the translation library are saved there. */
     fun translationSaveOnRead() = preferenceStore.getBoolean("manhwa_translation_save_on_read", true)
 
