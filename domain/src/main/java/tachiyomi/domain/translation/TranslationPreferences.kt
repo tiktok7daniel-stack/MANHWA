@@ -175,8 +175,11 @@ class TranslationPreferences(
     /** MANHWA: the phone's GPU could not run the on-device model once; it runs on the CPU from then on. */
     fun translationLocalGpuFailed() = preferenceStore.getBoolean("manhwa_translation_local_gpu_failed", false)
 
-    /** MANHWA: how the phone model is asked, chosen by its speed test on this phone ("FAST" until measured). */
-    fun translationLocalTuning() = preferenceStore.getString("manhwa_translation_local_tuning", "FAST")
+    /**
+     * MANHWA: how the phone model is asked, chosen by its speed test on this phone ("AUTO" until measured: the
+     * on-device translator drafts first and the model fixes the drafts).
+     */
+    fun translationLocalTuning() = preferenceStore.getString("manhwa_translation_local_tuning", "AUTO")
 
     /** The reader's own Hugging Face token, only to download gated models they accepted (kept on the phone). */
     fun translationHfToken() = preferenceStore.getString("manhwa_translation_hf_token", "")

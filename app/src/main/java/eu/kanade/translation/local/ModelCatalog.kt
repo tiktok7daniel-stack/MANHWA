@@ -43,38 +43,55 @@ object ModelCatalog {
         val page: String get() = "https://huggingface.co/$repo"
     }
 
+    /**
+     * MANHWA: only the models that earn their place: Gemma has the best Arabic of the phone models. E4B
+     * translates (or judges), E2B is the lighter main model, and Gemma 3 1B is the quick drafter of the ensemble
+     * (it writes a first draft, the strong model fixes only the doubtful lines). Phone drafts come first from
+     * Google's on-device translator (ML Kit, already in the app), so no other model is needed for speed.
+     */
     val models: List<Model> = listOf(
         Model(
             "google/gemma-3n-E4B-it-litert-preview", "Gemma 3n E4B", 4.4f, 5, 8, gated = true,
-            "Google's strongest phone model: the best Arabic of them all. Needs a powerful phone.",
-            "أقوى موديل موبايل من جوجل: أحسن عربي فيهم كلهم. محتاج موبايل قوي.",
+            "Google's strongest phone model: the best Arabic of them all. The main translator on a powerful phone.",
+            "أقوى موديل موبايل من جوجل: أحسن عربي فيهم كلهم. المترجم الأساسي على موبايل قوي.",
         ),
         Model(
             "google/gemma-3n-E2B-it-litert-preview", "Gemma 3n E2B", 3.1f, 4, 6, gated = true,
-            "Almost as good, lighter and faster.",
-            "قريب منه في الجودة، وأخف وأسرع.",
-        ),
-        Model(
-            "litert-community/Phi-4-mini-instruct", "Phi-4 mini", 3.9f, 4, 8, gated = false,
-            "Microsoft's small model: strong reasoning, good as the judge.",
-            "موديل مايكروسوفت الصغير: تفكير قوي، وكويس كحَكَم.",
-        ),
-        Model(
-            "litert-community/Qwen2.5-3B-Instruct", "Qwen 2.5 3B", 3.0f, 4, 6, gated = false,
-            "Good at Arabic, Korean and Chinese; open licence.",
-            "كويس في العربي والكوري والصيني؛ رخصة مفتوحة.",
-        ),
-        Model(
-            "litert-community/Qwen2.5-1.5B-Instruct", "Qwen 2.5 1.5B", 1.6f, 3, 4, gated = false,
-            "Light and quick, a good first draft.",
-            "خفيف وسريع، مسودة أولى كويسة.",
+            "Almost as good, lighter and faster: the main translator on a lighter phone, or the judge next to E4B.",
+            "قريب منه في الجودة، وأخف وأسرع: المترجم الأساسي على موبايل أخف، أو الحَكَم جنب E4B.",
         ),
         Model(
             "litert-community/Gemma3-1B-IT", "Gemma 3 1B", 0.55f, 2, 3, gated = true,
-            "The smallest: for older phones.",
-            "الأصغر: للموبايلات القديمة.",
+            "The quick drafter: writes the first draft of every line in seconds, the main model fixes only what is wrong.",
+            "المسودة السريعة: بيكتب أول مسودة لكل السطور في ثواني، والموديل الأساسي بيصلح الغلط بس.",
         ),
     )
+
+    /**
+     * Models taken off the shelf (weaker Arabic, or no role left once the drafts come from ML Kit and Gemma 3 1B).
+     * A copy already on the phone is not deleted by the app: it keeps working until the reader deletes it, and the
+     * screen shows it with its delete button.
+     */
+    val retired: List<Model> = listOf(
+        Model(
+            "litert-community/Phi-4-mini-instruct", "Phi-4 mini", 3.9f, 3, 8, gated = false,
+            "Taken off the list: weak in Arabic. Delete it to free its space.",
+            "اتشال من القايمة: ضعيف في العربي. امسحه عشان توفر مساحته.",
+        ),
+        Model(
+            "litert-community/Qwen2.5-3B-Instruct", "Qwen 2.5 3B", 3.0f, 3, 6, gated = false,
+            "Taken off the list: Gemma 3n E2B does its job better. Delete it to free its space.",
+            "اتشال من القايمة: Gemma 3n E2B بيعمل شغله أحسن. امسحه عشان توفر مساحته.",
+        ),
+        Model(
+            "litert-community/Qwen2.5-1.5B-Instruct", "Qwen 2.5 1.5B", 1.6f, 2, 4, gated = false,
+            "Taken off the list: Gemma 3 1B and ML Kit draft faster. Delete it to free its space.",
+            "اتشال من القايمة: Gemma 3 1B وML Kit بيعملوا المسودة أسرع. امسحه عشان توفر مساحته.",
+        ),
+    )
+
+    /** The shelf and the retired models still on the phone (the screen and the ensemble read both). */
+    val known: List<Model> get() = models + retired
 
     sealed interface Status {
         data object NotDownloaded : Status

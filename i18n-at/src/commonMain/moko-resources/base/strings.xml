@@ -1091,4 +1091,9 @@
     <string name="wn_cascade_t">The phone model learns and keeps going</string>
     <string name="wn_cascade_b">With no key, the model on your phone now translates while you read too, learns its own checked lines (the next chapters write them at once, under every key and your corrections), knows who the characters are (man or woman), answers the same way every time, shows each page as soon as it is done and translates the next chapter ahead when the phone is cool. A fix-only way (an instant draft, the model writes = for a good one) is measured by the speed test and used only when it is faster and as accurate on your phone. Translation goes on in the background with the app closed, with its progress in the notification.</string>
     <string name="fusion_searching_for">Looking for: %1$s</string>
+    <string name="speed_title">Speed on this phone</string>
+    <string name="speed_backend">Runs on: %1$s</string>
+    <string name="speed_backend_none">Runs on: not loaded yet (it loads with the first page)</string>
+    <string name="speed_info">Every line is drafted first by Google\'s on-device translator (instant, offline), and the phone model fixes only what is wrong. The rules of the chapter are read by the model once, not on every call. On a Snapdragon phone the model tries the NPU first, then the GPU.</string>
+    <string name="speed_tips">For the most speed: turn on the phone\'s performance mode (on RedMagic: the Game Space / turbo slider, or Settings › Battery › Performance), keep it charging and cool (the fan helps), and keep the app\'s battery use on Unrestricted. An app cannot switch the performance mode on by itself.</string>
 </resources>

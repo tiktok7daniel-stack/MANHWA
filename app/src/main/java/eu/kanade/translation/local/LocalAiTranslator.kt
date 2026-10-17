@@ -225,10 +225,13 @@ class LocalAiTranslator(
                 return@forEachIndexed
             }
             val terms = glossary.entries.filter { (k, _) -> idx.any { lines[it].contains(k, ignoreCase = true) } }.take(30)
-            val prompt = buildString {
+            val head = buildString {
                 appendLine("You review draft ${toLang.label} translations of manhwa speech bubbles. Fix meaning errors, unnatural wording and wrong names; keep good lines as they are. Short, natural, spoken.")
-                if (terms.isNotEmpty()) appendLine("Names and terms: " + terms.joinToString("; ") { "${it.key} = ${it.value}" })
                 if (instructions.isNotBlank()) appendLine(instructions.take(800))
+            }
+            val prompt = buildString {
+                append(head)
+                if (terms.isNotEmpty()) appendLine("Names and terms: " + terms.joinToString("; ") { "${it.key} = ${it.value}" })
                 appendLine(LocalAiRules.replyRule(tuning, idx.size))
                 idx.forEachIndexed { n, i ->
                     appendLine("${n + 1}. ${lines[i].replace('\n', ' ').take(300)}")
@@ -236,7 +239,7 @@ class LocalAiTranslator(
                 }
             }
             val answers = runCatching {
-                LocalAiEngine.generate(context, prompt, model, LocalAiRules.timeoutFor(idx.size))?.let { LocalAiRules.answers(it, idx.size, json) }
+                LocalAiEngine.generate(context, prompt, model, LocalAiRules.timeoutFor(idx.size), prefix = head)?.let { LocalAiRules.answers(it, idx.size, json) }
             }
                 .onFailure { if (it is CancellationException) throw it }
                 .getOrNull()
@@ -254,7 +257,7 @@ class LocalAiTranslator(
 
     /**
      * MANHWA cascade layer 1: an instant draft of each line without one, by ML Kit (offline; its model downloads
-     * once, on Wi-Fi). Null where it gave nothing.
+     * once, about 30 MB, on any network). Null where it gave nothing.
      */
     private suspend fun instantDrafts(lines: List<String>, given: List<String?>): List<String?> = withContext(Dispatchers.IO) {
         if (lines.indices.all { given.getOrNull(it) != null } || noInstantDrafts) return@withContext lines.indices.map { given.getOrNull(it) }
@@ -266,7 +269,7 @@ class LocalAiTranslator(
                     .build(),
             ).also { c ->
                 com.google.android.gms.tasks.Tasks.await(
-                    c.downloadModelIfNeeded(com.google.mlkit.common.model.DownloadConditions.Builder().requireWifi().build()),
+                    c.downloadModelIfNeeded(com.google.mlkit.common.model.DownloadConditions.Builder().build()),
                     DRAFT_MODEL_WAIT_S,
                     java.util.concurrent.TimeUnit.SECONDS,
                 )
@@ -289,14 +292,19 @@ class LocalAiTranslator(
         // almost free on the phone, writing is what costs
         val people = notes.entries.filter { (name, _) -> name.length >= 2 && lines.any { it.contains(name, ignoreCase = true) } }.take(MAX_PEOPLE)
         val drafts = if (tuning.editOnly) instantDrafts(lines, given) else emptyList()
-        val prompt = buildString {
+        // MANHWA: the rules and the reader's style come first and stay the same all chapter: the model reads them
+        // once and keeps them (see LocalAiEngine.generate), each call reads only what follows
+        val head = buildString {
             appendLine("You translate manhwa speech bubbles into ${toLang.label}. Short, natural, spoken. Keep names as given.")
             if (toLang == TextTranslatorLanguage.ARABIC) {
                 appendLine("Arabic: verbs and pronouns agree with who speaks and who is spoken to (man or woman), from the names and the lines before.")
             }
+            if (instructions.isNotBlank()) appendLine(instructions.take(800))
+        }
+        val prompt = buildString {
+            append(head)
             if (terms.isNotEmpty()) appendLine("Names and terms: " + terms.joinToString("; ") { "${it.key} = ${it.value}" })
             if (people.isNotEmpty()) appendLine("Who they are: " + people.joinToString("; ") { "${it.key} (${it.value.take(60)})" })
-            if (instructions.isNotBlank()) appendLine(instructions.take(800))
             // What the big models corrected before: the phone writes like them
             val examples = eu.kanade.translation.orchestra.OrchestraStore.examplesFor(context, lines)
             if (examples.isNotEmpty()) {
@@ -317,7 +325,7 @@ class LocalAiTranslator(
                 lines.forEachIndexed { i, l -> appendLine("${i + 1}. ${l.take(300)}") }
             }
         }
-        val reply = LocalAiEngine.generate(context, prompt, model, LocalAiRules.timeoutFor(lines.size), tuning.backend) ?: return null
+        val reply = LocalAiEngine.generate(context, prompt, model, LocalAiRules.timeoutFor(lines.size), tuning.backend, prefix = head) ?: return null
         val raw = LocalAiRules.answers(reply, lines.size, json) ?: return null
         val answers = if (tuning.editOnly) LocalAiRules.resolveEdits(raw, drafts) else raw
         recent = (recent + lines.zip(answers).filter { it.second.isNotBlank() }).takeLast(RECENT_LINES)
@@ -373,8 +381,11 @@ object LocalAiRules {
             val EDIT = Tuning(numbered = true, linesPerCall = 12, editOnly = true, name = "EDIT")
             val LEGACY = Tuning(numbered = false, linesPerCall = 8, backend = com.google.mediapipe.tasks.genai.llminference.LlmInference.Backend.CPU, name = "LEGACY")
 
-            /** The way saved for this phone by its speed test (FAST until it has been measured). */
-            fun named(name: String): Tuning = if (name == EDIT.name) EDIT else FAST
+            /**
+             * The way saved for this phone by its speed test; until it has been measured, the fix-only way: ML Kit
+             * drafts every line at once (milliseconds, on the phone) and the model writes only what is wrong.
+             */
+            fun named(name: String): Tuning = if (name == FAST.name) FAST else EDIT
         }
     }
 

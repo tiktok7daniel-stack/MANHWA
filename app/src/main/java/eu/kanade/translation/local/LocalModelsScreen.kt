@@ -93,13 +93,15 @@ class LocalModelsScreen : Screen() {
         var lineupState by remember { mutableStateOf<PhoneEnsemble.Lineup?>(null) }
         var stats by remember { mutableStateOf(OrchestraStore.Stats()) }
         var keys by remember { mutableIntStateOf(0) }
+        var backend by remember { mutableStateOf<String?>(null) }
         LaunchedEffect(tick, mainPath, judgePath, inactive, size) {
             while (true) {
                 withContext(Dispatchers.IO) {
-                    statuses = ModelCatalog.models.associate { it.repo to ModelCatalog.status(context, it) }
+                    statuses = ModelCatalog.known.associate { it.repo to ModelCatalog.status(context, it) }
                     lineupState = PhoneEnsemble.lineup(context)
                     stats = OrchestraStore.stats(context)
                     keys = context.appGraph.teamStore.active().size
+                    backend = mainPath.takeIf { it.isNotBlank() }?.let { LocalAiEngine.backendOf(java.io.File(it)) }
                 }
                 delay(if (statuses.values.any { it is ModelCatalog.Status.Downloading }) 1_000 else 10_000)
             }
@@ -157,6 +159,23 @@ class LocalModelsScreen : Screen() {
                     }
                     // MANHWA speed and accuracy test of the main phone model: before and now, measured on this phone
                     item { BenchmarkCard(hasModel = lineup != null) }
+                    // MANHWA: what makes the phone model fast, and what only the reader can switch on
+                    item {
+                        Column(
+                            Modifier.fillMaxWidth().glass(RoundedCornerShape(22.dp), alpha = 0.5f).padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(stringResource(ATMR.strings.speed_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                            Text(
+                                backend?.let { stringResource(ATMR.strings.speed_backend, it) } ?: stringResource(ATMR.strings.speed_backend_none),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF3DDC97),
+                            )
+                            Text(stringResource(ATMR.strings.speed_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+                            Text(stringResource(ATMR.strings.speed_tips), style = MaterialTheme.typography.bodySmall, color = Color(0xFFFFB020))
+                        }
+                    }
                     // The reader's own token, for gated models they accepted
                     item {
                         Column(
@@ -185,7 +204,10 @@ class LocalModelsScreen : Screen() {
                             message?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Color(0xFFFFB020)) }
                         }
                     }
-                    items(ModelCatalog.models, key = { it.repo }) { model ->
+                    // The shelf, then a retired model only while a copy of it is still on the phone
+                    val shown = ModelCatalog.models + ModelCatalog.retired.filter { (statuses[it.repo] ?: ModelCatalog.Status.NotDownloaded) !is ModelCatalog.Status.NotDownloaded }
+                    items(shown, key = { it.repo }) { model ->
+                        val retired = model in ModelCatalog.retired
                         val status = statuses[model.repo] ?: ModelCatalog.Status.NotDownloaded
                         val ready = (status as? ModelCatalog.Status.Ready)?.file
                         val isMain = ready != null && ready.absolutePath == mainPath
@@ -236,7 +258,7 @@ class LocalModelsScreen : Screen() {
                                     ready != null && !isMain -> ManhwaKit.NeonButton(stringResource(ATMR.strings.models_use_main), icon = MaterialSymbols.Rounded.Verified, modifier = Modifier.weight(1f)) {
                                         LocalAiEngine.use(context, ready)
                                     }
-                                    ready == null && status !is ModelCatalog.Status.Downloading -> ManhwaKit.NeonButton(stringResource(ATMR.strings.models_download), icon = MaterialSymbols.Rounded.Download, modifier = Modifier.weight(1f)) {
+                                    ready == null && !retired && status !is ModelCatalog.Status.Downloading -> ManhwaKit.NeonButton(stringResource(ATMR.strings.models_download), icon = MaterialSymbols.Rounded.Download, modifier = Modifier.weight(1f)) {
                                         scope.launch {
                                             message = runCatching { ModelCatalog.download(context, model, wifiOnly) }.fold(
                                                 { null },

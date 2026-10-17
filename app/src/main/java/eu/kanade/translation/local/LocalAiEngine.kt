@@ -91,11 +91,16 @@ object LocalAiEngine {
         prompt: String,
         model: File? = null,
         timeoutMs: Long = CALL_TIMEOUT_MS,
-        /** Forces a backend (the speed test compares them); null: the GPU when the phone can, else the CPU. */
+        /** Forces a backend (the speed test compares them); null: the NPU or GPU when the phone can, else the CPU. */
         backend: LlmInference.Backend? = null,
+        /**
+         * The start of [prompt] that stays the same call after call (the rules and the reader's style): read by the
+         * model once and kept, so each call reads only what is new.
+         */
+        prefix: String? = null,
     ): String? {
         val file = model?.takeIf { it.isFile } ?: modelFile(context) ?: return null
-        val call = scope.async { answer(context, file, prompt, backend) }
+        val call = scope.async { answer(context, file, prompt, backend, prefix) }
         try {
             val reply = withTimeoutOrNull(timeoutMs) { call.await() }
             if (reply == null && !call.isCompleted) logcat(LogPriority.WARN) { "The on-device AI took over ${timeoutMs / 1000}s (${file.name})" }
@@ -123,14 +128,14 @@ object LocalAiEngine {
         return slot.lock.withLock { runCatching { slot.engine.sizeInTokens(text) }.getOrNull() }
     }
 
-    /** The backend [model] runs on now ("GPU", "CPU"), when it is loaded. */
+    /** The backend [model] runs on now ("NPU", "GPU", "CPU"), when it is loaded. */
     fun backendOf(model: File): String? = slots.values.firstOrNull { it.path.startsWith(model.absolutePath + "|") }?.backend?.name
 
     /** How long loading the model took the last time, in ms (shown by the speed test). */
     @Volatile var lastLoadMs: Long = 0
         private set
 
-    private suspend fun answer(context: Context, file: File, prompt: String, backend: LlmInference.Backend?): String? {
+    private suspend fun answer(context: Context, file: File, prompt: String, backend: LlmInference.Backend?, prefix: String?): String? {
         repeat(2) {
             val slot = runCatching { slotFor(context, file, backend) }
                 .onFailure { logcat(LogPriority.WARN, it) { "The on-device AI could not load ${file.name}" } }
@@ -141,7 +146,7 @@ object LocalAiEngine {
                 if (slots[slot.path] === slot) {
                     return runCatching {
                         slot.lastUse = System.currentTimeMillis()
-                        greedy(slot.engine, prompt)
+                        greedy(slot, prompt, prefix)
                     }.onFailure { logcat(LogPriority.WARN, it) { "The on-device AI failed" } }.getOrNull()
                 }
             }
@@ -153,21 +158,57 @@ object LocalAiEngine {
      * MANHWA: the model's most likely answer (top-1, no sampling): a translation is not creative writing, and the
      * same line gives the same answer every time. A fresh session per call (nothing carried over between calls);
      * when the session can't be made, the model's plain answer as before.
+     *
+     * With a [prefix], the session that has read it already is copied (when the library can copy a session), so
+     * the rules are not read again on every call of the chapter; anything that fails there falls back to the
+     * whole prompt.
      */
-    private fun greedy(engine: LlmInference, prompt: String): String {
-        val session = runCatching {
-            com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.createFromOptions(
-                engine,
-                com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.LlmInferenceSessionOptions.builder()
-                    .setTopK(1)
-                    .build(),
-            )
-        }.getOrNull() ?: return engine.generateResponse(prompt)
+    private fun greedy(slot: Slot, prompt: String, prefix: String?): String {
+        val engine = slot.engine
+        if (prefix != null && prefix.isNotEmpty() && prompt.startsWith(prefix) && prompt.length > prefix.length) {
+            runCatching { fromPrefix(slot, prefix, prompt.substring(prefix.length)) }
+                .onFailure {
+                    logcat(LogPriority.WARN, it) { "The kept rules could not be reused, the whole prompt is read" }
+                    slot.dropPrefix()
+                }
+                .getOrNull()?.let { return it }
+        }
+        val session = newSession(engine) ?: return engine.generateResponse(prompt)
         return try {
             session.addQueryChunk(prompt)
             session.generateResponse()
         } finally {
             runCatching { session.close() }
+        }
+    }
+
+    private fun newSession(engine: LlmInference) = runCatching {
+        com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.createFromOptions(
+            engine,
+            com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession.LlmInferenceSessionOptions.builder()
+                .setTopK(1)
+                .build(),
+        )
+    }.getOrNull()
+
+    /** The library's way to copy a session, when this version has it (looked up once). */
+    private val cloneMethod: java.lang.reflect.Method? by lazy {
+        runCatching {
+            com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession::class.java.methods
+                .firstOrNull { it.name == "cloneSession" && it.parameterCount == 0 }
+        }.getOrNull()
+    }
+
+    /** The answer from a copy of the session that read [prefix]; null when sessions can't be copied here. */
+    private fun fromPrefix(slot: Slot, prefix: String, rest: String): String? {
+        val clone = cloneMethod ?: return null
+        val base = slot.prefixSession(prefix) ?: return null
+        val copy = clone.invoke(base) as? com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession ?: return null
+        return try {
+            copy.addQueryChunk(rest)
+            copy.generateResponse()
+        } finally {
+            runCatching { copy.close() }
         }
     }
 
@@ -189,7 +230,7 @@ object LocalAiEngine {
         while (slots.isNotEmpty() && !EnsembleRules.fits(slots.values.map { it.bytes }, file.length(), budget)) {
             val oldest = slots.values.minBy { it.lastUse }
             // Waits for its answer in progress before freeing it
-            oldest.lock.withLock { runCatching { oldest.engine.close() } }
+            oldest.lock.withLock { oldest.close() }
             slots.remove(oldest.path)
         }
         val started = System.currentTimeMillis()
@@ -199,8 +240,9 @@ object LocalAiEngine {
     }
 
     /**
-     * MANHWA: the model runs on the phone's GPU (several times faster on most phones); a phone whose GPU can't run
-     * it falls back to the CPU, and is remembered so it is not tried again.
+     * MANHWA: the model runs on the phone's NPU when the library and the phone can (Snapdragon's Hexagon), else on
+     * its GPU (several times faster than the CPU on most phones); a phone whose NPU or GPU can't run it falls back,
+     * and is remembered so it is not tried again.
      */
     private fun create(context: Context, file: File, forced: LlmInference.Backend?): Pair<LlmInference, LlmInference.Backend> {
         val prefs = context.appGraph.translationPreferences
@@ -213,6 +255,34 @@ object LocalAiEngine {
                 .build(),
         )
         if (forced != null) return build(forced) to forced
+        val npu = NpuSupport.backend()
+        val marks = context.getSharedPreferences("manhwa_models", Context.MODE_PRIVATE)
+        val npuKey = "npu:${file.name}"
+        val npuState = marks.getString(npuKey, null)
+        if (npu != null && NpuSupport.phoneHasNpu() && npuState != NPU_FAILED) {
+            // Marked as tried before trying (written at once): a phone that falls over on the NPU tries it only once
+            if (npuState == null) marks.edit().putString(npuKey, NPU_FAILED).commit()
+            runCatching {
+                build(npu).also { engine ->
+                    // The first time, one tiny answer proves the model really runs there (a model not made for this
+                    // NPU can load and still fail to answer)
+                    if (npuState == null) {
+                        runCatching { engine.generateResponse("Reply with OK.") }.onFailure { e ->
+                            runCatching { engine.close() }
+                            throw e
+                        }
+                    }
+                }
+            }
+                .onSuccess {
+                    marks.edit().putString(npuKey, NPU_WORKS).apply()
+                    return it to npu
+                }
+                .onFailure {
+                    logcat(LogPriority.WARN, it) { "The on-device AI can't run ${file.name} on this NPU, using the GPU" }
+                    marks.edit().putString(npuKey, NPU_FAILED).apply()
+                }
+        }
         if (!prefs.translationLocalGpuFailed().get()) {
             runCatching { return build(LlmInference.Backend.GPU) to LlmInference.Backend.GPU }
                 .onFailure {
@@ -234,7 +304,7 @@ object LocalAiEngine {
             slots.values.filter { now - it.lastUse >= IDLE_MS }.forEach { slot ->
                 if (slot.lock.tryLock()) {
                     try {
-                        runCatching { slot.engine.close() }
+                        slot.close()
                         slots.remove(slot.path)
                     } finally {
                         slot.lock.unlock()
@@ -245,7 +315,7 @@ object LocalAiEngine {
     }
 
     private suspend fun release() {
-        slots.values.toList().forEach { slot -> slot.lock.withLock { runCatching { slot.engine.close() } } }
+        slots.values.toList().forEach { slot -> slot.lock.withLock { slot.close() } }
         slots.clear()
     }
 
@@ -253,15 +323,63 @@ object LocalAiEngine {
     private class Slot(val path: String, val bytes: Long, val engine: LlmInference, val backend: LlmInference.Backend) {
         val lock = Mutex()
         @Volatile var lastUse = System.currentTimeMillis()
+
+        /** The session that has read the rules of the chapter, kept while they stay the same (one per model). */
+        private var prefix: String? = null
+        private var prefixed: com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession? = null
+
+        fun prefixSession(text: String): com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession? {
+            if (prefix == text) prefixed?.let { return it }
+            dropPrefix()
+            val session = newSession(engine) ?: return null
+            session.addQueryChunk(text)
+            prefix = text
+            prefixed = session
+            return session
+        }
+
+        fun dropPrefix() {
+            runCatching { prefixed?.close() }
+            prefixed = null
+            prefix = null
+        }
+
+        fun close() {
+            dropPrefix()
+            runCatching { engine.close() }
+        }
     }
 
     private val slots = java.util.concurrent.ConcurrentHashMap<String, Slot>()
+
+    private const val NPU_WORKS = "works"
+    private const val NPU_FAILED = "failed"
 
     /** Prompt and answer together: room for 12 lines with their context and the glossary. */
     private const val MAX_TOKENS = 2_048
     const val CALL_TIMEOUT_MS = 60_000L
     private const val MIN_MODEL_BYTES = 10L * 1024 * 1024
     private const val IDLE_MS = 5 * 60 * 1000L
+}
+
+/**
+ * MANHWA: the NPU, when this version of MediaPipe offers it (looked up by name, so the app builds and runs with a
+ * version that does not) and the phone has one it can use (Qualcomm Snapdragon).
+ */
+object NpuSupport {
+    fun backend(): LlmInference.Backend? = runCatching { LlmInference.Backend.valueOf("NPU") }.getOrNull()
+
+    fun phoneHasNpu(): Boolean = runCatching {
+        val soc = if (android.os.Build.VERSION.SDK_INT >= 31) android.os.Build.SOC_MANUFACTURER else ""
+        NpuRules.qualcomm(soc, android.os.Build.HARDWARE, android.os.Build.BOARD)
+    }.getOrDefault(false)
+}
+
+/** The pure rule of [NpuSupport] (tested without a phone). */
+object NpuRules {
+    fun qualcomm(soc: String?, hardware: String?, board: String?): Boolean =
+        soc.equals("QTI", ignoreCase = true) || soc.equals("Qualcomm", ignoreCase = true) ||
+            listOfNotNull(hardware, board).any { it.contains("qcom", ignoreCase = true) }
 }
 
 /** The phone's total memory in bytes (0 when unknown). */

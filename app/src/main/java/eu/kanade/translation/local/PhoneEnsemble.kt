@@ -34,7 +34,7 @@ object PhoneEnsemble {
         val inactive = prefs.translationInactiveModels().get()
         val names = HashMap<String, String>()
         val catalog = runCatching {
-            ModelCatalog.models.mapNotNull { m ->
+            ModelCatalog.known.mapNotNull { m ->
                 (ModelCatalog.status(context, m) as? ModelCatalog.Status.Ready)?.file?.let { f ->
                     names[f.absolutePath] = m.name
                     EnsembleRules.Candidate(f.absolutePath, m.strength, f.length())
@@ -65,7 +65,7 @@ object PhoneEnsemble {
 
     /** A model's name for the screen, from the shelf when it is one of its models. */
     fun nameOf(context: Context, file: File): String =
-        ModelCatalog.models.firstOrNull { m -> (ModelCatalog.status(context, m) as? ModelCatalog.Status.Ready)?.file?.absolutePath == file.absolutePath }?.name
+        ModelCatalog.known.firstOrNull { m -> (ModelCatalog.status(context, m) as? ModelCatalog.Status.Ready)?.file?.absolutePath == file.absolutePath }?.name
             ?: file.nameWithoutExtension
 }
 
