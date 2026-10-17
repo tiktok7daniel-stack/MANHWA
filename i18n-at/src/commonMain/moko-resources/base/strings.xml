@@ -1090,4 +1090,5 @@
     <string name="tj_waiting">%1$d%% · %2$d more waiting · goes on with the app closed</string>
     <string name="wn_cascade_t">The phone model learns and keeps going</string>
     <string name="wn_cascade_b">With no key, the model on your phone now translates while you read too, learns its own checked lines (the next chapters write them at once, under every key and your corrections), knows who the characters are (man or woman), answers the same way every time, shows each page as soon as it is done and translates the next chapter ahead when the phone is cool. A fix-only way (an instant draft, the model writes = for a good one) is measured by the speed test and used only when it is faster and as accurate on your phone. Translation goes on in the background with the app closed, with its progress in the notification.</string>
+    <string name="fusion_searching_for">Looking for: %1$s</string>
 </resources>

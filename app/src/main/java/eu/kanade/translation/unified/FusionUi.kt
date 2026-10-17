@@ -301,12 +301,15 @@ private fun FusedStrip(ui: FusionUi, fusion: ChapterFusion.Fusion, modifier: Mod
 
 @Composable
 private fun ManualSearch(ui: FusionUi, modifier: Modifier, onSearch: () -> Unit) {
+    // The names it looks for, so a search that takes long shows what it is after
+    val names = remember(ui.manga.id) { FusionRules.titlesOf(ui.manga.title, ui.manga.description) }
     Row(
         modifier
             .fillMaxWidth()
             .glass(RoundedCornerShape(16.dp), alpha = 0.3f)
-            .clickable(enabled = !ui.searching, onClick = onSearch)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            // Opens the search by hand even while the automatic one is still looking
+            .clickable(onClick = onSearch)
+            .padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (ui.searching) {
@@ -315,15 +318,29 @@ private fun ManualSearch(ui: FusionUi, modifier: Modifier, onSearch: () -> Unit)
             Icon(MaterialSymbols.Rounded.CallMerge, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(10.dp))
-        Text(
-            when {
-                ui.searching -> stringResource(ATMR.strings.fusion_searching)
-                ui.searched && ui.offer == null -> stringResource(ATMR.strings.fusion_none)
-                else -> stringResource(ATMR.strings.fusion_search)
-            },
-            style = MaterialTheme.typography.labelLarge,
-            color = Color.White.copy(alpha = 0.85f),
-        )
+        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+            Text(
+                when {
+                    ui.searching -> stringResource(ATMR.strings.fusion_searching)
+                    ui.searched && ui.offer == null -> stringResource(ATMR.strings.fusion_none)
+                    else -> stringResource(ATMR.strings.fusion_search)
+                },
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White.copy(alpha = 0.85f),
+            )
+            if (ui.searching && names.isNotEmpty()) {
+                Text(
+                    stringResource(ATMR.strings.fusion_searching_for, names.joinToString("، ")),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.55f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        IconButton(onClick = onSearch) {
+            Icon(MaterialSymbols.Rounded.Search, contentDescription = stringResource(ATMR.strings.fusion_search), tint = MaterialTheme.colorScheme.primary)
+        }
     }
 }
 
