@@ -2,6 +2,14 @@ package eu.kanade.translation.unified
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import mihon.icons.materialsymbols.rounded.Search
+import eu.kanade.presentation.manga.components.MangaCover
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,6 +72,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 private val Ember = Color(0xFFFF6A2B)
 private val Mint = Color(0xFF3DDC97)
+private val Amber = Color(0xFFFFB020)
 
 /** What the series screen knows about this work's fusion: the offer, or the continuation once fused. */
 @Stable
@@ -140,34 +149,29 @@ private suspend fun search(context: android.content.Context, ui: FusionUi, force
 @Composable
 fun FusionBanner(ui: FusionUi, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var changing by remember { mutableStateOf(false) }
+    // The reader always picks the work to join with: nothing is fused without seeing it first
+    var picking by remember { mutableStateOf(false) }
     val fusion = ui.fusion
     val offer = ui.offer
     when {
         fusion != null -> FusedStrip(ui, fusion, modifier, onUnfuse = {
             context.appGraph.chapterFusion.unfuse(ui.manga.id)
             ui.dismissed = true
-        }, onChange = {
-            changing = true
-            if (ui.choices.isEmpty()) scope.launch { search(context, ui, force = true) }
-        })
-        offer != null && !ui.dismissed -> OfferBanner(ui, offer, modifier, onFuse = {
-            context.appGraph.chapterFusion.fuse(offer)
-        }, onDismiss = {
+        }, onChange = { picking = true })
+        offer != null && !ui.dismissed -> OfferBanner(ui, offer, modifier, onFuse = { picking = true }, onDismiss = {
             context.appGraph.chapterFusion.dismiss(ui.manga.id)
             ui.dismissed = true
         })
-        else -> ManualSearch(ui, modifier) { scope.launch { search(context, ui, force = true) } }
+        else -> ManualSearch(ui, modifier) { picking = true }
     }
-    if (changing) {
-        ChangeSourceDialog(
+    if (picking) {
+        FusionPicker(
             ui,
             onPick = {
                 context.appGraph.chapterFusion.fuse(it)
-                changing = false
+                picking = false
             },
-            onDismiss = { changing = false },
+            onDismiss = { picking = false },
         )
     }
 }
@@ -263,34 +267,108 @@ private fun ManualSearch(ui: FusionUi, modifier: Modifier, onSearch: () -> Unit)
     }
 }
 
+/**
+ * The works found on the other sources, each with its cover, source and last chapter, for the reader to pick
+ * the right one (exact title matches first); a different name can be searched for too.
+ */
 @Composable
-private fun ChangeSourceDialog(ui: FusionUi, onPick: (ChapterFusion.Offer) -> Unit, onDismiss: () -> Unit) {
+private fun FusionPicker(ui: FusionUi, onPick: (ChapterFusion.Offer) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var query by remember { mutableStateOf(ui.manga.title) }
+    var results by remember { mutableStateOf(ui.choices) }
+    var loading by remember { mutableStateOf(true) }
+    fun run(text: String?) {
+        loading = true
+        scope.launch {
+            results = runCatching { context.appGraph.chapterFusion.searchCandidates(ui.manga, text) }.getOrDefault(emptyList())
+            loading = false
+        }
+    }
+    LaunchedEffect(Unit) { run(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(ATMR.strings.fusion_no)) } },
-        title = { Text(stringResource(ATMR.strings.fusion_change_title)) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(ATMR.strings.fusion_cancel)) } },
+        title = { Text(stringResource(ATMR.strings.fusion_pick_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                when {
-                    ui.searching -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                    ui.choices.isEmpty() -> Text(stringResource(ATMR.strings.fusion_none))
-                    else -> ui.choices.forEach { offer ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .glass(RoundedCornerShape(14.dp), accent = offer.other.id == ui.fusion?.otherMangaId, alpha = 0.4f)
-                                .clickable { onPick(offer) }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(offer.otherSourceName, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text(stringResource(ATMR.strings.fusion_chapter, number(offer.theirsMax)), color = Color.White.copy(alpha = 0.75f))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(ATMR.strings.fusion_pick_hint), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    label = { Text(stringResource(ATMR.strings.fusion_search_name)) },
+                    trailingIcon = {
+                        IconButton(onClick = { run(query) }) {
+                            Icon(MaterialSymbols.Rounded.Search, contentDescription = null)
                         }
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { run(query) }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                when {
+                    loading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(stringResource(ATMR.strings.fusion_searching), style = MaterialTheme.typography.bodySmall)
+                    }
+                    results.isEmpty() -> Text(stringResource(ATMR.strings.fusion_none), style = MaterialTheme.typography.bodySmall)
+                }
+                LazyColumn(Modifier.heightIn(max = 380.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(results, key = { it.other.id }) { offer ->
+                        CandidateRow(offer, current = offer.other.id == ui.fusion?.otherMangaId) { onPick(offer) }
                     }
                 }
             }
         },
     )
+}
+
+@Composable
+private fun CandidateRow(offer: ChapterFusion.Offer, current: Boolean, onClick: () -> Unit) {
+    val sure = offer.exact
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .glass(RoundedCornerShape(16.dp), accent = current, alpha = 0.4f)
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MangaCover.Book(data = offer.other, modifier = Modifier.width(46.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(offer.other.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                "${offer.otherSourceName} · ${langCode(offer.otherLang)}",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.75f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(ATMR.strings.fusion_up_to, number(offer.theirsMax)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (offer.theirsMax > offer.oursMax) Ember else Color.White.copy(alpha = 0.6f),
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.width(8.dp))
+                val tag = if (sure) Mint else Amber
+                Text(
+                    stringResource(if (sure) ATMR.strings.fusion_exact else ATMR.strings.fusion_close),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = tag,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(tag.copy(alpha = 0.16f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+        }
+    }
 }
 
 /** The continuation's chapters, newest first, above this work's own chapters. */

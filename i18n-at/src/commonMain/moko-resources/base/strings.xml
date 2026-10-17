@@ -974,7 +974,7 @@
     <string name="wn_audit_t">Steadier and safer</string>
     <string name="wn_audit_b">A full check of the app: saves that can no longer be cut in half (glossary, corrections, edits), chapters that never wait forever when every key rests, a reader that never re-translates a saved chapter, and a faster start.</string>
     <string name="fusion_offer">The translation here stops at chapter %1$s, and %2$s goes on to chapter %3$s. Fuse the two sources?</string>
-    <string name="fusion_yes">Yes, fuse the chapters and continue</string>
+    <string name="fusion_yes">Yes, pick the work and fuse</string>
     <string name="fusion_no">Not now</string>
     <string name="fusion_mode">Smart fusion: %1$s %2$s + %3$s continuation %4$s</string>
     <string name="fusion_unfuse">Undo fusion</string>
@@ -994,4 +994,11 @@
     <string name="wn_fusion_b">When the Arabic translation of a work stops, the app finds the rest on an English source and joins them in one list: Arabic chapters are read as they are, the rest is translated by the app, and the reader moves between them by itself.</string>
     <string name="wn_networks_t">Downloads on any network</string>
     <string name="wn_networks_b">Mobile data or Wi-Fi: a site a network hides is reached another safe way, a chapter cut by the network carries on by itself, and a work\'s downloads can be cancelled from its download menu.</string>
+    <string name="fusion_pick_title">Pick the work to continue from</string>
+    <string name="fusion_pick_hint">Check the cover and the name: the chapters are joined with the one you pick.</string>
+    <string name="fusion_search_name">The work\'s name</string>
+    <string name="fusion_up_to">Up to chapter %1$s</string>
+    <string name="fusion_exact">Same name</string>
+    <string name="fusion_close">Close name, check it</string>
+    <string name="fusion_cancel">Cancel</string>
 </resources>

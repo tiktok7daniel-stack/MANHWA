@@ -915,7 +915,7 @@
     <string name="wn_audit_t">أثبت وأأمن</string>
     <string name="wn_audit_b">فحص كامل للتطبيق: الحفظ مبقاش ممكن يتقطع في النص (القاموس، والتصحيحات، والتعديلات)، والفصول مبقتش بتستنى للأبد لما كل المفاتيح تستريح، والقارئ مبقاش بيعيد ترجمة فصل متحفظ، والتطبيق بقى بيفتح أسرع.</string>
     <string name="fusion_offer">الترجمة هنا متوقفة عند الفصل %1$s، وفي تكملة لحد الفصل %3$s في مصدر %2$s. تحب تدمج المصدرين مع بعض؟</string>
-    <string name="fusion_yes">نعم، ادمج الفصول وكمّل المانهوا</string>
+    <string name="fusion_yes">نعم، اختار المانهوا وادمج الفصول</string>
     <string name="fusion_no">مش دلوقتي</string>
     <string name="fusion_mode">وضع الاندماج الذكي: %1$s %2$s + تكملة %3$s %4$s</string>
     <string name="fusion_unfuse">إلغاء الدمج</string>
@@ -935,4 +935,11 @@
     <string name="wn_fusion_b">لما الترجمة العربية لعمل تقف، التطبيق بيلاقي التكملة في مصدر إنجليزي ويدمجهم في قائمة واحدة: الفصول العربية بتتقري زي ما هي، والباقي بيترجمه التطبيق، والقارئ بينقل بينهم لوحده.</string>
     <string name="wn_networks_t">التحميل على أي شبكة</string>
     <string name="wn_networks_b">بيانات أو واي فاي: الموقع اللي الشبكة بتخبيه بيتوصله بطريقة آمنة تانية، والفصل اللي النت يقطعه بيكمّل لوحده، وتقدر تلغي تحميلات العمل من قائمة التحميل بتاعته.</string>
+    <string name="fusion_pick_title">اختار المانهوا اللي هتكمّل منها</string>
+    <string name="fusion_pick_hint">اتأكد من الغلاف والاسم: الفصول هتتدمج مع اللي هتختاره بس.</string>
+    <string name="fusion_search_name">اسم المانهوا</string>
+    <string name="fusion_up_to">لحد الفصل %1$s</string>
+    <string name="fusion_exact">نفس الاسم</string>
+    <string name="fusion_close">اسم قريب، اتأكد منه</string>
+    <string name="fusion_cancel">إلغاء</string>
 </resources>
