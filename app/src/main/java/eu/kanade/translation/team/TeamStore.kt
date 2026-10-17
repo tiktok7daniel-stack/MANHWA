@@ -627,6 +627,8 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             val fixed = refreshModel(withDeadModel(member, failed))
             val next = fixed.model.ifBlank { fixed.autoModel }
             if (next.isNotBlank() && next != failed) return analyzeNow(fixed, heals + 1, probing)
+            // No other model to try (the list could not be read): the key stays as it was
+            mutate { list -> list.map { if (it.id == member.id) member else it } }
         }
         // MANHWA: a plain "sk-" key refused here may be from another site whose keys look the same (NaraRouter,
         // DeepSeek...): each is tried, and the key moves to the first that takes it. Only on 401 (the key is not
@@ -657,28 +659,34 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
      * answers keeps it. When none does, the key stays as it was and the error names every site tried.
      */
     private suspend fun probeSites(member: Member, refused: Analysis, others: List<KeySites.Site>): Analysis {
-        for (site in others) {
-            val moved = member.copy(
-                provider = site.protocol.name,
-                site = site.id,
-                siteName = "",
-                baseUrl = "",
-                model = "",
-                autoModel = "",
-                deadModels = emptyList(),
-            )
-            val models = runCatching { fetchModels(moved) }.getOrDefault(emptyList())
-            if (models.isEmpty()) continue
-            mutate { list -> list.map { if (it.id == member.id) moved else it } }
-            val result = analyzeNow(moved, probing = true)
-            if (result.ok || result.limited) {
-                keyHealth.forget(member.id)
-                logcat(LogPriority.INFO) { "Key ${member.key.takeLast(4)} moved from ${member.displayName} to ${site.name}" }
-                return result
+        var accepted = false
+        try {
+            for (site in others) {
+                val moved = member.copy(
+                    provider = site.protocol.name,
+                    site = site.id,
+                    siteName = "",
+                    baseUrl = "",
+                    model = "",
+                    autoModel = "",
+                    deadModels = emptyList(),
+                )
+                val models = runCatching { fetchModels(moved) }.getOrDefault(emptyList())
+                if (models.isEmpty()) continue
+                mutate { list -> list.map { if (it.id == member.id) moved else it } }
+                val result = analyzeNow(moved, probing = true)
+                // Taken: it answered, or it is out of quota for now (a server error says nothing about the key)
+                if (result.ok || (result.limited && result.error.orEmpty().startsWith("HTTP 429"))) {
+                    accepted = true
+                    keyHealth.forget(member.id)
+                    logcat(LogPriority.INFO) { "Key ${member.key.takeLast(4)} moved from ${member.displayName} to ${site.name}" }
+                    return result
+                }
             }
+        } finally {
+            // None took it (or the check was stopped): back to where it was
+            if (!accepted) mutate { list -> list.map { if (it.id == member.id) member else it } }
         }
-        // None took it: back to where it was, with every site tried named
-        mutate { list -> list.map { if (it.id == member.id) member else it } }
         val tried = (listOf(member.displayName) + others.map { it.name }).joinToString(", ")
         val result = refused.copy(error = context.stringResource(ATMR.strings.team_sites_tried, tried, refused.error.orEmpty()).take(300))
         mutateAnalysis { map -> map + (member.id to result) }
