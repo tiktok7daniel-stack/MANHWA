@@ -541,6 +541,21 @@ class ReaderActivity : BaseActivity() {
         readingModeToast?.cancel()
     }
 
+    override fun onStart() {
+        super.onStart()
+        // MANHWA: back after the background took over this chapter: its pages show here and live goes on
+        runCatching { viewModel.liveTranslation.comeBack() }
+    }
+
+    override fun onStop() {
+        // MANHWA: left halfway through translating this chapter live (not the small window, not a rotation): the
+        // background translation carries on with the rest
+        if (!isChangingConfigurations && !(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)) {
+            runCatching { viewModel.handTranslationToBackground() }
+        }
+        super.onStop()
+    }
+
     override fun onPause() {
         runCatching { saveSmartFocus() }
         // MANHWA Vault: after a reading session, the sync folder gets a fresh copy (at most every hour)

@@ -233,6 +233,44 @@ class LiveTranslator(
             wake.trySend(Unit)
         }
 
+        /**
+         * MANHWA: the reader is left (another app, the home screen) while this chapter is being translated live:
+         * what is done is handed over, so the background translation carries on with the rest at full strength.
+         * Null when there is nothing left to hand over (translation off, the chapter done or saved, or the queue
+         * already has it). The pages are keyed by their name in the chapter's files, as the chapter translator reads them.
+         */
+        fun handBack(): Pair<Long, Map<String, PageTranslation>>? {
+            if (!active() || savedChapter || heldFor != null) return null
+            val list = pages
+            val chapterId = list.firstOrNull()?.chapter?.chapter?.id ?: return null
+            val left = list.count { it.translation == null && synchronized(textless) { it !in textless } }
+            if (left == 0) return null
+            val done = list.mapNotNull { page ->
+                val name = page.translationKey ?: return@mapNotNull null
+                page.translation?.takeIf { t -> t.blocks.any { it.translation.isNotBlank() } }?.let { name to it }
+            }.toMap()
+            // This reader rests meanwhile: one translation of the chapter at a time, the background one
+            handedBack = true
+            paused = true
+            publish()
+            return chapterId to done
+        }
+
+        @Volatile private var handedBack = false
+
+        /**
+         * MANHWA: back in the reader after [handBack]: the background translation's pages show here (or this reader
+         * takes the chapter back when the background has not really started on it), and live translation goes on.
+         */
+        fun comeBack() {
+            if (!handedBack) return
+            handedBack = false
+            paused = false
+            pages.firstOrNull()?.chapter?.chapter?.let { handOver(it.id, it.name, it.scanlator) }
+            publish()
+            wake.trySend(Unit)
+        }
+
         /** Translates every chapter of this reader session (a fused continuation) without saving the setting. */
         fun enableForSession() {
             sessionOn = true
