@@ -131,3 +131,20 @@ class FusionRulesTest {
         FusionRules.runAround(fused, 2L, 555L) shouldBe setOf(126L, 127L, 129L, 130L, 999L)
     }
 }
+
+class FusionNameTest {
+
+    @Test
+    fun `the same title in another order or with other marks is the same work`() {
+        FusionRules.sameName("Solo Leveling: Ragnarok", "Ragnarok - Solo Leveling") shouldBe true
+        FusionRules.sameName("The Greatest Estate Developer", "Greatest Estate Developer (Official)") shouldBe true
+        FusionRules.sameName("Overgeared", "overgeared") shouldBe true
+    }
+
+    @Test
+    fun `a sequel or another work is never taken for this one`() {
+        FusionRules.sameName("Solo Leveling", "Solo Leveling Season 2") shouldBe false
+        FusionRules.sameName("Omniscient Reader", "Omniscient Reader's Viewpoint") shouldBe false
+        FusionRules.sameName("Return", "Return") shouldBe true
+    }
+}

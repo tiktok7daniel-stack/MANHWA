@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,6 +61,7 @@ class ChapterFusion(
     private val syncChaptersWithSource: SyncChaptersWithSource,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val getManga: GetManga,
+    private val unifiedSources: UnifiedSources,
 ) {
 
     /** A work ([baseMangaId], read first) joined with its continuation on another source. */
@@ -132,6 +134,52 @@ class ChapterFusion(
     val fusions: StateFlow<Map<Long, Fusion>> = _fusions.asStateFlow()
 
     private val offers = ConcurrentHashMap<Long, Pair<Long, List<Offer>>>()
+
+    /** An offer kept on the disk, so the banner shows at once the next time the work is opened. */
+    @Serializable
+    private data class SavedOffer(
+        val otherMangaId: Long,
+        val otherSourceId: Long,
+        val otherSourceName: String,
+        val otherLang: String,
+        val theirsMax: Double,
+        val exact: Boolean,
+    )
+
+    @Serializable
+    private data class SavedOffers(val at: Long = 0, val offers: List<SavedOffer> = emptyList())
+
+    private val offersFile get() = File(context.filesDir, "fusion_offers.json")
+    private val offersLock = Any()
+
+    private fun loadSavedOffers(): Map<String, SavedOffers> = runCatching {
+        json.decodeFromString<Map<String, SavedOffers>>(offersFile.readTextAtomic())
+    }.getOrDefault(emptyMap())
+
+    private fun keepOffers(baseMangaId: Long, list: List<Offer>) = synchronized(offersLock) {
+        runCatching {
+            val all = loadSavedOffers().toMutableMap()
+            all[baseMangaId.toString()] = SavedOffers(
+                System.currentTimeMillis(),
+                list.map { SavedOffer(it.other.id, it.otherSourceId, it.otherSourceName, it.otherLang, it.theirsMax, it.exact) },
+            )
+            // Only the works opened most recently
+            val trimmed = all.entries.sortedByDescending { it.value.at }.take(MAX_SAVED_OFFERS).associate { it.key to it.value }
+            offersFile.writeTextAtomic(json.encodeToString(trimmed))
+        }
+        Unit
+    }
+
+    /** What was found the last time (on the disk), shown at once while the sources are asked again. */
+    suspend fun savedOffers(manga: Manga): List<Offer> = withContext(Dispatchers.IO) {
+        val kept = synchronized(offersLock) { loadSavedOffers()[manga.id.toString()] } ?: return@withContext emptyList()
+        val oursMax = getChaptersByMangaId.await(manga.id).map { it.chapterNumber }.filter { FusionRules.countable(it) }.maxOrNull() ?: -1.0
+        val baseName = sourceManager.get(manga.source)?.name.orEmpty()
+        kept.offers.mapNotNull { o ->
+            val other = getManga.await(o.otherMangaId) ?: return@mapNotNull null
+            Offer(manga.id, baseName, oursMax, other, o.otherSourceId, o.otherSourceName, o.otherLang, o.theirsMax, o.exact)
+        }.filter { FusionRules.worthOffering(oursMax, it.theirsMax) }
+    }
 
     private fun load(): Saved = runCatching { json.decodeFromString<Saved>(file.readTextAtomic()) }.getOrDefault(Saved())
 
@@ -238,18 +286,49 @@ class ChapterFusion(
      */
     suspend fun findOffer(manga: Manga, force: Boolean = false): Offer? = findOffers(manga, force).firstOrNull()
 
-    /** Every source that goes further than this one, the furthest first. */
-    suspend fun findOffers(manga: Manga, force: Boolean = false): List<Offer> = withContext(Dispatchers.IO) {
+    /**
+     * Every source that goes further than this one, the furthest first. The copies the app already linked to
+     * this work (shown as "also on") are only asked for their chapters, every other source is searched at the
+     * same time, and [onFound] hears the best so far as each source answers.
+     */
+    suspend fun findOffers(manga: Manga, force: Boolean = false, onFound: ((List<Offer>) -> Unit)? = null): List<Offer> = withContext(Dispatchers.IO) {
         offers[manga.id]?.let { (at, list) -> if (!force && System.currentTimeMillis() - at < OFFER_TTL_MS) return@withContext list }
         val ours = getChaptersByMangaId.await(manga.id).map { it.chapterNumber }
         val oursMax = ours.filter { FusionRules.countable(it) }.maxOrNull() ?: -1.0
         val base = sourceManager.get(manga.source)
-        val candidates = sourcesFor(manga, (base as? CatalogueSource)?.lang.orEmpty())
+        val baseLang = (base as? CatalogueSource)?.lang.orEmpty()
+        val baseName = base?.name.orEmpty()
+        val found = java.util.Collections.synchronizedList(mutableListOf<Offer>())
+        val report: (List<Offer>) -> Unit = { more ->
+            val worth = more.filter { FusionRules.worthOffering(oursMax, it.theirsMax) }
+            if (worth.isNotEmpty()) {
+                found += worth
+                onFound?.invoke(synchronized(found) { found.toList() }.distinctBy { it.other.id }.sortedByDescending { it.theirsMax })
+            }
+        }
+        // Copies already linked to this work: no search, only their chapters
+        val linked = unifiedSources.linksOf(manga.id).mapNotNull { link ->
+            val source = sourceManager.get(link.sourceId) as? CatalogueSource ?: return@mapNotNull null
+            if (!FusionRules.otherLanguage(baseLang, source.lang) || sourceHealth.isHidden(source.id)) return@mapNotNull null
+            source to link.mangaId
+        }
+        val linkedIds = linked.map { it.first.id }.toSet()
+        val candidates = sourcesFor(manga, baseLang).filter { it.id !in linkedIds }
         val titles = FusionRules.titlesOf(manga.title, manga.description)
-        val found = searchOn(candidates, manga, titles, titles, oursMax, base?.name.orEmpty(), loose = false)
-            .filter { FusionRules.worthOffering(oursMax, it.theirsMax) }
-        val sorted = found.sortedByDescending { it.theirsMax }
+        coroutineScope {
+            linked.forEach { (source, mangaId) ->
+                launch {
+                    runCatching {
+                        val copy = getManga.await(mangaId) ?: return@runCatching
+                        offerFor(source, manga, copy, oursMax, baseName, exact = true)?.let { report(listOf(it)) }
+                    }.onFailure { logcat(LogPriority.WARN, it) { "Linked copy on ${source.name} not read" } }
+                }
+            }
+            launch { searchOn(candidates, manga, titles, titles, oursMax, baseName, loose = false, onEach = report) }
+        }
+        val sorted = synchronized(found) { found.toList() }.distinctBy { it.other.id }.sortedByDescending { it.theirsMax }
         offers[manga.id] = System.currentTimeMillis() to sorted
+        keepOffers(manga.id, sorted)
         sorted
     }
 
@@ -286,6 +365,7 @@ class ChapterFusion(
         oursMax: Double,
         baseName: String,
         loose: Boolean,
+        onEach: ((List<Offer>) -> Unit)? = null,
     ): List<Offer> {
         val gate = Semaphore(PARALLEL)
         return coroutineScope {
@@ -295,10 +375,22 @@ class ChapterFusion(
                         runCatching { offersOn(source, manga, queries, names, oursMax, baseName, loose) }
                             .onFailure { logcat(LogPriority.WARN, it) { "Fusion search on ${source.name} failed" } }
                             .getOrDefault(emptyList())
+                            .also { if (it.isNotEmpty()) onEach?.invoke(it) }
                     }
                 }
             }.awaitAll().flatten()
         }
+    }
+
+    /** [copy] on [source] as an offer: its chapters fetched now, with how far they go. */
+    private suspend fun offerFor(source: CatalogueSource, manga: Manga, copy: Manga, oursMax: Double, baseName: String, exact: Boolean): Offer? {
+        val chapters = withTimeoutOrNull(CHAPTERS_TIMEOUT_MS) {
+            source.getMangaUpdate(copy.toSManga(), emptyList(), fetchDetails = false, fetchChapters = true).chapters
+        }
+        if (!chapters.isNullOrEmpty()) runCatching { syncChaptersWithSource.await(chapters, copy, source) }
+        val theirsMax = getChaptersByMangaId.await(copy.id).map { it.chapterNumber }.filter { FusionRules.countable(it) }.maxOrNull()
+            ?: return null
+        return Offer(manga.id, baseName, oursMax, copy, source.id, source.name, source.lang, theirsMax, exact)
     }
 
     /** The results on [source]: the exact match only, or with [loose] the first few results too. */
@@ -313,20 +405,19 @@ class ChapterFusion(
     ): List<Offer> {
         for (query in queries) {
             val page = withTimeoutOrNull(SEARCH_TIMEOUT_MS) { source.getSearchManga(1, query, FilterList()) } ?: continue
-            val exact = page.mangas.filter { found -> names.any { WorkIdentity.same(found.title, it) } }
+            val exact = page.mangas.filter { found -> names.any { FusionRules.sameName(found.title, it) } }
             val picked = if (loose) (exact + page.mangas).distinctBy { it.url }.take(LOOSE_PER_SOURCE) else exact.take(1)
             if (picked.isEmpty()) continue
-            return picked.mapNotNull { match ->
-                runCatching {
-                    val local = networkToLocalManga(listOf(match.toDomainManga(source.id))).first()
-                    val chapters = withTimeoutOrNull(SEARCH_TIMEOUT_MS) {
-                        source.getMangaUpdate(local.toSManga(), emptyList(), fetchDetails = false, fetchChapters = true).chapters
+            // The picked results' chapters are fetched together, not one after the other
+            return coroutineScope {
+                picked.map { match ->
+                    async {
+                        runCatching {
+                            val local = networkToLocalManga(listOf(match.toDomainManga(source.id))).first()
+                            offerFor(source, manga, local, oursMax, baseName, exact = match in exact)
+                        }.getOrNull()
                     }
-                    if (!chapters.isNullOrEmpty()) runCatching { syncChaptersWithSource.await(chapters, local, source) }
-                    val theirsMax = getChaptersByMangaId.await(local.id).map { it.chapterNumber }.filter { FusionRules.countable(it) }.maxOrNull()
-                        ?: return@runCatching null
-                    Offer(manga.id, baseName, oursMax, local, source.id, source.name, source.lang, theirsMax, exact = match in exact)
-                }.getOrNull()
+                }.awaitAll().filterNotNull()
             }
         }
         return emptyList()
@@ -407,8 +498,11 @@ class ChapterFusion(
     private companion object {
         const val LOCAL_SOURCE_ID = 0L
         const val MAX_SOURCES = 8
-        const val PARALLEL = 3
-        const val SEARCH_TIMEOUT_MS = 20_000L
+        // Sources asked at the same time (each mostly waits on the network)
+        const val PARALLEL = 6
+        const val SEARCH_TIMEOUT_MS = 12_000L
+        const val CHAPTERS_TIMEOUT_MS = 15_000L
+        const val MAX_SAVED_OFFERS = 200
         const val OFFER_TTL_MS = 6 * 60 * 60 * 1000L
         const val LOOSE_PER_SOURCE = 3
     }
@@ -502,6 +596,28 @@ object FusionRules {
         chapters.filter { countable(it.first) && it.first < number }.maxByOrNull { it.first }?.second
 
     /** The other source's chapters the reader skips there: those this work reads from its own source. */
+    private val seasonWords = Regex("\\b(season|part|s|vol|volume)\\s*\\d+\\b|\\b(remake|reboot|novel)\\b", RegexOption.IGNORE_CASE)
+
+    /**
+     * Two titles of the same work: the same after cleaning ([WorkIdentity]), or the same words in another order
+     * or with ":", "-" and "the" in other places ("Solo Leveling: Ragnarok" and "Ragnarok - Solo Leveling").
+     * A season or part number never matches a title without it, so a sequel is never taken for the first work.
+     */
+    fun sameName(a: String, b: String): Boolean {
+        if (WorkIdentity.same(a, b)) return true
+        val sa = seasonWords.findAll(a.lowercase()).map { it.value.filter(Char::isLetterOrDigit) }.toSet()
+        val sb = seasonWords.findAll(b.lowercase()).map { it.value.filter(Char::isLetterOrDigit) }.toSet()
+        if (sa != sb) return false
+        val wa = words(a)
+        val wb = words(b)
+        return wa.size >= 2 && wa == wb
+    }
+
+    private fun words(title: String): Set<String> =
+        title.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() && it !in STOP_WORDS }.toSet()
+
+    private val STOP_WORDS = setOf("the", "a", "an", "of", "official", "manhwa", "webtoon", "comic")
+
     fun keepInContinuation(number: Double, replacedUpTo: Double?): Boolean =
         replacedUpTo == null || !countable(number) || number > replacedUpTo
 

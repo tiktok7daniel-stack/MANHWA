@@ -161,9 +161,26 @@ fun rememberFusionUi(manga: Manga): FusionUi {
 
 private suspend fun search(context: android.content.Context, ui: FusionUi, force: Boolean) {
     ui.searching = true
-    val found = runCatching { context.appGraph.chapterFusion.findOffers(ui.manga, force) }.getOrDefault(emptyList())
-    ui.choices = found
-    ui.offer = found.firstOrNull()
+    val engine = context.appGraph.chapterFusion
+    // What was found the last time shows at once; the sources are asked again behind it
+    if (ui.offer == null) {
+        val saved = runCatching { engine.savedOffers(ui.manga) }.getOrDefault(emptyList())
+        if (saved.isNotEmpty()) {
+            ui.choices = saved
+            ui.offer = saved.first()
+        }
+    }
+    // Each source's answer shows as soon as it comes, the furthest first
+    val found = runCatching {
+        engine.findOffers(ui.manga, force) { soFar ->
+            ui.choices = soFar
+            ui.offer = soFar.firstOrNull()
+        }
+    }.getOrDefault(ui.choices)
+    if (found.isNotEmpty() || ui.choices.isEmpty()) {
+        ui.choices = found
+        ui.offer = found.firstOrNull()
+    }
     ui.searching = false
     ui.searched = true
 }
