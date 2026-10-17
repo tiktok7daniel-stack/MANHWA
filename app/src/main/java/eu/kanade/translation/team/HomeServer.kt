@@ -72,6 +72,9 @@ object LocalServerRules {
     /** A ping is trusted this long, so a chapter never pings for every line. */
     const val CACHE_MS = 5 * 60_000L
 
+    /** A laptop that did not answer is asked again sooner: back home, it takes over within half a minute. */
+    const val AWAY_MS = 30_000L
+
     enum class Serving { HOME, CLOUD, PHONE }
 
     /**
@@ -84,7 +87,7 @@ object LocalServerRules {
         else -> answering.ifEmpty { others }
     }
 
-    fun fresh(at: Long, now: Long): Boolean = now - at in 0 until CACHE_MS
+    fun fresh(at: Long, now: Long, answered: Boolean = true): Boolean = now - at in 0 until if (answered) CACHE_MS else AWAY_MS
 
     /** "192.168.1.50:11434" or "laptop-name:11434" made a full server address ("http://…/v1"). */
     fun normalize(input: String): String {
@@ -111,10 +114,13 @@ internal fun HomeServerCard(onOpen: () -> Unit) {
     val store = remember { context.appGraph.teamStore }
     val members by store.members.collectAsState()
     val home = members.firstOrNull { it.isHomeServer }
+    // Asked again while the screen is open: the laptop may come and go
     val answers by produceState<Boolean?>(null, home?.baseUrl) {
-        value = home?.let {
+        val url = home?.baseUrl ?: return@produceState
+        while (true) {
             store.pingHome()
-            store.homeAnswers(it.baseUrl)
+            value = store.homeAnswers(url)
+            kotlinx.coroutines.delay(10_000)
         }
     }
     val (text, color) = when {

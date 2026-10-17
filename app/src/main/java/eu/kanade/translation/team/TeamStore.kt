@@ -255,9 +255,11 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             m.key.isNotBlank() && _analysis.value[m.id]?.let { it.ok || it.limited } != false && !usage.exhausted(m)
         }
         val (home, others) = ready.partition { it.isHomeServer }
-        if (home.isNotEmpty()) pingHomeSoon(home)
+        val mode = prefs.translationServerMode().get()
+        // Only the automatic way needs to know whether the laptop is there
+        if (home.isNotEmpty() && mode == LocalServerRules.AUTO) pingHomeSoon(home)
         val answering = home.filter { homeAnswers(it.baseUrl) == true }
-        return LocalServerRules.pick(prefs.translationServerMode().get(), answering, home, others)
+        return LocalServerRules.pick(mode, answering, home, others)
     }
 
     /** Where translation runs now: the laptop, the cloud keys, or the phone (no key works). */
@@ -281,9 +283,9 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             .build()
     }
 
-    /** The last ping of [baseUrl] while it is fresh (5 minutes), else null. */
+    /** The last ping of [baseUrl] while it is fresh (5 minutes when it answered, 30 seconds when not), else null. */
     fun homeAnswers(baseUrl: String): Boolean? =
-        homeReach[baseUrl.trim()]?.takeIf { LocalServerRules.fresh(it.second, System.currentTimeMillis()) }?.first
+        homeReach[baseUrl.trim()]?.takeIf { LocalServerRules.fresh(it.second, System.currentTimeMillis(), answered = it.first) }?.first
 
     /** Pings in the background the home servers whose last ping is old, so [active] never waits for one. */
     private fun pingHomeSoon(home: List<Member>) {
@@ -302,6 +304,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
      * a chapter is translated, so the first one at home already goes to the laptop.
      */
     suspend fun pingHome(force: Boolean = false) = withContext(Dispatchers.IO) {
+        if (!force && prefs.translationServerMode().get() != LocalServerRules.AUTO) return@withContext
         _members.value.filter { it.enabled && it.isHomeServer && it.baseUrl.isNotBlank() }
             .distinctBy { it.baseUrl.trim() }
             .filter { force || homeAnswers(it.baseUrl) == null }
@@ -322,12 +325,16 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
     private fun ping(baseUrl: String, key: String): Boolean = homeModels(baseUrl, key) != null
 
-    /** A failed call to the laptop: it is taken as away at once, so the next lines go to the other keys. */
+    /**
+     * A call to the laptop that could not reach it: it is taken as away at once, so the next lines go to the other
+     * keys. An answer it gave (an HTTP error, a garbled reply) says it is there, so it is not taken as away.
+     */
     private fun homeFailed(id: String, error: Throwable) {
         val member = _members.value.firstOrNull { it.id == id }?.takeIf { it.isHomeServer } ?: return
-        if (error is java.io.IOException || error is kotlinx.coroutines.TimeoutCancellationException) {
-            homeReach[member.baseUrl.trim()] = false to System.currentTimeMillis()
-        }
+        val unreachable = error is java.net.ConnectException || error is java.net.SocketTimeoutException ||
+            error is java.net.UnknownHostException || error is java.net.NoRouteToHostException ||
+            error is kotlinx.coroutines.TimeoutCancellationException
+        if (unreachable) homeReach[member.baseUrl.trim()] = false to System.currentTimeMillis()
     }
 
     /** Strength now (1–100): the analysis, adjusted by how the member has done while translating. */

@@ -23,6 +23,9 @@ class HomeServerTest {
         LocalServerRules.fresh(at = 1_000, now = 1_000 + 60_000) shouldBe true
         LocalServerRules.fresh(at = 1_000, now = 1_000 + 5 * 60_000) shouldBe false
         LocalServerRules.fresh(at = 10_000, now = 1_000) shouldBe false
+        // Away: asked again after half a minute
+        LocalServerRules.fresh(at = 1_000, now = 1_000 + 20_000, answered = false) shouldBe true
+        LocalServerRules.fresh(at = 1_000, now = 1_000 + 30_000, answered = false) shouldBe false
     }
 
     @Test
