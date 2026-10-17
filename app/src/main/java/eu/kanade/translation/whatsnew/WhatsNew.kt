@@ -66,6 +66,7 @@ import mihon.icons.materialsymbols.rounded.CallMerge
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.TextFields
+import mihon.icons.materialsymbols.rounded.Speed
 import mihon.icons.materialsymbols.rounded.Translate
 import mihon.icons.materialsymbols.rounded.Tune
 import mihon.icons.materialsymbols.rounded.Key
@@ -109,13 +110,24 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.CallMerge, ATMR.strings.wn_fusion_t, ATMR.strings.wn_fusion_b),
-            Feature(MaterialSymbols.Rounded.Download, ATMR.strings.wn_networks_t, ATMR.strings.wn_networks_b),
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_cascade_t, ATMR.strings.wn_cascade_b),
+            Feature(MaterialSymbols.Rounded.Speed, ATMR.strings.wn_phone_t, ATMR.strings.wn_phone_b),
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_sharp_t, ATMR.strings.wn_sharp_b),
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_fast_t, ATMR.strings.wn_fast_b),
+            Feature(MaterialSymbols.Rounded.Public, ATMR.strings.wn_steady_t, ATMR.strings.wn_steady_b),
+            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_polish_t, ATMR.strings.wn_polish_b),
+            Feature(MaterialSymbols.Rounded.Autorenew, ATMR.strings.wn_story_t, ATMR.strings.wn_story_b),
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_fusion2_t, ATMR.strings.wn_fusion2_b),
+            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_typeset_t, ATMR.strings.wn_typeset_b),
+            Feature(MaterialSymbols.Rounded.CollectionsBookmark, ATMR.strings.wn_onecat_t, ATMR.strings.wn_onecat_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Builds 58-63
+            Feature(MaterialSymbols.Rounded.CallMerge, ATMR.strings.wn_fusion_t, ATMR.strings.wn_fusion_b),
+            Feature(MaterialSymbols.Rounded.Download, ATMR.strings.wn_networks_t, ATMR.strings.wn_networks_b),
             // Build 56
             Feature(MaterialSymbols.Rounded.TextFields, ATMR.strings.wn_ocr_t, ATMR.strings.wn_ocr_b),
             Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_bubbles_t, ATMR.strings.wn_bubbles_b),

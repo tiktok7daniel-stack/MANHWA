@@ -94,6 +94,9 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.interactor.SetMangaDefaultChapterFlags
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
+import mihon.app.di.appGraph
+import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.translation.translator.TextTranslatorLanguage
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.chapter.service.calculateChapterGap
@@ -198,13 +201,27 @@ class MangaViewModel(
     // TachiyomiAT: live translation states reported by the translator, overriding the queried ones
     private val translationStates = MutableStateFlow(emptyMap<Long, Translation.State>())
 
+    private val chapterFusion = context.appGraph.chapterFusion
+
+    /** MANHWA fusion: the entries whose chapters continue this work (kept ones included), when it is fused. */
+    private val fusionOther: StateFlow<Set<Long>> = chapterFusion.fusions
+        .map { it[mangaId]?.continuationIds().orEmpty().toSet() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, chapterFusion.fusionOf(mangaId)?.continuationIds().orEmpty().toSet())
+
+    /** This work's chapters, or those of its fused continuation. */
+    private fun isOurs(id: Long): Boolean = id == mangaId || id in fusionOther.value
+
+    /** MANHWA fusion: the continuation's chapters the translate sheet offered last, by id. */
+    private var continuationChapters: Map<Long, Chapter> = emptyMap()
+
     /** MANHWA: download stage of chapters that are fetched to be translated (before they reach the queue). */
     private val downloadStage = MutableStateFlow<Map<Long, Translation.Progress>>(emptyMap())
 
     /** MANHWA: every chapter of this manga in the translation queue, with its stage and real percentage. */
-    private val queueProgress = translationManager.queueState
+    private val queueProgress = combine(translationManager.queueState, fusionOther) { queue, _ -> queue }
         .flatMapLatest { queue ->
-            val mine = queue.filter { it.manga.id == mangaId }
+            val mine = queue.filter { isOurs(it.manga.id) }
             if (mine.isEmpty()) {
                 flowOf(emptyMap<Long, Translation.Progress>())
             } else {
@@ -339,30 +356,30 @@ class MangaViewModel(
     init {
         viewModelScope.launch(Dispatchers.Default) {
             downloadManager.statusFlow()
-                .filter { it.manga.id == mangaId }
+                .filter { isOurs(it.manga.id) }
                 .catch { logcat(LogPriority.ERROR, it) }
                 .collect(::updateDownloadState)
         }
         // TachiyomiAT
         viewModelScope.launch(Dispatchers.Default) {
             translationManager.statusFlow()
-                .filter { it.manga.id == mangaId }
+                .filter { isOurs(it.manga.id) }
                 .catch { logcat(LogPriority.ERROR, it) }
                 .collect { translation -> translationStates.update { it + (translation.chapter.id to translation.status) } }
         }
         // MANHWA: the end of every chapter, also of those that left the queue or were turned away before it
         viewModelScope.launch(Dispatchers.Default) {
             translationManager.finished
-                .filter { it.mangaId == mangaId }
+                .filter { isOurs(it.mangaId) }
                 .catch { logcat(LogPriority.ERROR, it) }
                 .collect { end -> translationStates.update { it + (end.chapterId to end.state) } }
         }
         viewModelScope.launch(Dispatchers.Default) {
             downloadManager.progressFlow()
-                .filter { it.manga.id == mangaId }
+                .filter { isOurs(it.manga.id) }
                 .catch { logcat(LogPriority.ERROR, it) }
                 .collect {
-                    downloadProgress[it.chapter.id] = it.progress
+                    if (it.manga.id == mangaId) downloadProgress[it.chapter.id] = it.progress
                     // MANHWA: a chapter fetched to be translated shows its download as the first quarter
                     if (it.chapter.id in translationManager.translateAfterDownload) {
                         val pages = it.pages?.size ?: 0
@@ -907,8 +924,8 @@ class MangaViewModel(
         TranslateBatch(
             done = done,
             total = ids.size,
-            current = current?.let { items[it]?.chapter?.name },
-            fetching = current != null && items[current]?.isDownloaded == false,
+            current = current?.let { items[it]?.chapter?.name ?: continuationChapters[it]?.name },
+            fetching = current != null && (items[current]?.isDownloaded == false || current in translationManager.translateAfterDownload),
             failed = failed,
             progress = current?.let { progress[it] },
             percent = current?.let(chapterPercent) ?: 100,
@@ -926,6 +943,43 @@ class MangaViewModel(
     }
 
     fun totalChapterCount(): Int = allChapters.orEmpty().size
+
+    /**
+     * MANHWA fusion: what the translate sheet offers. A fused work read in the language chapters are translated
+     * to (its own chapters are ready) offers only its continuation's unread chapters, oldest first; any other
+     * work offers its own ([translateCandidates]).
+     */
+    suspend fun loadTranslateCandidates(): TranslateCandidates = withContext(Dispatchers.IO) {
+        val manga = successState?.manga ?: return@withContext TranslateCandidates(emptyList(), 0, continuation = false)
+        val baseLang = (sourceManager.get(manga.source) as? CatalogueSource)?.lang.orEmpty()
+        val toLang = TextTranslatorLanguage.fromPref(context.appGraph.translationPreferences.translateToLanguage()).code
+        if (fusionOther.value.isEmpty() || !eu.kanade.translation.unified.FusionRules.sameLanguage(baseLang, toLang)) {
+            continuationChapters = emptyMap()
+            return@withContext TranslateCandidates(translateCandidates(), totalChapterCount(), continuation = false)
+        }
+        val all = chapterFusion.continuation(mangaId, refresh = false).map { it.chapter }
+        continuationChapters = all.associateBy { it.id }
+        TranslateCandidates(all.filter { !it.read }.sortedBy { it.chapterNumber }, all.size, continuation = true)
+    }
+
+    data class TranslateCandidates(val chapters: List<Chapter>, val total: Int, val continuation: Boolean)
+
+    /**
+     * MANHWA fusion: translates a chapter of the continuation. One that is not downloaded is fetched first and
+     * translated as soon as it arrives, as on this work's own chapters.
+     */
+    fun translateContinuation(chapter: Chapter) {
+        if (chapter.mangaId !in fusionOther.value) return
+        val chapterId = chapter.id
+        translationStates.update { it + (chapterId to Translation.State.QUEUE) }
+        appScope.launch(Dispatchers.IO) {
+            // The chapter's own entry: the current continuation, or one kept from an earlier source
+            val other = context.appGraph.getMangaById.await(chapter.mangaId) ?: return@launch
+            // Shown as fetching from the start; dropped at once when it was downloaded already
+            downloadStage.update { it + (chapterId to Translation.Progress()) }
+            if (!translationManager.translateOrFetch(other, chapter)) downloadStage.update { it - chapterId }
+        }
+    }
 
     /**
      * Translates [count] unread chapters (all of them when null) starting at [startChapterId]. Chapters that
@@ -958,13 +1012,28 @@ class MangaViewModel(
     fun retryFailedInBatch() {
         val states = translationStates.value
         val items = allChapters.orEmpty().associateBy { it.id }
-        val failed = translateBatchIds.value.filter { states[it] == Translation.State.ERROR }.mapNotNull { items[it] }
-        if (failed.isEmpty()) return
+        val failedIds = translateBatchIds.value.filter { states[it] == Translation.State.ERROR }
+        val failed = failedIds.mapNotNull { items[it] }
+        // MANHWA fusion: failed chapters of the continuation
+        val failedContinuation = failedIds.filter { it !in items }.mapNotNull { continuationChapters[it] }
+        if (failed.isEmpty() && failedContinuation.isEmpty()) return
         translateBatchStartedAt = System.currentTimeMillis()
         failed.forEach { runChapterTranslationAction(it, ChapterTranslationAction.START) }
+        failedContinuation.forEach(::translateContinuation)
     }
 
     fun translateChapters(count: Int?, startChapterId: Long?) {
+        // MANHWA fusion: the sheet offered the continuation's chapters
+        if (continuationChapters.isNotEmpty()) {
+            val candidates = continuationChapters.values.filter { !it.read }.sortedBy { it.chapterNumber }
+            val start = candidates.indexOfFirst { it.id == startChapterId }.coerceAtLeast(0)
+            val picked = candidates.drop(start).let { if (count != null) it.take(count) else it }
+            if (picked.isEmpty()) return
+            translateBatchStartedAt = System.currentTimeMillis()
+            translateBatchIds.value = picked.map { it.id }
+            picked.forEach(::translateContinuation)
+            return
+        }
         val manga = successState?.manga ?: return
         val candidates = translateCandidates()
         val start = candidates.indexOfFirst { it.id == startChapterId }.coerceAtLeast(0)

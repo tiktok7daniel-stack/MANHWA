@@ -74,6 +74,7 @@ class LiveTranslator(
     private val collection: TranslationCollection,
     private val lessonStore: LessonStore,
     private val translationManager: TranslationManager,
+    private val liveProgress: LiveChapterProgress,
 ) {
 
     enum class Phase { OFF, IDLE, WORKING, PAUSED, DONE, ERROR }
@@ -133,9 +134,12 @@ class LiveTranslator(
         /** "Translate this chapter now" from the reader: works on this chapter even with auto translation off. */
         @Volatile private var forced = false
 
+        /** A fused work's continuation: translated for this reader session only, the saved setting stays as it is. */
+        @Volatile private var sessionOn = false
+
         // MANHWA: a chapter already in the reading language (an Arabic source, the Arabic part of a fused work) is
         // shown as it is; "translate now" still works on it
-        private fun active() = (preferences.liveTranslation().get() && !alreadyInTargetLanguage()) || forced
+        private fun active() = ((preferences.liveTranslation().get() || sessionOn) && !alreadyInTargetLanguage()) || forced
 
         private fun alreadyInTargetLanguage(): Boolean {
             val lang = sourceLang()?.lowercase()?.substringBefore('-') ?: return false
@@ -161,6 +165,7 @@ class LiveTranslator(
                 } finally {
                     recognizer?.close()
                     translator?.close()
+                    liveProgress.stop()
                 }
             }
             // The chapter the reader waits for was finished outside: its pages come from the saved file
@@ -193,12 +198,16 @@ class LiveTranslator(
             val chapterPages = page.chapter.pages ?: return
             if (chapterPages !== pages) {
                 synchronized(failed) { failed.clear() }
+                // Pages of the chapter left behind are not kept for the whole session
+                synchronized(textless) { textless.retainAll { runCatching { it.chapter.pages === chapterPages }.getOrDefault(false) } }
                 // Checked before this session's own results are put back: a translation from the file means the
                 // chapter was translated already (pages without text are not in the file and need nothing)
                 savedChapter = chapterPages.any { it.translation != null }
                 heldFor = null
                 synchronized(fromPartial) { fromPartial.clear() }
                 pages = chapterPages
+                // The chapter left behind is no longer "translating now"; this one reports itself when it starts
+                if (liveProgress.current.value?.chapterId != page.chapter.chapter.id) liveProgress.stop()
                 if (!savedChapter) handOver(page.chapter.chapter.id, page.chapter.chapter.name, page.chapter.chapter.scanlator)
                 forced = false
                 restoreFromCache(chapterPages)
@@ -209,6 +218,7 @@ class LiveTranslator(
         }
 
         fun setEnabled(enabled: Boolean) {
+            if (!enabled) sessionOn = false
             preferences.liveTranslation().set(enabled)
             paused = false
             synchronized(failed) { failed.clear() }
@@ -220,6 +230,16 @@ class LiveTranslator(
         fun togglePause() {
             paused = !paused
             publish()
+            wake.trySend(Unit)
+        }
+
+        /** Translates every chapter of this reader session (a fused continuation) without saving the setting. */
+        fun enableForSession() {
+            sessionOn = true
+            paused = false
+            synchronized(failed) { failed.clear() }
+            lastError = null
+            publish(error = null)
             wake.trySend(Unit)
         }
 
@@ -282,8 +302,10 @@ class LiveTranslator(
                     } else {
                         // Nothing to translate on this page (art only): don't try it again
                         synchronized(failed) { failed += next }
+                        synchronized(textless) { textless += next }
                     }
                     publish(error = null)
+                    chapterProgress(next)
                 } catch (e: Throwable) {
                     if (e is CancellationException) throw e
                     logcat(LogPriority.ERROR, e) { "Live translation failed on page ${next.number}" }
@@ -296,6 +318,41 @@ class LiveTranslator(
                         publish()
                     }
                 }
+            }
+        }
+
+        /** MANHWA: pages read and found without any text (they need no translation). */
+        private val textless: MutableSet<ReaderPage> = Collections.newSetFromMap(IdentityHashMap())
+
+        /** The chapter id whose live translation was saved this session (saved once). */
+        @Volatile private var savedLive: Long? = null
+
+        /**
+         * MANHWA: reports how far this chapter got; once every page is done, a fused work's continuation chapter is
+         * saved as a translated chapter (its row then shows it translated, and it is never translated again).
+         */
+        private suspend fun chapterProgress(page: ReaderPage) {
+            val list = pages
+            val chapter = page.chapter.chapter
+            val chapterId = chapter.id
+            if (list.isEmpty() || list.firstOrNull()?.chapter?.chapter?.id != chapterId) return
+            val done = list.count { it.translation != null || synchronized(textless) { it in textless } }
+            liveProgress.report(chapterId, done, list.size, mangaId(), chapter.name)
+            if (done < list.size || savedChapter || heldFor != null || savedLive == chapterId) return
+            if (synchronized(fromPartial) { fromPartial.isNotEmpty() }) return
+            savedLive = chapterId
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val graph = teamStore.appContext.appGraph
+                    val manga = mangaId()?.let { graph.getMangaById.await(it) } ?: return@runCatching
+                    if (graph.chapterFusion.continuationOf(manga.id) == null) return@runCatching
+                    val source = graph.sourceManager.get(manga.source) ?: return@runCatching
+                    val saved = list.mapNotNull { p ->
+                        val translation = p.translation ?: return@mapNotNull null
+                        (p.translationKey ?: "%03d".format(p.number)) to translation
+                    }.toMap()
+                    translationManager.saveLiveChapter(manga, chapter, source, saved)
+                }.onFailure { logcat(LogPriority.WARN, it) { "Live chapter not saved" } }
             }
         }
 
@@ -420,6 +477,22 @@ class LiveTranslator(
             from: TextRecognizerLanguage,
             to: TextTranslatorLanguage,
         ): TextTranslator = when {
+            // MANHWA fast mode (like Google Lens): machine translation straight after the OCR, no AI
+            preferences.translationFastMode().get() -> eu.kanade.translation.translator.FastTranslator(
+                from,
+                to,
+                preferences,
+                teamStore.appContext.appGraph.networkHelper.client,
+            )
+            // MANHWA: no key but a model on the phone: the phone translates the page being read, as it does chapters
+            team.isEmpty() && eu.kanade.translation.local.LocalAiEngine.available(teamStore.appContext) ->
+                eu.kanade.translation.local.LocalAiTranslator(
+                    teamStore.appContext,
+                    from,
+                    to,
+                    instructions = eu.kanade.translation.style.StyleProfile.instruction(preferences, to.name),
+                    tuning = eu.kanade.translation.local.LocalAiRules.Tuning.named(preferences.translationLocalTuning().get()),
+                ).also { eu.kanade.translation.local.LocalAiEngine.warm(teamStore.appContext) }
             team.isEmpty() -> TextTranslators.withoutKeys(preferences).build(preferences, from, to)
             // The page being read goes first through the router, even while chapters are translated
             quickDraft -> HybridTranslator(from, to, GoogleTranslator(from, to), TeamTranslator(from, to, teamStore, team, AiRouter.Lane.LIVE))
@@ -443,7 +516,8 @@ class LiveTranslator(
             val team = teamStore.active()
             val quickDraft = preferences.translationQuickDraft().get()
             val teamSignature = team.joinToString(",") { "${it.id}:${it.model}:${it.key.hashCode()}:${it.baseUrl}" } +
-                "|$quickDraft|${preferences.translationEngine().get()}"
+                "|$quickDraft|${preferences.translationEngine().get()}|${preferences.translationFastMode().get()}:${preferences.translationFastEngine().get()}" +
+                "|${eu.kanade.translation.local.LocalAiEngine.available(teamStore.appContext)}:${preferences.translationLocalModelPath().get()}:${preferences.translationLocalTuning().get()}"
             if (teamSignature != builtForTeam) {
                 builtForTeam = teamSignature
                 translator?.close()
@@ -460,6 +534,9 @@ class LiveTranslator(
             val stream = page.stream ?: return null
             val bytes = stream().use { it.readBytes() }
             val images = mutableMapOf<String, PageImage>()
+            // MANHWA: the team that reads unsure and stylised lines again from their own image (null without keys)
+            val rereader = (engine as? TeamTranslator) ?: ((engine as? HybridTranslator)?.ai as? TeamTranslator)
+            val unsureCrops = mutableListOf<kotlin.Pair<Int, ByteArray>>()
             // MANHWA: sound effects stay as drawn, neither translated nor erased
             val skipSfx = preferences.translationSkipSfx().get()
             val result: PageTranslation = HeavyWork.reader<PageTranslation?> {
@@ -476,6 +553,15 @@ class LiveTranslator(
                         PageImageProcessor.prepare(it, decoded)
                         if (engine.aiPart != null && preferences.translationVision().get()) {
                             images[KEY] = PageImageProcessor.tiles(decoded)
+                        } else if (rereader != null) {
+                            // Stylised letters ("A NATTY") and readings the OCR was not sure of are cut out to be
+                            // read again from their image, as for whole chapters (a few per page)
+                            it.blocks.forEachIndexed { i, b ->
+                                val art = b.kind.equals(PageOcr.ART, ignoreCase = true) || b.kind.equals(TextKindRules.SHOUT, ignoreCase = true)
+                                if ((b.ocrConfidence < AiTranslator.UNSURE_OCR || art) && unsureCrops.size < LIVE_REREAD) {
+                                    PageImageProcessor.crop(decoded, b)?.let { jpeg -> unsureCrops += i to jpeg }
+                                }
+                            }
                         }
                     }
                 } finally {
@@ -483,6 +569,18 @@ class LiveTranslator(
                 }
             } ?: return null
             if (result.blocks.isEmpty() && images.isEmpty()) return null
+            if (rereader != null && unsureCrops.isNotEmpty()) {
+                val fixed = runCatching { rereader.reread(unsureCrops.mapIndexed { n, c -> "$n" to c.second }) }
+                    .onFailure { if (it is CancellationException) throw it }
+                    .getOrDefault(emptyMap())
+                fixed.forEach { (id, text) ->
+                    val index = unsureCrops.getOrNull(id.toIntOrNull() ?: -1)?.first ?: return@forEach
+                    result.blocks.getOrNull(index)?.let { block ->
+                        block.text = text
+                        block.ocrConfidence = 1f
+                    }
+                }
+            }
 
             // 2. Translate, following the series glossary and adding the new names it finds
             val id = mangaId()
@@ -493,9 +591,32 @@ class LiveTranslator(
                 } else {
                     emptyMap()
                 }
-                glossary = codex + id?.let(glossaryStore::asMap).orEmpty()
+                glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(id?.let(glossaryStore::asMap).orEmpty(), codex)
                 learnTerms = id != null
+                // MANHWA: new names come with who they are (kind, man or woman), so the next pages agree with them
+                richTerms = id != null
                 discoveredTerms.clear()
+                discoveredDetails.clear()
+            }
+            // MANHWA fast mode: the work's names and the codex go in before the lines are sent
+            (engine as? eu.kanade.translation.translator.FastTranslator)?.let { fast ->
+                val codex = if ((from == TextRecognizerLanguage.ENGLISH || from == TextRecognizerLanguage.KOREAN) && to == TextTranslatorLanguage.ARABIC) {
+                    eu.kanade.translation.collection.ManhwaCodex.termsIn(result.blocks.joinToString(" ") { it.text }, preferences.translationCodexPacks().get())
+                } else {
+                    emptyMap()
+                }
+                // The work's own names win over the codex
+                fast.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(id?.let(glossaryStore::asMap).orEmpty(), codex)
+            }
+            // MANHWA phone model: the work's names, the codex and who the characters are
+            (engine as? eu.kanade.translation.local.LocalAiTranslator)?.let { phone ->
+                val codex = if ((from == TextRecognizerLanguage.ENGLISH || from == TextRecognizerLanguage.KOREAN) && to == TextTranslatorLanguage.ARABIC) {
+                    eu.kanade.translation.collection.ManhwaCodex.termsIn(result.blocks.joinToString(" ") { it.text }, preferences.translationCodexPacks().get())
+                } else {
+                    emptyMap()
+                }
+                phone.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(id?.let(glossaryStore::asMap).orEmpty(), codex)
+                phone.notes = id?.let(glossaryStore::notes).orEmpty()
             }
             // MANHWA: lines from the collection are written at once; only the rest goes to the translator
             val known: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
@@ -503,10 +624,19 @@ class LiveTranslator(
             if (useLibrary) {
                 val glossary = id?.let(glossaryStore::asMap).orEmpty()
                 result.blocks.forEach { block ->
-                    val hit = collection.lookup(from.name, eu.kanade.translation.style.StyleProfile.libraryTarget(preferences, to.name), block.text, glossary)
+                    val hit = collection.lookup(
+                        from.name,
+                        eu.kanade.translation.style.StyleProfile.libraryTarget(preferences, to.name),
+                        block.text,
+                        glossary,
+                        acceptNear = engine is eu.kanade.translation.translator.FastTranslator,
+                    )
                     if (hit?.sure == true) {
                         block.translation = hit.translation
                         known += block
+                    } else if (hit != null && engine is eu.kanade.translation.local.LocalAiTranslator) {
+                        // MANHWA: a line the collection is not sure of is the phone model's draft to start from
+                        block.translation = hit.translation
                     }
                 }
                 collection.record(result.blocks.size, known.size)
@@ -583,7 +713,7 @@ class LiveTranslator(
             // One translation per place: duplicates and empty pieces merged, nothing drawn twice
             PageOcr.finish(result, keepSfxArt = skipSfx)
             editStore.restore(result, "l${page.chapter.chapter.id}", "${page.index}")
-            if (id != null) engine.aiPart?.let { glossaryStore.merge(id, it.discoveredTerms) }
+            if (id != null) engine.aiPart?.let { ai -> glossaryStore.merge(id, ai.discoveredTerms, ai.discoveredDetails.mapValues { (_, info) -> info.kind to info.gender }) }
             // MANHWA: what this page taught goes into the collection too
             if (useLibrary && id != null && engine.aiPart != null && !engine.fellBack) {
                 collection.learn(
@@ -593,6 +723,18 @@ class LiveTranslator(
                     glossaryStore.asMap(id),
                     result.blocks.filter { it.translation.isNotBlank() }.map { TranslationCollection.Line(it.text, it.translation, it.kind) },
                     TranslationCollection.Source.TEAM,
+                )
+            }
+            // MANHWA phone memory: the phone's checked lines, below every key's
+            val phone = engine as? eu.kanade.translation.local.LocalAiTranslator
+            if (useLibrary && id != null && phone != null) {
+                collection.learn(
+                    from.name,
+                    eu.kanade.translation.style.StyleProfile.libraryTarget(preferences, to.name),
+                    id,
+                    glossaryStore.asMap(id),
+                    phone.learnable(listOf(result)),
+                    TranslationCollection.Source.LOCAL,
                 )
             }
 
@@ -660,6 +802,8 @@ class LiveTranslator(
 
     private companion object {
         const val KEY = "page"
+        // MANHWA: most lines per page read again from their image by a key that sees images
+        const val LIVE_REREAD = 3
         const val LOOKAHEAD = 8
         const val POLL_MS = 600L
         const val CACHE_PAGES = 400

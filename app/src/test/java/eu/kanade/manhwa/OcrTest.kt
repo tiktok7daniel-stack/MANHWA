@@ -164,3 +164,33 @@ class OcrModelRulesTest {
         OcrModelRules.valid("dict.txt", 74_012, "x", null, 'a'.code) shouldBe true
     }
 }
+
+class TatweelTest {
+
+    @Test
+    fun `the stretching mark never stretches a word in a bubble`() {
+        eu.kanade.translation.translator.TextSanitizer.dropTatweel("لهـــــاروتو أيضًا") shouldBe "لهاروتو أيضًا"
+        eu.kanade.translation.translator.TextSanitizer.dropTatweel("بلا تطويل") shouldBe "بلا تطويل"
+    }
+}
+
+class TextKindRulesTest {
+
+    @Test
+    fun `big letters inside a bubble are a shout, outside it they are drawn into the art`() {
+        eu.kanade.translation.live.TextKindRules.bigLetters(inBubble = true) shouldBe "shout"
+        eu.kanade.translation.live.TextKindRules.bigLetters(inBubble = false) shouldBe "art"
+    }
+
+    @Test
+    fun `an empty line next to a translated one is covered with it, a far one is left alone`() {
+        val boxes = listOf(
+            floatArrayOf(100f, 100f, 300f, 120f), // "WHEN THE", its words joined into the next line
+            floatArrayOf(100f, 125f, 300f, 200f), // translated
+            floatArrayOf(100f, 900f, 300f, 920f), // empty, far away
+        )
+        val joined = eu.kanade.translation.live.TextKindRules.joinedLines(boxes, listOf(false, true, false)) { 20f * 1.5f }
+        joined shouldBe listOf(0 to 1)
+    }
+}
+

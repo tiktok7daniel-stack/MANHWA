@@ -9,6 +9,7 @@ import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.home.discover.SourceHealthManager
 import eu.kanade.translation.glossary.WorkIdentity
 import eu.kanade.translation.readTextAtomic
@@ -71,7 +72,36 @@ class ChapterFusion(
         val otherSourceName: String,
         val otherLang: String = "",
         val createdAt: Long = 0,
+        // Where the continuation's entry is on its source, to make it again if it is removed (clearing the database)
+        val otherUrl: String = "",
+        val otherTitle: String = "",
+        // MANHWA: chapters of earlier continuations that were translated there; they keep their place when the
+        // continuation moves to another source, which only gives the chapters they do not have
+        val kept: List<Kept> = emptyList(),
+    ) {
+        /** Every entry that gives this work chapters past its own: the continuation and the kept ones. */
+        fun continuationIds(): List<Long> = listOf(otherMangaId) + kept.map { it.mangaId }
+
+        /** The name of the source [mangaId]'s chapters come from in this fusion. */
+        fun sourceNameOf(mangaId: Long): String = when (mangaId) {
+            baseMangaId -> baseSourceName
+            otherMangaId -> otherSourceName
+            else -> kept.firstOrNull { it.mangaId == mangaId }?.sourceName ?: otherSourceName
+        }
+    }
+
+    /** An earlier continuation's translated chapters, kept when the continuation moved to another source. */
+    @Serializable
+    data class Kept(
+        val mangaId: Long,
+        val sourceId: Long,
+        val sourceName: String,
+        val lang: String = "",
+        val chapters: List<KeptChapter> = emptyList(),
     )
+
+    @Serializable
+    data class KeptChapter(val number: Double, val chapterId: Long)
 
     @Serializable
     private data class Saved(val fusions: List<Fusion> = emptyList(), val dismissed: Set<Long> = emptySet())
@@ -90,8 +120,8 @@ class ChapterFusion(
         val exact: Boolean = true,
     )
 
-    /** A chapter of the continuation, shown past this work's own chapters. */
-    data class Continuation(val number: Double, val chapter: Chapter)
+    /** A chapter of the continuation, shown past this work's own chapters, with the source it comes from. */
+    data class Continuation(val number: Double, val chapter: Chapter, val sourceName: String = "")
 
     private val json = Json { ignoreUnknownKeys = true }
     private val file get() = File(context.filesDir, "chapter_fusions.json")
@@ -114,8 +144,12 @@ class ChapterFusion(
 
     fun fusionOf(baseMangaId: Long): Fusion? = _fusions.value[baseMangaId]
 
-    /** The fusion this entry is the continuation of, when it is one. */
-    fun continuationOf(otherMangaId: Long): Fusion? = _fusions.value.values.firstOrNull { it.otherMangaId == otherMangaId }
+    /** The work [fusion] continues. */
+    suspend fun baseManga(fusion: Fusion): Manga? = withContext(Dispatchers.IO) { getManga.await(fusion.baseMangaId) }
+
+    /** The fusion this entry gives chapters to (as its continuation, or kept from an earlier one), when it does. */
+    fun continuationOf(otherMangaId: Long): Fusion? =
+        _fusions.value.values.firstOrNull { it.otherMangaId == otherMangaId } ?: _fusions.value.values.firstOrNull { f -> f.kept.any { it.mangaId == otherMangaId } }
 
     fun isDismissed(baseMangaId: Long): Boolean = baseMangaId in saved.value.dismissed
 
@@ -123,7 +157,7 @@ class ChapterFusion(
         save(saved.value.copy(dismissed = saved.value.dismissed + baseMangaId))
     }
 
-    fun fuse(offer: Offer) = synchronized(lock) {
+    fun fuse(offer: Offer, kept: List<Kept> = emptyList()) = synchronized(lock) {
         val fusion = Fusion(
             baseMangaId = offer.baseMangaId,
             baseSourceName = offer.baseSourceName,
@@ -132,6 +166,10 @@ class ChapterFusion(
             otherSourceName = offer.otherSourceName,
             otherLang = offer.otherLang,
             createdAt = System.currentTimeMillis(),
+            otherUrl = offer.other.url,
+            otherTitle = offer.other.title,
+            // The new continuation's own chapters need no keeping
+            kept = kept.filter { it.mangaId != offer.other.id && it.chapters.isNotEmpty() },
         )
         save(
             saved.value.copy(
@@ -149,6 +187,49 @@ class ChapterFusion(
             ),
         )
         offers.remove(baseMangaId)
+    }
+
+    /** Saves [fusion] in place of the work's current one. */
+    private fun replace(fusion: Fusion) = synchronized(lock) {
+        if (saved.value.fusions.none { it.baseMangaId == fusion.baseMangaId }) return@synchronized
+        save(saved.value.copy(fusions = saved.value.fusions.map { if (it.baseMangaId == fusion.baseMangaId) fusion else it }))
+    }
+
+    /** Undoes a fusion whose continuation is gone, without turning the offer down (the banner offers it again). */
+    private fun drop(baseMangaId: Long) = synchronized(lock) {
+        save(saved.value.copy(fusions = saved.value.fusions.filter { it.baseMangaId != baseMangaId }))
+        offers.remove(baseMangaId)
+    }
+
+    /**
+     * The continuation's entry. When it was removed (clearing the database removes entries outside the library)
+     * it is made again from its saved address on the source; a fusion whose entry can't be made again is undone,
+     * so the work offers its continuation again instead of showing an empty one.
+     */
+    suspend fun otherOf(fusion: Fusion): Manga? = withContext(Dispatchers.IO) {
+        val found = getManga.await(fusion.otherMangaId)
+        if (found != null) {
+            // Fusions made before the address was kept learn it now
+            if (fusion.otherUrl.isEmpty()) replace(fusion.copy(otherUrl = found.url, otherTitle = found.title))
+            return@withContext found
+        }
+        if (fusion.otherUrl.isEmpty()) {
+            drop(fusion.baseMangaId)
+            return@withContext null
+        }
+        val remade = runCatching {
+            val entry = SManga.create().apply {
+                url = fusion.otherUrl
+                title = fusion.otherTitle
+            }
+            networkToLocalManga(listOf(entry.toDomainManga(fusion.otherSourceId))).first()
+        }.onFailure { logcat(LogPriority.WARN, it) { "Continuation of ${fusion.otherSourceName} not made again" } }.getOrNull()
+        if (remade == null) {
+            drop(fusion.baseMangaId)
+            return@withContext null
+        }
+        replace(fusion.copy(otherMangaId = remade.id))
+        remade
     }
 
     /**
@@ -257,10 +338,10 @@ class ChapterFusion(
      */
     suspend fun continuation(baseMangaId: Long, refresh: Boolean): List<Continuation> = withContext(Dispatchers.IO) {
         val fusion = fusionOf(baseMangaId) ?: return@withContext emptyList()
+        val other = otherOf(fusion) ?: return@withContext emptyList()
         if (refresh) {
             runCatching {
                 val source = sourceManager.get(fusion.otherSourceId) ?: return@runCatching
-                val other = getManga.await(fusion.otherMangaId) ?: return@runCatching
                 val fresh = withTimeoutOrNull(SEARCH_TIMEOUT_MS) {
                     source.getMangaUpdate(other.toSManga(), emptyList(), fetchDetails = false, fetchChapters = true).chapters
                 }
@@ -268,9 +349,39 @@ class ChapterFusion(
             }.onFailure { logcat(LogPriority.WARN, it) { "Continuation of ${fusion.otherSourceName} not refreshed" } }
         }
         val ours = getChaptersByMangaId.await(baseMangaId).map { it.chapterNumber }
-        val theirs = getChaptersByMangaId.await(fusion.otherMangaId)
-        FusionRules.continuation(ours, theirs.map { it.chapterNumber to it })
-            .map { (number, chapter) -> Continuation(number, chapter) }
+        val theirs = getChaptersByMangaId.await(other.id)
+        // Chapters translated on earlier continuations come first: they keep their number's place
+        val kept = fusion.kept.flatMap { layer ->
+            val ids = layer.chapters.map { it.chapterId }.toSet()
+            getChaptersByMangaId.await(layer.mangaId).filter { it.id in ids }.map { it.chapterNumber to it }
+        }
+        FusionRules.layered(ours, kept, theirs.map { it.chapterNumber to it })
+            .map { (number, chapter) -> Continuation(number, chapter, fusion.sourceNameOf(chapter.mangaId)) }
+    }
+
+    /**
+     * MANHWA: the continuation's chapters (of [layerMangaId]) worth keeping when the continuation moves to another
+     * source: those [translated] says are translated or being translated, with what was kept before.
+     */
+    suspend fun keptOnChange(fusion: Fusion, translated: suspend (Chapter) -> Boolean): List<Kept> = withContext(Dispatchers.IO) {
+        val shown = continuation(fusion.baseMangaId, refresh = false)
+        val fromOther = shown.filter { it.chapter.mangaId == fusion.otherMangaId && translated(it.chapter) }
+        val layer = Kept(
+            mangaId = fusion.otherMangaId,
+            sourceId = fusion.otherSourceId,
+            sourceName = fusion.otherSourceName,
+            lang = fusion.otherLang,
+            chapters = fromOther.map { KeptChapter(it.number, it.chapter.id) },
+        )
+        (fusion.kept + layer).filter { it.chapters.isNotEmpty() }
+    }
+
+    /** The chapters a reader of [mangaId] (a continuation entry) goes through: its own in the fused list. */
+    suspend fun readerChapterIds(mangaId: Long, chapterId: Long? = null): Set<Long>? = withContext(Dispatchers.IO) {
+        val fusion = continuationOf(mangaId) ?: return@withContext null
+        val fused = continuation(fusion.baseMangaId, refresh = false).map { Triple(it.number, it.chapter.mangaId, it.chapter.id) }
+        // A chapter kept from an earlier source in the middle ends this run: the reader hands over to it there
+        FusionRules.runAround(fused, mangaId, chapterId)
     }
 
     /**
@@ -278,24 +389,13 @@ class ChapterFusion(
      * (manga id, chapter id); null when the reader stays in its own list.
      */
     suspend fun neighbour(mangaId: Long, chapterNumber: Double, forward: Boolean): Pair<Long, Long>? = withContext(Dispatchers.IO) {
-        val asBase = fusionOf(mangaId)
-        val asOther = continuationOf(mangaId)
-        when {
-            asBase != null && forward -> {
-                val ours = getChaptersByMangaId.await(mangaId).map { it.chapterNumber }
-                val theirs = getChaptersByMangaId.await(asBase.otherMangaId)
-                FusionRules.continuation(ours, theirs.map { it.chapterNumber to it })
-                    .map { it.first to it.second }
-                    .let { FusionRules.after(chapterNumber, it) }
-                    ?.let { asBase.otherMangaId to it.id }
-            }
-            asOther != null && !forward -> {
-                val ours = getChaptersByMangaId.await(asOther.baseMangaId)
-                FusionRules.before(chapterNumber, ours.map { it.chapterNumber to it })
-                    ?.let { asOther.baseMangaId to it.id }
-            }
-            else -> null
-        }
+        val fusion = fusionOf(mangaId) ?: continuationOf(mangaId) ?: return@withContext null
+        // The whole fused work in reading order: its own chapters, then the continuation (kept ones included)
+        val timeline = getChaptersByMangaId.await(fusion.baseMangaId).map { it.chapterNumber to it } +
+            continuation(fusion.baseMangaId, refresh = false).map { it.number to it.chapter }
+        val target = if (forward) FusionRules.after(chapterNumber, timeline) else FusionRules.before(chapterNumber, timeline)
+        // Within one entry the reader's own list goes on by itself
+        target?.takeIf { it.mangaId != mangaId }?.let { it.mangaId to it.id }
     }
 
     /** The last chapter number this fused work reads from its own source: the other source's copies up to it are hidden. */
@@ -327,6 +427,27 @@ object FusionRules {
         return b.isNotEmpty() && b != "all" && b != a
     }
 
+    /** Whether a source in [sourceLang] is already in [targetLang] (its chapters need no translation). */
+    fun sameLanguage(sourceLang: String, targetLang: String): Boolean {
+        val a = sourceLang.lowercase().substringBefore('-')
+        return a.isNotEmpty() && a == targetLang.lowercase().substringBefore('-')
+    }
+
+    /**
+     * One line per fused work in a list newest first: [baseOf] gives the work a continuation entry belongs to,
+     * and only the newest line of each work stays. Entries that are not fused stay as they are.
+     */
+    fun <T> mergeHistory(items: List<T>, mangaIdOf: (T) -> Long, baseOf: (Long) -> Long?): List<T> {
+        val seen = HashSet<Long>()
+        return items.filter { item ->
+            val id = mangaIdOf(item)
+            seen.add(baseOf(id) ?: id)
+        }
+    }
+
+    /** A language's short code for badges ("en-US" is "EN"). */
+    fun langCode(lang: String): String = lang.substringBefore('-').uppercase().ifBlank { "EN" }
+
     /** Worth offering when the other source has at least one more chapter. */
     fun worthOffering(oursMax: Double, theirsMax: Double): Boolean = theirsMax >= 0 && theirsMax > oursMax
 
@@ -341,6 +462,36 @@ object FusionRules {
             .map { (_, list) -> list.first() }
             .sortedByDescending { it.first }
     }
+
+    /**
+     * The continuation with chapters [kept] from earlier continuations: a kept chapter keeps its number's place,
+     * the current continuation gives the numbers it does not have (both only past this work's last chapter).
+     */
+    fun <T> layered(ours: List<Double>, kept: List<Pair<Double, T>>, theirs: List<Pair<Double, T>>): List<Pair<Double, T>> =
+        continuation(ours, kept + theirs)
+
+    /**
+     * The chapters of [mangaId] read in one go from [chapterId] in the fused list of (number, manga id, chapter id):
+     * they stop where another entry's chapter (one kept from an earlier source) sits between them, so the reader
+     * reaches an edge there and goes on from that entry. Without [chapterId], or when it is not in the list, all of
+     * [mangaId]'s chapters.
+     */
+    fun runAround(fused: List<Triple<Double, Long, Long>>, mangaId: Long, chapterId: Long?): Set<Long> {
+        val own = fused.filter { it.second == mangaId }.map { it.third }.toSet()
+        val ordered = fused.filter { countable(it.first) }.sortedBy { it.first }
+        val index = ordered.indexOfFirst { it.third == chapterId }
+        if (index < 0 || ordered[index].second != mangaId) return own
+        var from = index
+        while (from > 0 && ordered[from - 1].second == mangaId) from--
+        var to = index
+        while (to < ordered.lastIndex && ordered[to + 1].second == mangaId) to++
+        val run = ordered.subList(from, to + 1).map { it.third }.toSet()
+        // Unnumbered extras of this entry stay where they are
+        return run + fused.filter { it.second == mangaId && !countable(it.first) }.map { it.third }
+    }
+
+    /** The chapters in [after] that were not there [before] (by id): what a refresh brought. */
+    fun <T> newChapters(before: Set<Long>, after: List<T>, idOf: (T) -> Long): List<T> = after.filter { idOf(it) !in before }
 
     /** The first chapter after [number]. */
     fun <T> after(number: Double, chapters: List<Pair<Double, T>>): T? =

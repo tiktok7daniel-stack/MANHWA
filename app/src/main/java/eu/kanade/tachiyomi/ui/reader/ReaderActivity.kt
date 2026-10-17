@@ -824,7 +824,7 @@ class ReaderActivity : BaseActivity() {
         if (!fusionTranslationChecked) {
             fusionTranslationChecked = true
             if (viewModel.isFusedContinuation() && !appGraph.translationPreferences.liveTranslation().get()) {
-                viewModel.liveTranslation.setEnabled(true)
+                viewModel.liveTranslation.enableForSession()
             }
         }
 
@@ -938,7 +938,11 @@ class ReaderActivity : BaseActivity() {
         val manga = viewModel.manga ?: return
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val prefs = appGraph.translationPreferences
-            val src = eu.kanade.translation.recognizer.TextRecognizerLanguage.fromPref(prefs.translateFromLanguage()).name
+            // The language of the work's source, as the reader and the chapter look lines up
+            val src = eu.kanade.translation.edit.BubbleTextEditor.sourceLanguage(
+                viewModel.state.value.source?.lang,
+                eu.kanade.translation.recognizer.TextRecognizerLanguage.fromPref(prefs.translateFromLanguage()).name,
+            )
             val tgt = eu.kanade.translation.style.StyleProfile.libraryTarget(prefs, eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(prefs.translateToLanguage()).name)
             appGraph.translationCollection.learn(
                 src, tgt, manga.id, appGraph.glossaryStore.asMap(manga.id),

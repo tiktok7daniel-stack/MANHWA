@@ -118,6 +118,7 @@ interface AppGraph : ViewModelGraph {
     val seriesBrain: eu.kanade.translation.brain.SeriesBrain
     val unifiedSources: eu.kanade.translation.unified.UnifiedSources
     val chapterFusion: eu.kanade.translation.unified.ChapterFusion
+    val liveChapterProgress: eu.kanade.translation.live.LiveChapterProgress
 
     val crashLogUtil: CrashLogUtil
 

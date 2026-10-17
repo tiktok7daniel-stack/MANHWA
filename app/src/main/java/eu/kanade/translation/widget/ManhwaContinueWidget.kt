@@ -53,7 +53,12 @@ class ManhwaContinueWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.manhwa_widget)
             runCatching {
                 val graph = context.appGraph
-                val last = withTimeoutOrNull(5_000) { graph.getHistory.subscribe("").first() }?.firstOrNull()
+                val newest = withTimeoutOrNull(5_000) { graph.getHistory.subscribe("").first() }?.firstOrNull()
+                // MANHWA fusion: a fused work's continuation shows under the work's own title
+                val last = newest?.let { h ->
+                    val fusion = graph.chapterFusion.continuationOf(h.mangaId) ?: return@let h
+                    graph.chapterFusion.baseManga(fusion)?.let { base -> h.copy(title = base.title) } ?: h
+                }
                 if (last == null) {
                     views.setTextViewText(R.id.manhwa_widget_title, context.getString(R.string.manhwa_widget_empty))
                     views.setTextViewText(R.id.manhwa_widget_subtitle, "")

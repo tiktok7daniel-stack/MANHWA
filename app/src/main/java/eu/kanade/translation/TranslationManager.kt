@@ -145,7 +145,47 @@ class TranslationManager(
         translator.queueChapter(manga, chapters)
         startTranslation()
         // Kept alive in the background until the queue is done, even with the app closed
-        if (hasWork()) TranslationJob.start(context)
+        if (hasWork()) {
+            TranslationJob.start(context)
+            askToKeepRunningOnce()
+        }
+    }
+
+    /**
+     * MANHWA: the first time a chapter is queued, Android is asked once to let the app run in the background
+     * without its battery limits (several phone makers stop a translation otherwise when the app is left).
+     * Never asked again, whatever the answer.
+     */
+    private fun askToKeepRunningOnce() {
+        runCatching {
+            val prefs = context.getSharedPreferences("manhwa_background", Context.MODE_PRIVATE)
+            if (prefs.getBoolean("battery_asked", false)) return
+            val power = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            prefs.edit().putBoolean("battery_asked", true).apply()
+            if (power.isIgnoringBatteryOptimizations(context.packageName)) return
+            @android.annotation.SuppressLint("BatteryLife")
+            val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                .setData(android.net.Uri.parse("package:${context.packageName}"))
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }
+    }
+
+    /**
+     * MANHWA: translates [chapter], fetching it from its source first when it is not downloaded (it is then
+     * translated as soon as it arrives). Returns true when it is fetched first.
+     */
+    suspend fun translateOrFetch(manga: Manga, chapter: Chapter): Boolean {
+        val downloads = downloadManager.value
+        if (downloads.isChapterDownloaded(chapter.name, chapter.scanlator, chapter.url, manga.title, manga.source)) {
+            translateChapter(manga, chapter)
+            return false
+        }
+        translateAfterDownload += chapter.id
+        downloads.downloadChapters(manga, listOf(chapter))
+        // Started even when other chapters wait in the queue with the downloader stopped
+        downloads.startDownloads()
+        return true
     }
 
     suspend fun getChapterTranslationStatus(
@@ -289,6 +329,16 @@ class TranslationManager(
         // Only that chapter's job stops (the queue's flow drops it); the others keep their progress
         translator.removeFromQueue(chapter)
         if (translator.isRunning && queueState.value.isEmpty()) translator.stop()
+    }
+
+    /**
+     * MANHWA: saves a chapter the reader translated live, as a chapter translated from the manga screen is saved,
+     * so it shows as translated and is never translated again.
+     */
+    fun saveLiveChapter(manga: Manga, chapter: Chapter, source: Source, pages: Map<String, PageTranslation>) {
+        if (pages.isEmpty()) return
+        val dir = provider.getMangaDir(manga.title, source)
+        translator.saveAtomically(dir, provider.getTranslationFileName(chapter.name, chapter.scanlator), pages)
     }
 
     /** Translation file names that exist for [manga], so many chapters can be checked with one directory listing. */

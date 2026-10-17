@@ -335,23 +335,36 @@ private class Typesetter(
         val pageRect = Rect(0f, 0f, page.imgWidth.coerceAtLeast(1f), page.imgHeight.coerceAtLeast(1f))
         // The cleaned area of every bubble: the text of one bubble never goes over another one
         val cleaned = page.blocks.map { block -> union(lineRects(block)) }
+        // MANHWA: lines the AI joined into a neighbour's translation (theirs came back empty) are covered with that
+        // neighbour's bubble, so no original line is left showing
+        val kinds = page.blocks.map { BubbleKind.parse(it.kind) ?: BubbleKind.guess(it.text, it.translation) }
+        val joined = eu.kanade.translation.live.TextKindRules.joinedLines(
+            boxes = cleaned.map { floatArrayOf(it.left, it.top, it.right, it.bottom) },
+            translated = page.blocks.mapIndexed { i, b ->
+                b.translation.isNotBlank() || kinds[i] == BubbleKind.SFX || kinds[i] == BubbleKind.ART || b.lineBoxes.isEmpty()
+            },
+            reach = { i -> page.blocks[i].lineBoxes.map { it.h }.average().toFloat() * JOINED_REACH },
+        ).filter { (_, owner) -> page.blocks[owner].translation.isNotBlank() && kinds[owner] != BubbleKind.ART && kinds[owner] != BubbleKind.SFX }
+            .groupBy({ it.second }, { it.first })
         val plans = page.blocks.mapIndexed { index, block ->
             if (block.translation.isBlank()) return@mapIndexed null
-            val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
+            val kind = kinds[index]
             if (kind == BubbleKind.SFX && skipSfx) return@mapIndexed null
             val style = styleFor(kind)
             // MANHWA art text: nothing erased, the translation in a caption right under the drawn text
             val art = kind == BubbleKind.ART
-            val patches = if (kind == BubbleKind.SFX || art) emptyList() else patches(block)
-            val base = (if (art) artCaption(cleaned[index]) else cleaned[index]).intersect(pageRect)
+            val mine = joined[index].orEmpty()
+            val patches = if (kind == BubbleKind.SFX || art) emptyList() else patches(block) + mine.flatMap { patches(page.blocks[it]) }
+            val own = if (mine.isEmpty()) cleaned[index] else union(listOf(cleaned[index]) + mine.map { cleaned[it] })
+            val base = (if (art) artCaption(cleaned[index]) else own).intersect(pageRect)
             // A little more room when the translation is longer, stopping at the neighbours
-            val others = cleaned.filterIndexed { i, _ -> i != index }
+            val others = cleaned.filterIndexed { i, _ -> i != index && i !in mine }
             val room = roomAround(base, others).intersect(pageRect)
             var area = edited(block, base)
-            var fit = fit(block.translation, style, area)
+            var fit = fit(eu.kanade.translation.translator.TextSanitizer.dropTatweel(block.translation), style, area)
             if (fit < minPx && room.width * room.height > base.width * base.height) {
                 val wider = edited(block, room)
-                val widerFit = fit(block.translation, style, wider)
+                val widerFit = fit(eu.kanade.translation.translator.TextSanitizer.dropTatweel(block.translation), style, wider)
                 if (widerFit > fit) {
                     area = wider
                     fit = widerFit
@@ -367,11 +380,11 @@ private class Typesetter(
             // Bubbles of a page look alike: big ones come down towards the median (never above their fit)
             var size = if (median > 0f) min(plan.fit, median * 1.35f) else plan.fit
             size *= sizeScale
-            if (sizeScale > 1f) size = min(size, fit(block.translation, plan.style, plan.room))
+            if (sizeScale > 1f) size = min(size, fit(eu.kanade.translation.translator.TextSanitizer.dropTatweel(block.translation), plan.style, plan.room))
             size *= block.userFont
             size = size.coerceAtLeast(4f)
             val area = if (size > plan.fit) plan.room else plan.area
-            val layout = balanced(block.translation, plan.style.copy(fontSize = size.sp), area)
+            val layout = balanced(eu.kanade.translation.translator.TextSanitizer.dropTatweel(block.translation), plan.style.copy(fontSize = size.sp), area)
             val bg = Color(block.bgColor.takeIf { it != 0 } ?: 0xFFFFFFFF.toInt()).copy(alpha = 1f)
             val fg = if (plan.kind == BubbleKind.ART) ART_TEXT else Color(block.textColor)
             val shout = dramatic && plan.kind == BubbleKind.SHOUT
@@ -541,6 +554,9 @@ private fun DrawScope.drawHudCorners(topLeft: Offset, text: Size, size: Float) {
 }
 
 private val HudColor = Color(0xFF4FD8FF)
+
+// MANHWA: how far (in line heights) an empty joined line may be from the bubble that took its words
+private const val JOINED_REACH = 1.5f
 
 private val ART_TEXT = Color(0xFFFFD1D7)
 private val ART_OUTLINE = Color(0xF2120408)

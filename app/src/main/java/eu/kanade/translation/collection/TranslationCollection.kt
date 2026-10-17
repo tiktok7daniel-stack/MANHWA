@@ -30,7 +30,8 @@ import java.time.LocalDate
 @SingleIn(AppScope::class)
 class TranslationCollection(private val context: Context) {
 
-    enum class Source(val confidence: Int) { TEAM(60), EDITOR(80), USER(100) }
+    /** Who gave a line; [LOCAL] is the model on the phone (below every key, never over one of their lines). */
+    enum class Source(val confidence: Int) { LOCAL(40), TEAM(60), EDITOR(80), USER(100) }
 
     enum class Match { EXACT, TEMPLATE, NEAR }
 
@@ -131,7 +132,15 @@ class TranslationCollection(private val context: Context) {
      * The saved translation of [text] (from language [src] to [tgt]), with this line's own numbers and the
      * series' own names put in, or null when the line is new. [glossary] is the series glossary.
      */
-    fun lookup(src: String, tgt: String, text: String, glossary: Map<String, String>): Hit? = runCatching {
+    fun lookup(src: String, tgt: String, text: String, glossary: Map<String, String>, acceptNear: Boolean = false): Hit? {
+        lookupIn(src, tgt, text, glossary, acceptNear)?.let { return it }
+        // MANHWA: with the Egyptian dialect, a line known only in formal Arabic (the phrasebook) is still a draft
+        val base = tgt.removeSuffix(DIALECT_SUFFIX)
+        if (base == tgt) return null
+        return lookupIn(src, base, text, glossary, acceptNear)?.let { Hit(it.translation, sure = false, match = it.match) }
+    }
+
+    private fun lookupIn(src: String, tgt: String, text: String, glossary: Map<String, String>, acceptNear: Boolean): Hit? = runCatching {
         if (text.isBlank() || text.length > MAX_LENGTH) return null
         val keyed = TextKey.key(text, glossary)
         find(src, tgt, keyed.exact)?.let { row ->
@@ -156,12 +165,15 @@ class TranslationCollection(private val context: Context) {
                 }
             }
         }
-        near(src, tgt, keyed.exact)?.let { return Hit(it, false, Match.NEAR) }
+        // MANHWA fast mode: a saved line this close is written as it is (otherwise only a hint for the AI)
+        near(src, tgt, keyed.exact)?.let { (translation, score) ->
+            return Hit(translation, acceptNear && score >= eu.kanade.translation.translator.FastTranslatorRules.FAST_NEAR, Match.NEAR)
+        }
         null
     }.onFailure { logcat(LogPriority.WARN, it) { "Collection lookup failed" } }.getOrNull()
 
     /** A line read a little differently (one letter): only a suggestion for the AI. */
-    private fun near(src: String, tgt: String, exact: String): String? {
+    private fun near(src: String, tgt: String, exact: String): Pair<String, Float>? {
         if (exact.length < NEAR_MIN_LENGTH) return null
         return db.query(
             "segments",
@@ -182,7 +194,7 @@ class TranslationCollection(private val context: Context) {
                     best = c.getString(1)
                 }
             }
-            best
+            best?.let { it to bestScore }
         }
     }
 
@@ -321,22 +333,24 @@ class TranslationCollection(private val context: Context) {
             if (kind.isNotBlank()) put("kind", kind)
             put("confidence", maxOf(existing[4] as Int, source.confidence))
         }
-        when {
-            source == Source.USER -> {
+        when (CollectionMerge.decide(source, existing[4] as Int, byUser, sameTranslation)) {
+            CollectionMerge.Action.USER -> {
                 // The reader's correction wins and stays
                 values.put("translation", translation)
                 values.put("arabic", if (arabic) 1 else 0)
                 values.put("user", 1)
                 values.put("sensitive", 0)
             }
-            byUser || sameTranslation -> Unit
-            source == Source.EDITOR -> {
-                // The editor fixed the team's line: its version replaces it
+            CollectionMerge.Action.KEEP -> Unit
+            CollectionMerge.Action.REPLACE -> {
+                // A stronger hand (the editor over the team, a key over the phone) fixed the line: its version
                 values.put("translation", translation)
                 values.put("arabic", if (arabic) 1 else 0)
             }
+            // The phone's other wording of a key's line changes nothing (and does not count as a use)
+            CollectionMerge.Action.SKIP -> return
             // Two different translations for the same line: it depends on who speaks, so only a hint from now on
-            else -> values.put("sensitive", 1)
+            CollectionMerge.Action.SENSITIVE -> values.put("sensitive", 1)
         }
         db.update("segments", values, "id = ?", arrayOf(id.toString()))
         db.execSQL(
@@ -572,6 +586,9 @@ class TranslationCollection(private val context: Context) {
         /** A plain line is reused as it is after it came back this many times with the same translation. */
         const val SURE_USES = 3
 
+        /** See [eu.kanade.translation.style.StyleProfile.libraryKey]: "ARABIC_EG" for spoken Egyptian. */
+        const val DIALECT_SUFFIX = "_EG"
+
         /** A learnt shape is used once it came back twice with the same translation. */
         const val SHAPE_SURE_USES = 2
         const val NEAR_MIN_LENGTH = 10
@@ -580,5 +597,30 @@ class TranslationCollection(private val context: Context) {
         const val NEAR_SIMILARITY = 0.9f
         const val TRIM_STEP = 2_000
         const val TRIM_ROUNDS = 50
+    }
+}
+
+/** MANHWA: what happens when a line already in the collection is learnt again (pure, tested without a phone). */
+object CollectionMerge {
+
+    enum class Action { USER, KEEP, REPLACE, SKIP, SENSITIVE }
+
+    /**
+     * [source] gives the line again; the row there has [existingConfidence], was written by the reader ([byUser])
+     * or not, and has the same translation ([same]) or another one.
+     * - The reader always wins; nobody replaces the reader.
+     * - The same wording again: one more use.
+     * - The editor, or any key over a line only the phone gave: its wording replaces it.
+     * - The phone's own other wording of a stronger source's line: nothing changes, not even the use count.
+     * - Two equal sources disagree: the line depends on who speaks, a hint only from now on.
+     */
+    fun decide(source: TranslationCollection.Source, existingConfidence: Int, byUser: Boolean, same: Boolean): Action = when {
+        source == TranslationCollection.Source.USER -> Action.USER
+        byUser || same -> Action.KEEP
+        source == TranslationCollection.Source.EDITOR -> Action.REPLACE
+        // A key's line over one only the phone gave
+        existingConfidence <= TranslationCollection.Source.LOCAL.confidence && source.confidence > existingConfidence -> Action.REPLACE
+        source == TranslationCollection.Source.LOCAL && existingConfidence > source.confidence -> Action.SKIP
+        else -> Action.SENSITIVE
     }
 }

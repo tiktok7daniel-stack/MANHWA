@@ -115,6 +115,14 @@ class TranslationHubScreen : Screen() {
         val engineIndex by prefs.translationEngine().collectPreference()
         val live by prefs.liveTranslation().collectPreference()
         val quickDraft by prefs.translationQuickDraft().collectPreference()
+        // MANHWA fast translation (like Google Lens)
+        val fastMode by prefs.translationFastMode().collectPreference()
+        val fastEngine by prefs.translationFastEngine().collectPreference()
+        val deeplKey by prefs.translationFastDeeplKey().collectPreference()
+        val microsoftKey by prefs.translationFastMicrosoftKey().collectPreference()
+        val microsoftRegion by prefs.translationFastMicrosoftRegion().collectPreference()
+        val googleCloudKey by prefs.translationFastGoogleCloudKey().collectPreference()
+        val fastLast by eu.kanade.translation.translator.FastUsage.last.collectAsState()
         val readerButton by prefs.translationReaderButton().collectPreference()
         val font by prefs.translationFont().collectPreference()
         val pretranslate by prefs.translationPretranslateNext().collectPreference()
@@ -282,6 +290,20 @@ class TranslationHubScreen : Screen() {
                                 onSelect = { prefs.translationEngine().set(it.ordinal) },
                             )
                         }
+                    }
+
+                    // MANHWA fast translation: the OCR straight to machine translation, no AI and no key of the team
+                    item {
+                        FastSection(
+                            enabled = fastMode,
+                            engine = fastEngine,
+                            deeplKey = deeplKey,
+                            microsoftKey = microsoftKey,
+                            microsoftRegion = microsoftRegion,
+                            googleCloudKey = googleCloudKey,
+                            last = fastLast,
+                            prefs = prefs,
+                        )
                     }
 
                     item {
@@ -574,3 +596,89 @@ class TranslationHubScreen : Screen() {
     private fun TranslationCollection.Stats.todayPercent(): Int =
         if (todayLookups <= 0) 0 else (todayHits * 100 / todayLookups).toInt()
 }
+
+/** MANHWA fast translation (like Google Lens): on or off, the engine tried first, and the reader's own keys. */
+@Composable
+private fun FastSection(
+    enabled: Boolean,
+    engine: Int,
+    deeplKey: String,
+    microsoftKey: String,
+    microsoftRegion: String,
+    googleCloudKey: String,
+    last: eu.kanade.translation.translator.FastTranslatorRules.Engine?,
+    prefs: tachiyomi.domain.translation.TranslationPreferences,
+) {
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val engines = eu.kanade.translation.translator.FastTranslatorRules.Engine.entries
+    HubSection(stringResource(ATMR.strings.fast_title), MaterialSymbols.Rounded.Speed) {
+        HubSwitchRow(
+            icon = MaterialSymbols.Rounded.Speed,
+            title = stringResource(ATMR.strings.fast_switch),
+            info = stringResource(ATMR.strings.fast_info),
+            checked = enabled,
+            value = last?.let { stringResource(ATMR.strings.fast_last, engineName(it)) },
+            onChange = { prefs.translationFastMode().set(it) },
+        )
+        HubDivider()
+        HubChoiceRow(
+            icon = MaterialSymbols.Rounded.Translate,
+            title = stringResource(ATMR.strings.fast_engine),
+            info = stringResource(ATMR.strings.fast_engine_info),
+            options = engines.map { it to engineName(it) },
+            selected = engines.getOrNull(engine) ?: engines.first(),
+            onSelect = { prefs.translationFastEngine().set(it.ordinal) },
+        )
+        HubDivider()
+        FastKeyRow("DeepL", deeplKey, stringResource(ATMR.strings.fast_deepl_info)) { prefs.translationFastDeeplKey().set(it) }
+        GetKey { runCatching { uri.openUri("https://www.deepl.com/your-account/keys") } }
+        HubDivider()
+        FastKeyRow("Microsoft Translator", microsoftKey, stringResource(ATMR.strings.fast_microsoft_info)) { prefs.translationFastMicrosoftKey().set(it) }
+        HubTextRow(
+            icon = MaterialSymbols.Rounded.Key,
+            title = stringResource(ATMR.strings.fast_microsoft_region),
+            info = stringResource(ATMR.strings.fast_microsoft_region_info),
+            value = microsoftRegion,
+            shown = microsoftRegion.ifBlank { stringResource(ATMR.strings.th_default) },
+            onSave = { prefs.translationFastMicrosoftRegion().set(it) },
+        )
+        GetKey { runCatching { uri.openUri("https://portal.azure.com/#create/Microsoft.CognitiveServicesTextTranslation") } }
+        HubDivider()
+        FastKeyRow("Google Cloud Translation", googleCloudKey, stringResource(ATMR.strings.fast_google_cloud_info)) { prefs.translationFastGoogleCloudKey().set(it) }
+        GetKey { runCatching { uri.openUri("https://console.cloud.google.com/apis/credentials") } }
+    }
+}
+
+/** A key typed in a dialog, shown masked. */
+@Composable
+private fun FastKeyRow(name: String, key: String, info: String, onSave: (String) -> Unit) {
+    HubTextRow(
+        icon = MaterialSymbols.Rounded.Key,
+        title = name,
+        info = info,
+        value = key,
+        shown = if (key.isBlank()) stringResource(ATMR.strings.fast_no_key) else "•••• " + key.takeLast(4),
+        onSave = onSave,
+    )
+}
+
+@Composable
+private fun GetKey(onClick: () -> Unit) {
+    eu.kanade.presentation.components.ManhwaKit.GhostButton(
+        stringResource(ATMR.strings.fast_get_key),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        icon = MaterialSymbols.Rounded.Key,
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun engineName(engine: eu.kanade.translation.translator.FastTranslatorRules.Engine): String = when (engine) {
+    eu.kanade.translation.translator.FastTranslatorRules.Engine.AUTO -> stringResource(ATMR.strings.fast_auto)
+    eu.kanade.translation.translator.FastTranslatorRules.Engine.DEEPL -> "DeepL"
+    eu.kanade.translation.translator.FastTranslatorRules.Engine.MICROSOFT -> "Microsoft"
+    eu.kanade.translation.translator.FastTranslatorRules.Engine.GOOGLE_CLOUD -> "Google Cloud"
+    eu.kanade.translation.translator.FastTranslatorRules.Engine.GOOGLE -> "Google Translate"
+    eu.kanade.translation.translator.FastTranslatorRules.Engine.MLKIT -> stringResource(ATMR.strings.fast_mlkit)
+}
+

@@ -263,7 +263,7 @@ class ChapterTranslator(
      * MANHWA: the translation is written next to its final name, flushed to the disk, and only then renamed, so
      * a crash or a closed app mid-save never leaves a half-written file that would open as a broken chapter.
      */
-    private fun saveAtomically(dir: UniFile, name: String, pages: Map<String, PageTranslation>) {
+    internal fun saveAtomically(dir: UniFile, name: String, pages: Map<String, PageTranslation>) {
         val partName = "$name.part"
         dir.findFile(partName)?.delete()
         val part = dir.createFile(partName) ?: throw IOException("Could not create $partName")
@@ -329,10 +329,21 @@ class ChapterTranslator(
             "${translationInstructions().get().hashCode()}:${translationEngineTemperature().get()}:${translationEngineMaxOutputTokens().get()}"
         }
         val local = if (team.isEmpty()) eu.kanade.translation.local.LocalAiEngine.available(context).toString() + translationPreferences.translationStyleDialect().get() else ""
-        return "${translation.fromLang}|${translation.toLang}|${translationPreferences.translationEngine().get()}|$style|$team|$local"
+        // MANHWA fast mode: switching it (or its engine) builds the translator again
+        val fast = "${translationPreferences.translationFastMode().get()}:${translationPreferences.translationFastEngine().get()}"
+        return "${translation.fromLang}|${translation.toLang}|${translationPreferences.translationEngine().get()}|$style|$team|$local|$fast"
     }
 
     private fun buildTranslator(translation: Translation): TextTranslator {
+        // MANHWA fast mode (like Google Lens): machine translation straight after the OCR, no AI
+        if (translationPreferences.translationFastMode().get()) {
+            return eu.kanade.translation.translator.FastTranslator(
+                translation.fromLang,
+                translation.toLang,
+                translationPreferences,
+                context.appGraph.networkHelper.client,
+            )
+        }
         val team = teamMembers()
         return if (team.isNotEmpty()) {
             TeamTranslator(translation.fromLang, translation.toLang, teamStore, team)
@@ -343,6 +354,8 @@ class ChapterTranslator(
                 translation.fromLang,
                 translation.toLang,
                 instructions = eu.kanade.translation.style.StyleProfile.instruction(translationPreferences, translation.toLang.name),
+                // The way this phone's speed test chose (the fix-only way only when it measured faster and as accurate)
+                tuning = eu.kanade.translation.local.LocalAiRules.Tuning.named(translationPreferences.translationLocalTuning().get()),
             )
         } else {
             TextTranslators.withoutKeys(translationPreferences)
@@ -509,7 +522,7 @@ class ChapterTranslator(
                 // MANHWA master codex: each genre's standard terms found in this chapter, under the series glossary
                 val codex = codexFor(translation.fromLang, translation.toLang, pages.values.joinToString("\n") { page -> page.blocks.joinToString(" ") { it.text } })
                 ai?.apply {
-                    glossary = codex + glossaryStore.asMap(translation.manga.id)
+                    glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
                     learnTerms = true
                     discoveredTerms.clear()
                     // MANHWA smart glossary: who each name is (gender, how they speak) and the story so far
@@ -542,16 +555,20 @@ class ChapterTranslator(
                             found.associate { it.source to (it.kind to it.gender) },
                             found.filter { it.note.isNotBlank() }.associate { it.source to it.note },
                         )
-                        ai.glossary = codex + glossaryStore.asMap(translation.manga.id)
+                        ai.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
                         ai.glossaryNotes = glossaryStore.notes(translation.manga.id)
                     }.onFailure {
                         if (it is CancellationException) throw it
                         logcat(LogPriority.WARN, it) { "Scout failed, translating without it" }
                     }
                 }
+                // MANHWA fast mode: the work's names and the codex go in before the lines are sent
+                (textTranslator as? eu.kanade.translation.translator.FastTranslator)?.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
                 // MANHWA on-device AI: the series glossary and the codex for the model on the phone too
                 (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.apply {
-                    glossary = codex + glossaryStore.asMap(translation.manga.id)
+                    glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
+                    // Who the characters are (man or woman, how they speak), for "you", "he" and "she"
+                    notes = glossaryStore.notes(translation.manga.id)
                     // The phone shows its progress as it goes (it can be slow): never "stopped moving"
                     onBatchDone = { done, total ->
                         translation.advance(Translation.Stage.TRANSLATING, done, total)
@@ -560,7 +577,11 @@ class ChapterTranslator(
                 }
                 // MANHWA collection: lines translated before, in any manhwa, are written at once; repeats inside
                 // the chapter are translated once; only what is left goes to the translator
-                val library = if (useLibrary) fromLibrary(pages, src, tgt, glossaryStore.asMap(translation.manga.id)) else LibraryPass.NONE
+                val library = if (useLibrary) {
+                    fromLibrary(pages, src, tgt, glossaryStore.asMap(translation.manga.id), acceptNear = textTranslator is eu.kanade.translation.translator.FastTranslator)
+                } else {
+                    LibraryPass.NONE
+                }
                 translation.fromLibrary(library.percent)
                 val work = pages.mapNotNull { (name, page) ->
                     val rest = page.blocks.filter { it !in library.known && !library.copies.containsKey(it) }
@@ -585,7 +606,7 @@ class ChapterTranslator(
                 // Every finished batch goes to a reader waiting for this chapter (the whole page: the collection's
                 // lines and the new ones, which are the same blocks), before the review and the save
                 val chapterId = translation.chapter.id
-                (textTranslator as? TeamTranslator)?.onPagesDone = { done ->
+                val pagesDone: (Map<String, PageTranslation>) -> Unit = { done ->
                     val ready = done.keys.mapNotNull { name ->
                         pages[name]?.let { page ->
                             name to page.copy(blocks = page.blocks.filter { it.translation.isNotBlank() }.map { it.copy() }.toMutableList())
@@ -593,6 +614,9 @@ class ChapterTranslator(
                     }.toMap()
                     _partial.update { it + (chapterId to (it[chapterId].orEmpty() + ready)) }
                 }
+                (textTranslator as? TeamTranslator)?.onPagesDone = pagesDone
+                // MANHWA: the phone's pages too, as each is done (a slow phone shows the first pages long before the end)
+                (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.onPagesDone = pagesDone
                 translation.advance(Translation.Stage.TRANSLATING)
                 translation.note(if (ai != null && work.isNotEmpty()) Translation.Note.AI else null)
                 showProgress()
@@ -687,6 +711,7 @@ class ChapterTranslator(
                             targetLatin = translation.toLang.code !in NON_LATIN_TARGETS,
                         )
                     }.onFailure { if (it is CancellationException) throw it }.getOrDefault(consensus)
+                    consensus.replacedLines.forEach { (block, _) -> block.translation = ai.finishLine(block.translation, block.text) }
                     if (useLibrary && consensus.replacedLines.isNotEmpty()) {
                         collection.learn(
                             src, tgt, translation.manga.id, glossaryAfter,
@@ -781,6 +806,16 @@ class ChapterTranslator(
                     collection.learn(src, tgt, translation.manga.id, glossaryStore.asMap(translation.manga.id), lines, TranslationCollection.Source.TEAM)
                 }
             }
+            // MANHWA phone memory: the phone model's own lines that pass the checks, below every key's, so the next
+            // chapters write them at once (sure only once seen three times; the reader's correction always wins)
+            (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.let { phone ->
+                if (useLibrary) {
+                    withContext(Dispatchers.IO) {
+                        val glossary = glossaryStore.asMap(translation.manga.id)
+                        collection.learn(src, tgt, translation.manga.id, glossary, phone.learnable(pages.values), TranslationCollection.Source.LOCAL)
+                    }
+                }
+            }
             // MANHWA: the chapter's lines can be searched later from the search in translations
             withContext(Dispatchers.IO) {
                 runCatching {
@@ -836,6 +871,8 @@ class ChapterTranslator(
         src: String,
         tgt: String,
         glossary: Map<String, String>,
+        // MANHWA fast mode: saved lines this close are written as they are (no AI to check a hint)
+        acceptNear: Boolean = false,
     ): LibraryPass {
         val known: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
         val copies = IdentityHashMap<TranslationBlock, TranslationBlock>()
@@ -846,7 +883,7 @@ class ChapterTranslator(
             for (block in page.blocks) {
                 if (block.text.isBlank()) continue
                 lines++
-                val hit = collection.lookup(src, tgt, block.text, glossary)
+                val hit = collection.lookup(src, tgt, block.text, glossary, acceptNear)
                 if (hit?.sure == true) {
                     block.translation = hit.translation
                     known += block
@@ -1009,8 +1046,9 @@ class ChapterTranslator(
                 val block = blocks[id] ?: return@mapNotNull null
                 // Every fix is a lesson for the next chapters
                 lessonStore.add(mangaId, LessonStore.Lesson(block.text, block.translation, text, LessonStore.Origin.EDITOR.name), title)
-                block.translation = text
-                TranslationCollection.Line(block.text, text, block.kind)
+                // Finished like every other line: names as the glossary writes them, clean Arabic
+                block.translation = ai.finishLine(text, block.text)
+                TranslationCollection.Line(block.text, block.translation, block.kind)
             }
         } finally {
             ai.glossaryNotes = emptyMap()

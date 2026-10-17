@@ -74,8 +74,15 @@ class TeamTranslator(
         .filter { it.translation.isNotBlank() && it.text.isNotBlank() }
         .map { it.text to it.translation }
 
-    private fun contextBefore(position: Int): List<kotlin.Pair<String, String>> =
-        pageLines.filterKeys { it < position }.toSortedMap().values.flatten().takeLast(RECENT_LINES)
+    /**
+     * The lines before [position]: finished pages with their translation, and the [PREVIOUS_PAGES] right before it
+     * even while another key is still on them (their source text only), so a batch that starts early still knows
+     * who speaks and what just happened.
+     */
+    private fun contextBefore(position: Int, sourceOf: (Int) -> List<String>): List<kotlin.Pair<String, String>> =
+        (0 until position).flatMap { index ->
+            pageLines[index] ?: if (index >= position - PREVIOUS_PAGES) sourceOf(index).map { it to "" } else emptyList()
+        }.takeLast(RECENT_LINES)
 
     private fun remember(translated: Collection<PageTranslation>) {
         val lines = translated.flatMap { page -> page.blocks }
@@ -126,6 +133,7 @@ class TeamTranslator(
         val leftOver = mutableListOf<ChapterPlanner.Batch>()
         val summaries = sortedMapOf<Int, MutableList<String>>()
         val order = pages.keys.withIndex().associate { it.value to it.index }
+        val byOrder = order.entries.associate { it.value to it.key }
         val working = HashMap<String, Int>()
         var inFlight = 0
         var done = 0
@@ -191,7 +199,7 @@ class TeamTranslator(
                                 }
                                 break
                             }
-                            if (lane != AiRouter.Lane.LIVE) translator.recentLines = contextBefore(batch.pages.minOf { order.getValue(it) })
+                            if (lane != AiRouter.Lane.LIVE) translator.recentLines = contextBefore(batch.pages.minOf { order.getValue(it) }) { index -> byOrder[index]?.let { pages[it] }?.blocks?.map { it.text }?.filter { it.isNotBlank() }.orEmpty() }
                             val part = batch.pages.associateWithTo(mutableMapOf()) { pages.getValue(it) }
                             val partImages = if (vision) images.filterKeys { it in batch.pages } else emptyMap()
                             val started = System.currentTimeMillis()
@@ -563,6 +571,9 @@ class TeamTranslator(
         private const val MAX_ATTEMPTS = 3
         private const val MAX_RACERS = 2
         private const val RECENT_LINES = 30
+
+        /** Pages right before a batch whose source text it sees even before they are translated. */
+        private const val PREVIOUS_PAGES = 2
         private const val RACE_MIN_MS = 4_000L
         private const val RACE_MAX_MS = 12_000L
         private const val BATCH_TIMEOUT_MS = 150_000L

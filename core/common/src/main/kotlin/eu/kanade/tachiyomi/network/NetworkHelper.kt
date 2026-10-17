@@ -32,7 +32,10 @@ class NetworkHelper(
     }
 
     private fun clientBuilder(): OkHttpClient.Builder = run {
+        // MANHWA: what could not be opened is kept on the phone, to see why (first, so it sees the final outcome)
+        NetworkProblemLog.init(context)
         val builder = OkHttpClient.Builder()
+            .addInterceptor(NetworkProblemLog.Recorder(context) { smartDns })
             .cookieJar(cookieJar)
             .connectTimeout(30.seconds)
             .readTimeout(30.seconds)

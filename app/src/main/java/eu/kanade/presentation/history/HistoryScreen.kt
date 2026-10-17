@@ -111,7 +111,7 @@ fun HistoryScreen(
                 HistoryScreenContent(
                     history = it,
                     contentPadding = contentPadding,
-                    onClickCover = { history -> onClickCover(history.mangaId) },
+                    onClickCover = { history -> onClickCover(history.coverData.mangaId) },
                     onClickResume = { history -> onClickResume(history.mangaId, history.chapterId) },
                     onClickDelete = { item -> onDialogChange(HistoryViewModel.Dialog.Delete(item)) },
                     onClickFavorite = { history -> onClickFavorite(history.mangaId) },
@@ -160,6 +160,7 @@ private fun HistoryScreenContent(
                         onClickResume = { onClickResume(value) },
                         onClickDelete = { onClickDelete(value) },
                         onClickFavorite = { onClickFavorite(value) },
+                        continuation = item.continuation,
                     )
                 }
             }
@@ -169,7 +170,8 @@ private fun HistoryScreenContent(
 
 sealed interface HistoryUiModel {
     data class Header(val date: LocalDate) : HistoryUiModel
-    data class Item(val item: HistoryWithRelations) : HistoryUiModel
+    // MANHWA fusion: the language of the continuation this line was read in (null on the work's own chapters)
+    data class Item(val item: HistoryWithRelations, val continuation: String? = null) : HistoryUiModel
 }
 
 @PreviewLightDark

@@ -337,7 +337,7 @@ class AiTranslator(
                     // A sound effect left as drawn: no translation, nothing erased
                     text.isNullOrBlank() && skipSfx && sfx -> ""
                     text.isNullOrBlank() -> block.text
-                    else -> finishArabic(TextSanitizer.clean(text, block.text, toLang))
+                    else -> finishArabic(TextSanitizer.clean(text, block.text, toLang), block.text)
                 }
                 if (block.translation.isNotBlank()) context.remember(block.translation)
             }
@@ -466,7 +466,7 @@ class AiTranslator(
                     }
                     else -> {
                         bubble.string("text")?.takeIf { it.isNotBlank() }?.let { block.text = it }
-                        block.translation = finishArabic(TextSanitizer.clean(translation, block.text, toLang))
+                        block.translation = finishArabic(TextSanitizer.clean(translation, block.text, toLang), block.text)
                         bubble.string("kind")?.let { if (!block.kind.equals(ART_KIND, ignoreCase = true)) block.kind = it }
                         kept += block
                     }
@@ -652,11 +652,17 @@ class AiTranslator(
      * MANHWA: the last touch on an Arabic translation: English terms and names left in it fixed on the phone
      * (new names join the glossary), Arabic punctuation, and counted nouns agreed with their numbers.
      */
-    private fun finishArabic(text: String): String {
+    private fun finishArabic(text: String, source: String): String {
         if (toLang != TextTranslatorLanguage.ARABIC || text.isBlank()) return text
         val repaired = LeakRepair.repair(text, glossary) { name, arabic -> if (learnTerms) discoveredTerms.putIfAbsent(name, arabic) }
-        return ArabicPolisher.polish(repaired)
+        // MANHWA: a name spelt a little differently from the glossary gets the glossary's spelling
+        val named = eu.kanade.translation.glossary.GlossaryEnforcer.fix(source, repaired, glossary)
+        return ArabicPolisher.polish(named)
     }
+
+    /** MANHWA: a line fixed outside the translation (the editor, a second opinion) finished like the others. */
+    fun finishLine(translation: String, source: String): String =
+        if (toLang == TextTranslatorLanguage.ARABIC) finishArabic(TextSanitizer.clean(translation, source, toLang), source) else translation
 
     /** Whether this engine can search the web (Gemini, Claude and OpenRouter can). */
     val canSearchWeb: Boolean get() = provider == Provider.GEMINI || provider == Provider.CLAUDE || provider == Provider.OPENROUTER
@@ -811,9 +817,10 @@ class AiTranslator(
         }
         if (recentLines.isNotEmpty()) {
             appendLine()
-            appendLine("Earlier in this chapter (already translated, for context only; keep pronouns, tone and terms consistent):")
+            appendLine("Earlier in this chapter (for context only; keep pronouns, tone and terms consistent):")
             recentLines.takeLast(MAX_RECENT_LINES).forEach { (source, translation) ->
-                appendLine("- ${source.take(140)} => ${translation.take(140)}")
+                // Lines of the pages right before that are still being translated come without a translation
+                if (translation.isBlank()) appendLine("- ${source.take(140)}") else appendLine("- ${source.take(140)} => ${translation.take(140)}")
             }
         }
         if (lessons.isNotBlank()) {

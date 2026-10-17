@@ -50,6 +50,9 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetDuplicateLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.asMangaCover
+import eu.kanade.translation.unified.ChapterFusion
+import eu.kanade.translation.unified.FusionRules
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.source.service.SourceManager
 import kotlin.time.Duration.Companion.seconds
@@ -70,6 +73,7 @@ class HistoryViewModel(
     private val setMangaCategories: SetMangaCategories,
     private val updateManga: UpdateManga,
     private val sourceManager: SourceManager,
+    private val chapterFusion: ChapterFusion,
 ) : ViewModel() {
 
     private val subscriberGate = SubscriberGate()
@@ -85,13 +89,13 @@ class HistoryViewModel(
 
     private val history = searchQuery
         .flatMapLatest { query ->
-            getHistory.subscribe(query ?: "")
-                .distinctUntilChanged()
+            // MANHWA fusion: a fused work's continuation is one line with the work itself
+            combine(getHistory.subscribe(query ?: "").distinctUntilChanged(), chapterFusion.fusions) { list, fusions -> list to fusions }
                 .catch { error ->
                     logcat(LogPriority.ERROR, error)
                     _events.send(Event.InternalError)
                 }
-                .map { it.toHistoryUiModels() }
+                .map { (list, fusions) -> list.mergeFusions(fusions).toHistoryUiModels() }
                 .flowOn(Dispatchers.Default)
         }
         .stateIn(viewModelScope + subscriberGate, SharingStarted.Eagerly, emptyList())
@@ -105,8 +109,26 @@ class HistoryViewModel(
     }
         .stateIn(viewModelScope + subscriberGate, subscriberGate.whileSubscribed(5.seconds), State())
 
-    private fun List<HistoryWithRelations>.toHistoryUiModels(): List<HistoryUiModel> {
-        return map { HistoryUiModel.Item(it) }
+    /**
+     * MANHWA fusion: the newest line of each fused work stays (its own chapters or its continuation's), shown with
+     * the work's title and cover; a continuation line says so. Works that are not fused stay as they are.
+     */
+    private suspend fun List<HistoryWithRelations>.mergeFusions(
+        fusions: Map<Long, ChapterFusion.Fusion>,
+    ): List<Pair<HistoryWithRelations, String?>> {
+        if (fusions.isEmpty()) return map { it to null }
+        val baseOf = fusions.values.flatMap { f -> f.continuationIds().map { it to f } }.toMap()
+        val kept = FusionRules.mergeHistory(this, { it.mangaId }, { baseOf[it]?.baseMangaId })
+        return kept.map { history ->
+            val fusion = baseOf[history.mangaId] ?: return@map history to null
+            val base = getManga.await(fusion.baseMangaId) ?: return@map history to null
+            val lang = fusion.kept.firstOrNull { it.mangaId == history.mangaId }?.lang?.ifBlank { null } ?: fusion.otherLang
+            history.copy(title = base.title, coverData = base.asMangaCover()) to FusionRules.langCode(lang)
+        }
+    }
+
+    private fun List<Pair<HistoryWithRelations, String?>>.toHistoryUiModels(): List<HistoryUiModel> {
+        return map { (history, continuation) -> HistoryUiModel.Item(history, continuation) }
             .insertSeparators { before, after ->
                 val beforeDate = before?.item?.readAt?.toLocalDate()
                 val afterDate = after?.item?.readAt?.toLocalDate()
@@ -142,6 +164,9 @@ class HistoryViewModel(
     fun removeAllFromHistory(mangaId: Long) {
         viewModelScope.launch {
             removeHistory.await(mangaId)
+            // MANHWA fusion: a fused work's history goes with its continuation's, both ways
+            val fusion = chapterFusion.continuationOf(mangaId) ?: chapterFusion.fusionOf(mangaId) ?: return@launch
+            (listOf(fusion.baseMangaId) + fusion.continuationIds()).filter { it != mangaId }.forEach { removeHistory.await(it) }
         }
     }
 

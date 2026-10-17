@@ -1,6 +1,19 @@
 package eu.kanade.translation.unified
 
 import android.widget.Toast
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import eu.kanade.presentation.manga.components.ChapterTranslationAction
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
+import eu.kanade.tachiyomi.data.download.DownloadErrorLog
+import eu.kanade.presentation.manga.components.ChapterTranslationIndicator
+import eu.kanade.presentation.manga.components.TranslationStageLine
+import eu.kanade.translation.model.Translation
+import mihon.icons.materialsymbols.rounded.Verified
 import androidx.compose.foundation.background
 import mihon.icons.materialsymbols.rounded.Search
 import eu.kanade.presentation.manga.components.MangaCover
@@ -82,6 +95,12 @@ class FusionUi(val manga: Manga) {
     var choices by mutableStateOf<List<ChapterFusion.Offer>>(emptyList())
     var continuation by mutableStateOf<List<ChapterFusion.Continuation>>(emptyList())
     var other by mutableStateOf<Manga?>(null)
+
+    /** MANHWA: the entries of earlier continuations whose translated chapters were kept, by id. */
+    var layers by mutableStateOf<Map<Long, Manga>>(emptyMap())
+
+    /** The entry a continuation chapter belongs to: the current continuation, or a kept one. */
+    fun mangaOf(mangaId: Long): Manga? = other?.takeIf { it.id == mangaId } ?: layers[mangaId]
     var oursMin by mutableStateOf<Double?>(null)
     var oursMax by mutableStateOf<Double?>(null)
     var baseLang by mutableStateOf("")
@@ -121,7 +140,11 @@ fun rememberFusionUi(manga: Manga): FusionUi {
         }
         if (fusion != null) {
             ui.offer = null
-            ui.other = withContext(Dispatchers.IO) { graph.getMangaById.await(fusion.otherMangaId) }
+            ui.other = engine.otherOf(fusion)
+            if (ui.other == null) return@LaunchedEffect
+            ui.layers = withContext(Dispatchers.IO) {
+                fusion.kept.mapNotNull { layer -> graph.getMangaById.await(layer.mangaId) }.associateBy { it.id }
+            }
             // What is already known first, then what the other source has now
             ui.continuation = engine.continuation(manga.id, refresh = false)
             ui.continuation = engine.continuation(manga.id, refresh = true)
@@ -149,6 +172,7 @@ private suspend fun search(context: android.content.Context, ui: FusionUi, force
 @Composable
 fun FusionBanner(ui: FusionUi, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     // The reader always picks the work to join with: nothing is fused without seeing it first
     var picking by remember { mutableStateOf(false) }
     val fusion = ui.fusion
@@ -167,9 +191,28 @@ fun FusionBanner(ui: FusionUi, modifier: Modifier = Modifier) {
     if (picking) {
         FusionPicker(
             ui,
-            onPick = {
-                context.appGraph.chapterFusion.fuse(it)
+            onPick = { picked ->
                 picking = false
+                val current = ui.fusion
+                scope.launch {
+                    // MANHWA: moving the continuation to another source keeps the chapters translated on the
+                    // current one in their place; the new source only gives the chapters they do not have
+                    val engine = context.appGraph.chapterFusion
+                    val kept = if (current != null && current.otherMangaId != picked.other.id) {
+                        engine.keptOnChange(current) { chapter -> translatedOrWorking(context, chapter) }
+                    } else {
+                        current?.kept.orEmpty()
+                    }
+                    engine.fuse(picked, kept)
+                    val count = kept.filter { it.mangaId != picked.other.id }.sumOf { it.chapters.size }
+                    if (count > 0) {
+                        Toast.makeText(
+                            context,
+                            context.stringResource(ATMR.strings.fusion_kept_chapters, count),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
             },
             onDismiss = { picking = false },
         )
@@ -387,10 +430,14 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
     val queue by graph.downloadManager.queueState.collectAsState()
     val queued = queue.firstOrNull { it.chapter.id == item.chapter.id }
     val status = queued?.statusFlow?.collectAsState()?.value
-    val other = ui.other
-    val downloaded = remember(queue, other) {
+    // The entry this chapter comes from: the current continuation, or one kept from an earlier source
+    val other = ui.mangaOf(item.chapter.mangaId)
+    // Asked again whenever the chapter's download moves (it ends while still in the queue)
+    val downloaded = remember(queue, status, other) {
         other != null && graph.downloadManager.isChapterDownloaded(item.chapter.name, item.chapter.scanlator, item.chapter.url, other.title, other.source)
     }
+    val downloadProgress = queued?.progressFlow?.collectAsState(0)?.value
+    val translation = rememberContinuationTranslation(item, other, downloadProgress, status)
     val read = item.chapter.read
     Row(
         Modifier
@@ -409,59 +456,214 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Ember.copy(alpha = 0.18f))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(MaterialSymbols.Rounded.Translate, contentDescription = null, tint = Ember, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        stringResource(ATMR.strings.fusion_badge_next, langCode(fusion.otherLang), fusion.otherSourceName),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Ember,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+            ContinuationBadge(fusion, item, translation.state, translation.working)
+            // What the translation is doing now: the stage with its counter, or the live reader's pages
+            val live = translation.live
+            if (live != null) {
+                Text(
+                    stringResource(ATMR.strings.fusion_live_translating, live.first, live.second),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Ember,
+                    maxLines = 1,
+                )
+            } else {
+                TranslationStageLine(translation.state, translation.progress, MaterialTheme.typography.labelSmall)
             }
         }
-        // Translate ahead, from here
-        IconButton(onClick = {
-            val manga = other ?: return@IconButton
-            scope.launch { translate(context, manga, item) }
-        }) {
-            Icon(MaterialSymbols.Rounded.Translate, contentDescription = null, tint = Color.White.copy(alpha = 0.85f))
+        // Translate: a ring with the real percentage while it works, a check once it is translated
+        ChapterTranslationIndicator(
+            enabled = other != null,
+            translationStateProvider = { translation.state },
+            progressProvider = { translation.progress },
+            onClick = { action ->
+                val manga = other ?: return@ChapterTranslationIndicator
+                scope.launch(Dispatchers.IO) {
+                    when (action) {
+                        ChapterTranslationAction.START -> graph.translationManager.translateOrFetch(manga, item.chapter)
+                        ChapterTranslationAction.CANCEL -> cancelTranslation(graph, item)
+                        ChapterTranslationAction.DELETE -> graph.translationManager.deleteTranslation(
+                            item.chapter,
+                            manga,
+                            graph.sourceManager.getOrStub(manga.source),
+                        )
+                    }
+                    translation.refresh()
+                }
+            },
+        )
+        // MANHWA: the same download mark as this work's own chapters: the real percentage while it downloads, a
+        // check once it is here, and on a failure its reason with "try again" and "download now"
+        val downloadState = when {
+            status != null && status != Download.State.NOT_DOWNLOADED -> status
+            downloaded -> Download.State.DOWNLOADED
+            else -> Download.State.NOT_DOWNLOADED
         }
-        // Download, or stop the download that is waiting
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            when {
-                status == Download.State.QUEUE || status == Download.State.DOWNLOADING -> IconButton(onClick = {
-                    scope.launch(Dispatchers.IO) { graph.downloadManager.cancelQueuedDownloads(listOfNotNull(queued)) }
-                }) {
-                    Box(contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp, color = Ember)
-                        Icon(MaterialSymbols.Rounded.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+        ChapterDownloadIndicator(
+            enabled = other != null,
+            modifier = Modifier.padding(start = 4.dp),
+            downloadStateProvider = { downloadState },
+            downloadProgressProvider = { downloadProgress ?: 0 },
+            errorMessageProvider = { other?.let { DownloadErrorLog.get(it.id, item.chapter.name) } },
+            onClick = { action ->
+                val manga = other ?: return@ChapterDownloadIndicator
+                scope.launch(Dispatchers.IO) {
+                    val downloads = graph.downloadManager
+                    when (action) {
+                        ChapterDownloadAction.START -> {
+                            downloads.downloadChapters(manga, listOf(item.chapter))
+                            // Started even when other chapters wait in the queue with the downloader stopped
+                            downloads.startDownloads()
+                        }
+                        ChapterDownloadAction.START_NOW -> downloads.startDownloadNow(item.chapter.id)
+                        ChapterDownloadAction.CANCEL -> downloads.cancelQueuedDownloads(listOfNotNull(queued))
+                        ChapterDownloadAction.DELETE -> downloads.deleteChapters(
+                            listOf(item.chapter),
+                            manga,
+                            graph.sourceManager.getOrStub(manga.source),
+                        )
                     }
                 }
-                downloaded -> Icon(MaterialSymbols.RoundedFilled.CheckCircle, contentDescription = null, tint = Mint, modifier = Modifier.size(24.dp))
-                else -> IconButton(onClick = {
-                    val manga = other ?: return@IconButton
-                    scope.launch(Dispatchers.IO) { graph.downloadManager.downloadChapters(manga, listOf(item.chapter)) }
-                }) {
-                    Icon(MaterialSymbols.Rounded.Download, contentDescription = null, tint = Color.White.copy(alpha = 0.85f))
-                }
-            }
+            },
+        )
+    }
+}
+
+/** The continuation's badge: "EN continuation · source", pulsing while it is translated, "Translated · EN" after. */
+@Composable
+private fun ContinuationBadge(fusion: ChapterFusion.Fusion, item: ChapterFusion.Continuation, state: Translation.State, working: Boolean) {
+    val layer = fusion.kept.firstOrNull { it.mangaId == item.chapter.mangaId }
+    val lang = layer?.lang?.ifBlank { null } ?: fusion.otherLang
+    val sourceName = item.sourceName.ifBlank { fusion.otherSourceName }
+    val translated = state == Translation.State.TRANSLATED
+    val tint = if (translated) Mint else Ember
+    val pulse = if (working) {
+        val transition = rememberInfiniteTransition(label = "continuation-pulse")
+        transition.animateFloat(
+            initialValue = 0.35f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
+            label = "continuation-pulse-alpha",
+        ).value
+    } else {
+        1f
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(tint.copy(alpha = if (working) 0.12f + 0.18f * pulse else 0.18f))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (translated) MaterialSymbols.Rounded.Verified else MaterialSymbols.Rounded.Translate,
+                contentDescription = null,
+                tint = tint.copy(alpha = pulse),
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                if (translated) {
+                    stringResource(ATMR.strings.fusion_badge_translated, langCode(lang))
+                } else {
+                    stringResource(ATMR.strings.fusion_badge_next, langCode(lang), sourceName)
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = tint,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
 
-private suspend fun translate(context: android.content.Context, manga: Manga, item: ChapterFusion.Continuation) {
-    withContext(Dispatchers.IO) { context.appGraph.translationManager.translateChapter(manga, item.chapter) }
-    Toast.makeText(context, context.stringResource(ATMR.strings.fusion_translate_queued), Toast.LENGTH_SHORT).show()
+/** Where a continuation chapter's translation is: queued or working (with its progress), saved, or failed. */
+private class ContinuationTranslation(
+    val state: Translation.State,
+    val progress: Translation.Progress?,
+    /** Pages done and pages in all, while the reader translates this chapter live. */
+    val live: Pair<Int, Int>?,
+    private val reload: suspend () -> Unit,
+) {
+    val working: Boolean
+        get() = live != null || state == Translation.State.QUEUE || state == Translation.State.TRANSLATING || progress != null
+
+    suspend fun refresh() = reload()
+}
+
+@Composable
+private fun rememberContinuationTranslation(
+    item: ChapterFusion.Continuation,
+    other: Manga?,
+    downloadProgress: Int?,
+    downloadStatus: Download.State?,
+): ContinuationTranslation {
+    val context = LocalContext.current
+    val graph = remember { context.appGraph }
+    val chapterId = item.chapter.id
+    // Whether its translation is saved, asked again whenever something about it ends
+    var saved by remember(chapterId) { mutableStateOf(false) }
+    var ended by remember(chapterId) { mutableStateOf<Translation.State?>(null) }
+    val reload: suspend () -> Unit = remember(chapterId, other) {
+        {
+            if (other != null) {
+                saved = withContext(Dispatchers.IO) {
+                    graph.translationManager.isChapterTranslated(item.chapter.name, item.chapter.scanlator, other.title, other.source)
+                }
+            }
+        }
+    }
+    LaunchedEffect(chapterId, other) { reload() }
+    LaunchedEffect(chapterId, other) {
+        graph.translationManager.finished.collect { end ->
+            if (end.chapterId != chapterId) return@collect
+            ended = end.state
+            reload()
+        }
+    }
+    val queue by graph.translationManager.queueState.collectAsState()
+    val queued = queue.firstOrNull { it.chapter.id == chapterId }
+    val queuedStatus = queued?.statusFlow?.collectAsState()?.value
+    val queuedProgress = queued?.progress?.collectAsState()?.value
+    val liveMap by remember { graph.liveChapterProgress.chapters }.collectAsState()
+    val live = liveMap[chapterId]?.takeIf { (done, total) -> total > 0 && done < total }
+    // A live translation that just finished saved the chapter: asked again
+    val liveDone = liveMap[chapterId]?.let { (done, total) -> total > 0 && done >= total } == true
+    LaunchedEffect(liveDone) { if (liveDone) reload() }
+    // Fetched only to be translated: its download is the first quarter of the ring
+    val fetching = chapterId in graph.translationManager.translateAfterDownload &&
+        (downloadStatus == Download.State.QUEUE || downloadStatus == Download.State.DOWNLOADING)
+    val downloadPercent = (downloadProgress ?: 0) * Translation.Stage.DOWNLOADING.to / 100
+    val fetchProgress = remember(chapterId) { Translation.Progress(stage = Translation.Stage.DOWNLOADING) }
+    val progress = when {
+        queuedProgress != null && queuedStatus != Translation.State.TRANSLATED -> queuedProgress
+        fetching -> fetchProgress.copy(percent = downloadPercent)
+        else -> null
+    }
+    val state = when {
+        queuedStatus != null && queuedStatus != Translation.State.NOT_TRANSLATED -> queuedStatus
+        fetching -> Translation.State.QUEUE
+        saved -> Translation.State.TRANSLATED
+        ended == Translation.State.ERROR -> Translation.State.ERROR
+        else -> Translation.State.NOT_TRANSLATED
+    }
+    return ContinuationTranslation(state, progress, live, reload)
+}
+
+/** Whether [chapter] is translated, or in the translation queue now. */
+private suspend fun translatedOrWorking(context: android.content.Context, chapter: tachiyomi.domain.chapter.model.Chapter): Boolean {
+    val graph = context.appGraph
+    if (graph.translationManager.getQueuedTranslationOrNull(chapter.id) != null) return true
+    val manga = graph.getMangaById.await(chapter.mangaId) ?: return false
+    return graph.translationManager.isChapterTranslated(chapter.name, chapter.scanlator, manga.title, manga.source)
+}
+
+private suspend fun cancelTranslation(graph: mihon.app.di.AppGraph, item: ChapterFusion.Continuation) {
+    val manager = graph.translationManager
+    manager.getQueuedTranslationOrNull(item.chapter.id)?.let(manager::cancelQueuedTranslation)
+    if (manager.translateAfterDownload.remove(item.chapter.id)) {
+        graph.downloadManager.cancelQueuedDownloads(listOfNotNull(graph.downloadManager.getQueuedDownloadOrNull(item.chapter.id)))
+    }
 }
 
 private fun langLabel(lang: String): String =

@@ -32,6 +32,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +66,7 @@ import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.core.common.i18n.stringResource
 
 private val Ember = Color(0xFFFF6A2B)
 
@@ -76,7 +80,10 @@ fun TranslatingNowButton() {
     val navigator = LocalNavigator.current
     val manager = remember { context.appGraph.translationManager }
     val queue by manager.queueState.collectAsState()
-    val active = queue.isNotEmpty()
+    // MANHWA: the chapter the reader translates live counts too
+    val live by remember { context.appGraph.liveChapterProgress.current }.collectAsState()
+    val count = queue.size + if (live != null) 1 else 0
+    val active = count > 0
     IconButton(onClick = { navigator?.push(TranslatingNowScreen()) }) {
         Box {
             Icon(
@@ -94,7 +101,7 @@ fun TranslatingNowButton() {
                         .background(Ember),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(if (queue.size > 9) "9+" else queue.size.toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text(if (count > 9) "9+" else count.toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -108,7 +115,10 @@ fun TranslatingNowOrb() {
     val navigator = LocalNavigator.current
     val manager = remember { context.appGraph.translationManager }
     val queue by manager.queueState.collectAsState()
-    val active = queue.isNotEmpty()
+    // MANHWA: the chapter the reader translates live counts too
+    val live by remember { context.appGraph.liveChapterProgress.current }.collectAsState()
+    val count = queue.size + if (live != null) 1 else 0
+    val active = count > 0
     Box {
         Box(
             Modifier
@@ -126,7 +136,7 @@ fun TranslatingNowOrb() {
         }
         if (active) {
             Text(
-                if (queue.size > 99) "99+" else "${queue.size}",
+                if (count > 99) "99+" else "$count",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -162,20 +172,67 @@ class TranslatingNowScreen : Screen() {
             }
         }
         val running = remember(tick, queue) { manager.isRunning }
+        // MANHWA fusion: the chapter whose "Open the work" asks where to go (the Arabic work or the English source)
+        var choosing by remember { mutableStateOf<Pair<eu.kanade.translation.unified.ChapterFusion.Fusion, Long>?>(null) }
+        // MANHWA: the chapter the reader translates live, shown above the queue
+        val live by remember { context.appGraph.liveChapterProgress.current }.collectAsState()
+        // A fused continuation's work asks where to go; any other work opens its own source, with a short note
+        val openWork: (Long, String) -> Unit = { mangaId, sourceName ->
+            val fusion = context.appGraph.chapterFusion.continuationOf(mangaId)
+            if (fusion != null) {
+                choosing = fusion to mangaId
+            } else {
+                android.widget.Toast.makeText(
+                    context,
+                    context.stringResource(ATMR.strings.tn_not_fused, sourceName),
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+                navigator.push(MangaScreen(mangaId))
+            }
+        }
         val bottom = WindowInsets.navigationBars.asPaddingValues()
+        choosing?.let { (fusion, mangaId) ->
+            val title by androidx.compose.runtime.produceState("", mangaId) {
+                value = context.appGraph.getMangaById.await(mangaId)?.title.orEmpty()
+            }
+            AlertDialog(
+                onDismissRequest = { choosing = null },
+                title = { Text(stringResource(ATMR.strings.tn_open_which)) },
+                text = { Text(stringResource(ATMR.strings.tn_open_which_body, title)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        choosing = null
+                        navigator.push(MangaScreen(fusion.baseMangaId))
+                    }) { Text(stringResource(ATMR.strings.tn_open_fused, fusion.baseSourceName)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        choosing = null
+                        navigator.push(MangaScreen(mangaId))
+                    }) { Text(stringResource(ATMR.strings.tn_open_source, fusion.sourceNameOf(mangaId))) }
+                },
+            )
+        }
         GlassBackdrop {
             Column(Modifier.fillMaxSize()) {
                 ManhwaKit.TopBar(
                     title = stringResource(ATMR.strings.tn_title),
-                    subtitle = if (queue.isEmpty()) stringResource(ATMR.strings.tn_empty_short) else stringResource(ATMR.strings.tn_count, queue.size),
+                    subtitle = if (queue.isEmpty() && live == null) {
+                        stringResource(ATMR.strings.tn_empty_short)
+                    } else {
+                        stringResource(ATMR.strings.tn_count, queue.size + if (live != null) 1 else 0)
+                    },
                     onBack = navigator::pop,
                 )
                 LazyColumn(
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp + bottom.calculateBottomPadding()),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    live?.let { now ->
+                        item(key = "live") { LiveCard(now) { sourceName -> openWork(now.mangaId, sourceName) } }
+                    }
                     if (queue.isEmpty()) {
-                        item {
+                        if (live == null) item {
                             Text(
                                 stringResource(ATMR.strings.tn_empty),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -205,13 +262,47 @@ class TranslatingNowScreen : Screen() {
                         items(queue, key = { System.identityHashCode(it) }) { t ->
                             QueueCard(
                                 t,
-                                onOpen = { navigator.push(MangaScreen(t.manga.id)) },
+                                onOpen = { openWork(t.manga.id, t.source.name) },
                                 onStop = { manager.cancelQueuedTranslation(t) },
                             )
                         }
                     }
                 }
             }
+        }
+    }
+
+    /** MANHWA: the chapter the reader translates live: the work, the chapter, the pages done and a bar. */
+    @Composable
+    private fun LiveCard(live: eu.kanade.translation.live.LiveChapterProgress.Live, onOpen: (sourceName: String) -> Unit) {
+        val context = LocalContext.current
+        // The work's title and its source's name, read off the main thread
+        val work by androidx.compose.runtime.produceState("" to "", live.mangaId) {
+            val manga = context.appGraph.getMangaById.await(live.mangaId)
+            value = manga?.title.orEmpty() to manga?.let { context.appGraph.sourceManager.get(it.source)?.name }.orEmpty()
+        }
+        val title = work.first
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .glass(RoundedCornerShape(22.dp), accent = true, alpha = 0.5f)
+                .clickable { onOpen(work.second) }
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+            Text(live.chapterName, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f), maxLines = 1)
+            Text(
+                stringResource(ATMR.strings.fusion_live_translating, live.done, live.total),
+                style = MaterialTheme.typography.labelMedium,
+                color = Ember,
+            )
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { if (live.total > 0) live.done.toFloat() / live.total else 0f },
+                modifier = Modifier.fillMaxWidth(),
+                color = Ember,
+                trackColor = Color.White.copy(alpha = 0.15f),
+            )
         }
     }
 

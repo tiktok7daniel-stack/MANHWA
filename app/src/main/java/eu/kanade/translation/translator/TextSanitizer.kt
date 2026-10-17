@@ -28,10 +28,15 @@ object TextSanitizer {
         quotePairs.firstOrNull { (open, close) -> trimmed.length > 2 && trimmed.first() == open && trimmed.last() == close }
             ?.let { (open, _) -> if (!source.trim().startsWith(open)) text = trimmed.substring(1, trimmed.length - 1) }
         if (to !in CJK_TARGETS) text = text.replace(cjk, " ")
+        // MANHWA: a model's tatweel ("لهـــاروتو") stretches a word across the bubble
+        text = dropTatweel(text)
         val cleaned = text.replace(spaces, " ").trim()
         // Never turn a translation into nothing: the original model output stays then
         return cleaned.ifBlank { translation.trim() }
     }
+
+    /** Removes the Arabic stretching mark (tatweel, U+0640) between letters. */
+    fun dropTatweel(text: String): String = if ('\u0640' in text) text.replace("\u0640", "") else text
 
     private val CJK_TARGETS = setOf(
         TextTranslatorLanguage.CHINESESIM,

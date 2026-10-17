@@ -115,12 +115,48 @@ class LibraryRulesTest {
     }
 
     @Test
-    fun `the reader's own categories stay, completed follows the rule both ways`() {
-        LibraryRules.finalCategories(listOf(5L, 7L, 9L), setOf(8L), managed = setOf(7L, 8L), completedId = 9L, finished = false) shouldBe listOf(5L, 8L)
-        LibraryRules.finalCategories(listOf(5L, 7L), setOf(8L), managed = setOf(7L, 8L), completedId = 9L, finished = true) shouldBe listOf(5L, 8L, 9L)
+    fun `a series ends in one category, the reader's own first, then completed, then the assigned one`() {
+        // The reader's own category wins
+        LibraryRules.finalCategories(listOf(5L, 7L, 9L), setOf(8L), managed = setOf(7L, 8L), completedId = 9L, finished = false) shouldBe listOf(5L)
+        // Finished: only "Completed"
+        LibraryRules.finalCategories(listOf(7L), setOf(8L), managed = setOf(7L, 8L), completedId = 9L, finished = true) shouldBe listOf(9L)
+        // Not finished: out of "Completed", into the assigned one only
+        LibraryRules.finalCategories(listOf(7L, 9L), setOf(8L), managed = setOf(7L, 8L), completedId = 9L, finished = false) shouldBe listOf(8L)
         // Running twice gives the same result
-        val once = LibraryRules.finalCategories(listOf(5L), setOf(8L), setOf(8L), 9L, true)
-        LibraryRules.finalCategories(once, setOf(8L), setOf(8L), 9L, true) shouldBe once
+        val once = LibraryRules.finalCategories(listOf(7L), setOf(8L), setOf(7L, 8L), 9L, true)
+        LibraryRules.finalCategories(once, setOf(8L), setOf(7L, 8L), 9L, true) shouldBe once
+    }
+
+    @Test
+    fun `a series in several categories is put in one`() {
+        LibraryRules.oneCategory(listOf(7L, 8L), managed = setOf(7L, 8L), completedId = 9L, finished = false).size shouldBe 1
+        LibraryRules.oneCategory(listOf(7L, 9L), managed = setOf(7L, 8L), completedId = 9L, finished = true) shouldBe listOf(9L)
+        LibraryRules.oneCategory(listOf(7L, 5L), managed = setOf(7L, 8L), completedId = 9L, finished = true) shouldBe listOf(5L)
+        LibraryRules.oneCategory(emptyList(), managed = setOf(7L), completedId = 9L, finished = false) shouldBe emptyList()
+    }
+
+    @Test
+    fun `the same work from two sources shows once, the one read last`() {
+        data class Entry(val title: String, val lastRead: Long)
+        val items = listOf(
+            Entry("Solo Leveling", 10),
+            Entry("Solo Leveling (Official)", 50),
+            Entry("Omniscient Reader", 5),
+            Entry("Abc", 1),
+            Entry("Abc", 2),
+        )
+        val shown = LibraryRules.oneCardPerWork(items, { it.title }, { it.lastRead })
+        shown.map { it.title } shouldBe listOf("Solo Leveling (Official)", "Omniscient Reader", "Abc", "Abc")
+    }
+
+    @Test
+    fun `catch-all categories are told apart from story premises`() {
+        LibraryRules.isBroad("Action & Fantasy") shouldBe true
+        LibraryRules.isBroad("أكشن وفانتازيا") shouldBe true
+        LibraryRules.isBroad("Fantasy") shouldBe true
+        LibraryRules.isBroad("Regression & Rebirth") shouldBe false
+        LibraryRules.isBroad("System & Leveling") shouldBe false
+        LibraryRules.isBroad("Murim & Martial Arts") shouldBe false
     }
 
     @Test

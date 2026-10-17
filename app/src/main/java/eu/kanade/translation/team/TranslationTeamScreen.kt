@@ -274,6 +274,8 @@ class TranslationTeamScreen : Screen() {
                     }
                     // MANHWA: the phone's own model plays in the team with every key
                     item { PhoneMemberCard { navigator.push(eu.kanade.translation.local.LocalModelsScreen()) } }
+                    // MANHWA: which keys translated well lately, and where to get more like them
+                    if (members.isNotEmpty()) item { BestKeysCard(store, members) }
                     if (members.isEmpty()) {
                         item {
                             Text(
@@ -1038,3 +1040,99 @@ private fun PhoneMemberCard(onOpen: () -> Unit) {
         }
     }
 }
+
+/**
+ * MANHWA "best keys": how every key did over the last two weeks (calls, how often it worked, how fast), its verdict,
+ * and the sites that translated best with a button to get another key there.
+ */
+@Composable
+private fun BestKeysCard(store: TeamStore, members: List<TeamStore.Member>) {
+    val days by store.record.days.collectAsState()
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val rows = remember(members, days) {
+        members.map { m ->
+            val totals = store.record.totals(m.id)
+            val score = KeyReportRules.score(totals, store.strength(m.id))
+            Triple(m, totals, score)
+        }.sortedByDescending { it.third }
+    }
+    val sites = remember(rows) { KeyReportRules.rankSites(rows.map { it.first.siteOrGuess to it.third }) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .glass(RoundedCornerShape(22.dp), alpha = 0.45f)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(ATMR.strings.best_keys_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+        if (rows.all { it.second.calls == 0 }) {
+            Text(stringResource(ATMR.strings.best_keys_none), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+            return@Column
+        }
+        // The sites that translated best, with a way to get another key there
+        sites.take(TOP_SITES).forEach { (siteId, score) ->
+            val site = KeySites.byId(siteId)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(ATMR.strings.best_keys_site, site?.name ?: siteId, score),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f),
+                )
+                if (site != null) {
+                    ManhwaKit.GhostButton(stringResource(ATMR.strings.best_keys_get_more)) { runCatching { uri.openUri(site.keysUrl) } }
+                }
+            }
+        }
+        // Every key with its record and verdict
+        rows.forEach { (member, totals, score) ->
+            val verdict = KeyReportRules.verdict(totals, score)
+            val (tint, label) = when (verdict) {
+                KeyReportRules.Verdict.EXCELLENT -> BestMint to stringResource(ATMR.strings.best_keys_excellent)
+                KeyReportRules.Verdict.GOOD -> BestAmber to stringResource(ATMR.strings.best_keys_good)
+                KeyReportRules.Verdict.WEAK -> BestRed to stringResource(ATMR.strings.best_keys_weak)
+                KeyReportRules.Verdict.UNUSED -> Color.White.copy(alpha = 0.5f) to stringResource(ATMR.strings.best_keys_unused)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "${member.displayName} · ${member.model.ifBlank { member.autoModel }.ifBlank { "auto" }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                    )
+                    if (totals.calls > 0) {
+                        Text(
+                            stringResource(
+                                ATMR.strings.best_keys_line,
+                                totals.calls,
+                                (totals.successRate * 100).toInt(),
+                                if (totals.avgLatencyMs > 0) "%.1f".format(totals.avgLatencyMs / 1000f) else "-",
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                        )
+                    }
+                }
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = tint,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(tint.copy(alpha = 0.16f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+            }
+        }
+    }
+}
+
+private val BestMint = Color(0xFF3DDC97)
+private val BestAmber = Color(0xFFFFB020)
+private val BestRed = Color(0xFFFF4D6A)
+
+// MANHWA: how many of the best sites the report suggests getting more keys from
+private const val TOP_SITES = 3
+

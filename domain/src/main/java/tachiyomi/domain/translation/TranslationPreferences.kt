@@ -100,6 +100,24 @@ class TranslationPreferences(
     /** MANHWA: each key's health (status, limits, errors, cooldown, models, use today), as JSON (see KeyHealthStore). */
     fun translationTeamKeyHealth() = preferenceStore.getString("manhwa_translation_team_key_health", "{}")
 
+    /** MANHWA: each key's calls of the last days (worked, failed, speed), as JSON (see KeyRecord). */
+    fun translationTeamRecord() = preferenceStore.getString("manhwa_translation_team_record", "{}")
+
+    /** MANHWA fast translation (like Google Lens): OCR straight to machine translation, no AI. Off by default. */
+    fun translationFastMode() = preferenceStore.getBoolean("manhwa_translation_fast_mode", false)
+
+    /** The engine fast translation tries first (FastTranslatorRules.Engine ordinal; 0 = automatic). */
+    fun translationFastEngine() = preferenceStore.getInt("manhwa_translation_fast_engine", 0)
+
+    /** The reader's own official keys for fast translation (empty = not set). */
+    fun translationFastDeeplKey() = preferenceStore.getString("manhwa_translation_fast_deepl_key", "")
+    fun translationFastMicrosoftKey() = preferenceStore.getString("manhwa_translation_fast_microsoft_key", "")
+    fun translationFastMicrosoftRegion() = preferenceStore.getString("manhwa_translation_fast_microsoft_region", "")
+    fun translationFastGoogleCloudKey() = preferenceStore.getString("manhwa_translation_fast_google_cloud_key", "")
+
+    /** Characters sent to each fast engine this month ("month|ENGINE=count;..."). */
+    fun translationFastUsage() = preferenceStore.getString("manhwa_translation_fast_usage", "")
+
     /** When a chapter is read, its lines missing from the translation library are saved there. */
     fun translationSaveOnRead() = preferenceStore.getBoolean("manhwa_translation_save_on_read", true)
 
@@ -153,6 +171,12 @@ class TranslationPreferences(
 
     /** A second on-device model that judges between two translations (empty: the main one judges). */
     fun translationLocalJudgePath() = preferenceStore.getString("manhwa_translation_local_judge_path", "")
+
+    /** MANHWA: the phone's GPU could not run the on-device model once; it runs on the CPU from then on. */
+    fun translationLocalGpuFailed() = preferenceStore.getBoolean("manhwa_translation_local_gpu_failed", false)
+
+    /** MANHWA: how the phone model is asked, chosen by its speed test on this phone ("FAST" until measured). */
+    fun translationLocalTuning() = preferenceStore.getString("manhwa_translation_local_tuning", "FAST")
 
     /** The reader's own Hugging Face token, only to download gated models they accepted (kept on the phone). */
     fun translationHfToken() = preferenceStore.getString("manhwa_translation_hf_token", "")

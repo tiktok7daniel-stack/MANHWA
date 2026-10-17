@@ -56,6 +56,8 @@ import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.OpenInNew
 import mihon.icons.materialsymbols.rounded.Verified
+import mihon.icons.materialsymbols.rounded.Speed
+import mihon.icons.materialsymbols.rounded.ContentCopy
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState as collectPreference
@@ -153,6 +155,8 @@ class LocalModelsScreen : Screen() {
                             Text(stringResource(ATMR.strings.models_ram, ram), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
                         }
                     }
+                    // MANHWA speed and accuracy test of the main phone model: before and now, measured on this phone
+                    item { BenchmarkCard(hasModel = lineup != null) }
                     // The reader's own token, for gated models they accepted
                     item {
                         Column(
@@ -272,6 +276,103 @@ class LocalModelsScreen : Screen() {
             }
         }
     }
+
+    @Composable
+    private fun BenchmarkCard(hasModel: Boolean) {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        var running by remember { mutableStateOf(false) }
+        var step by remember { mutableStateOf("") }
+        var report by remember { mutableStateOf<LocalBenchmark.Report?>(null) }
+        var failed by remember { mutableStateOf<String?>(null) }
+        Column(
+            Modifier.fillMaxWidth().glass(RoundedCornerShape(22.dp), alpha = 0.5f).padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(stringResource(ATMR.strings.bench_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+            Text(stringResource(ATMR.strings.bench_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+            val r = report
+            if (r != null) {
+                listOfNotNull(r.legacy, r.fast, r.edit).forEach { run ->
+                    Text(
+                        stringResource(
+                            ATMR.strings.bench_line,
+                            when {
+                                run === r.edit -> stringResource(ATMR.strings.bench_edit)
+                                run === r.fast -> stringResource(ATMR.strings.bench_now)
+                                else -> stringResource(ATMR.strings.bench_before)
+                            },
+                            run.backend,
+                            run.p50Ms,
+                            run.p95Ms,
+                            run.tokensPerSecond?.let { String.format(Locale.US, "%.1f", it) } ?: "?",
+                            String.format(Locale.US, "%.1f", run.chrF),
+                            run.usable,
+                            run.total,
+                            run.pssMb,
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                    )
+                }
+                val chosen = r.best
+                if (r.legacy != null && chosen != null) {
+                    Text(
+                        stringResource(
+                            if (r.passed) ATMR.strings.bench_pass else ATMR.strings.bench_fail,
+                            String.format(Locale.US, "%.2f", r.legacy.p50Ms.toDouble() / chosen.p50Ms.coerceAtLeast(1)),
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Black,
+                        color = if (r.passed) Color(0xFF3DDC97) else Color(0xFFFFB020),
+                    )
+                }
+            }
+            failed?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = Color(0xFFFF4D6A)) }
+            if (!hasModel) {
+                Text(stringResource(ATMR.strings.bench_no_model), style = MaterialTheme.typography.labelMedium, color = Color(0xFFFFB020))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ManhwaKit.NeonButton(
+                    if (running) stringResource(ATMR.strings.bench_running, step) else stringResource(ATMR.strings.bench_run),
+                    icon = MaterialSymbols.Rounded.Speed,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (running || !hasModel) return@NeonButton
+                    running = true
+                    failed = null
+                    scope.launch {
+                        runCatching { LocalBenchmark.run(context) { step = it } }
+                            .onSuccess { report = it }
+                            .onFailure { failed = it.message }
+                        running = false
+                    }
+                }
+                if (r != null) {
+                    ManhwaKit.GhostButton(stringResource(ATMR.strings.bench_copy), icon = MaterialSymbols.Rounded.ContentCopy, modifier = Modifier.weight(1f)) {
+                        val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                        clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("MANHWA", r.text()))
+                    }
+                }
+            }
+            // MANHWA: the way the test found best for this phone, kept for every translation from now on
+            val r2 = report
+            if (r2 != null && r2.best != null) {
+                val tuningPref = remember { context.appGraph.translationPreferences.translationLocalTuning() }
+                val current by tuningPref.collectPreference()
+                val bestName = r2.bestTuning.name
+                ManhwaKit.NeonButton(
+                    if (current == bestName) stringResource(ATMR.strings.bench_using, r2.bestTuning.label()) else stringResource(ATMR.strings.bench_use_best, r2.bestTuning.label()),
+                    icon = MaterialSymbols.Rounded.Verified,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { tuningPref.set(bestName) }
+            }
+        }
+    }
+
+    @Composable
+    private fun LocalAiRules.Tuning.label(): String =
+        if (editOnly) stringResource(ATMR.strings.bench_edit) else stringResource(ATMR.strings.bench_now)
 
     /** "Gemma 3n E4B · main" style line in the colour of the role. */
     @Composable

@@ -40,6 +40,8 @@ import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.model.HistoryWithRelations
+import tachiyomi.domain.manga.model.asMangaCover
+import mihon.app.di.appGraph
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -76,6 +78,23 @@ class DiscoverViewModel(
 ) : ViewModel() {
 
     enum class RecsProblem { NOT_CONFIGURED, FAILED }
+
+    private val chapterFusion = context.appGraph.chapterFusion
+
+    /** One line per work, a fused work's continuation shown with the work's own title and cover. */
+    private suspend fun mergeFusedHistory(
+        list: List<tachiyomi.domain.history.model.HistoryWithRelations>,
+    ): List<tachiyomi.domain.history.model.HistoryWithRelations> {
+        val fusions = chapterFusion.fusions.value.values.flatMap { f -> f.continuationIds().map { it to f } }.toMap()
+        val merged = eu.kanade.translation.unified.FusionRules.mergeHistory(list, { it.mangaId }, { fusions[it]?.baseMangaId })
+            .distinctBy { it.mangaId }
+        if (fusions.isEmpty()) return merged
+        return merged.map { history ->
+            val fusion = fusions[history.mangaId] ?: return@map history
+            val base = chapterFusion.baseManga(fusion) ?: return@map history
+            history.copy(title = base.title, coverData = base.asMangaCover())
+        }
+    }
 
     /** Reading numbers for the home dashboard. */
     data class Stats(
@@ -244,7 +263,8 @@ class DiscoverViewModel(
         getHistory.subscribe("")
             .catch { logcat(LogPriority.ERROR, it) }
             .onEach { list ->
-                val distinct = list.distinctBy { h -> h.mangaId }
+                // MANHWA fusion: a fused work and its continuation are one work to carry on with
+                val distinct = mergeFusedHistory(list)
                 _state.update { it.copy(continueReading = distinct.take(15), stats = it.stats.withHistory(list)) }
                 loadGame()
                 distinct.firstOrNull()?.let { loadProgress(it.mangaId) }
