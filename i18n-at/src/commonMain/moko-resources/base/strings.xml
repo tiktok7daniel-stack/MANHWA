@@ -1021,4 +1021,6 @@
     <string name="tn_open_source">English source · %1$s</string>
     <string name="wn_story_t">A library sorted by story</string>
     <string name="wn_story_b">With an AI key, the organizer reads every series\' story and puts it in the one category its premise belongs to (regression, system, murim, revenge...), never in a catch-all like Action &amp; Fantasy. Press the organize button in the library to sort it again. In Translating now, a fused chapter asks whether to open the Arabic work or the English source.</string>
+    <string name="wn_polish_t">Polish everywhere</string>
+    <string name="wn_polish_b">The normal display also erases shouts inside a bubble and lines joined into the next bubble; the live reader reads stylised and unsure lines again from their image with a key that sees images; the library update brings the new chapters of fused works\' continuations; and the chapter translated live shows in Translating now.</string>
 </resources>

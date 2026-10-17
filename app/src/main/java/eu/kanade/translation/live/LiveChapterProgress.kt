@@ -21,8 +21,23 @@ class LiveChapterProgress {
     /** Chapter id to (pages translated, pages in all). */
     val chapters: StateFlow<Map<Long, Pair<Int, Int>>> = _chapters.asStateFlow()
 
-    fun report(chapterId: Long, done: Int, total: Int) {
+    /** The chapter the reader translates live right now (null when none). */
+    data class Live(val mangaId: Long, val chapterId: Long, val chapterName: String, val done: Int, val total: Int)
+
+    private val _current = MutableStateFlow<Live?>(null)
+
+    /** The chapter being translated live now, for "Translating now" and its badge; null once it is done. */
+    val current: StateFlow<Live?> = _current.asStateFlow()
+
+    fun report(chapterId: Long, done: Int, total: Int, mangaId: Long? = null, chapterName: String = "") {
         if (total <= 0) return
-        _chapters.update { it + (chapterId to (done.coerceAtMost(total) to total)) }
+        val pages = done.coerceAtMost(total)
+        _chapters.update { it + (chapterId to (pages to total)) }
+        _current.value = if (pages < total && mangaId != null) Live(mangaId, chapterId, chapterName, pages, total) else null
+    }
+
+    /** The reader closed: nothing is translated live any more. */
+    fun stop() {
+        _current.value = null
     }
 }

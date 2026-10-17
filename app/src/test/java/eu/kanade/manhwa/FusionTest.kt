@@ -105,4 +105,12 @@ class FusionRulesTest {
         out.any { it.second == "b31" } shouldBe true
         out.size shouldBe 144 - 26
     }
+
+    @Test
+    fun `a library update reports only the continuation chapters it brought`() {
+        val before = setOf(27L, 28L)
+        val after = listOf(27L, 28L, 29L, 30L)
+        FusionRules.newChapters(before, after) { it } shouldBe listOf(29L, 30L)
+        FusionRules.newChapters(after.toSet(), after) { it } shouldBe emptyList()
+    }
 }

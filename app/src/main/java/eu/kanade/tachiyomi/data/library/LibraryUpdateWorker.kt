@@ -318,6 +318,15 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
                 .awaitAll()
         }
 
+        // MANHWA fusion: the continuation of every fused work updated here gets its new chapters too, in the same
+        // notification (the continuation is not in the library, so it is not updated by itself)
+        try {
+            updateFusedContinuations(newUpdates)
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            logcat(LogPriority.WARN, e) { "Fused continuations not updated" }
+        }
+
         notifier.cancelProgressNotification()
 
         if (newUpdates.isNotEmpty()) {
@@ -340,6 +349,24 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
         // We don't want to start downloading while the library is updating, because websites
         // may don't like it and they could ban the user.
         downloadManager.downloadChapters(manga, chapters, false)
+    }
+
+    /** MANHWA fusion: new chapters of the fused works' continuations, added to [newUpdates] under their own entry. */
+    private suspend fun updateFusedContinuations(newUpdates: MutableList<Pair<Manga, Array<Chapter>>>) {
+        val fusion = context.appGraph.chapterFusion
+        val updating = mangaToUpdate.map { it.manga.id }.toSet()
+        fusion.fusions.value.values.filter { it.baseMangaId in updating }.forEach { fused ->
+            val before = fusion.continuation(fused.baseMangaId, refresh = false).map { it.chapter.id }.toSet()
+            val after = fusion.continuation(fused.baseMangaId, refresh = true).map { it.chapter }
+            val fresh = eu.kanade.translation.unified.FusionRules.newChapters(before, after) { it.id }
+                .filter { it.mangaId == fused.otherMangaId }
+            if (fresh.isEmpty()) return@forEach
+            val other = getManga.await(fused.otherMangaId) ?: return@forEach
+            synchronized(libraryPreferences.newUpdatesCount) {
+                libraryPreferences.newUpdatesCount.getAndSet { it + fresh.size }
+            }
+            newUpdates.add(other to fresh.sortedByDescending { it.sourceOrder }.toTypedArray())
+        }
     }
 
     /**

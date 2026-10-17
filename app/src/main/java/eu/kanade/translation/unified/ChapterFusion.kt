@@ -468,6 +468,9 @@ object FusionRules {
     fun <T> layered(ours: List<Double>, kept: List<Pair<Double, T>>, theirs: List<Pair<Double, T>>): List<Pair<Double, T>> =
         continuation(ours, kept + theirs)
 
+    /** The chapters in [after] that were not there [before] (by id): what a refresh brought. */
+    fun <T> newChapters(before: Set<Long>, after: List<T>, idOf: (T) -> Long): List<T> = after.filter { idOf(it) !in before }
+
     /** The first chapter after [number]. */
     fun <T> after(number: Double, chapters: List<Pair<Double, T>>): T? =
         chapters.filter { countable(it.first) && it.first > number }.minByOrNull { it.first }?.second

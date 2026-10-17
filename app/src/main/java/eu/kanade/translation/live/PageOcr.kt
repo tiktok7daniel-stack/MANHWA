@@ -33,7 +33,7 @@ object PageOcr {
         val stripH = (w * STRIP_RATIO).toInt().coerceAtLeast(64)
         if (h <= stripH * 1.15f) {
             val blocks = readStrip(recognizer, bitmap, paddle, mode)
-            return PageTranslation(markSfx(mergeLines(blocks, w.toFloat(), bubbleFinder(bitmap))), w.toFloat(), h.toFloat())
+            return bubbleFinder(bitmap).let { finder -> PageTranslation(markSfx(mergeLines(blocks, w.toFloat(), finder), finder), w.toFloat(), h.toFloat()) }
         }
         val overlap = (stripH * OVERLAP).toInt()
         val found = mutableListOf<TranslationBlock>()
@@ -57,7 +57,7 @@ object PageOcr {
             if (top + sh >= h) break
             top += sh - overlap
         }
-        return PageTranslation(markSfx(mergeLines(found, w.toFloat(), bubbleFinder(bitmap))), w.toFloat(), h.toFloat())
+        return bubbleFinder(bitmap).let { finder -> PageTranslation(markSfx(mergeLines(found, w.toFloat(), finder), finder), w.toFloat(), h.toFloat()) }
     }
 
     /**
@@ -91,14 +91,18 @@ object PageOcr {
      * MANHWA: marks sound effects drawn as art (huge letters, one short word, or a known onomatopoeia) with the
      * sfx kind before anything is translated, so they can be left exactly as drawn.
      */
-    private fun markSfx(blocks: MutableList<TranslationBlock>): MutableList<TranslationBlock> {
+    private fun markSfx(
+        blocks: MutableList<TranslationBlock>,
+        bubbleOf: ((TranslationBlock) -> eu.kanade.translation.ocr.BubbleFinder.Rect?)? = null,
+    ): MutableList<TranslationBlock> {
         val heights = blocks.map { it.lineHeight() }.sorted()
         val median = if (heights.size >= SFX_MIN_BLOCKS) heights[heights.size / 2] else 0f
         blocks.forEach {
             when {
                 looksLikeSfx(it, median) -> it.kind = SFX
-                // MANHWA art text: a skill, a spell or a sign drawn in huge letters, not a sound and not a bubble
-                looksLikeArt(it, median) -> it.kind = ART
+                // MANHWA art text: a skill, a spell or a sign drawn in huge letters, not a sound and not a bubble;
+                // big letters inside a speech bubble are a shout, erased and replaced like any line
+                looksLikeArt(it, median) -> it.kind = TextKindRules.bigLetters(inBubble = bubbleOf?.invoke(it) != null)
             }
         }
         return blocks

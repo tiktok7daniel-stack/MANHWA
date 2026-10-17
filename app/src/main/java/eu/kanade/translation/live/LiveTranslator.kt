@@ -162,6 +162,7 @@ class LiveTranslator(
                 } finally {
                     recognizer?.close()
                     translator?.close()
+                    liveProgress.stop()
                 }
             }
             // The chapter the reader waits for was finished outside: its pages come from the saved file
@@ -318,7 +319,7 @@ class LiveTranslator(
             val chapterId = chapter.id
             if (list.isEmpty() || list.firstOrNull()?.chapter?.chapter?.id != chapterId) return
             val done = list.count { it.translation != null || synchronized(textless) { it in textless } }
-            liveProgress.report(chapterId, done, list.size)
+            liveProgress.report(chapterId, done, list.size, mangaId(), chapter.name)
             if (done < list.size || savedChapter || heldFor != null || savedLive == chapterId) return
             if (synchronized(fromPartial) { fromPartial.isNotEmpty() }) return
             savedLive = chapterId
@@ -498,6 +499,9 @@ class LiveTranslator(
             val stream = page.stream ?: return null
             val bytes = stream().use { it.readBytes() }
             val images = mutableMapOf<String, PageImage>()
+            // MANHWA: the team that reads unsure and stylised lines again from their own image (null without keys)
+            val rereader = (engine as? TeamTranslator) ?: ((engine as? HybridTranslator)?.ai as? TeamTranslator)
+            val unsureCrops = mutableListOf<kotlin.Pair<Int, ByteArray>>()
             // MANHWA: sound effects stay as drawn, neither translated nor erased
             val skipSfx = preferences.translationSkipSfx().get()
             val result: PageTranslation = HeavyWork.reader<PageTranslation?> {
@@ -514,6 +518,15 @@ class LiveTranslator(
                         PageImageProcessor.prepare(it, decoded)
                         if (engine.aiPart != null && preferences.translationVision().get()) {
                             images[KEY] = PageImageProcessor.tiles(decoded)
+                        } else if (rereader != null) {
+                            // Stylised letters ("A NATTY") and readings the OCR was not sure of are cut out to be
+                            // read again from their image, as for whole chapters (a few per page)
+                            it.blocks.forEachIndexed { i, b ->
+                                val art = b.kind.equals(PageOcr.ART, ignoreCase = true) || b.kind.equals(TextKindRules.SHOUT, ignoreCase = true)
+                                if ((b.ocrConfidence < AiTranslator.UNSURE_OCR || art) && unsureCrops.size < LIVE_REREAD) {
+                                    PageImageProcessor.crop(decoded, b)?.let { jpeg -> unsureCrops += i to jpeg }
+                                }
+                            }
                         }
                     }
                 } finally {
@@ -521,6 +534,18 @@ class LiveTranslator(
                 }
             } ?: return null
             if (result.blocks.isEmpty() && images.isEmpty()) return null
+            if (rereader != null && unsureCrops.isNotEmpty()) {
+                val fixed = runCatching { rereader.reread(unsureCrops.mapIndexed { n, c -> "$n" to c.second }) }
+                    .onFailure { if (it is CancellationException) throw it }
+                    .getOrDefault(emptyMap())
+                fixed.forEach { (id, text) ->
+                    val index = unsureCrops.getOrNull(id.toIntOrNull() ?: -1)?.first ?: return@forEach
+                    result.blocks.getOrNull(index)?.let { block ->
+                        block.text = text
+                        block.ocrConfidence = 1f
+                    }
+                }
+            }
 
             // 2. Translate, following the series glossary and adding the new names it finds
             val id = mangaId()
@@ -698,6 +723,8 @@ class LiveTranslator(
 
     private companion object {
         const val KEY = "page"
+        // MANHWA: most lines per page read again from their image by a key that sees images
+        const val LIVE_REREAD = 3
         const val LOOKAHEAD = 8
         const val POLL_MS = 600L
         const val CACHE_PAGES = 400
