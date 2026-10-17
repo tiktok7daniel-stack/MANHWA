@@ -53,6 +53,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.CloudSync
+import mihon.icons.materialsymbols.rounded.ContentCopy
 import mihon.icons.materialsymbols.rounded.Home
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Verified
@@ -100,6 +101,20 @@ object LocalServerRules {
     }
 
     fun modelsUrl(baseUrl: String): String = normalize(baseUrl) + "/models"
+
+    /** A ready model for the laptop: its Ollama name and what it is for. */
+    data class Preset(val model: String, val fastest: Boolean)
+
+    /**
+     * The ready models for an RTX 4060 (8 GB) with 16 GB of RAM, best first: Aya Expanse 8B fits whole on the card
+     * (the fastest strong one, good in Arabic); Gemma 3 12B spills a little into the RAM (slower, more accurate).
+     */
+    val PRESETS = listOf(Preset("aya-expanse:8b", fastest = true), Preset("gemma3:12b", fastest = false))
+
+    /** The model to pick from what the laptop has: a ready one first, in the order above, else the first listed. */
+    fun preferredModel(available: List<String>): String? =
+        PRESETS.firstNotNullOfOrNull { p -> available.firstOrNull { it.equals(p.model, ignoreCase = true) || it.startsWith(p.model + "-", ignoreCase = true) } }
+            ?: available.firstOrNull()
 
     /** The model ids of an OpenAI-style list ({"data":[{"id":…}]}); null when it is not one. */
     fun modelIds(body: String): List<String>? = runCatching {
@@ -161,7 +176,7 @@ class HomeServerScreen : Screen() {
         val scope = rememberCoroutineScope()
         val existing = remember { store.members.value.firstOrNull { it.isHomeServer } }
         var address by remember { mutableStateOf(existing?.baseUrl ?: "") }
-        var model by remember { mutableStateOf(existing?.model ?: "") }
+        var model by remember { mutableStateOf(existing?.model ?: LocalServerRules.PRESETS.first().model) }
         var key by remember { mutableStateOf(existing?.key ?: "") }
         var models by remember { mutableStateOf<List<String>?>(null) }
         var testing by remember { mutableStateOf(false) }
@@ -198,7 +213,7 @@ class HomeServerScreen : Screen() {
                                 value = model,
                                 onValueChange = { model = it },
                                 label = { Text(stringResource(ATMR.strings.hs_model)) },
-                                placeholder = { Text("qwen2.5:7b") },
+                                placeholder = { Text(LocalServerRules.PRESETS.first().model) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -222,7 +237,7 @@ class HomeServerScreen : Screen() {
                                     address = url
                                     val found = withContext(Dispatchers.IO) { store.homeModels(url, key) }
                                     models = found
-                                    if (found != null && model.isBlank()) model = found.firstOrNull().orEmpty()
+                                    if (found != null && (model.isBlank() || model !in found)) model = LocalServerRules.preferredModel(found).orEmpty()
                                     result = if (found == null) failText else okTemplate.replace("%1\$d", "${found.size}")
                                     testing = false
                                 }
@@ -290,6 +305,34 @@ class HomeServerScreen : Screen() {
                         Section {
                             Text(stringResource(ATMR.strings.hs_models_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
                             Help(stringResource(ATMR.strings.hs_models))
+                            // MANHWA: the ready models, one tap to use, the command to download them one tap to copy
+                            LocalServerRules.PRESETS.forEach { preset ->
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .glass(RoundedCornerShape(18.dp), accent = preset.model == model, alpha = 0.4f)
+                                        .padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        preset.model + if (preset.fastest) " · " + stringResource(ATMR.strings.hs_preset_best) else "",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (preset.fastest) Color(0xFF3DDC97) else Color.White,
+                                    )
+                                    Help(stringResource(if (preset.fastest) ATMR.strings.hs_preset_fast else ATMR.strings.hs_preset_quality))
+                                    Text("ollama pull ${preset.model}", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.9f))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        ManhwaKit.GhostButton(stringResource(ATMR.strings.hs_preset_copy), icon = MaterialSymbols.Rounded.ContentCopy, modifier = Modifier.weight(1f)) {
+                                            context.getSystemService(android.content.ClipboardManager::class.java)
+                                                ?.setPrimaryClip(android.content.ClipData.newPlainText("MANHWA", "ollama pull ${preset.model}"))
+                                        }
+                                        ManhwaKit.NeonButton(stringResource(ATMR.strings.hs_preset_use), icon = MaterialSymbols.Rounded.Verified, modifier = Modifier.weight(1f)) {
+                                            model = preset.model
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     item {

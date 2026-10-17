@@ -1138,13 +1138,18 @@
     <string name="hs_away_title">Away from home</string>
     <string name="hs_tailscale">To reach the laptop from outside the house: install Tailscale on the laptop and the phone with the same account, and put the name of the laptop here instead of the IP, like http://laptop-name:11434/v1. Without it, the app switches to your other keys or the phone model by itself when you leave.</string>
     <string name="hs_models_title">Models for an RTX 4060 (8 GB)</string>
-    <string name="hs_models">A 7B model in Q4 fits (about 5 GB of video memory). A model made for translation (like Hunyuan-MT / Hy-MT 7B) is the most accurate if you find it for Ollama; qwen2.5:7b is a general model that translates well and is easy to get. Bigger than about 8B will not fit in 8 GB and gets slow.</string>
+    <string name="hs_models">For an RTX 4060 (8 GB) with 16 GB of RAM. Download the model on the laptop with the command below, then tap Use it. Models bigger than 14B will not fit.</string>
     <string name="hs_setup_title">Setting up the laptop</string>
-    <string name="hs_setup">1. Install Ollama from ollama.com.\n2. In a terminal: ollama pull qwen2.5:7b\n3. Let the phone reach it: set the environment variable OLLAMA_HOST to 0.0.0.0 (Windows: Settings, System, About, Advanced system settings, Environment variables), then quit Ollama from the tray and open it again.\n4. Allow port 11434 in Windows Firewall for private networks.\n5. Find the laptop IP: in a terminal, ipconfig, the IPv4 line (like 192.168.1.50). The address is then http://192.168.1.50:11434/v1\n6. Tap Test the connection. The laptop has to stay on and awake while it translates.</string>
+    <string name="hs_setup">1. Install Ollama from ollama.com.\n2. In a terminal: ollama pull aya-expanse:8b\n3. Let the phone reach it: set the environment variable OLLAMA_HOST to 0.0.0.0 (Windows: Settings, System, About, Advanced system settings, Environment variables).\n4. For speed, add two more: OLLAMA_KEEP_ALIVE = -1 (the model stays loaded, no wait before each chapter) and OLLAMA_FLASH_ATTENTION = 1. Then quit Ollama from the tray and open it again.\n5. Allow port 11434 in Windows Firewall for private networks.\n6. Find the laptop IP: in a terminal, ipconfig, the IPv4 line (like 192.168.1.50). The address is then http://192.168.1.50:11434/v1\n7. Tap Test the connection. The laptop has to stay on and awake while it translates.</string>
     <string name="serving_on">Translating on: %1$s</string>
     <string name="serving_home">home server</string>
     <string name="serving_cloud">cloud keys</string>
     <string name="serving_phone">phone model</string>
     <string name="wn_home_t">Your laptop as a free translation server</string>
     <string name="wn_home_b">In the translation team, Home server: put the address of Ollama on your laptop and it translates for free at home. When it does not answer (out of the house), the other keys or the phone model take over by themselves, and Translating now shows where it runs. Works from outside too with Tailscale.</string>
+    <string name="hs_preset_best">fastest and strong</string>
+    <string name="hs_preset_fast">Fits whole on the RTX 4060: the fastest answers, and among the strongest small models in Arabic. The one to use every day.</string>
+    <string name="hs_preset_quality">More accurate, a little slower: part of it runs from the RAM. Close games and the browser while it translates.</string>
+    <string name="hs_preset_copy">Copy command</string>
+    <string name="hs_preset_use">Use it</string>
 </resources>

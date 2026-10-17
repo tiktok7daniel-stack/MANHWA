@@ -38,6 +38,14 @@ class HomeServerTest {
     }
 
     @Test
+    fun `the fastest strong ready model is picked from what the laptop has`() {
+        LocalServerRules.preferredModel(listOf("llama3.1:8b", "gemma3:12b", "aya-expanse:8b")) shouldBe "aya-expanse:8b"
+        LocalServerRules.preferredModel(listOf("llama3.1:8b", "gemma3:12b")) shouldBe "gemma3:12b"
+        LocalServerRules.preferredModel(listOf("llama3.1:8b")) shouldBe "llama3.1:8b"
+        LocalServerRules.preferredModel(emptyList()) shouldBe null
+    }
+
+    @Test
     fun `the models of an OpenAI style list are read`() {
         LocalServerRules.modelIds("""{"object":"list","data":[{"id":"qwen2.5:7b"},{"id":"llama3.1:8b"}]}""") shouldBe listOf("qwen2.5:7b", "llama3.1:8b")
         LocalServerRules.modelIds("not json") shouldBe null
