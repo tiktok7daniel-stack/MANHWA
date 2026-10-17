@@ -7,6 +7,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import eu.kanade.presentation.manga.components.ChapterTranslationAction
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
+import eu.kanade.tachiyomi.data.download.DownloadErrorLog
 import eu.kanade.presentation.manga.components.ChapterTranslationIndicator
 import eu.kanade.presentation.manga.components.TranslationStageLine
 import eu.kanade.translation.model.Translation
@@ -429,10 +432,12 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
     val status = queued?.statusFlow?.collectAsState()?.value
     // The entry this chapter comes from: the current continuation, or one kept from an earlier source
     val other = ui.mangaOf(item.chapter.mangaId)
-    val downloaded = remember(queue, other) {
+    // Asked again whenever the chapter's download moves (it ends while still in the queue)
+    val downloaded = remember(queue, status, other) {
         other != null && graph.downloadManager.isChapterDownloaded(item.chapter.name, item.chapter.scanlator, item.chapter.url, other.title, other.source)
     }
-    val translation = rememberContinuationTranslation(item, other, queued?.progressFlow?.collectAsState(0)?.value, status)
+    val downloadProgress = queued?.progressFlow?.collectAsState(0)?.value
+    val translation = rememberContinuationTranslation(item, other, downloadProgress, status)
     val read = item.chapter.read
     Row(
         Modifier
@@ -486,26 +491,40 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
                 }
             },
         )
-        // Download, or stop the download that is waiting
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            when {
-                status == Download.State.QUEUE || status == Download.State.DOWNLOADING -> IconButton(onClick = {
-                    scope.launch(Dispatchers.IO) { graph.downloadManager.cancelQueuedDownloads(listOfNotNull(queued)) }
-                }) {
-                    Box(contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp, color = Ember)
-                        Icon(MaterialSymbols.Rounded.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+        // MANHWA: the same download mark as this work's own chapters: the real percentage while it downloads, a
+        // check once it is here, and on a failure its reason with "try again" and "download now"
+        val downloadState = when {
+            status != null && status != Download.State.NOT_DOWNLOADED -> status
+            downloaded -> Download.State.DOWNLOADED
+            else -> Download.State.NOT_DOWNLOADED
+        }
+        ChapterDownloadIndicator(
+            enabled = other != null,
+            modifier = Modifier.padding(start = 4.dp),
+            downloadStateProvider = { downloadState },
+            downloadProgressProvider = { downloadProgress ?: 0 },
+            errorMessageProvider = { other?.let { DownloadErrorLog.get(it.id, item.chapter.name) } },
+            onClick = { action ->
+                val manga = other ?: return@ChapterDownloadIndicator
+                scope.launch(Dispatchers.IO) {
+                    val downloads = graph.downloadManager
+                    when (action) {
+                        ChapterDownloadAction.START -> {
+                            downloads.downloadChapters(manga, listOf(item.chapter))
+                            // Started even when other chapters wait in the queue with the downloader stopped
+                            downloads.startDownloads()
+                        }
+                        ChapterDownloadAction.START_NOW -> downloads.startDownloadNow(item.chapter.id)
+                        ChapterDownloadAction.CANCEL -> downloads.cancelQueuedDownloads(listOfNotNull(queued))
+                        ChapterDownloadAction.DELETE -> downloads.deleteChapters(
+                            listOf(item.chapter),
+                            manga,
+                            graph.sourceManager.getOrStub(manga.source),
+                        )
                     }
                 }
-                downloaded -> Icon(MaterialSymbols.RoundedFilled.CheckCircle, contentDescription = null, tint = Mint, modifier = Modifier.size(24.dp))
-                else -> IconButton(onClick = {
-                    val manga = other ?: return@IconButton
-                    scope.launch(Dispatchers.IO) { graph.downloadManager.downloadChapters(manga, listOf(item.chapter)) }
-                }) {
-                    Icon(MaterialSymbols.Rounded.Download, contentDescription = null, tint = Color.White.copy(alpha = 0.85f))
-                }
-            }
-        }
+            },
+        )
     }
 }
 

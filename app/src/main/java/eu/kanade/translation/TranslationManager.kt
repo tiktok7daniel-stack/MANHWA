@@ -160,6 +160,8 @@ class TranslationManager(
         }
         translateAfterDownload += chapter.id
         downloads.downloadChapters(manga, listOf(chapter))
+        // Started even when other chapters wait in the queue with the downloader stopped
+        downloads.startDownloads()
         return true
     }
 
