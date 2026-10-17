@@ -75,6 +75,22 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # MANHWA: proves each APK installs: a valid signature (and which key), 16 KB-aligned native libraries for new
+      # phones, the package, version and SDK levels, and the native code inside
+      - name: Check the APKs can be installed
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          {
+            for f in app/build/outputs/apk/debug/*.apk; do
+              echo "== $(basename "$f") $(stat -c %s "$f") bytes"
+              "$BT"/apksigner verify --verbose --print-certs "$f" 2>&1 | grep -E "Verifies|Verified using|Signer #1 certificate (DN|SHA-256)|WARNING|ERROR" | head -12
+              "$BT"/zipalign -c -P 16 4 "$f" && echo "zipalign 16K: OK" || echo "zipalign 16K: FAILED"
+              "$BT"/aapt2 dump badging "$f" 2>&1 | grep -E "^package:|^sdkVersion|^targetSdkVersion|^native-code|^ERROR" | head -6
+              unzip -l "$f" | grep -c "\.so$" | sed 's/^/native libs: /'
+            done
+          } 2>&1 | tee apkcheck.txt
+          { echo '## APK install check'; echo '```'; cat apkcheck.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload APKs
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
