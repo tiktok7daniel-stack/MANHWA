@@ -150,6 +150,16 @@ class LibraryRulesTest {
     }
 
     @Test
+    fun `catch-all categories are told apart from story premises`() {
+        LibraryRules.isBroad("Action & Fantasy") shouldBe true
+        LibraryRules.isBroad("أكشن وفانتازيا") shouldBe true
+        LibraryRules.isBroad("Fantasy") shouldBe true
+        LibraryRules.isBroad("Regression & Rebirth") shouldBe false
+        LibraryRules.isBroad("System & Leveling") shouldBe false
+        LibraryRules.isBroad("Murim & Martial Arts") shouldBe false
+    }
+
+    @Test
     fun `only empty categories the organizer made are removed`() {
         LibraryRules.removableEmpty(setOf("Murim"), mapOf("Murim" to 0, "Mine" to 0, "Isekai" to 2)) shouldBe setOf("Murim")
         LibraryRules.removableEmpty(setOf("Isekai"), mapOf("Isekai" to 2)) shouldBe emptySet()

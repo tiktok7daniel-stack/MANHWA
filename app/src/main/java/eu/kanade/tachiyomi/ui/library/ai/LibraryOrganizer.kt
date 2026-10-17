@@ -291,12 +291,12 @@ class LibraryOrganizer(
     }
 
     private suspend fun placeWithAi(items: List<LibraryManga>): List<Group> {
-        val scheme = scheme().ifEmpty { userCategories().map { SchemeCategory(it.name) } }
+        val scheme = scheme().ifEmpty { userCategories().map { SchemeCategory(it.name) } }.filterNot { LibraryRules.isBroad(it.name) }
         val instruction = preferences.organizerInstruction.get()
         val reply = appAsk(AiRouter.Lane.BACKGROUND) { ai ->
             ai.askJson(
                 system = librarianRules() + "\n" + """
-                    The reader just added these series to the library. Put each one in EXACTLY ONE of the reader's categories (a series is never in two):
+                    The reader just added these series to the library. Read each one's story and put it in EXACTLY ONE of the reader's categories (a series is never in two):
                     ${if (scheme.isEmpty()) "(none yet)" else scheme.joinToString("\n") { "- ${it.name}${if (it.about.isNotBlank()) ": ${it.about}" else ""}" }}
                     Create a new category (short name in ${language()}) only when none fits.
                     Reply with ONLY: {"categories":[{"name":"...","about":"...","ids":[123]}]}
@@ -308,7 +308,7 @@ class LibraryOrganizer(
                 },
             )
         }
-        return parseGroups(reply, items.map { it.manga.id }.toSet())
+        return parseGroups(reply, items.map { it.manga.id }.toSet()).filterNot { LibraryRules.isBroad(it.name) }
     }
 
     /** The reader's "Completed" category, in any usual spelling. */
@@ -441,7 +441,8 @@ class LibraryOrganizer(
 
     /** Every series of the library put in the saved scheme's categories (new ones only when nothing fits). */
     private suspend fun placeAllWithScheme(library: List<LibraryManga>, scheme: List<SchemeCategory>): List<Group> {
-        val known = scheme.ifEmpty { userCategories().map { SchemeCategory(it.name) } }
+        // MANHWA: catch-all categories ("Action & Fantasy") are never offered again: every series gets its premise
+        val known = scheme.ifEmpty { userCategories().map { SchemeCategory(it.name) } }.filterNot { LibraryRules.isBroad(it.name) }
         val instruction = preferences.organizerInstruction.get()
         val merged = mutableListOf<Group>()
         library.chunked(BATCH).forEach { batch ->
@@ -451,8 +452,8 @@ class LibraryOrganizer(
                     system = librarianRules() + "\n" + """
                         Put every series below in EXACTLY ONE of these categories (name: about); a series is never in two:
                         ${categories.joinToString("\n") { "- ${it.name}${if (it.about.isNotBlank()) ": ${it.about}" else ""}" }}
-                        Fix series that are in a wrong category. Create a new category (short name in ${language()}) only
-                        when a series fits none of them. Never put a series in a "Completed" category unless its status
+                        Decide from each series' story. Fix series that are in a wrong category. Create a new category
+                        (short name in ${language()}, named after a premise) when a series' premise fits none of them. Never put a series in a "Completed" category unless its status
                         is "completed": reading progress never makes a series completed.
                         Reply with ONLY: {"categories":[{"name":"...","about":"...","ids":[123,456]}]}
                     """.trimIndent(),
@@ -463,7 +464,7 @@ class LibraryOrganizer(
                     },
                 )
             }
-            merged += parseGroups(reply, batch.map { it.manga.id }.toSet())
+            merged += parseGroups(reply, batch.map { it.manga.id }.toSet()).filterNot { LibraryRules.isBroad(it.name) }
         }
         return merged
     }
@@ -495,15 +496,22 @@ class LibraryOrganizer(
 
     private fun librarianRules() = """
         You are a professional manhwa, manga and manhua librarian who knows the webtoon world deeply.
-        Classify by what a reader looks for, from the genres, the story and what you know of the title:
-        system and leveling, regression / return / time travel, reincarnation and transmigration, murim and martial
-        arts, cultivation, isekai, dungeons and towers, hunters, villainess and noble romance, romance, BL, GL,
-        school and drama, revenge, horror and thriller, comedy, slice of life, historical, sports, apocalypse.
-        Merge themes that always go together (for example "System & Leveling"). Never make a category of one series
-        unless the reader asks. Do not make categories by reading progress unless the reader asks.
+        Read each series' STORY (its description) and what you know of the title, and classify it by the PREMISE of
+        its story: what the story is about. The source's genre tags are only a hint, never the reason.
+        Never use broad catch-all categories such as "Action", "Fantasy", "Action & Fantasy", "Adventure",
+        "Shounen", "Supernatural" or "Manhwa": nearly every series is action and fantasy, so they tell the reader
+        nothing. Choose the specific premise instead, for example: regression / return to the past,
+        reincarnation and transmigration (into a novel or a game), system and leveling, dungeons, gates and hunters,
+        towers, murim and martial arts, cultivation, isekai / another world, revenge, academy and school, villain or
+        dark protagonist, apocalypse and survival, game and virtual reality, military and war, lords and kingdom
+        building, monsters and taming, necromancers and summoners, gangs and street fights, romance, villainess and
+        noble romance, BL, GL, horror and thriller, comedy, slice of life, historical, sports.
+        Merge premises that always go together (for example "System & Leveling"). Never make a category of one
+        series unless the reader asks. Keep the categories balanced: no category holds more than about a quarter of
+        the library; when one would, split it by premise. Do not make categories by reading progress.
         A "Completed" category holds ONLY series whose status is "completed". Never judge a series completed from
         how much of it was read.
-        Every series goes in at least 1 and at most 2 categories, the main one first.
+        Every series goes in EXACTLY ONE category: the premise its story is most about. A series is never in two.
     """.trimIndent()
 
     private suspend fun describe(items: List<LibraryManga>): String {
@@ -583,6 +591,10 @@ class LibraryOrganizer(
         Theme("Comedy", "كوميديا", listOf("comedy", "كوميدي", "كوميديا", "코미디", "comedia")),
         Theme("Historical", "تاريخي", listOf("historical", "تاريخي", "사극", "histórico")),
         Theme("Sports", "رياضة", listOf("sports", "رياضة", "رياضي", "스포츠", "deportes")),
+        Theme("Revenge", "انتقام", listOf("revenge", "انتقام", "복수", "venganza"), listOf("revenge", "avenge", "vengeance", "انتقام", "ينتقم")),
+        Theme("Academy", "أكاديمية", listOf("academy", "أكاديمية", "아카데미"), listOf("academy", "أكاديمية")),
+        Theme("Apocalypse & Survival", "نهاية العالم والبقاء", listOf("apocalypse", "post-apocalyptic", "zombie", "نهاية العالم", "زومبي", "아포칼립스", "좀비"), listOf("apocalypse", "zombie", "end of the world", "نهاية العالم", "زومبي")),
+        Theme("Villain & Dark Hero", "شرير وبطل مظلم", listOf("villain", "anti-hero", "شرير", "악역", "villano"), listOf("villain", "demon king", "الشرير", "ملك الشياطين")),
         Theme("Action & Fantasy", "أكشن وفانتازيا", listOf("action", "fantasy", "adventure", "supernatural", "magic", "أكشن", "فانتازيا", "مغامرة", "خارق للطبيعة", "سحر", "액션", "판타지", "acción", "fantasía", "aventura")),
     )
 
@@ -601,11 +613,15 @@ class LibraryOrganizer(
         items.forEach { item ->
             val genres = item.manga.genre.orEmpty().map { it.lowercase().trim() }
             val story = item.manga.description.orEmpty().lowercase()
-            val picked = themes.map { theme ->
-                val g = genres.count { genre -> theme.words.any { matches(genre, it) } } * 2
-                val s = theme.story.count { matches(story, it) }
+            // MANHWA: the story says what a series is about; the genre tags only help, and the broad theme
+            // ("Action & Fantasy") is only used when nothing more specific is found
+            val scored = themes.map { theme ->
+                val g = genres.count { genre -> theme.words.any { matches(genre, it) } }
+                val s = theme.story.count { matches(story, it) } * 2
                 theme to g + s
             }.filter { it.second > 0 }
+            val specific = scored.filterNot { LibraryRules.isBroad(it.first.en) }
+            val picked = specific.ifEmpty { scored }
                 // Order of the list breaks ties: the specific themes before the broad ones
                 .sortedByDescending { it.second }
                 // MANHWA: one category per series, never two

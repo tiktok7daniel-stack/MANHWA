@@ -92,6 +92,18 @@ object LibraryRules {
         return items.filterIndexed { index, _ -> index in keep }
     }
 
+    private val broadNames = setOf(
+        "action", "fantasy", "action fantasy", "fantasy action", "adventure", "action adventure", "shounen", "shonen",
+        "supernatural", "manhwa", "manga", "manhua", "webtoon", "general", "other", "misc",
+        "أكشن", "اكشن", "فانتازيا", "أكشن فانتازيا", "اكشن فانتازيا", "مغامرة", "مغامرات", "خارق للطبيعة", "عام", "أخرى",
+    ).map(::normalize).toSet()
+
+    /**
+     * MANHWA: a catch-all category ("Action & Fantasy", "Action", "Fantasy"...) that tells the reader nothing,
+     * since nearly every series is one: series are put by the premise of their story instead.
+     */
+    fun isBroad(name: String): Boolean = normalize(name) in broadNames
+
     /** Categories the organizer created that are now empty: the only ones it may remove. */
     fun removableEmpty(created: Set<String>, counts: Map<String, Int>): Set<String> =
         counts.filter { (name, count) -> count == 0 && created.any { normalize(it) == normalize(name) } }.keys

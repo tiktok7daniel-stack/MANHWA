@@ -32,6 +32,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +66,7 @@ import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.core.common.i18n.stringResource
 
 private val Ember = Color(0xFFFF6A2B)
 
@@ -162,7 +166,28 @@ class TranslatingNowScreen : Screen() {
             }
         }
         val running = remember(tick, queue) { manager.isRunning }
+        // MANHWA fusion: the chapter whose "Open the work" asks where to go (the Arabic work or the English source)
+        var choosing by remember { mutableStateOf<Pair<eu.kanade.translation.unified.ChapterFusion.Fusion, Translation>?>(null) }
         val bottom = WindowInsets.navigationBars.asPaddingValues()
+        choosing?.let { (fusion, t) ->
+            AlertDialog(
+                onDismissRequest = { choosing = null },
+                title = { Text(stringResource(ATMR.strings.tn_open_which)) },
+                text = { Text(stringResource(ATMR.strings.tn_open_which_body, t.manga.title)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        choosing = null
+                        navigator.push(MangaScreen(fusion.baseMangaId))
+                    }) { Text(stringResource(ATMR.strings.tn_open_fused, fusion.baseSourceName)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        choosing = null
+                        navigator.push(MangaScreen(t.manga.id))
+                    }) { Text(stringResource(ATMR.strings.tn_open_source, fusion.sourceNameOf(t.manga.id))) }
+                },
+            )
+        }
         GlassBackdrop {
             Column(Modifier.fillMaxSize()) {
                 ManhwaKit.TopBar(
@@ -205,7 +230,21 @@ class TranslatingNowScreen : Screen() {
                         items(queue, key = { System.identityHashCode(it) }) { t ->
                             QueueCard(
                                 t,
-                                onOpen = { navigator.push(MangaScreen(t.manga.id)) },
+                                onOpen = {
+                                    // A fused continuation chapter: the reader chooses the Arabic work or the
+                                    // English source; any other chapter opens its own source, with a short note
+                                    val fusion = context.appGraph.chapterFusion.continuationOf(t.manga.id)
+                                    if (fusion != null) {
+                                        choosing = fusion to t
+                                    } else {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.stringResource(ATMR.strings.tn_not_fused, t.source.name),
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                        navigator.push(MangaScreen(t.manga.id))
+                                    }
+                                },
                                 onStop = { manager.cancelQueuedTranslation(t) },
                             )
                         }

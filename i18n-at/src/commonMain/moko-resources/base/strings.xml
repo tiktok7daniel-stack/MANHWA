@@ -1014,4 +1014,11 @@
     <string name="wn_onecat_t">One place for every series</string>
     <string name="wn_onecat_b">A series is in one category only (yours first, then Completed, then its genre), and the same work added from two sources shows once.</string>
     <string name="fusion_kept_chapters">%1$d chapters already translated stay in their place; the new source gives the rest</string>
+    <string name="tn_not_fused">This work is not fused with an Arabic one: opening its source, %1$s</string>
+    <string name="tn_open_which">Open which one?</string>
+    <string name="tn_open_which_body">%1$s continues a fused Arabic work. Go to the Arabic work, or to the English source?</string>
+    <string name="tn_open_fused">Arabic work · %1$s</string>
+    <string name="tn_open_source">English source · %1$s</string>
+    <string name="wn_story_t">A library sorted by story</string>
+    <string name="wn_story_b">With an AI key, the organizer reads every series\' story and puts it in the one category its premise belongs to (regression, system, murim, revenge...), never in a catch-all like Action &amp; Fantasy. Press the organize button in the library to sort it again. In Translating now, a fused chapter asks whether to open the Arabic work or the English source.</string>
 </resources>
