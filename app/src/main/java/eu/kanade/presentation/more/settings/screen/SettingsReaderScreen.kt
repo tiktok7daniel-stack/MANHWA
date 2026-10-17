@@ -45,6 +45,12 @@ object SettingsReaderScreen : SearchableSettings {
                 ),
                 title = stringResource(MR.strings.pref_double_tap_anim_speed),
             ),
+            // MANHWA: the reader goes on in a small window when you leave it
+            Preference.PreferenceItem.SwitchPreference(
+                preference = readerPref.pictureInPicture,
+                title = stringResource(tachiyomi.i18n.at.ATMR.strings.pip_title),
+                subtitle = stringResource(tachiyomi.i18n.at.ATMR.strings.pip_summary),
+            ),
             Preference.PreferenceItem.SwitchPreference(
                 preference = readerPref.showReadingMode,
                 title = stringResource(MR.strings.pref_show_reading_mode),

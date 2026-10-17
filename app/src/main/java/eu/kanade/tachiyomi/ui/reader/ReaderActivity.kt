@@ -420,6 +420,7 @@ class ReaderActivity : BaseActivity() {
                 speaking = speaking,
                 onSpeak = { toggleSpeaking() },
                 onStudy = { showStudy = true },
+                onPip = if (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) ::enterPip else null,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
@@ -558,6 +559,42 @@ class ReaderActivity : BaseActivity() {
         super.onResume()
         viewModel.restartReadTimer()
         setMenuVisibility(viewModel.state.value.menuVisible)
+        // MANHWA: Android 12+ shrinks the reader into its small window by itself when you swipe home
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) runCatching { setPictureInPictureParams(pipParams()) }
+    }
+
+    /** MANHWA picture-in-picture: the window keeps the reader's shape (tall for webtoons), within Android's limits. */
+    private fun pipParams(): android.app.PictureInPictureParams {
+        val width = window.decorView.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val height = window.decorView.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+        val (w, h) = eu.kanade.tachiyomi.ui.reader.PipRules.ratio(width, height)
+        return android.app.PictureInPictureParams.Builder()
+            .setAspectRatio(android.util.Rational(w, h))
+            .apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    setAutoEnterEnabled(readerPreferences.pictureInPicture.get())
+                    setSeamlessResizeEnabled(true)
+                }
+            }
+            .build()
+    }
+
+    /** Opens the reader in its small window now (from the reader's menu). */
+    fun enterPip() {
+        if (!packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) return
+        runCatching { enterPictureInPictureMode(pipParams()) }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // Before Android 12 the small window is opened here, when the reader is left with the home gesture
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && readerPreferences.pictureInPicture.get()) enterPip()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        // In the small window only the page shows: no menu, no bars
+        if (isInPictureInPictureMode) setMenuVisibility(false)
     }
 
     /**

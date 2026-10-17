@@ -1040,4 +1040,7 @@
     <string name="tn_bg_title">خلي الترجمة تكمّل والتطبيق مقفول</string>
     <string name="tn_bg_info">أندرويد لسه بيحدّ التطبيق في الخلفية، فممكن يوقف الترجمة بعد دقيقة من ما تطلع. اسمح مرة واحدة، والترجمة هتكمّل بكامل قوتها والتطبيق مقفول أو الشاشة مطفية. على RedMagic كمان: من إعدادات التطبيق خلي Auto-start وSecondary launch وBackground running على Allowed، والبطارية Unrestricted.</string>
     <string name="tn_bg_allow">اسمح بالشغل في الخلفية</string>
+    <string name="pip_title">شاشة صغيرة لما تطلع من القارئ</string>
+    <string name="pip_summary">اسحب للرئيسية والقارئ يتصغّر في شاشة صغيرة تحطها على الجنب فوق أي تطبيق، والترجمة بتكمّل جواها. اضغط عليها ترجع.</string>
+    <string name="hud_pip">شاشة صغيرة</string>
 </resources>

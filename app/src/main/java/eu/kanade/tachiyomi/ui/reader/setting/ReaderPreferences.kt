@@ -42,6 +42,9 @@ class ReaderPreferences(
     // TachiyomiAT
     val showTranslations: Preference<Boolean> = preferenceStore.getBoolean("show_translations", true)
 
+    /** MANHWA: leaving the reader (swipe home) shrinks it into a small window over other apps. */
+    val pictureInPicture: Preference<Boolean> = preferenceStore.getBoolean("manhwa_reader_picture_in_picture", true)
+
     /** Auto-scroll speed, 1 (slow) to 10 (fast). */
     val autoScrollSpeed: Preference<Int> = preferenceStore.getInt("manhwa_auto_scroll_speed", 4)
 

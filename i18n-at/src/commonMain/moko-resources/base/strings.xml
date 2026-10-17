@@ -1099,4 +1099,7 @@
     <string name="tn_bg_title">Keep translating with the app closed</string>
     <string name="tn_bg_info">Android still limits the app in the background, so it can stop the translation a minute after you leave. Allow it once: translation then goes on at full strength with the app left or the screen off. On RedMagic, also set Auto-start, Secondary launch and Background running to Allowed and the battery to Unrestricted in the app's settings.</string>
     <string name="tn_bg_allow">Allow in the background</string>
+    <string name="pip_title">Small window when leaving the reader</string>
+    <string name="pip_summary">Swipe home and the reader shrinks into a small window you can move to the side, over other apps; the translation goes on in it. Tap it to come back.</string>
+    <string name="hud_pip">Small window</string>
 </resources>

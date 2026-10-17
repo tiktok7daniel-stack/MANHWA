@@ -60,6 +60,7 @@ import mihon.icons.materialsymbols.rounded.VisibilityOff
 import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import mihon.icons.materialsymbols.rounded.RecordVoiceOver
+import mihon.icons.materialsymbols.rounded.PictureInPictureAlt
 import mihon.icons.materialsymbols.rounded.School
 import mihon.icons.materialsymbols.rounded.Verified
 import tachiyomi.i18n.at.ATMR
@@ -96,6 +97,8 @@ fun ReaderQuickHud(
     speaking: Boolean = false,
     onSpeak: () -> Unit = {},
     onStudy: () -> Unit = {},
+    /** MANHWA: the reader in its small window over other apps (null when the phone can't). */
+    onPip: (() -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     AnimatedVisibility(
@@ -149,6 +152,12 @@ fun ReaderQuickHud(
                 HudButton(MaterialSymbols.Rounded.School, stringResource(ATMR.strings.hud_study), false) {
                     onDismiss()
                     onStudy()
+                }
+                if (onPip != null) {
+                    HudButton(MaterialSymbols.Rounded.PictureInPictureAlt, stringResource(ATMR.strings.hud_pip), false) {
+                        onDismiss()
+                        onPip()
+                    }
                 }
                 if (quality != null) {
                     HudButton(MaterialSymbols.Rounded.Verified, "${stringResource(ATMR.strings.hud_quality)} $quality%", quality >= 85) {
