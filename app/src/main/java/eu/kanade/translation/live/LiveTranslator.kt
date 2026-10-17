@@ -74,6 +74,7 @@ class LiveTranslator(
     private val collection: TranslationCollection,
     private val lessonStore: LessonStore,
     private val translationManager: TranslationManager,
+    private val liveProgress: LiveChapterProgress,
 ) {
 
     enum class Phase { OFF, IDLE, WORKING, PAUSED, DONE, ERROR }
@@ -282,8 +283,10 @@ class LiveTranslator(
                     } else {
                         // Nothing to translate on this page (art only): don't try it again
                         synchronized(failed) { failed += next }
+                        synchronized(textless) { textless += next }
                     }
                     publish(error = null)
+                    chapterProgress(next)
                 } catch (e: Throwable) {
                     if (e is CancellationException) throw e
                     logcat(LogPriority.ERROR, e) { "Live translation failed on page ${next.number}" }
@@ -296,6 +299,41 @@ class LiveTranslator(
                         publish()
                     }
                 }
+            }
+        }
+
+        /** MANHWA: pages read and found without any text (they need no translation). */
+        private val textless: MutableSet<ReaderPage> = Collections.newSetFromMap(IdentityHashMap())
+
+        /** The chapter id whose live translation was saved this session (saved once). */
+        @Volatile private var savedLive: Long? = null
+
+        /**
+         * MANHWA: reports how far this chapter got; once every page is done, a fused work's continuation chapter is
+         * saved as a translated chapter (its row then shows it translated, and it is never translated again).
+         */
+        private suspend fun chapterProgress(page: ReaderPage) {
+            val list = pages
+            val chapter = page.chapter.chapter
+            val chapterId = chapter.id
+            if (list.isEmpty() || list.firstOrNull()?.chapter?.chapter?.id != chapterId) return
+            val done = list.count { it.translation != null || synchronized(textless) { it in textless } }
+            liveProgress.report(chapterId, done, list.size)
+            if (done < list.size || savedChapter || heldFor != null || savedLive == chapterId) return
+            if (synchronized(fromPartial) { fromPartial.isNotEmpty() }) return
+            savedLive = chapterId
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val graph = teamStore.appContext.appGraph
+                    val manga = mangaId()?.let { graph.getMangaById.await(it) } ?: return@runCatching
+                    if (graph.chapterFusion.continuationOf(manga.id) == null) return@runCatching
+                    val source = graph.sourceManager.get(manga.source) ?: return@runCatching
+                    val saved = list.mapNotNull { p ->
+                        val translation = p.translation ?: return@mapNotNull null
+                        (p.translationKey ?: "%03d".format(p.number)) to translation
+                    }.toMap()
+                    translationManager.saveLiveChapter(manga, chapter, source, saved)
+                }.onFailure { logcat(LogPriority.WARN, it) { "Live chapter not saved" } }
             }
         }
 

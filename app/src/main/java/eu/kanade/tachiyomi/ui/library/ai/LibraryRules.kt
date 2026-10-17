@@ -48,9 +48,10 @@ object LibraryRules {
     }
 
     /**
-     * The categories a series ends with after a full reorganize: the reader's own categories (those the
-     * organizer does not manage) stay as they are, the managed ones become [assigned], and "Completed" follows
-     * the strict rule both ways.
+     * MANHWA: the ONE category a series ends with after a full reorganize (a series is never shown in two
+     * places). A category the reader chose by hand (one the organizer does not manage) wins; else "Completed"
+     * when the source calls the series finished; else the category the organizer assigned. With nothing to
+     * give, the series keeps the first category it had.
      */
     fun finalCategories(
         current: List<Long>,
@@ -59,10 +60,36 @@ object LibraryRules {
         completedId: Long?,
         finished: Boolean,
     ): List<Long> {
-        val own = current.filter { it != 0L && it !in managed && it != completedId }
-        val next = (own + assigned.filter { it != completedId }).toMutableList()
-        if (completedId != null && finished) next += completedId
-        return next.distinct()
+        val own = current.firstOrNull { it != 0L && it !in managed && it != completedId }
+        val one = own
+            ?: completedId?.takeIf { finished }
+            ?: assigned.firstOrNull { it != completedId }
+            ?: current.firstOrNull { it != 0L && it != completedId }
+        return listOfNotNull(one)
+    }
+
+    /**
+     * MANHWA: one category for a series already in several (the library put right once): the same choice as
+     * [finalCategories], with the managed category it already had in place of a new assignment.
+     */
+    fun oneCategory(current: List<Long>, managed: Set<Long>, completedId: Long?, finished: Boolean): List<Long> =
+        finalCategories(current, current.filter { it in managed }.toSet(), managed, completedId, finished)
+
+    /**
+     * MANHWA: one card per work in the library: entries of the same work from two sources (same title once
+     * cleaned, see [eu.kanade.translation.glossary.WorkIdentity]) show once, the one read last (else the first).
+     * Titles too short to tell stay as they are. Nothing is removed, the others are only not shown twice.
+     */
+    fun <T> oneCardPerWork(items: List<T>, titleOf: (T) -> String, lastReadOf: (T) -> Long): List<T> {
+        val keep = items.withIndex()
+            .groupBy { (index, item) ->
+                eu.kanade.translation.glossary.WorkIdentity.key(titleOf(item))
+                    .takeIf { it.length >= eu.kanade.translation.glossary.WorkIdentity.MIN_KEY } ?: "#$index"
+            }
+            .values
+            .map { same -> same.maxWith(compareBy<IndexedValue<T>> { lastReadOf(it.value) }.thenByDescending { it.index }).index }
+            .toSet()
+        return items.filterIndexed { index, _ -> index in keep }
     }
 
     /** Categories the organizer created that are now empty: the only ones it may remove. */

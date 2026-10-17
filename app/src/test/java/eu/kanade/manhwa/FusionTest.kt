@@ -66,4 +66,29 @@ class FusionRulesTest {
         )
         titles shouldBe listOf("الحداد الأسطوري", "Overgeared", "Legendary Blacksmith")
     }
+
+    @Test
+    fun `a fused work and its continuation are one line in the history, the newest one`() {
+        // (mangaId, chapter) newest first; 2 is the continuation of 1
+        val history = listOf(2L to "en27", 3L to "other", 1L to "ar26")
+        val merged = FusionRules.mergeHistory(history, { it.first }, { if (it == 2L) 1L else null })
+        merged.map { it.second } shouldBe listOf("en27", "other")
+        // Not fused: nothing changes
+        FusionRules.mergeHistory(history, { it.first }, { null }) shouldBe history
+    }
+
+    @Test
+    fun `only a work already in the reading language offers its continuation to translate`() {
+        FusionRules.sameLanguage("ar", "ar") shouldBe true
+        FusionRules.sameLanguage("ar-EG", "ar") shouldBe true
+        FusionRules.sameLanguage("en", "ar") shouldBe false
+        FusionRules.sameLanguage("", "ar") shouldBe false
+    }
+
+    @Test
+    fun `short language codes for badges`() {
+        FusionRules.langCode("en-US") shouldBe "EN"
+        FusionRules.langCode("ko") shouldBe "KO"
+        FusionRules.langCode("") shouldBe "EN"
+    }
 }

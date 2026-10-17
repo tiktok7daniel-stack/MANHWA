@@ -1,6 +1,16 @@
 package eu.kanade.translation.unified
 
 import android.widget.Toast
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import eu.kanade.presentation.manga.components.ChapterTranslationAction
+import eu.kanade.presentation.manga.components.ChapterTranslationIndicator
+import eu.kanade.presentation.manga.components.TranslationStageLine
+import eu.kanade.translation.model.Translation
+import mihon.icons.materialsymbols.rounded.Verified
 import androidx.compose.foundation.background
 import mihon.icons.materialsymbols.rounded.Search
 import eu.kanade.presentation.manga.components.MangaCover
@@ -121,7 +131,8 @@ fun rememberFusionUi(manga: Manga): FusionUi {
         }
         if (fusion != null) {
             ui.offer = null
-            ui.other = withContext(Dispatchers.IO) { graph.getMangaById.await(fusion.otherMangaId) }
+            ui.other = engine.otherOf(fusion)
+            if (ui.other == null) return@LaunchedEffect
             // What is already known first, then what the other source has now
             ui.continuation = engine.continuation(manga.id, refresh = false)
             ui.continuation = engine.continuation(manga.id, refresh = true)
@@ -391,6 +402,7 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
     val downloaded = remember(queue, other) {
         other != null && graph.downloadManager.isChapterDownloaded(item.chapter.name, item.chapter.scanlator, item.chapter.url, other.title, other.source)
     }
+    val translation = rememberContinuationTranslation(item, other, queued?.progressFlow?.collectAsState(0)?.value, status)
     val read = item.chapter.read
     Row(
         Modifier
@@ -409,33 +421,41 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Ember.copy(alpha = 0.18f))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(MaterialSymbols.Rounded.Translate, contentDescription = null, tint = Ember, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        stringResource(ATMR.strings.fusion_badge_next, langCode(fusion.otherLang), fusion.otherSourceName),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Ember,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+            ContinuationBadge(fusion, translation.state, translation.working)
+            // What the translation is doing now: the stage with its counter, or the live reader's pages
+            val live = translation.live
+            if (live != null) {
+                Text(
+                    stringResource(ATMR.strings.fusion_live_translating, live.first, live.second),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Ember,
+                    maxLines = 1,
+                )
+            } else {
+                TranslationStageLine(translation.state, translation.progress, MaterialTheme.typography.labelSmall)
             }
         }
-        // Translate ahead, from here
-        IconButton(onClick = {
-            val manga = other ?: return@IconButton
-            scope.launch { translate(context, manga, item) }
-        }) {
-            Icon(MaterialSymbols.Rounded.Translate, contentDescription = null, tint = Color.White.copy(alpha = 0.85f))
-        }
+        // Translate: a ring with the real percentage while it works, a check once it is translated
+        ChapterTranslationIndicator(
+            enabled = other != null,
+            translationStateProvider = { translation.state },
+            progressProvider = { translation.progress },
+            onClick = { action ->
+                val manga = other ?: return@ChapterTranslationIndicator
+                scope.launch(Dispatchers.IO) {
+                    when (action) {
+                        ChapterTranslationAction.START -> graph.translationManager.translateOrFetch(manga, item.chapter)
+                        ChapterTranslationAction.CANCEL -> cancelTranslation(graph, item)
+                        ChapterTranslationAction.DELETE -> graph.translationManager.deleteTranslation(
+                            item.chapter,
+                            manga,
+                            graph.sourceManager.getOrStub(manga.source),
+                        )
+                    }
+                    translation.refresh()
+                }
+            },
+        )
         // Download, or stop the download that is waiting
         Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
             when {
@@ -459,9 +479,131 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
     }
 }
 
-private suspend fun translate(context: android.content.Context, manga: Manga, item: ChapterFusion.Continuation) {
-    withContext(Dispatchers.IO) { context.appGraph.translationManager.translateChapter(manga, item.chapter) }
-    Toast.makeText(context, context.stringResource(ATMR.strings.fusion_translate_queued), Toast.LENGTH_SHORT).show()
+/** The continuation's badge: "EN continuation · source", pulsing while it is translated, "Translated · EN" after. */
+@Composable
+private fun ContinuationBadge(fusion: ChapterFusion.Fusion, state: Translation.State, working: Boolean) {
+    val translated = state == Translation.State.TRANSLATED
+    val tint = if (translated) Mint else Ember
+    val pulse = if (working) {
+        val transition = rememberInfiniteTransition(label = "continuation-pulse")
+        transition.animateFloat(
+            initialValue = 0.35f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
+            label = "continuation-pulse-alpha",
+        ).value
+    } else {
+        1f
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(tint.copy(alpha = if (working) 0.12f + 0.18f * pulse else 0.18f))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (translated) MaterialSymbols.Rounded.Verified else MaterialSymbols.Rounded.Translate,
+                contentDescription = null,
+                tint = tint.copy(alpha = pulse),
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                if (translated) {
+                    stringResource(ATMR.strings.fusion_badge_translated, langCode(fusion.otherLang))
+                } else {
+                    stringResource(ATMR.strings.fusion_badge_next, langCode(fusion.otherLang), fusion.otherSourceName)
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = tint,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** Where a continuation chapter's translation is: queued or working (with its progress), saved, or failed. */
+private class ContinuationTranslation(
+    val state: Translation.State,
+    val progress: Translation.Progress?,
+    /** Pages done and pages in all, while the reader translates this chapter live. */
+    val live: Pair<Int, Int>?,
+    private val reload: suspend () -> Unit,
+) {
+    val working: Boolean
+        get() = live != null || state == Translation.State.QUEUE || state == Translation.State.TRANSLATING || progress != null
+
+    suspend fun refresh() = reload()
+}
+
+@Composable
+private fun rememberContinuationTranslation(
+    item: ChapterFusion.Continuation,
+    other: Manga?,
+    downloadProgress: Int?,
+    downloadStatus: Download.State?,
+): ContinuationTranslation {
+    val context = LocalContext.current
+    val graph = remember { context.appGraph }
+    val chapterId = item.chapter.id
+    // Whether its translation is saved, asked again whenever something about it ends
+    var saved by remember(chapterId) { mutableStateOf(false) }
+    var ended by remember(chapterId) { mutableStateOf<Translation.State?>(null) }
+    val reload: suspend () -> Unit = remember(chapterId, other) {
+        {
+            if (other != null) {
+                saved = withContext(Dispatchers.IO) {
+                    graph.translationManager.isChapterTranslated(item.chapter.name, item.chapter.scanlator, other.title, other.source)
+                }
+            }
+        }
+    }
+    LaunchedEffect(chapterId, other) { reload() }
+    LaunchedEffect(chapterId, other) {
+        graph.translationManager.finished.collect { end ->
+            if (end.chapterId != chapterId) return@collect
+            ended = end.state
+            reload()
+        }
+    }
+    val queue by graph.translationManager.queueState.collectAsState()
+    val queued = queue.firstOrNull { it.chapter.id == chapterId }
+    val queuedStatus = queued?.statusFlow?.collectAsState()?.value
+    val queuedProgress = queued?.progress?.collectAsState()?.value
+    val liveMap by remember { graph.liveChapterProgress.chapters }.collectAsState()
+    val live = liveMap[chapterId]?.takeIf { (done, total) -> total > 0 && done < total }
+    // A live translation that just finished saved the chapter: asked again
+    val liveDone = liveMap[chapterId]?.let { (done, total) -> total > 0 && done >= total } == true
+    LaunchedEffect(liveDone) { if (liveDone) reload() }
+    // Fetched only to be translated: its download is the first quarter of the ring
+    val fetching = chapterId in graph.translationManager.translateAfterDownload &&
+        (downloadStatus == Download.State.QUEUE || downloadStatus == Download.State.DOWNLOADING)
+    val downloadPercent = (downloadProgress ?: 0) * Translation.Stage.DOWNLOADING.to / 100
+    val fetchProgress = remember(chapterId) { Translation.Progress(stage = Translation.Stage.DOWNLOADING) }
+    val progress = when {
+        queuedProgress != null && queuedStatus != Translation.State.TRANSLATED -> queuedProgress
+        fetching -> fetchProgress.copy(percent = downloadPercent)
+        else -> null
+    }
+    val state = when {
+        queuedStatus != null && queuedStatus != Translation.State.NOT_TRANSLATED -> queuedStatus
+        fetching -> Translation.State.QUEUE
+        saved -> Translation.State.TRANSLATED
+        ended == Translation.State.ERROR -> Translation.State.ERROR
+        else -> Translation.State.NOT_TRANSLATED
+    }
+    return ContinuationTranslation(state, progress, live, reload)
+}
+
+private suspend fun cancelTranslation(graph: mihon.app.di.AppGraph, item: ChapterFusion.Continuation) {
+    val manager = graph.translationManager
+    manager.getQueuedTranslationOrNull(item.chapter.id)?.let(manager::cancelQueuedTranslation)
+    if (manager.translateAfterDownload.remove(item.chapter.id)) {
+        graph.downloadManager.cancelQueuedDownloads(listOfNotNull(graph.downloadManager.getQueuedDownloadOrNull(item.chapter.id)))
+    }
 }
 
 private fun langLabel(lang: String): String =

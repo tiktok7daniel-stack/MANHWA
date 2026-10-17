@@ -148,6 +148,21 @@ class TranslationManager(
         if (hasWork()) TranslationJob.start(context)
     }
 
+    /**
+     * MANHWA: translates [chapter], fetching it from its source first when it is not downloaded (it is then
+     * translated as soon as it arrives). Returns true when it is fetched first.
+     */
+    suspend fun translateOrFetch(manga: Manga, chapter: Chapter): Boolean {
+        val downloads = downloadManager.value
+        if (downloads.isChapterDownloaded(chapter.name, chapter.scanlator, chapter.url, manga.title, manga.source)) {
+            translateChapter(manga, chapter)
+            return false
+        }
+        translateAfterDownload += chapter.id
+        downloads.downloadChapters(manga, listOf(chapter))
+        return true
+    }
+
     suspend fun getChapterTranslationStatus(
         chapterId: Long,
         chapterName: String,
@@ -289,6 +304,16 @@ class TranslationManager(
         // Only that chapter's job stops (the queue's flow drops it); the others keep their progress
         translator.removeFromQueue(chapter)
         if (translator.isRunning && queueState.value.isEmpty()) translator.stop()
+    }
+
+    /**
+     * MANHWA: saves a chapter the reader translated live, as a chapter translated from the manga screen is saved,
+     * so it shows as translated and is never translated again.
+     */
+    fun saveLiveChapter(manga: Manga, chapter: Chapter, source: Source, pages: Map<String, PageTranslation>) {
+        if (pages.isEmpty()) return
+        val dir = provider.getMangaDir(manga.title, source)
+        translator.saveAtomically(dir, provider.getTranslationFileName(chapter.name, chapter.scanlator), pages)
     }
 
     /** Translation file names that exist for [manga], so many chapters can be checked with one directory listing. */

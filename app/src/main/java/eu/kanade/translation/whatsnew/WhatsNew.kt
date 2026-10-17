@@ -109,13 +109,17 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.CallMerge, ATMR.strings.wn_fusion_t, ATMR.strings.wn_fusion_b),
-            Feature(MaterialSymbols.Rounded.Download, ATMR.strings.wn_networks_t, ATMR.strings.wn_networks_b),
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_fusion2_t, ATMR.strings.wn_fusion2_b),
+            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_typeset_t, ATMR.strings.wn_typeset_b),
+            Feature(MaterialSymbols.Rounded.CollectionsBookmark, ATMR.strings.wn_onecat_t, ATMR.strings.wn_onecat_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Builds 58-63
+            Feature(MaterialSymbols.Rounded.CallMerge, ATMR.strings.wn_fusion_t, ATMR.strings.wn_fusion_b),
+            Feature(MaterialSymbols.Rounded.Download, ATMR.strings.wn_networks_t, ATMR.strings.wn_networks_b),
             // Build 56
             Feature(MaterialSymbols.Rounded.TextFields, ATMR.strings.wn_ocr_t, ATMR.strings.wn_ocr_b),
             Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_bubbles_t, ATMR.strings.wn_bubbles_b),

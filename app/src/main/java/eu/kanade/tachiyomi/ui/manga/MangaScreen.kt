@@ -130,12 +130,19 @@ class MangaScreen(
                         onRetryFailed = viewModel::retryFailedInBatch,
                     )
                     if (showSheet) {
-                        eu.kanade.presentation.manga.components.TranslateChaptersSheet(
-                            candidates = remember { viewModel.translateCandidates() },
-                            totalChapters = viewModel.totalChapterCount(),
-                            onDismiss = { showSheet = false },
-                            onStart = viewModel::translateChapters,
-                        )
+                        // MANHWA fusion: a fused work offers its continuation's chapters (looked up off the main thread)
+                        val offered by androidx.compose.runtime.produceState<MangaViewModel.TranslateCandidates?>(null) {
+                            value = viewModel.loadTranslateCandidates()
+                        }
+                        offered?.let { list ->
+                            eu.kanade.presentation.manga.components.TranslateChaptersSheet(
+                                candidates = list.chapters,
+                                totalChapters = list.total,
+                                onDismiss = { showSheet = false },
+                                onStart = viewModel::translateChapters,
+                                continuation = list.continuation,
+                            )
+                        }
                     }
                 }
             },

@@ -201,9 +201,12 @@ object ScanlationRenderer {
             val cleaned = page.blocks.mapNotNull { block ->
                 if (stop()) throw kotlinx.coroutines.CancellationException("Page scrolled away")
                 if (block.translation.isBlank()) return@mapNotNull null
-                val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
+                var kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
                 if (kind == BubbleKind.SFX && style.skipSfx) return@mapNotNull null
                 if (block.lineBoxes.isEmpty()) return@mapNotNull null
+                // MANHWA: big letters in a plain light bubble are a shout, not text drawn into the art: they are
+                // erased and the translation takes their place
+                if (kind == BubbleKind.ART && inPlainBubble(block)) kind = BubbleKind.SHOUT
                 // MANHWA art text: the drawing is never erased, the translation goes in a caption under it
                 if (kind == BubbleKind.ART) return@mapNotNull artCaption(block, kind)
                 // One bad bubble never costs the whole page its translation
@@ -215,18 +218,24 @@ object ScanlationRenderer {
                     null
                 }
             }
+            // MANHWA: lines the AI joined into a neighbour's translation (theirs came back empty) are still erased
+            // when they share that neighbour's bubble, and their room goes to it, so no original line is left
+            eraseJoinedLines(page, cleaned)
             // 2. Room for every bubble's text, stopping at outlines, the drawing and the other bubbles
             val unions = cleaned.map { it.union }
             val areas = cleaned.mapIndexed { i, c ->
                 val others = unions.filterIndexed { j, _ -> j != i }
                 val room = if (c.plain) grow(c.union, c.bg, others) else RectF(c.union)
-                edited(c.block, shrink(room, 0.04f))
+                // A bubble grown to its outline keeps a wider margin on the sides, so the letters never touch
+                // the spikes of a shout or the curve of a round bubble
+                val grown = c.plain && room.width() > c.union.width() * GROWN_FACTOR
+                edited(c.block, if (grown) shrink(room, GROWN_INSET_X, GROWN_INSET_Y) else shrink(room, 0.04f))
             }
             // Two texts never share space: overlapping areas are split at the middle of their overlap
             separate(areas)
             val sets = cleaned.mapIndexed { i, c ->
                 val paint = paintFor(c)
-                Placement(c, areas[i], paint, fit(c.block.translation, paint, areas[i]))
+                Placement(c, areas[i], paint, fit(drawn(c.block.translation), paint, areas[i]))
             }
             // 3. Sizes evened out across the page, then drawn
             val fits = sets.map { it.fit }.filter { it > 0f }.sorted()
@@ -243,6 +252,58 @@ object ScanlationRenderer {
                 } catch (e: Throwable) {
                     if (e is kotlin.coroutines.cancellation.CancellationException) throw e
                     logcat(LogPriority.WARN, e) { "Skipped a bubble that could not be typeset" }
+                }
+            }
+        }
+
+        /** Whether the ring around [block]'s letters is one light colour: the inside of a speech bubble. */
+        private fun inPlainBubble(block: TranslationBlock): Boolean {
+            val text = RectF(block.lineBoxes.first().let { RectF(it.x * s, it.y * s, it.right * s, it.bottom * s) })
+            block.lineBoxes.forEach { text.union(it.x * s, it.y * s, it.right * s, it.bottom * s) }
+            val lineH = block.lineBoxes.map { it.h }.average().toFloat() * s
+            val pad = max(PAD * s, lineH * 0.6f)
+            val area = clamp(RectF(text.left - pad, text.top - pad, text.right + pad, text.bottom + pad))
+            val l = area.left.roundToInt().coerceIn(0, bitmap.width - 1)
+            val t = area.top.roundToInt().coerceIn(0, bitmap.height - 1)
+            val w = (area.right.roundToInt().coerceIn(0, bitmap.width) - l)
+            val h = (area.bottom.roundToInt().coerceIn(0, bitmap.height) - t)
+            if (w < 3 || h < 3) return false
+            val px = IntArray(w * h)
+            bitmap.getPixels(px, 0, w, l, t, w, h)
+            val innerL = (text.left - l).roundToInt()
+            val innerR = (text.right - l).roundToInt()
+            val innerT = (text.top - t).roundToInt()
+            val innerB = (text.bottom - t).roundToInt()
+            val ring = px.filterIndexed { i, _ ->
+                val x = i % w
+                val y = i / w
+                x < innerL || x >= innerR || y < innerT || y >= innerB
+            }
+            if (ring.size < 16) return false
+            val (bg, share) = dominant(ring.toIntArray()) ?: return false
+            return share >= ART_BUBBLE_SHARE && luminance(bg) >= ART_BUBBLE_LIGHT
+        }
+
+        /**
+         * Blocks whose translation came back empty because the AI joined their line into a neighbour's: when one
+         * lies in (or right next to) a translated bubble, its letters are erased and the bubble takes its room.
+         */
+        private fun eraseJoinedLines(page: PageTranslation, cleaned: List<Cleaned>) {
+            if (cleaned.isEmpty()) return
+            page.blocks.forEach { block ->
+                if (block.translation.isNotBlank() || block.lineBoxes.isEmpty()) return@forEach
+                val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
+                if (kind == BubbleKind.SFX || kind == BubbleKind.ART) return@forEach
+                val box = RectF(block.lineBoxes.first().let { RectF(it.x * s, it.y * s, it.right * s, it.bottom * s) })
+                block.lineBoxes.forEach { box.union(it.x * s, it.y * s, it.right * s, it.bottom * s) }
+                val reach = block.lineBoxes.map { it.h }.average().toFloat() * s * JOINED_REACH
+                val near = RectF(box.left - reach, box.top - reach, box.right + reach, box.bottom + reach)
+                val owner = cleaned.firstOrNull { it.kind != BubbleKind.ART && RectF.intersects(near, it.union) } ?: return@forEach
+                try {
+                    owner.union.union(clean(block, owner.kind).union)
+                } catch (e: Throwable) {
+                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                    logcat(LogPriority.WARN, e) { "Skipped a joined line that could not be cleaned" }
                 }
             }
         }
@@ -626,7 +687,7 @@ object ScanlationRenderer {
         }
 
         private fun typeset(set: Placement, size: Float) {
-            val text = set.cleaned.block.translation
+            val text = drawn(set.cleaned.block.translation)
             val paint = set.paint
             val area = set.area
             paint.textSize = size
@@ -749,6 +810,8 @@ object ScanlationRenderer {
         }
 
         private fun shrink(rect: RectF, f: Float) = RectF(rect).apply { inset(rect.width() * f, rect.height() * f) }
+
+        private fun shrink(rect: RectF, fx: Float, fy: Float) = RectF(rect).apply { inset(rect.width() * fx, rect.height() * fy) }
 
         private fun clamp(rect: RectF): RectF = rect.apply {
             left = left.coerceIn(0f, bitmap.width.toFloat())
@@ -876,6 +939,21 @@ object ScanlationRenderer {
     private const val JPEG_QUALITY = 92
     private const val PAD = 12f
     private const val PLAIN_SHARE = 0.4f
+
+    // MANHWA: big letters count as a shout in a bubble when this much of the ring around them is one light colour
+    private const val ART_BUBBLE_SHARE = 0.75f
+    private const val ART_BUBBLE_LIGHT = 200.0
+
+    // MANHWA: how far (in line heights) an empty joined line may be from the bubble that took its words
+    private const val JOINED_REACH = 1.5f
+
+    // MANHWA: a bubble grown this much wider than its text keeps a wider margin (sides, top and bottom)
+    private const val GROWN_FACTOR = 1.15f
+    private const val GROWN_INSET_X = 0.09f
+    private const val GROWN_INSET_Y = 0.06f
+
+    /** The translation as it is drawn: the Arabic stretching mark (tatweel) never stretches a word in a bubble. */
+    internal fun drawn(text: String): String = eu.kanade.translation.translator.TextSanitizer.dropTatweel(text)
     private const val SMOOTH_RESIDUAL = 20f
     private const val WHOLE_EXTRA = 24f
     private const val MAX_TEXT_OF_WIDTH = 0.085f

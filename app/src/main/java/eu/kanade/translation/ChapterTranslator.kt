@@ -263,7 +263,7 @@ class ChapterTranslator(
      * MANHWA: the translation is written next to its final name, flushed to the disk, and only then renamed, so
      * a crash or a closed app mid-save never leaves a half-written file that would open as a broken chapter.
      */
-    private fun saveAtomically(dir: UniFile, name: String, pages: Map<String, PageTranslation>) {
+    internal fun saveAtomically(dir: UniFile, name: String, pages: Map<String, PageTranslation>) {
         val partName = "$name.part"
         dir.findFile(partName)?.delete()
         val part = dir.createFile(partName) ?: throw IOException("Could not create $partName")

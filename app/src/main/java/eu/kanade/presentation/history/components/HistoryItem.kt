@@ -57,6 +57,8 @@ fun HistoryItem(
     onClickDelete: () -> Unit,
     onClickFavorite: () -> Unit,
     modifier: Modifier = Modifier,
+    // MANHWA fusion: read in the work's continuation (its language), shown next to the chapter
+    continuation: String? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     Row(
@@ -99,8 +101,9 @@ fun HistoryItem(
             } else {
                 null
             }
+            val continuationLabel = continuation?.let { stringResource(ATMR.strings.history_continuation, it) }
             Text(
-                text = listOfNotNull(chapter, readAt.takeIf { it.isNotBlank() }).joinToString(" · "),
+                text = listOfNotNull(chapter, continuationLabel, readAt.takeIf { it.isNotBlank() }).joinToString(" · "),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -121,7 +124,7 @@ fun HistoryItem(
                     onClick = onClickResume,
                 )
                 Spacer(Modifier.weight(1f))
-                if (!history.coverData.isMangaFavorite) {
+                if (!history.coverData.isMangaFavorite && continuation == null) {
                     SmallOrb(MaterialSymbols.Rounded.Favorite, stringResource(MR.strings.add_to_library), onClickFavorite)
                     Spacer(Modifier.width(6.dp))
                 }

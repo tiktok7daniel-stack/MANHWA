@@ -231,6 +231,14 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                         switched.set(true)
                     }
                 }
+                // MANHWA: a series is in one category only: libraries that had series in several are put right once
+                runCatching {
+                    val done = preferenceStore.getBoolean("manhwa_one_category", false)
+                    if (!done.get()) {
+                        graph.libraryOrganizer.oneCategoryEach()
+                        done.set(true)
+                    }
+                }
                 runCatching { graph.libraryOrganizer.watch() }
                 // MANHWA dual OCR: PaddleOCR's models come by themselves on Wi-Fi when the engine needs them
                 runCatching {

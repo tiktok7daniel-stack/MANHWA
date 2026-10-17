@@ -9,6 +9,7 @@ import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.home.discover.SourceHealthManager
 import eu.kanade.translation.glossary.WorkIdentity
 import eu.kanade.translation.readTextAtomic
@@ -71,6 +72,9 @@ class ChapterFusion(
         val otherSourceName: String,
         val otherLang: String = "",
         val createdAt: Long = 0,
+        // Where the continuation's entry is on its source, to make it again if it is removed (clearing the database)
+        val otherUrl: String = "",
+        val otherTitle: String = "",
     )
 
     @Serializable
@@ -114,6 +118,9 @@ class ChapterFusion(
 
     fun fusionOf(baseMangaId: Long): Fusion? = _fusions.value[baseMangaId]
 
+    /** The work [fusion] continues. */
+    suspend fun baseManga(fusion: Fusion): Manga? = withContext(Dispatchers.IO) { getManga.await(fusion.baseMangaId) }
+
     /** The fusion this entry is the continuation of, when it is one. */
     fun continuationOf(otherMangaId: Long): Fusion? = _fusions.value.values.firstOrNull { it.otherMangaId == otherMangaId }
 
@@ -132,6 +139,8 @@ class ChapterFusion(
             otherSourceName = offer.otherSourceName,
             otherLang = offer.otherLang,
             createdAt = System.currentTimeMillis(),
+            otherUrl = offer.other.url,
+            otherTitle = offer.other.title,
         )
         save(
             saved.value.copy(
@@ -149,6 +158,49 @@ class ChapterFusion(
             ),
         )
         offers.remove(baseMangaId)
+    }
+
+    /** Saves [fusion] in place of the work's current one. */
+    private fun replace(fusion: Fusion) = synchronized(lock) {
+        if (saved.value.fusions.none { it.baseMangaId == fusion.baseMangaId }) return@synchronized
+        save(saved.value.copy(fusions = saved.value.fusions.map { if (it.baseMangaId == fusion.baseMangaId) fusion else it }))
+    }
+
+    /** Undoes a fusion whose continuation is gone, without turning the offer down (the banner offers it again). */
+    private fun drop(baseMangaId: Long) = synchronized(lock) {
+        save(saved.value.copy(fusions = saved.value.fusions.filter { it.baseMangaId != baseMangaId }))
+        offers.remove(baseMangaId)
+    }
+
+    /**
+     * The continuation's entry. When it was removed (clearing the database removes entries outside the library)
+     * it is made again from its saved address on the source; a fusion whose entry can't be made again is undone,
+     * so the work offers its continuation again instead of showing an empty one.
+     */
+    suspend fun otherOf(fusion: Fusion): Manga? = withContext(Dispatchers.IO) {
+        val found = getManga.await(fusion.otherMangaId)
+        if (found != null) {
+            // Fusions made before the address was kept learn it now
+            if (fusion.otherUrl.isEmpty()) replace(fusion.copy(otherUrl = found.url, otherTitle = found.title))
+            return@withContext found
+        }
+        if (fusion.otherUrl.isEmpty()) {
+            drop(fusion.baseMangaId)
+            return@withContext null
+        }
+        val remade = runCatching {
+            val entry = SManga.create().apply {
+                url = fusion.otherUrl
+                title = fusion.otherTitle
+            }
+            networkToLocalManga(listOf(entry.toDomainManga(fusion.otherSourceId))).first()
+        }.onFailure { logcat(LogPriority.WARN, it) { "Continuation of ${fusion.otherSourceName} not made again" } }.getOrNull()
+        if (remade == null) {
+            drop(fusion.baseMangaId)
+            return@withContext null
+        }
+        replace(fusion.copy(otherMangaId = remade.id))
+        remade
     }
 
     /**
@@ -257,10 +309,10 @@ class ChapterFusion(
      */
     suspend fun continuation(baseMangaId: Long, refresh: Boolean): List<Continuation> = withContext(Dispatchers.IO) {
         val fusion = fusionOf(baseMangaId) ?: return@withContext emptyList()
+        val other = otherOf(fusion) ?: return@withContext emptyList()
         if (refresh) {
             runCatching {
                 val source = sourceManager.get(fusion.otherSourceId) ?: return@runCatching
-                val other = getManga.await(fusion.otherMangaId) ?: return@runCatching
                 val fresh = withTimeoutOrNull(SEARCH_TIMEOUT_MS) {
                     source.getMangaUpdate(other.toSManga(), emptyList(), fetchDetails = false, fetchChapters = true).chapters
                 }
@@ -268,7 +320,7 @@ class ChapterFusion(
             }.onFailure { logcat(LogPriority.WARN, it) { "Continuation of ${fusion.otherSourceName} not refreshed" } }
         }
         val ours = getChaptersByMangaId.await(baseMangaId).map { it.chapterNumber }
-        val theirs = getChaptersByMangaId.await(fusion.otherMangaId)
+        val theirs = getChaptersByMangaId.await(other.id)
         FusionRules.continuation(ours, theirs.map { it.chapterNumber to it })
             .map { (number, chapter) -> Continuation(number, chapter) }
     }
@@ -326,6 +378,27 @@ object FusionRules {
         val b = otherLang.lowercase().substringBefore('-')
         return b.isNotEmpty() && b != "all" && b != a
     }
+
+    /** Whether a source in [sourceLang] is already in [targetLang] (its chapters need no translation). */
+    fun sameLanguage(sourceLang: String, targetLang: String): Boolean {
+        val a = sourceLang.lowercase().substringBefore('-')
+        return a.isNotEmpty() && a == targetLang.lowercase().substringBefore('-')
+    }
+
+    /**
+     * One line per fused work in a list newest first: [baseOf] gives the work a continuation entry belongs to,
+     * and only the newest line of each work stays. Entries that are not fused stay as they are.
+     */
+    fun <T> mergeHistory(items: List<T>, mangaIdOf: (T) -> Long, baseOf: (Long) -> Long?): List<T> {
+        val seen = HashSet<Long>()
+        return items.filter { item ->
+            val id = mangaIdOf(item)
+            seen.add(baseOf(id) ?: id)
+        }
+    }
+
+    /** A language's short code for badges ("en-US" is "EN"). */
+    fun langCode(lang: String): String = lang.substringBefore('-').uppercase().ifBlank { "EN" }
 
     /** Worth offering when the other source has at least one more chapter. */
     fun worthOffering(oursMax: Double, theirsMax: Double): Boolean = theirsMax >= 0 && theirsMax > oursMax

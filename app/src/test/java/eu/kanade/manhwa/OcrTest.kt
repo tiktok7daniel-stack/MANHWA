@@ -164,3 +164,12 @@ class OcrModelRulesTest {
         OcrModelRules.valid("dict.txt", 74_012, "x", null, 'a'.code) shouldBe true
     }
 }
+
+class TatweelTest {
+
+    @Test
+    fun `the stretching mark never stretches a word in a bubble`() {
+        eu.kanade.translation.translator.TextSanitizer.dropTatweel("لهـــــاروتو أيضًا") shouldBe "لهاروتو أيضًا"
+        eu.kanade.translation.translator.TextSanitizer.dropTatweel("بلا تطويل") shouldBe "بلا تطويل"
+    }
+}

@@ -211,6 +211,8 @@ fun TranslateChaptersSheet(
     totalChapters: Int,
     onDismiss: () -> Unit,
     onStart: (count: Int?, startChapterId: Long?) -> Unit,
+    // MANHWA fusion: the chapters offered are the continuation's (this work's own are ready to read)
+    continuation: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
     val max = candidates.size.coerceAtLeast(1)
@@ -231,8 +233,15 @@ fun TranslateChaptersSheet(
         ) {
             ManhwaKit.SectionTitle(
                 stringResource(ATMR.strings.tc_title),
-                stringResource(ATMR.strings.tc_counts, totalChapters, candidates.size),
+                if (continuation) {
+                    stringResource(ATMR.strings.tc_counts_continuation, totalChapters, candidates.size)
+                } else {
+                    stringResource(ATMR.strings.tc_counts, totalChapters, candidates.size)
+                },
             )
+            if (continuation) {
+                Text(stringResource(ATMR.strings.tc_continuation_hint), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+            }
             if (candidates.isEmpty()) {
                 Text(stringResource(ATMR.strings.tc_none), color = Color.White.copy(alpha = 0.7f))
                 return@Column

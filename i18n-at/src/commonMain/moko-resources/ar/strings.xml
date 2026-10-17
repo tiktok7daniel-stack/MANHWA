@@ -942,4 +942,16 @@
     <string name="fusion_exact">نفس الاسم</string>
     <string name="fusion_close">اسم قريب، اتأكد منه</string>
     <string name="fusion_cancel">إلغاء</string>
+    <!-- MANHWA fusion: the continuation's translation, the translate sheet and the history -->
+    <string name="tc_counts_continuation">%1$d فصل تكملة • %2$d مش مقروء</string>
+    <string name="tc_continuation_hint">الفصول العربي جاهزة للقراية، عشان كده هنا فصول التكملة بس.</string>
+    <string name="fusion_badge_translated">مترجم · %1$s</string>
+    <string name="fusion_live_translating">بيترجم لايف %1$d/%2$d</string>
+    <string name="history_continuation">تكملة %1$s</string>
+    <string name="wn_fusion2_t">العمل المدموج قصة واحدة</string>
+    <string name="wn_fusion2_b">فصول التكملة بتوريك ترجمتها وهي شغالة (حلقة بتتحرك بالنسبة الحقيقية، وبعدها \"مترجم\")، والفصل اللي مش متحمل بيتحمل الأول، و\"ترجم الفصول\" بتعرض التكملة بس، والفصل اللي اتقرا لايف بيتحفظ مترجم، والسجل بيعرض العمل المدموج مرة واحدة.</string>
+    <string name="wn_typeset_t">صفحات أنضف</string>
+    <string name="wn_typeset_b">الصراخ الكبير جوه الفقاعة بيتمسح ويتكتب مكانه، والسطور اللي الـ AI دمجها في الفقاعة اللي بعدها ما بقتش بتفضل بالإنجليزي، والنص بقى بعيد عن أسنان الفقاعة، والتطويل اتشال من الكلام.</string>
+    <string name="wn_onecat_t">مكان واحد لكل عمل</string>
+    <string name="wn_onecat_b">كل عمل في قسم واحد بس (قسمك الأول، وبعدين المكتملة، وبعدين نوعه)، ونفس العمل لو مضاف من مصدرين بيظهر مرة واحدة.</string>
 </resources>

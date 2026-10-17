@@ -194,7 +194,8 @@ class LibraryOrganizer(
         val assigned = assign(groups)
         assigned.forEach { (mangaId, ids) ->
             val current = library[mangaId]?.categories.orEmpty().filter { it != 0L }
-            val result = if (keepExisting) (current + ids).distinct() else ids.toList()
+            // MANHWA: one category per series: the one it has stays when asked to keep it, else the new one
+            val result = if (keepExisting && current.isNotEmpty()) current.take(1) else ids.take(1)
             setMangaCategories.await(mangaId, result)
         }
         if (remember) {
@@ -220,7 +221,8 @@ class LibraryOrganizer(
         val assigned = HashMap<Long, MutableSet<Long>>()
         groups.forEach { group ->
             val categoryId = byName[LibraryRules.normalize(group.name)]?.id ?: return@forEach
-            group.mangaIds.forEach { assigned.getOrPut(it) { mutableSetOf() } += categoryId }
+            // MANHWA: one category per series: the first group that names it wins
+            group.mangaIds.forEach { id -> if (id !in assigned) assigned[id] = mutableSetOf(categoryId) }
         }
         return assigned
     }
@@ -276,8 +278,11 @@ class LibraryOrganizer(
         val placed = assigned.mapNotNull { (mangaId, ids) ->
             val item = items.firstOrNull { it.manga.id == mangaId } ?: return@mapNotNull null
             val previous = before[mangaId].orEmpty()
-            setMangaCategories.await(mangaId, (previous + ids).distinct())
-            Placed(mangaId, item.manga.title, ids.mapNotNull { names[it] }, previous)
+            // MANHWA: a series the reader already put in a category stays there alone; else it gets one
+            if (previous.isNotEmpty()) return@mapNotNull null
+            val one = ids.take(1)
+            setMangaCategories.await(mangaId, one)
+            Placed(mangaId, item.manga.title, one.mapNotNull { names[it] }, previous)
         }
         if (placed.isEmpty()) return
         _log.value = (placed + _log.value).take(MAX_LOG)
@@ -291,7 +296,7 @@ class LibraryOrganizer(
         val reply = appAsk(AiRouter.Lane.BACKGROUND) { ai ->
             ai.askJson(
                 system = librarianRules() + "\n" + """
-                    The reader just added these series to the library. Put each one in 1 or 2 of the reader's categories:
+                    The reader just added these series to the library. Put each one in EXACTLY ONE of the reader's categories (a series is never in two):
                     ${if (scheme.isEmpty()) "(none yet)" else scheme.joinToString("\n") { "- ${it.name}${if (it.about.isNotBlank()) ": ${it.about}" else ""}" }}
                     Create a new category (short name in ${language()}) only when none fits.
                     Reply with ONLY: {"categories":[{"name":"...","about":"...","ids":[123]}]}
@@ -324,10 +329,33 @@ class LibraryOrganizer(
             val inside = category.id in item.categories
             if (finished == inside) return@forEach
             val mine = item.categories.filter { it != 0L && it != category.id }
-            setMangaCategories.await(item.manga.id, if (finished) (mine + category.id).distinct() else mine)
+            // MANHWA: a finished series is in "Completed" only
+            setMangaCategories.await(item.manga.id, if (finished) listOf(category.id) else mine)
             changed++
         }
         return changed
+    }
+
+    /**
+     * MANHWA: every series that is in several categories is put in one (libraries organized before a series was
+     * kept in one place): the reader's own category first, then "Completed" for a finished series, then the
+     * organizer's. No series is removed. Returns how many series changed.
+     */
+    suspend fun oneCategoryEach(): Int = mutex.withLock {
+        val library = getLibraryManga.await()
+        val completed = completedCategory()
+        val managedKeys = (scheme().map { it.name } + preferences.organizerCreated.get()).map(LibraryRules::normalize).toSet()
+        val managed = userCategories().filter { LibraryRules.normalize(it.name) in managedKeys }.map { it.id }.toSet()
+        var changed = 0
+        library.distinctBy { it.manga.id }.forEach { item ->
+            val current = item.categories.filter { it != 0L }.distinct()
+            if (current.size <= 1) return@forEach
+            val one = LibraryRules.oneCategory(current, managed, completed?.id, LibraryRules.isFinished(item.manga.status))
+            if (one.isEmpty()) return@forEach
+            setMangaCategories.await(item.manga.id, one)
+            changed++
+        }
+        changed
     }
 
     /**
@@ -421,7 +449,7 @@ class LibraryOrganizer(
             val reply = appAsk(AiRouter.Lane.REVIEW) { ai ->
                 ai.askJson(
                     system = librarianRules() + "\n" + """
-                        Put every series below in 1 or 2 of these categories (name: about):
+                        Put every series below in EXACTLY ONE of these categories (name: about); a series is never in two:
                         ${categories.joinToString("\n") { "- ${it.name}${if (it.about.isNotBlank()) ": ${it.about}" else ""}" }}
                         Fix series that are in a wrong category. Create a new category (short name in ${language()}) only
                         when a series fits none of them. Never put a series in a "Completed" category unless its status
@@ -580,7 +608,8 @@ class LibraryOrganizer(
             }.filter { it.second > 0 }
                 // Order of the list breaks ties: the specific themes before the broad ones
                 .sortedByDescending { it.second }
-                .take(2)
+                // MANHWA: one category per series, never two
+                .take(1)
                 .map { it.first }
             picked.forEach { theme ->
                 val name = existing.firstOrNull { it.equals(theme.en, true) || it.equals(theme.ar, true) } ?: if (arabic) theme.ar else theme.en

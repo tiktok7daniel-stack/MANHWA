@@ -1001,4 +1001,16 @@
     <string name="fusion_exact">Same name</string>
     <string name="fusion_close">Close name, check it</string>
     <string name="fusion_cancel">Cancel</string>
+    <!-- MANHWA fusion: the continuation's translation, the translate sheet and the history -->
+    <string name="tc_counts_continuation">%1$d continuation chapters • %2$d unread</string>
+    <string name="tc_continuation_hint">The Arabic chapters are ready to read, so only the continuation is offered here.</string>
+    <string name="fusion_badge_translated">Translated · %1$s</string>
+    <string name="fusion_live_translating">Translating live %1$d/%2$d</string>
+    <string name="history_continuation">%1$s continuation</string>
+    <string name="wn_fusion2_t">Fused works, one story</string>
+    <string name="wn_fusion2_b">The continuation\'s chapters show their translation live (a moving ring with the real percentage, then \"Translated\"), one that is not downloaded is fetched first, \"Translate chapters\" offers only the continuation, a chapter read live is saved as translated, and the history shows a fused work once.</string>
+    <string name="wn_typeset_t">Cleaner pages</string>
+    <string name="wn_typeset_b">Big shouts inside a bubble are erased and replaced, lines the AI joined into the next bubble no longer stay in English, text keeps away from the spikes of a bubble, and the stretching mark is gone from words.</string>
+    <string name="wn_onecat_t">One place for every series</string>
+    <string name="wn_onecat_b">A series is in one category only (yours first, then Completed, then its genre), and the same work added from two sources shows once.</string>
 </resources>
