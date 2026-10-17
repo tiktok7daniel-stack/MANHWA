@@ -188,7 +188,7 @@ class ChapterFusion(
             .sortedWith(compareBy<Offer>({ !it.exact }, { -it.theirsMax }))
     }
 
-    private fun sourcesFor(manga: Manga, baseLang: String): List<CatalogueSource> {
+    private suspend fun sourcesFor(manga: Manga, baseLang: String): List<CatalogueSource> {
         val preferred = (sourcePreferences.homeSources.get() + sourcePreferences.pinnedSources.get()).mapNotNull { it.toLongOrNull() }.toSet()
         return sourceManager.getAll().filterIsInstance<CatalogueSource>()
             .filter { it.id != LOCAL_SOURCE_ID && it.id != manga.source && !sourceHealth.isHidden(it.id) }
