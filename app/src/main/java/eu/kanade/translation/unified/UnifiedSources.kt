@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -96,9 +97,16 @@ class UnifiedSources(
      * Finds the work on the reader's other sources (home and pinned ones first, then the same language), at most
      * [MAX_SOURCES], and saves the links. Checked again after [RECHECK_MS] or with [force].
      */
+    // One search per work at a time: a second caller (the fusion banner) waits for it and takes its links
+    private val discovering = java.util.concurrent.ConcurrentHashMap<Long, kotlinx.coroutines.sync.Mutex>()
+
     suspend fun discover(manga: Manga, force: Boolean = false): List<Link> = withContext(Dispatchers.IO) {
+        discovering.getOrPut(manga.id) { kotlinx.coroutines.sync.Mutex() }.withLock { discoverNow(manga, force) }
+    }
+
+    private suspend fun discoverNow(manga: Manga, force: Boolean): List<Link> {
         val old = _all.value[manga.id]
-        if (!force && old != null && System.currentTimeMillis() - old.checkedAt < RECHECK_MS) return@withContext old.links
+        if (!force && old != null && System.currentTimeMillis() - old.checkedAt < RECHECK_MS) return old.links
         val ours = sourceManager.get(manga.source) as? CatalogueSource
         val preferred = (sourcePreferences.homeSources.get() + sourcePreferences.pinnedSources.get()).mapNotNull { it.toLongOrNull() }.toSet()
         val candidates = sourceManager.getAll().filterIsInstance<CatalogueSource>()
@@ -122,7 +130,7 @@ class UnifiedSources(
             }.awaitAll().filterNotNull()
         }
         synchronized(lock) { save(_all.value + (manga.id to Links(found, System.currentTimeMillis()))) }
-        found
+        return found
     }
 
     /** The chapters of every linked copy, refreshed from their sources. */

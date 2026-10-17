@@ -307,7 +307,9 @@ class ChapterFusion(
             }
         }
         // Copies already linked to this work: no search, only their chapters
-        val linked = unifiedSources.linksOf(manga.id).mapNotNull { link ->
+        // The same search as the "also on" card (shared, never run twice), so the copies it found are used here
+        val links = runCatching { unifiedSources.discover(manga) }.getOrDefault(unifiedSources.linksOf(manga.id))
+        val linked = links.mapNotNull { link ->
             val source = sourceManager.get(link.sourceId) as? CatalogueSource ?: return@mapNotNull null
             if (!FusionRules.otherLanguage(baseLang, source.lang) || sourceHealth.isHidden(source.id)) return@mapNotNull null
             source to link.mangaId
