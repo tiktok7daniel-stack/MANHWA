@@ -44,15 +44,21 @@ class TranslationService : Service() {
 
     @Volatile private var lastStartId = 0
 
+    /** The work went to the job after an error: this service ends instead of going on. */
+    @Volatile private var handedToJob = false
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lastStartId = startId
         // Foreground at once: Android gives a started service a few seconds to show its notification
         if (!goForeground()) {
-            // Android did not let it into the foreground now (started again from the background): the job carries on
-            TranslationJob.startJob(applicationContext)
+            // Android did not let it into the foreground now (started again from the background): the job carries
+            // on, translating itself (it knows the service could not)
+            failedAt = System.currentTimeMillis()
+            TranslationJob.startJob(applicationContext, replace = true)
             stopSelf(startId)
             return START_NOT_STICKY
         }
+        running = true
         if (loop?.isActive != true) loop = scope.launch { run() }
         // Closed for memory: Android starts it again by itself
         return START_STICKY
@@ -60,47 +66,63 @@ class TranslationService : Service() {
 
     private suspend fun run() {
         val manager = applicationContext.appGraph.translationManager
-        runCatching { manager.restorePending() }
-        if (!manager.hasWork()) {
-            stop()
-            return
-        }
-        hold(true)
-        manager.startTranslation()
-        var restarts = 0
-        var shown = ""
-        while (scope.isActive) {
-            delay(2.seconds)
-            // Renewed every turn (cheap when held): a long stuck page never lets the lock lapse for good
+        try {
+            runCatching { manager.restorePending() }
+                .onFailure { logcat(LogPriority.ERROR, it) { "Saved translation queue not put back" } }
             hold(true)
-            val queue = manager.queueState.value
-            val now = queue.firstOrNull { it.status == Translation.State.TRANSLATING }
-            val key = "${now?.chapter?.id}:${now?.progress?.value?.percent}:${queue.count { it.status == Translation.State.QUEUE }}"
-            if (key != shown) {
-                shown = key
-                goForeground()
+            if (manager.hasWork()) manager.startTranslation()
+            var restarts = 0
+            var shown = ""
+            while (scope.isActive) {
+                delay(2.seconds)
+                // Renewed every turn (cheap when held): a long stuck page never lets the lock lapse for good
+                hold(true)
+                val queue = manager.queueState.value
+                val now = queue.firstOrNull { it.status == Translation.State.TRANSLATING }
+                val key = "${now?.chapter?.id}:${now?.progress?.value?.percent}:${queue.count { it.status == Translation.State.QUEUE }}"
+                if (key != shown) {
+                    shown = key
+                    goForeground()
+                }
+                if (manager.isPaused) break
+                if (!manager.hasWork()) {
+                    // MANHWA: chapters that failed for a passing reason are tried again after a wait, a few times
+                    if (!manager.retryFailed()) break
+                    delay(RETRY_WAIT_S.seconds)
+                    manager.startTranslation()
+                    continue
+                }
+                if (!manager.isRunning) {
+                    // Stopped with chapters still waiting (a failure stopped it): carry on, waiting longer each time
+                    restarts++
+                    delay((RESTART_BASE_S * restarts.coerceAtMost(MAX_BACKOFF_STEPS)).seconds)
+                    if (manager.isPaused || !manager.hasWork()) continue
+                    if (!manager.isRunning) manager.startTranslation()
+                } else {
+                    restarts = 0
+                }
             }
-            if (manager.isPaused || !manager.hasWork()) break
-            if (!manager.isRunning) {
-                // Stopped with chapters still waiting (a failure stopped it): carry on, waiting longer each time
-                restarts++
-                delay((RESTART_BASE_S * restarts.coerceAtMost(MAX_BACKOFF_STEPS)).seconds)
-                if (manager.isPaused || !manager.hasWork()) break
-                if (!manager.isRunning) manager.startTranslation()
-            } else {
-                restarts = 0
-            }
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            // Anything unexpected: the job takes over rather than the queue waiting
+            logcat(LogPriority.ERROR, e) { "Translation service stopped by an error, the job takes over" }
+            handedToJob = true
+            failedAt = System.currentTimeMillis()
+            TranslationJob.startJob(applicationContext, replace = true)
+        } finally {
+            if (scope.isActive) stop()
         }
-        stop()
     }
 
     private fun stop() {
-        hold(false)
-        // A chapter queued while this one winds down is not dropped: the latest start keeps the service, and
-        // work that appeared at the last moment goes to the job
-        if (applicationContext.appGraph.translationManager.hasWork() && !applicationContext.appGraph.translationManager.isPaused) {
-            TranslationJob.startJob(applicationContext)
+        val manager = applicationContext.appGraph.translationManager
+        // A chapter queued while this one winds down keeps the service going instead of being dropped
+        if (manager.hasWork() && !manager.isPaused && !handedToJob) {
+            loop = scope.launch { run() }
+            return
         }
+        hold(false)
+        running = false
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf(lastStartId)
     }
@@ -168,12 +190,14 @@ class TranslationService : Service() {
 
     override fun onTimeout(startId: Int, fgsType: Int) {
         // Android's time limit for this kind of service (not for special use, kept for older types): the job takes over
-        TranslationJob.startJob(applicationContext)
+        failedAt = System.currentTimeMillis()
+        if (applicationContext.appGraph.translationManager.hasWork()) TranslationJob.startJob(applicationContext, replace = true)
         stop()
     }
 
     override fun onDestroy() {
         hold(false)
+        running = false
         scope.cancel()
         super.onDestroy()
     }
@@ -182,6 +206,13 @@ class TranslationService : Service() {
         /** A share of an hour, renewed with the notification, so a lock is never left behind. */
         private const val WAKE_LOCK_MS = 30 * 60 * 1000L
         private const val RESTART_BASE_S = 10
+        private const val RETRY_WAIT_S = 30
+
+        /** True while the service is in the foreground and translating (the job leaves the work to it then). */
+        @Volatile var running = false
+
+        /** When the service last could not run (the job then translates itself for a while). */
+        @Volatile var failedAt = 0L
         private const val MAX_BACKOFF_STEPS = 6
         // Its own: the job's notification goes away when the job hands over, this one stays
         private const val NOTIFICATION_ID = Notifications.ID_NEW_CHAPTERS - 3001

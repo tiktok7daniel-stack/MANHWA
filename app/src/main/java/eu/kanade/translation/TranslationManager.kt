@@ -3,6 +3,10 @@ package eu.kanade.translation
 import tachiyomi.core.common.util.system.logcat
 import logcat.LogPriority
 import java.util.concurrent.ConcurrentHashMap
+import eu.kanade.tachiyomi.util.system.notificationBuilder
+import eu.kanade.tachiyomi.util.system.notify
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.i18n.at.ATMR
 import mihon.app.di.appGraph
 import android.content.Context
 import dev.zacsweers.metro.AppScope
@@ -107,9 +111,15 @@ class TranslationManager(
                 (mangaId.toLongOrNull() ?: return@mapNotNull null) to (chapterId.toLongOrNull() ?: return@mapNotNull null)
             }.forEach { (mangaId, chapterId) ->
                 if (queueState.value.any { it.chapter.id == chapterId }) return@forEach
-                val manga = getManga.await(mangaId) ?: return@forEach
-                val chapter = getChapter.await(chapterId) ?: return@forEach
-                runCatching { translator.queueChapter(manga, chapter) }
+                // One chapter that can't be read back never stops the others from coming back
+                try {
+                    val manga = getManga.await(mangaId) ?: return@forEach
+                    val chapter = getChapter.await(chapterId) ?: return@forEach
+                    translator.queueChapter(manga, chapter)
+                } catch (e: Throwable) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    logcat(LogPriority.WARN, e) { "Saved chapter $chapterId not put back in the queue" }
+                }
             }
             if (hasWork()) {
                 TranslationJob.start(context)
@@ -122,6 +132,46 @@ class TranslationManager(
 
     /** Chapters still waiting or being translated. */
     fun hasWork(): Boolean = translator.queueState.value.any { TranslationJob.active(it.status) }
+
+    /** How many times each chapter that failed for a passing reason was put back in the queue. */
+    private val retries = ConcurrentHashMap<Long, Int>()
+
+    /**
+     * MANHWA: chapters that failed for a reason that passes (no internet for a moment, a stalled page, a key out
+     * of quota for now) are queued again, a few times; true when one was. The ones given up on are told to the
+     * reader in a notification, once.
+     */
+    suspend fun retryFailed(): Boolean {
+        val failed = queueState.value.filter { it.status == Translation.State.ERROR }
+        val again = failed.filter { RetryRules.retry(it.progress.value.note, retries[it.chapter.id] ?: 0) }
+        again.forEach { t ->
+            retries.merge(t.chapter.id, 1, Int::plus)
+            runCatching { translator.queueChapter(t.manga, t.chapter) }
+                .onFailure { logcat(LogPriority.WARN, it) { "Failed chapter ${t.chapter.id} not queued again" } }
+        }
+        val givenUp = failed.filter { it !in again && reported.add(it.chapter.id) }
+        if (givenUp.isNotEmpty()) notifyFailed(givenUp)
+        return again.isNotEmpty()
+    }
+
+    private val reported: MutableSet<Long> = ConcurrentHashMap.newKeySet()
+
+    private fun notifyFailed(chapters: List<Translation>) {
+        runCatching {
+            val text = chapters.joinToString("\n") { "${it.manga.title} · ${it.chapter.name}" }
+            val notification = context.notificationBuilder(eu.kanade.tachiyomi.data.notification.Notifications.CHANNEL_DOWNLOADER_ERROR) {
+                setContentTitle(context.stringResource(ATMR.strings.tj_failed, chapters.size))
+                setContentText(text)
+                setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(text))
+                setSmallIcon(eu.kanade.tachiyomi.R.drawable.ic_translate)
+                setAutoCancel(true)
+                context.packageManager.getLaunchIntentForPackage(context.packageName)?.let {
+                    setContentIntent(android.app.PendingIntent.getActivity(context, 1, it, android.app.PendingIntent.FLAG_IMMUTABLE))
+                }
+            }.build()
+            context.notify(eu.kanade.tachiyomi.data.notification.Notifications.ID_NEW_CHAPTERS - 3002, notification)
+        }.onFailure { logcat(LogPriority.WARN, it) { "Failed chapters not told" } }
+    }
 
     val isPaused: Boolean
         get() = translator.isPaused
@@ -186,14 +236,18 @@ class TranslationManager(
             val prefs = context.getSharedPreferences("manhwa_background", Context.MODE_PRIVATE)
             if (prefs.getBoolean("battery_asked", false)) return
             val power = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-            prefs.edit().putBoolean("battery_asked", true).apply()
             if (power.isIgnoringBatteryOptimizations(context.packageName)) return
+            // Only with the app on screen (Android blocks it from the background, and then it would never be asked)
+            val onScreen = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState
+                .isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+            if (!onScreen) return
             @android.annotation.SuppressLint("BatteryLife")
             val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
                 .setData(android.net.Uri.parse("package:${context.packageName}"))
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
-        }
+            prefs.edit().putBoolean("battery_asked", true).apply()
+        }.onFailure { logcat(LogPriority.WARN, it) { "Battery limits question not shown" } }
     }
 
     /**
@@ -402,4 +456,21 @@ object RestoreRules {
      * Closed for memory, by the phone maker, by the reader or for an update: not a crash.
      */
     fun crashed(reason: Int?): Boolean = reason == null || reason == 4 || reason == 5 || reason == 6
+}
+
+/** MANHWA: which failed chapters are tried again (pure, tested without a phone). */
+object RetryRules {
+    /** Reasons that pass by themselves: no internet for a moment, a stalled page, a key out of quota for now. */
+    private val passing = setOf(
+        Translation.Note.NO_INTERNET,
+        Translation.Note.RETRY,
+        Translation.Note.STALLED,
+        Translation.Note.KEY_LIMIT,
+        Translation.Note.DOWNLOAD_FAILED,
+        Translation.Note.OTHER,
+    )
+
+    const val MAX_RETRIES = 3
+
+    fun retry(note: Translation.Note?, tries: Int): Boolean = tries < MAX_RETRIES && (note == null || note in passing)
 }

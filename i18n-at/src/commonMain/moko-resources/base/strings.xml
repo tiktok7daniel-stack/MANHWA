@@ -1102,4 +1102,5 @@
     <string name="pip_title">Small window when leaving the reader</string>
     <string name="pip_summary">Swipe home and the reader shrinks into a small window you can move to the side, over other apps; the translation goes on in it. Tap it to come back.</string>
     <string name="hud_pip">Small window</string>
+    <string name="tj_failed">%1$d chapters could not be translated</string>
 </resources>

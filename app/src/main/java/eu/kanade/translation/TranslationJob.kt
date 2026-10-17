@@ -69,8 +69,14 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
         manager.restorePending()
         if (!manager.hasWork()) return Result.success()
         setForegroundSafely()
-        // In the foreground now, Android lets the service start: it carries on there (sticky, kept awake)
-        if (TranslationService.start(applicationContext)) return Result.success()
+        // In the foreground now, Android lets the service start: it carries on there (sticky, kept awake). Only
+        // when it really runs; when it could not lately, this job translates itself
+        if (System.currentTimeMillis() - TranslationService.failedAt > SERVICE_FAILED_MS && TranslationService.start(applicationContext)) {
+            repeat(SERVICE_WAIT_STEPS) {
+                if (TranslationService.running) return Result.success()
+                delay(1.seconds)
+            }
+        }
         manager.startTranslation()
         var restarts = 0
         var shown = ""
@@ -84,7 +90,14 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
                 shown = key
                 runCatching { setForeground(getForegroundInfo()) }
             }
-            if (manager.isPaused || !manager.hasWork()) break
+            if (manager.isPaused) break
+            if (!manager.hasWork()) {
+                // Chapters that failed for a passing reason are tried again after a wait, a few times
+                if (!manager.retryFailed()) break
+                delay(30.seconds)
+                manager.startTranslation()
+                continue
+            }
             if (!manager.isRunning) {
                 // Stopped with chapters still waiting (a failure stopped it): carry on, waiting longer each time,
                 // and never let the queue go while chapters wait
@@ -113,10 +126,18 @@ class TranslationJob(context: Context, params: WorkerParameters) : CoroutineWork
             if (!TranslationService.start(context)) startJob(context)
         }
 
-        fun startJob(context: Context) {
+        /** [replace]: the service gave the work back, so a job still finishing does not swallow this start. */
+        fun startJob(context: Context, replace: Boolean = false) {
             val request = OneTimeWorkRequestBuilder<TranslationJob>().addTag(TAG).build()
-            WorkManager.getInstance(context).enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                TAG,
+                if (replace) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,
+                request,
+            )
         }
+
+        private const val SERVICE_FAILED_MS = 60_000L
+        private const val SERVICE_WAIT_STEPS = 10
 
         private const val RESUME_TAG = "MANHWA-translation-resume"
 

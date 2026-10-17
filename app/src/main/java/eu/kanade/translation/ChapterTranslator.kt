@@ -251,7 +251,8 @@ class ChapterTranslator(
             translation.status = Translation.State.ERROR
             finish(translation.manga, translation.chapter, Translation.State.ERROR)
             reported = true
-            stop()
+            // MANHWA: only this chapter failed: the others in the queue go on (the service tries this one again)
+            if (areAllTranslationsFinished()) stop()
         } finally {
             // Stopped from outside (removed from the queue, the reader took the chapter over): the chapter's
             // ring must still end, never spin forever
@@ -471,7 +472,13 @@ class ChapterTranslator(
                         translation.note(if (HeavyWork.readerBusy) Translation.Note.READER else null)
                         // One page at a time through the shared gate: the reader's live translation and drawing go first.
                         // A page that can't be read (broken image, out of memory) is skipped; the chapter goes on.
-                        val pageTranslation = try {
+                        // MANHWA: a page that failed for a passing reason (memory, the disk) is read once more; one that
+                        // still fails is left out of the checkpoint, so the next try of the chapter reads it again
+                        var readFailed = false
+                        var pageTranslation: PageTranslation? = null
+                        for (attempt in 1..PAGE_READ_TRIES) {
+                            readFailed = false
+                            pageTranslation = try {
                             HeavyWork.background<PageTranslation?> {
                             streamFn().use { tmpFile.openOutputStream().use { out -> it.copyTo(out) } }
                             val decoded = PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! }
@@ -500,12 +507,16 @@ class ChapterTranslator(
                             }
                         } catch (e: Throwable) {
                             if (e is CancellationException) throw e
-                            logcat(LogPriority.WARN, e) { "Page $fileName could not be read, skipping it" }
+                            logcat(LogPriority.WARN, e) { "Page $fileName could not be read (try $attempt)" }
+                            readFailed = true
                             null
+                        }
+                            if (!readFailed) break
+                            kotlinx.coroutines.delay(PAGE_RETRY_MS)
                         }
                         translation.advance(Translation.Stage.READING, index + 1, streams.size)
                         showProgress()
-                        processed += fileName
+                        if (!readFailed) processed += fileName
                         if (pageTranslation != null && (pageTranslation.blocks.isNotEmpty() || fileName in images)) {
                             pages[fileName] = pageTranslation
                         }
@@ -1253,6 +1264,8 @@ class ChapterTranslator(
 
         /** Most unsure bubbles read again from their image per chapter. */
         const val MAX_REREAD = 30
+        const val PAGE_READ_TRIES = 2
+        const val PAGE_RETRY_MS = 1_500L
 
         /** Target languages not written in Latin letters (English words left in them are a mistake). */
         val NON_LATIN_TARGETS = setOf("ar", "fa", "ur", "he", "ru", "uk", "bg", "el", "hi", "bn", "th", "zh", "ja", "ko")

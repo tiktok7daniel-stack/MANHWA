@@ -591,11 +591,6 @@ class ReaderViewModel(
     private var pretranslatedChapterId: Long? = null
 
     /**
-     * MANHWA: translates the next chapter from the manga screen's queue while this one is read, so it opens
-     * translated. It is fetched first when it is not downloaded. Its image work waits for the reader
-     * ([eu.kanade.translation.HeavyWork]), so reading stays smooth.
-     */
-    /**
      * MANHWA: the reader was left (another app, the home screen, or closed) halfway through translating this
      * chapter live: the rest goes to the background translation (it carries on with the app left, at full strength),
      * the pages done here are kept so they are not translated again.
@@ -603,22 +598,26 @@ class ReaderViewModel(
     fun handTranslationToBackground() {
         val manga = manga ?: return
         if (manga.isLocal()) return
-        val (chapterId, done) = liveTranslation.handBack() ?: return
-        val chapter = state.value.currentChapter?.chapter?.takeIf { it.id == chapterId } ?: return
+        val chapter = state.value.currentChapter?.chapter ?: return
+        val (chapterId, done) = liveTranslation.handBack(chapter.id) ?: return
         appScope.launch(Dispatchers.IO) {
             runCatching {
                 eu.kanade.translation.ChapterCheckpoint.addDone(context, chapterId, done)
-                val downloaded = downloadManager.isChapterDownloaded(chapter.name, chapter.scanlator, chapter.url, manga.title, manga.source)
-                if (downloaded) {
-                    translationManager.translateChapter(manga, chapter)
-                } else {
-                    translationManager.translateAfterDownload += chapter.id
-                    downloadManager.downloadChapters(manga, listOf(chapter))
-                }
-            }.onFailure { logcat(LogPriority.WARN, it) { "Live chapter not handed to the background translation" } }
+                // Downloaded: translated now; online: downloaded first (the downloader started), then translated
+                translationManager.translateOrFetch(manga, chapter)
+            }.onFailure {
+                logcat(LogPriority.WARN, it) { "Live chapter not handed to the background translation" }
+                // Not handed over: the reader keeps it (it goes on when the reader comes back)
+                liveTranslation.comeBack()
+            }
         }
     }
 
+    /**
+     * MANHWA: translates the next chapter from the manga screen's queue while this one is read, so it opens
+     * translated. It is fetched first when it is not downloaded. Its image work waits for the reader
+     * ([eu.kanade.translation.HeavyWork]), so reading stays smooth.
+     */
     private fun pretranslateNextChapter() {
         val manga = manga ?: return
         if (manga.isLocal()) return

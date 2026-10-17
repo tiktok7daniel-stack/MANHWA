@@ -1043,4 +1043,5 @@
     <string name="pip_title">شاشة صغيرة لما تطلع من القارئ</string>
     <string name="pip_summary">اسحب للرئيسية والقارئ يتصغّر في شاشة صغيرة تحطها على الجنب فوق أي تطبيق، والترجمة بتكمّل جواها. اضغط عليها ترجع.</string>
     <string name="hud_pip">شاشة صغيرة</string>
+    <string name="tj_failed">%1$d فصول ما اتترجمتش</string>
 </resources>

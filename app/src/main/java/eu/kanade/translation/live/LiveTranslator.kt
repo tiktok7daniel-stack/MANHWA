@@ -239,10 +239,12 @@ class LiveTranslator(
          * Null when there is nothing left to hand over (translation off, the chapter done or saved, or the queue
          * already has it). The pages are keyed by their name in the chapter's files, as the chapter translator reads them.
          */
-        fun handBack(): Pair<Long, Map<String, PageTranslation>>? {
-            if (!active() || savedChapter || heldFor != null) return null
+        fun handBack(expectedChapterId: Long): Pair<Long, Map<String, PageTranslation>>? {
+            // A chapter the reader paused stays paused: nothing goes to the background
+            if (!active() || paused || savedChapter || heldFor != null) return null
             val list = pages
             val chapterId = list.firstOrNull()?.chapter?.chapter?.id ?: return null
+            if (chapterId != expectedChapterId) return null
             val left = list.count { it.translation == null && synchronized(textless) { it !in textless } }
             if (left == 0) return null
             val done = list.mapNotNull { page ->
@@ -266,7 +268,11 @@ class LiveTranslator(
             if (!handedBack) return
             handedBack = false
             paused = false
-            pages.firstOrNull()?.chapter?.chapter?.let { handOver(it.id, it.name, it.scanlator) }
+            pages.firstOrNull()?.chapter?.chapter?.let {
+                // Still waiting for its download: the reader takes it back, the background does not start it too
+                if (translationManager.getQueuedTranslationOrNull(it.id) == null) translationManager.translateAfterDownload -= it.id
+                handOver(it.id, it.name, it.scanlator)
+            }
             publish()
             wake.trySend(Unit)
         }

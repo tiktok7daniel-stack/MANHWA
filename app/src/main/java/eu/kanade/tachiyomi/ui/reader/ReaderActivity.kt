@@ -548,9 +548,10 @@ class ReaderActivity : BaseActivity() {
     }
 
     override fun onStop() {
-        // MANHWA: left halfway through translating this chapter live (not the small window, not a rotation): the
-        // background translation carries on with the rest
-        if (!isChangingConfigurations && !(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode)) {
+        // MANHWA: left halfway through translating this chapter live (another app, home, the small window closed;
+        // not a rotation): the background translation carries on with the rest. A small window on screen is not
+        // stopped, so it keeps translating itself.
+        if (!isChangingConfigurations) {
             runCatching { viewModel.handTranslationToBackground() }
         }
         super.onStop()

@@ -92,4 +92,15 @@ class PhoneCascadeTest {
         eu.kanade.translation.RestoreRules.crashed(6) shouldBe true
         eu.kanade.translation.RestoreRules.crashed(null) shouldBe true
     }
+
+    @Test
+    fun `a chapter that failed for a passing reason is tried again a few times`() {
+        eu.kanade.translation.RetryRules.retry(eu.kanade.translation.model.Translation.Note.NO_INTERNET, 0) shouldBe true
+        eu.kanade.translation.RetryRules.retry(eu.kanade.translation.model.Translation.Note.STALLED, 2) shouldBe true
+        eu.kanade.translation.RetryRules.retry(eu.kanade.translation.model.Translation.Note.STALLED, 3) shouldBe false
+        eu.kanade.translation.RetryRules.retry(null, 0) shouldBe true
+        eu.kanade.translation.RetryRules.retry(eu.kanade.translation.model.Translation.Note.KEY_INVALID, 0) shouldBe false
+        eu.kanade.translation.RetryRules.retry(eu.kanade.translation.model.Translation.Note.NOT_DOWNLOADED, 0) shouldBe false
+        eu.kanade.translation.RetryRules.retry(eu.kanade.translation.model.Translation.Note.SAVE_FAILED, 0) shouldBe false
+    }
 }
