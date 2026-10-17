@@ -63,6 +63,9 @@ import mihon.icons.materialsymbols.rounded.RecordVoiceOver
 import mihon.icons.materialsymbols.rounded.School
 import mihon.icons.materialsymbols.rounded.Verified
 import tachiyomi.i18n.at.ATMR
+import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.rounded.Speed
+import tachiyomi.presentation.core.util.collectAsState as collectPreference
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
@@ -133,6 +136,15 @@ fun ReaderQuickHud(
             Spacer(Modifier.height(6.dp))
             // Read aloud and the chapter's quality badge
             Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+                // MANHWA fast translation (like Google Lens) or the smart one (the AI), switched from here
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val fastPref = remember { context.appGraph.translationPreferences.translationFastMode() }
+                val fast by fastPref.collectPreference()
+                HudButton(
+                    MaterialSymbols.Rounded.Speed,
+                    stringResource(if (fast) ATMR.strings.hud_fast else ATMR.strings.hud_smart),
+                    fast,
+                ) { fastPref.set(!fast) }
                 HudButton(MaterialSymbols.Rounded.RecordVoiceOver, stringResource(ATMR.strings.hud_speak), speaking) { onSpeak() }
                 HudButton(MaterialSymbols.Rounded.School, stringResource(ATMR.strings.hud_study), false) {
                     onDismiss()

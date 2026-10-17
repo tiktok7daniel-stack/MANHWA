@@ -103,6 +103,21 @@ class TranslationPreferences(
     /** MANHWA: each key's calls of the last days (worked, failed, speed), as JSON (see KeyRecord). */
     fun translationTeamRecord() = preferenceStore.getString("manhwa_translation_team_record", "{}")
 
+    /** MANHWA fast translation (like Google Lens): OCR straight to machine translation, no AI. Off by default. */
+    fun translationFastMode() = preferenceStore.getBoolean("manhwa_translation_fast_mode", false)
+
+    /** The engine fast translation tries first (FastTranslatorRules.Engine ordinal; 0 = automatic). */
+    fun translationFastEngine() = preferenceStore.getInt("manhwa_translation_fast_engine", 0)
+
+    /** The reader's own official keys for fast translation (empty = not set). */
+    fun translationFastDeeplKey() = preferenceStore.getString("manhwa_translation_fast_deepl_key", "")
+    fun translationFastMicrosoftKey() = preferenceStore.getString("manhwa_translation_fast_microsoft_key", "")
+    fun translationFastMicrosoftRegion() = preferenceStore.getString("manhwa_translation_fast_microsoft_region", "")
+    fun translationFastGoogleCloudKey() = preferenceStore.getString("manhwa_translation_fast_google_cloud_key", "")
+
+    /** Characters sent to each fast engine this month ("month|ENGINE=count;..."). */
+    fun translationFastUsage() = preferenceStore.getString("manhwa_translation_fast_usage", "")
+
     /** When a chapter is read, its lines missing from the translation library are saved there. */
     fun translationSaveOnRead() = preferenceStore.getBoolean("manhwa_translation_save_on_read", true)
 

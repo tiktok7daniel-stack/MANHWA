@@ -131,7 +131,7 @@ class TranslationCollection(private val context: Context) {
      * The saved translation of [text] (from language [src] to [tgt]), with this line's own numbers and the
      * series' own names put in, or null when the line is new. [glossary] is the series glossary.
      */
-    fun lookup(src: String, tgt: String, text: String, glossary: Map<String, String>): Hit? = runCatching {
+    fun lookup(src: String, tgt: String, text: String, glossary: Map<String, String>, acceptNear: Boolean = false): Hit? = runCatching {
         if (text.isBlank() || text.length > MAX_LENGTH) return null
         val keyed = TextKey.key(text, glossary)
         find(src, tgt, keyed.exact)?.let { row ->
@@ -156,12 +156,15 @@ class TranslationCollection(private val context: Context) {
                 }
             }
         }
-        near(src, tgt, keyed.exact)?.let { return Hit(it, false, Match.NEAR) }
+        // MANHWA fast mode: a saved line this close is written as it is (otherwise only a hint for the AI)
+        near(src, tgt, keyed.exact)?.let { (translation, score) ->
+            return Hit(translation, acceptNear && score >= eu.kanade.translation.translator.FastTranslatorRules.FAST_NEAR, Match.NEAR)
+        }
         null
     }.onFailure { logcat(LogPriority.WARN, it) { "Collection lookup failed" } }.getOrNull()
 
     /** A line read a little differently (one letter): only a suggestion for the AI. */
-    private fun near(src: String, tgt: String, exact: String): String? {
+    private fun near(src: String, tgt: String, exact: String): Pair<String, Float>? {
         if (exact.length < NEAR_MIN_LENGTH) return null
         return db.query(
             "segments",
@@ -182,7 +185,7 @@ class TranslationCollection(private val context: Context) {
                     best = c.getString(1)
                 }
             }
-            best
+            best?.let { it to bestScore }
         }
     }
 

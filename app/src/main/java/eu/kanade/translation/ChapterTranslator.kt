@@ -329,10 +329,21 @@ class ChapterTranslator(
             "${translationInstructions().get().hashCode()}:${translationEngineTemperature().get()}:${translationEngineMaxOutputTokens().get()}"
         }
         val local = if (team.isEmpty()) eu.kanade.translation.local.LocalAiEngine.available(context).toString() + translationPreferences.translationStyleDialect().get() else ""
-        return "${translation.fromLang}|${translation.toLang}|${translationPreferences.translationEngine().get()}|$style|$team|$local"
+        // MANHWA fast mode: switching it (or its engine) builds the translator again
+        val fast = "${translationPreferences.translationFastMode().get()}:${translationPreferences.translationFastEngine().get()}"
+        return "${translation.fromLang}|${translation.toLang}|${translationPreferences.translationEngine().get()}|$style|$team|$local|$fast"
     }
 
     private fun buildTranslator(translation: Translation): TextTranslator {
+        // MANHWA fast mode (like Google Lens): machine translation straight after the OCR, no AI
+        if (translationPreferences.translationFastMode().get()) {
+            return eu.kanade.translation.translator.FastTranslator(
+                translation.fromLang,
+                translation.toLang,
+                translationPreferences,
+                context.appGraph.networkHelper.client,
+            )
+        }
         val team = teamMembers()
         return if (team.isNotEmpty()) {
             TeamTranslator(translation.fromLang, translation.toLang, teamStore, team)
@@ -549,6 +560,8 @@ class ChapterTranslator(
                         logcat(LogPriority.WARN, it) { "Scout failed, translating without it" }
                     }
                 }
+                // MANHWA fast mode: the work's names and the codex go in before the lines are sent
+                (textTranslator as? eu.kanade.translation.translator.FastTranslator)?.glossary = codex + glossaryStore.asMap(translation.manga.id)
                 // MANHWA on-device AI: the series glossary and the codex for the model on the phone too
                 (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.apply {
                     glossary = codex + glossaryStore.asMap(translation.manga.id)
@@ -560,7 +573,11 @@ class ChapterTranslator(
                 }
                 // MANHWA collection: lines translated before, in any manhwa, are written at once; repeats inside
                 // the chapter are translated once; only what is left goes to the translator
-                val library = if (useLibrary) fromLibrary(pages, src, tgt, glossaryStore.asMap(translation.manga.id)) else LibraryPass.NONE
+                val library = if (useLibrary) {
+                    fromLibrary(pages, src, tgt, glossaryStore.asMap(translation.manga.id), acceptNear = textTranslator is eu.kanade.translation.translator.FastTranslator)
+                } else {
+                    LibraryPass.NONE
+                }
                 translation.fromLibrary(library.percent)
                 val work = pages.mapNotNull { (name, page) ->
                     val rest = page.blocks.filter { it !in library.known && !library.copies.containsKey(it) }
@@ -836,6 +853,8 @@ class ChapterTranslator(
         src: String,
         tgt: String,
         glossary: Map<String, String>,
+        // MANHWA fast mode: saved lines this close are written as they are (no AI to check a hint)
+        acceptNear: Boolean = false,
     ): LibraryPass {
         val known: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
         val copies = IdentityHashMap<TranslationBlock, TranslationBlock>()
@@ -846,7 +865,7 @@ class ChapterTranslator(
             for (block in page.blocks) {
                 if (block.text.isBlank()) continue
                 lines++
-                val hit = collection.lookup(src, tgt, block.text, glossary)
+                val hit = collection.lookup(src, tgt, block.text, glossary, acceptNear)
                 if (hit?.sure == true) {
                     block.translation = hit.translation
                     known += block

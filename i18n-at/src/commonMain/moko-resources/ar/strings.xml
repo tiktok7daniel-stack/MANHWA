@@ -990,4 +990,23 @@
     <string name="best_keys_line">%1$d طلب · %2$d%% نجح · %3$s ثانية للرد</string>
     <string name="wn_steady_t">أثبت في كل حتة</string>
     <string name="wn_steady_b">اتصلح كراش كان بيحصل لما تفتح عمل بعد ما المفاتيح تتمسح. المواقع بقت بتفتح على شبكات الموبايل اللي IPv6 فيها بايظ (التطبيق بيرجع لـ IPv4 لوحده)، وأي موقع ما يفتحش بيتشرح سببه في صحة التطبيق (مشاكل الشبكة)، وتقدر تنسخه أو تشاركه. و12 موقع رسمي زيادة تجيب منهم مفاتيح، وتقرير \"أحسن المفاتيح\" اللي بيقولك أنهي مفاتيح ترجمت أحسن مؤخراً وتجيب زيها منين.</string>
+    <string name="fast_title">الترجمة السريعة (زي Google Lens)</string>
+    <string name="fast_switch">الترجمة السريعة</string>
+    <string name="fast_info">الكلام اللي اتقرا من الصفحة بيروح على طول لترجمة آلية (DeepL أو Microsoft أو Google)، من غير AI ومن غير ما يصرف من مفاتيح الفريق، فالصفحة بتتترجم في لحظة. الجمل اللي في مكتبة الترجمة بتاعتك بتتكتب الأول، وأسماء العمل بتفضل ثابتة. الـ AI أدق (المذكر والمؤنث والأسماء والسياق)، وتقدر ترجعله في أي وقت، حتى من أزرار القارئ السريعة.</string>
+    <string name="fast_last">آخر مرة: %1$s</string>
+    <string name="fast_engine">المحرك اللي يتجرب الأول</string>
+    <string name="fast_engine_info">التلقائي بيجرب كل محرك حطيتله مفتاح (DeepL وبعدين Microsoft وبعدين Google Cloud)، وبعدين Google Translate، وبعدين ML Kit من غير نت. المحرك اللي حصته تخلص بيسلّم اللي بعده لوحده.</string>
+    <string name="fast_deepl_info">مفتاح DeepL API بتاعك (الخطة المجانية بتدي 500 ألف حرف في الشهر وبتدعم العربي). المفاتيح اللي آخرها :fx مجانية.</string>
+    <string name="fast_microsoft_info">مفتاح Azure Translator بتاعك (الخطة المجانية F0 بتدي 2 مليون حرف في الشهر).</string>
+    <string name="fast_microsoft_region">منطقة Microsoft</string>
+    <string name="fast_microsoft_region_info">منطقة مورد Azure Translator بتاعك (زي westeurope)؛ سيبها فاضية لو المورد global.</string>
+    <string name="fast_google_cloud_info">مفتاح Google Cloud API بتاعك ومفعّل عليه Cloud Translation API.</string>
+    <string name="fast_no_key">مفيش مفتاح</string>
+    <string name="fast_get_key">هات مفتاح (الصفحة الرسمية)</string>
+    <string name="fast_auto">تلقائي</string>
+    <string name="fast_mlkit">ML Kit (على الموبايل، من غير نت)</string>
+    <string name="hud_fast">سريع</string>
+    <string name="hud_smart">ذكي</string>
+    <string name="wn_fast_t">ترجمة سريعة زي Google Lens</string>
+    <string name="wn_fast_b">وضع جديد جنب الـ AI: الكلام اللي اتقرا من الصفحة بيروح على طول لترجمة آلية (DeepL أو Microsoft أو Google أو ML Kit من غير نت)، فالصفحة بتتترجم في لحظة من غير ما تصرف من أي مفتاح. مكتبة الترجمة بتاعتك بتتستخدم الأول، ومعاها الجمل القريبة جداً، والأسماء بتفضل ثابتة. اقلب بين سريع وذكي من أزرار القارئ السريعة.</string>
 </resources>

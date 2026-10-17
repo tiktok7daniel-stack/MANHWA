@@ -459,6 +459,13 @@ class LiveTranslator(
             from: TextRecognizerLanguage,
             to: TextTranslatorLanguage,
         ): TextTranslator = when {
+            // MANHWA fast mode (like Google Lens): machine translation straight after the OCR, no AI
+            preferences.translationFastMode().get() -> eu.kanade.translation.translator.FastTranslator(
+                from,
+                to,
+                preferences,
+                teamStore.appContext.appGraph.networkHelper.client,
+            )
             team.isEmpty() -> TextTranslators.withoutKeys(preferences).build(preferences, from, to)
             // The page being read goes first through the router, even while chapters are translated
             quickDraft -> HybridTranslator(from, to, GoogleTranslator(from, to), TeamTranslator(from, to, teamStore, team, AiRouter.Lane.LIVE))
@@ -482,7 +489,7 @@ class LiveTranslator(
             val team = teamStore.active()
             val quickDraft = preferences.translationQuickDraft().get()
             val teamSignature = team.joinToString(",") { "${it.id}:${it.model}:${it.key.hashCode()}:${it.baseUrl}" } +
-                "|$quickDraft|${preferences.translationEngine().get()}"
+                "|$quickDraft|${preferences.translationEngine().get()}|${preferences.translationFastMode().get()}:${preferences.translationFastEngine().get()}"
             if (teamSignature != builtForTeam) {
                 builtForTeam = teamSignature
                 translator?.close()
@@ -560,13 +567,29 @@ class LiveTranslator(
                 learnTerms = id != null
                 discoveredTerms.clear()
             }
+            // MANHWA fast mode: the work's names and the codex go in before the lines are sent
+            (engine as? eu.kanade.translation.translator.FastTranslator)?.let { fast ->
+                val codex = if ((from == TextRecognizerLanguage.ENGLISH || from == TextRecognizerLanguage.KOREAN) && to == TextTranslatorLanguage.ARABIC) {
+                    eu.kanade.translation.collection.ManhwaCodex.termsIn(result.blocks.joinToString(" ") { it.text }, preferences.translationCodexPacks().get())
+                } else {
+                    emptyMap()
+                }
+                // The work's own names win over the codex
+                fast.glossary = codex + id?.let(glossaryStore::asMap).orEmpty()
+            }
             // MANHWA: lines from the collection are written at once; only the rest goes to the translator
             val known: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
             val useLibrary = preferences.translationCollection().get()
             if (useLibrary) {
                 val glossary = id?.let(glossaryStore::asMap).orEmpty()
                 result.blocks.forEach { block ->
-                    val hit = collection.lookup(from.name, eu.kanade.translation.style.StyleProfile.libraryTarget(preferences, to.name), block.text, glossary)
+                    val hit = collection.lookup(
+                        from.name,
+                        eu.kanade.translation.style.StyleProfile.libraryTarget(preferences, to.name),
+                        block.text,
+                        glossary,
+                        acceptNear = engine is eu.kanade.translation.translator.FastTranslator,
+                    )
                     if (hit?.sure == true) {
                         block.translation = hit.translation
                         known += block

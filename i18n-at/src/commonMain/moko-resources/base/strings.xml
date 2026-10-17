@@ -1049,4 +1049,23 @@
     <string name="best_keys_line">%1$d calls · %2$d%% worked · %3$s s per answer</string>
     <string name="wn_steady_t">Steadier everywhere</string>
     <string name="wn_steady_b">Fixed a crash when opening a work after the keys were cleared. Sites open on mobile networks with broken IPv6 (the app falls back to IPv4 by itself), and every site that could not be opened is explained in App health (Network problems), to copy or share. 12 more official AI sites to get keys from, and a \"best keys\" report that shows which keys translated best lately and where to get more like them.</string>
+    <string name="fast_title">Fast translation (like Google Lens)</string>
+    <string name="fast_switch">Fast translation</string>
+    <string name="fast_info">The text read on the page goes straight to machine translation (DeepL, Microsoft, Google), no AI and no key of the team: pages are translated in a moment. Lines already in your translation collection are written first, and the work\'s names stay the same. The AI is more accurate (genders, names, context); switch back any time, also from the reader\'s quick buttons.</string>
+    <string name="fast_last">Last: %1$s</string>
+    <string name="fast_engine">Engine tried first</string>
+    <string name="fast_engine_info">Automatic tries every engine you set a key for (DeepL, then Microsoft, then Google Cloud), then Google Translate, then ML Kit with no internet. An engine out of quota hands over to the next by itself.</string>
+    <string name="fast_deepl_info">Your own DeepL API key (the free plan gives 500,000 characters a month and supports Arabic). Keys ending in :fx are free keys.</string>
+    <string name="fast_microsoft_info">Your own Azure Translator key (the free F0 plan gives 2 million characters a month).</string>
+    <string name="fast_microsoft_region">Microsoft region</string>
+    <string name="fast_microsoft_region_info">The region of your Azure Translator resource (for example westeurope); empty for a global resource.</string>
+    <string name="fast_google_cloud_info">Your own Google Cloud API key with the Cloud Translation API turned on.</string>
+    <string name="fast_no_key">No key</string>
+    <string name="fast_get_key">Get a key (official page)</string>
+    <string name="fast_auto">Automatic</string>
+    <string name="fast_mlkit">ML Kit (on the phone, offline)</string>
+    <string name="hud_fast">Fast</string>
+    <string name="hud_smart">Smart</string>
+    <string name="wn_fast_t">Fast translation, like Google Lens</string>
+    <string name="wn_fast_b">A new mode next to the AI: the text read on the page goes straight to machine translation (DeepL, Microsoft, Google, or ML Kit offline), so pages are translated in a moment without spending any key. Your translation collection is used first, close matches included, and names stay the same. Switch between Fast and Smart from the reader\'s quick buttons.</string>
 </resources>
