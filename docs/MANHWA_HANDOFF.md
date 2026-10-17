@@ -3,6 +3,9 @@
 > آخر تحديث: 17 أكتوبر 2026.
 > الملف ده مكتوب لك ولأي مساعد ذكاء اصطناعي (أو مبرمج) هيكمّل الشغل بعدي. اديله الملف ده كله في أول رسالة.
 
+> **تحديث 17 أكتوبر (بعد الظهر):** الشغل كمل في شات تاني على فرع `claude/new-session-hidbs8` (البنايات من 64 لـ 80). آخر حاجة في `main` وقت التحديث ده: `2b1b161c4` (البناء 79). البناء 80 (`e94f6cc8b`) كان لسه شغال.
+> وفي skills اتضافت للمشروع في `.claude/skills/`: find-skills، وfrontend-design، وskill-creator، وvercel-composition-patterns، وvercel-react-best-practices، وvercel-react-native-skills.
+
 ---
 
 ## 1. معلومات أساسية
