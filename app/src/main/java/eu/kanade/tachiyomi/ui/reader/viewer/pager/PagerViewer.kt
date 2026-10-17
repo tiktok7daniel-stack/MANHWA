@@ -263,6 +263,10 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         } else if (transition is ChapterTransition.Next) {
             // No more chapters, show menu because the user is probably going to close the reader
             activity.showMenu()
+            // MANHWA fusion: unless the work goes on from its other source
+            activity.onChaptersEdge(forward = true)
+        } else {
+            activity.onChaptersEdge(forward = false)
         }
     }
 

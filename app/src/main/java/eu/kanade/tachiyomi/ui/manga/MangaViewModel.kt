@@ -992,9 +992,24 @@ class MangaViewModel(
             DownloadAction.NEXT_25_CHAPTERS -> getUnreadChaptersSorted().take(25)
             DownloadAction.UNREAD_CHAPTERS -> getUnreadChapters()
             DownloadAction.BOOKMARKED_CHAPTERS -> getBookmarkedChapters()
+            DownloadAction.CANCEL_QUEUED -> {
+                cancelWorkQueue()
+                return
+            }
         }
         if (chaptersToDownload.isNotEmpty()) {
             startDownload(chaptersToDownload, false)
+        }
+    }
+
+    /** MANHWA: every chapter of this work waiting to download (and to be translated after) is stopped. */
+    private fun cancelWorkQueue() {
+        val manga = successState?.manga ?: return
+        viewModelScope.launch {
+            val queued = downloadManager.queueState.value.filter { it.manga.id == manga.id }
+            queued.forEach { translationManager.translateAfterDownload.remove(it.chapter.id) }
+            if (queued.isNotEmpty()) downloadManager.cancelQueuedDownloads(queued)
+            queued.forEach { updateDownloadState(it.apply { status = Download.State.NOT_DOWNLOADED }) }
         }
     }
 

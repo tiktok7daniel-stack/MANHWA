@@ -62,6 +62,7 @@ import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.Autorenew
 import mihon.icons.materialsymbols.rounded.Bedtime
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
+import mihon.icons.materialsymbols.rounded.CallMerge
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.TextFields
@@ -108,14 +109,17 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.TextFields, ATMR.strings.wn_ocr_t, ATMR.strings.wn_ocr_b),
-            Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_bubbles_t, ATMR.strings.wn_bubbles_b),
-            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_audit_t, ATMR.strings.wn_audit_b),
+            Feature(MaterialSymbols.Rounded.CallMerge, ATMR.strings.wn_fusion_t, ATMR.strings.wn_fusion_b),
+            Feature(MaterialSymbols.Rounded.Download, ATMR.strings.wn_networks_t, ATMR.strings.wn_networks_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 56
+            Feature(MaterialSymbols.Rounded.TextFields, ATMR.strings.wn_ocr_t, ATMR.strings.wn_ocr_b),
+            Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_bubbles_t, ATMR.strings.wn_bubbles_b),
+            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_audit_t, ATMR.strings.wn_audit_b),
             // Build 47
             Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_fix2_t, ATMR.strings.wn_fix2_b),
             Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_tn_t, ATMR.strings.wn_tn_b),

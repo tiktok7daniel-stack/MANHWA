@@ -7,6 +7,9 @@ enum class DownloadAction {
     NEXT_25_CHAPTERS,
     UNREAD_CHAPTERS,
     BOOKMARKED_CHAPTERS,
+
+    // MANHWA: stop everything of this work that is waiting to download (and be translated after)
+    CANCEL_QUEUED,
 }
 
 enum class EditCoverAction {

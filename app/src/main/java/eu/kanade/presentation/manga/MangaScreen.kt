@@ -1,6 +1,7 @@
 package eu.kanade.presentation.manga
 
 import eu.kanade.translation.model.Translation
+import eu.kanade.translation.unified.fusionContinuationItems
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
@@ -277,6 +278,9 @@ private fun MangaScreenSmallImpl(
     onInvertSelection: () -> Unit,
 ) {
     val chapterListState = rememberLazyListState()
+    // MANHWA: this work joined with its continuation on another source
+    val fusionUi = eu.kanade.translation.unified.rememberFusionUi(state.manga)
+    val fusedBadge = fusionUi.baseBadge()
 
     val (chapters, listItem, isAnySelected) = remember(state) {
         Triple(
@@ -317,6 +321,7 @@ private fun MangaScreenSmallImpl(
                 onClickRefresh = onRefresh,
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,
+                canCancelDownloads = state.chapters.fastAny { it.downloadState == Download.State.QUEUE || it.downloadState == Download.State.DOWNLOADING },
                 actionModeCounter = state.selectedChapters.size,
                 onCancelActionMode = { onAllChapterSelected(false) },
                 onSelectAll = { onAllChapterSelected(true) },
@@ -444,6 +449,9 @@ private fun MangaScreenSmallImpl(
                     if (translateBar != null) {
                         item(key = "manhwa_translate") { translateBar() }
                     }
+                    item(key = "manhwa_fusion") {
+                        eu.kanade.translation.unified.FusionBanner(fusionUi, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                    }
                     item(
                         key = MangaScreenItem.CHAPTER_HEADER,
                         contentType = MangaScreenItem.CHAPTER_HEADER,
@@ -455,6 +463,7 @@ private fun MangaScreenSmallImpl(
                             onClick = onFilterClicked,
                         )
                     }
+                    fusionContinuationItems(fusionUi)
 
                     sharedChapterItems(
                         manga = state.manga,
@@ -469,6 +478,7 @@ private fun MangaScreenSmallImpl(
                         translationProgressProvider = translationProgressProvider,
                         onChapterSelected = onChapterSelected,
                         onChapterSwipe = onChapterSwipe,
+                        fusedBadge = fusedBadge,
                     )
                 }
             }
@@ -544,6 +554,9 @@ fun MangaScreenLargeImpl(
     var topBarHeight by remember { mutableIntStateOf(0) }
 
     val chapterListState = rememberLazyListState()
+    // MANHWA: this work joined with its continuation on another source
+    val fusionUi = eu.kanade.translation.unified.rememberFusionUi(state.manga)
+    val fusedBadge = fusionUi.baseBadge()
 
     BackHandler(enabled = isAnySelected) {
         onAllChapterSelected(false)
@@ -563,6 +576,7 @@ fun MangaScreenLargeImpl(
                 onClickRefresh = onRefresh,
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,
+                canCancelDownloads = state.chapters.fastAny { it.downloadState == Download.State.QUEUE || it.downloadState == Download.State.DOWNLOADING },
                 onCancelActionMode = { onAllChapterSelected(false) },
                 actionModeCounter = state.selectedChapters.size,
                 onSelectAll = { onAllChapterSelected(true) },
@@ -684,6 +698,9 @@ fun MangaScreenLargeImpl(
                             if (translateBar != null) {
                                 item(key = "manhwa_translate") { translateBar() }
                             }
+                            item(key = "manhwa_fusion") {
+                                eu.kanade.translation.unified.FusionBanner(fusionUi, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                            }
                             item(
                                 key = MangaScreenItem.CHAPTER_HEADER,
                                 contentType = MangaScreenItem.CHAPTER_HEADER,
@@ -695,6 +712,7 @@ fun MangaScreenLargeImpl(
                                     onClick = onFilterButtonClicked,
                                 )
                             }
+                            fusionContinuationItems(fusionUi)
 
                             sharedChapterItems(
                                 manga = state.manga,
@@ -709,6 +727,7 @@ fun MangaScreenLargeImpl(
                                 translationProgressProvider = translationProgressProvider,
                                 onChapterSelected = onChapterSelected,
                                 onChapterSwipe = onChapterSwipe,
+                                fusedBadge = fusedBadge,
                             )
                         }
                     }
@@ -773,6 +792,7 @@ private fun LazyListScope.sharedChapterItems(
     translationProgressProvider: (chapterId: Long) -> Translation.Progress? = { null }, // MANHWA
     onChapterSelected: (ChapterList.Item, Boolean, Boolean) -> Unit,
     onChapterSwipe: (ChapterList.Item, LibraryPreferences.ChapterSwipeAction) -> Unit,
+    fusedBadge: String? = null,
 ) {
     items(
         items = chapters,
@@ -842,6 +862,7 @@ private fun LazyListScope.sharedChapterItems(
                     onChapterSwipe = {
                         onChapterSwipe(item, it)
                     },
+                    badge = fusedBadge,
                 )
             }
         }

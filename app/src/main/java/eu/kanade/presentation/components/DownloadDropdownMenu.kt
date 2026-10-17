@@ -17,6 +17,7 @@ fun DownloadDropdownMenu(
     onDismissRequest: () -> Unit,
     onDownloadClicked: (DownloadAction) -> Unit,
     offset: DpOffset? = null,
+    showCancel: Boolean = false,
 ) {
     if (offset != null) {
         DropdownMenu(
@@ -28,6 +29,7 @@ fun DownloadDropdownMenu(
                 DownloadDropdownMenuItems(
                     onDismissRequest = onDismissRequest,
                     onDownloadClicked = onDownloadClicked,
+                    showCancel = showCancel,
                 )
             },
         )
@@ -40,6 +42,7 @@ fun DownloadDropdownMenu(
                 DownloadDropdownMenuItems(
                     onDismissRequest = onDismissRequest,
                     onDownloadClicked = onDownloadClicked,
+                    showCancel = showCancel,
                 )
             },
         )
@@ -50,6 +53,7 @@ fun DownloadDropdownMenu(
 private fun DownloadDropdownMenuItems(
     onDismissRequest: () -> Unit,
     onDownloadClicked: (DownloadAction) -> Unit,
+    showCancel: Boolean,
 ) {
     val options = listOf(
         DownloadAction.NEXT_1_CHAPTER to pluralStringResource(MR.plurals.download_amount, 1, 1),
@@ -58,6 +62,9 @@ private fun DownloadDropdownMenuItems(
         DownloadAction.NEXT_25_CHAPTERS to pluralStringResource(MR.plurals.download_amount, 25, 25),
         DownloadAction.UNREAD_CHAPTERS to stringResource(MR.strings.download_unread),
         DownloadAction.BOOKMARKED_CHAPTERS to stringResource(MR.strings.download_bookmarked),
+    ) + listOfNotNull(
+        // MANHWA: cancel what was asked to download here
+        (DownloadAction.CANCEL_QUEUED to stringResource(tachiyomi.i18n.at.ATMR.strings.download_cancel_work)).takeIf { showCancel },
     )
 
     options.map { (downloadAction, string) ->

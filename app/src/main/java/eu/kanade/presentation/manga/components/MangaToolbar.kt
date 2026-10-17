@@ -37,6 +37,8 @@ fun MangaToolbar(
     onClickRefresh: () -> Unit,
     onClickMigrate: (() -> Unit)?,
     onClickEditNotes: () -> Unit,
+    // MANHWA: chapters of this work are waiting to download
+    canCancelDownloads: Boolean = false,
 
     // For action mode
     actionModeCounter: Int,
@@ -70,6 +72,7 @@ fun MangaToolbar(
                     expanded = downloadExpanded,
                     onDismissRequest = onDismissRequest,
                     onDownloadClicked = onClickDownload,
+                    showCancel = canCancelDownloads,
                 )
             }
 

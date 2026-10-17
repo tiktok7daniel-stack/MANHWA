@@ -133,7 +133,14 @@ class LiveTranslator(
         /** "Translate this chapter now" from the reader: works on this chapter even with auto translation off. */
         @Volatile private var forced = false
 
-        private fun active() = preferences.liveTranslation().get() || forced
+        // MANHWA: a chapter already in the reading language (an Arabic source, the Arabic part of a fused work) is
+        // shown as it is; "translate now" still works on it
+        private fun active() = (preferences.liveTranslation().get() && !alreadyInTargetLanguage()) || forced
+
+        private fun alreadyInTargetLanguage(): Boolean {
+            val lang = sourceLang()?.lowercase()?.substringBefore('-') ?: return false
+            return lang == eu.kanade.translation.translator.TextTranslatorLanguage.fromPref(preferences.translateToLanguage()).code
+        }
 
         /** MANHWA: the chapter on screen already has a saved translation: nothing is translated again. */
         @Volatile private var savedChapter = false

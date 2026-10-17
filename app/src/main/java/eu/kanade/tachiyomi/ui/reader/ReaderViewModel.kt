@@ -136,6 +136,7 @@ class ReaderViewModel(
     private val chapterCache: ChapterCache,
     private val downloadCache: DownloadCache,
     private val translationPreferences: TranslationPreferences,
+    private val chapterFusion: eu.kanade.translation.unified.ChapterFusion,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -235,6 +236,11 @@ class ReaderViewModel(
                 } else {
                     filtered + getUnfilteredChapterList().filter { it.id == chapterId }
                 }
+            }
+            // MANHWA fusion: in a work's continuation, the chapters the work reads from its own source are left out
+            .let { list ->
+                val replacedUpTo = runCatching { chapterFusion.replacedUpTo(manga.id) }.getOrNull()
+                list.filter { it.id == chapterId || eu.kanade.translation.unified.FusionRules.keepInContinuation(it.chapterNumber, replacedUpTo) }
             }
 
         val selectedChapter = chapters.find { it.id == chapterId }
@@ -823,6 +829,25 @@ class ReaderViewModel(
     /**
      * Returns the currently active chapter.
      */
+    /**
+     * MANHWA fusion: the chapter of the fused work to go to when this reader's own list ends ([forward]) or
+     * begins, as (manga id, chapter id), with the source it is on; null when there is none.
+     */
+    suspend fun fusedNeighbour(forward: Boolean): Triple<Long, Long, String>? {
+        val manga = manga ?: return null
+        val chapter = getCurrentChapter()?.chapter ?: return null
+        val target = runCatching { chapterFusion.neighbour(manga.id, chapter.chapterNumber, forward) }.getOrNull() ?: return null
+        val sourceName = if (chapterFusion.fusionOf(manga.id) != null) {
+            chapterFusion.fusionOf(manga.id)?.otherSourceName
+        } else {
+            chapterFusion.continuationOf(manga.id)?.baseSourceName
+        }
+        return Triple(target.first, target.second, sourceName.orEmpty())
+    }
+
+    /** MANHWA fusion: this reader shows a fused work's continuation (to be translated). */
+    fun isFusedContinuation(): Boolean = manga?.let { chapterFusion.continuationOf(it.id) } != null
+
     private fun getCurrentChapter(): ReaderChapter? {
         return state.value.currentChapter
     }

@@ -119,12 +119,18 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                         if (firstItem is ChapterTransition.Prev && firstItem.to != null) {
                             activity.requestPreloadChapter(firstItem.to)
                         }
+                        // MANHWA fusion: before the first chapter here, the work goes on from its other source
+                        if (firstItem is ChapterTransition.Prev && firstItem.to == null) {
+                            activity.onChaptersEdge(forward = false)
+                        }
                     }
 
                     val lastIndex = layoutManager.findLastEndVisibleItemPosition()
                     val lastItem = adapter.items.getOrNull(lastIndex)
                     if (lastItem is ChapterTransition.Next && lastItem.to == null) {
                         activity.showMenu()
+                        // MANHWA fusion: past the last chapter here, the work goes on from its other source
+                        activity.onChaptersEdge(forward = true)
                     }
                 }
             },

@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -75,6 +78,8 @@ fun MangaChapterListItem(
     onTranslationClick: ((ChapterTranslationAction) -> Unit)?,
     onChapterSwipe: (LibraryPreferences.ChapterSwipeAction) -> Unit,
     modifier: Modifier = Modifier,
+    // MANHWA: where this chapter comes from in a fused work ("Arabic, ready · Team X")
+    badge: String? = null,
 ) {
     val start = getSwipeAction(
         action = chapterSwipeStartAction,
@@ -152,13 +157,26 @@ fun MangaChapterListItem(
                     )
                 }
 
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     val subtitleStyle = MaterialTheme.typography.bodySmall
                         .merge(
                             color = LocalContentColor.current
                                 .copy(alpha = if (read) DISABLED_ALPHA else SECONDARY_ALPHA),
                         )
                     ProvideTextStyle(value = subtitleStyle) {
+                        if (badge != null) {
+                            Text(
+                                text = badge,
+                                maxLines = 1,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF3DDC97),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFF3DDC97).copy(alpha = 0.16f))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
                         if (date != null) {
                             Text(
                                 text = date,

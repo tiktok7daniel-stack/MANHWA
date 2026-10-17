@@ -117,6 +117,7 @@ interface AppGraph : ViewModelGraph {
     val translationSearchIndex: eu.kanade.translation.search.TranslationSearchIndex
     val seriesBrain: eu.kanade.translation.brain.SeriesBrain
     val unifiedSources: eu.kanade.translation.unified.UnifiedSources
+    val chapterFusion: eu.kanade.translation.unified.ChapterFusion
 
     val crashLogUtil: CrashLogUtil
 

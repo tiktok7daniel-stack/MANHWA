@@ -111,6 +111,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
@@ -819,6 +820,14 @@ class ReaderActivity : BaseActivity() {
         binding.readerContainer.removeView(loadingIndicator)
         viewModel.state.value.viewer?.setChapters(viewerChapters)
 
+        // MANHWA fusion: a work's continuation from another source is translated by the app as it is read
+        if (!fusionTranslationChecked) {
+            fusionTranslationChecked = true
+            if (viewModel.isFusedContinuation() && !appGraph.translationPreferences.liveTranslation().get()) {
+                viewModel.liveTranslation.setEnabled(true)
+            }
+        }
+
         lifecycleScope.launch(Dispatchers.IO) {
             viewModel.getChapterUrl()?.let { url ->
                 assistUrl = url
@@ -1023,6 +1032,31 @@ class ReaderActivity : BaseActivity() {
      */
     fun toggleMenu() {
         setMenuVisibility(!viewModel.state.value.menuVisible)
+    }
+
+    private var fusionTranslationChecked = false
+
+    /** MANHWA fusion: edges of this reader's list already looked at (chapter id and direction). */
+    private val fusionEdgesChecked = mutableSetOf<String>()
+
+    /**
+     * MANHWA fusion: called by the viewers when the reader reaches the end ([forward]) or the start of its own
+     * chapters. In a fused work the next chapter is on the other source: the reader opens it there by itself.
+     */
+    fun onChaptersEdge(forward: Boolean) {
+        val chapterId = viewModel.state.value.currentChapter?.chapter?.id ?: return
+        if (!fusionEdgesChecked.add("$chapterId:$forward")) return
+        lifecycleScope.launch {
+            val target = withContext(Dispatchers.IO) { viewModel.fusedNeighbour(forward) } ?: return@launch
+            if (isFinishing) return@launch
+            android.widget.Toast.makeText(
+                this@ReaderActivity,
+                stringResource(tachiyomi.i18n.at.ATMR.strings.fusion_continuing, target.third),
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+            startActivity(newIntent(this@ReaderActivity, target.first, target.second))
+            finish()
+        }
     }
 
     /**

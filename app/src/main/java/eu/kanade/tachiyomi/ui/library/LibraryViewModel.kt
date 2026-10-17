@@ -504,6 +504,7 @@ class LibraryViewModel(
             DownloadAction.NEXT_25_CHAPTERS -> downloadNextChapters(25)
             DownloadAction.UNREAD_CHAPTERS -> downloadNextChapters(null)
             DownloadAction.BOOKMARKED_CHAPTERS -> downloadBookmarkedChapters()
+            DownloadAction.CANCEL_QUEUED -> Unit
         }
         clearSelection()
     }

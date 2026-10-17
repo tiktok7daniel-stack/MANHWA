@@ -914,4 +914,25 @@
     <string name="wn_bubbles_b">التطبيق بقى بيلاقي حدود كل فقاعة كلام، فمفيش فقاعتين جنب بعض يتقروا كأنهم جملة واحدة.</string>
     <string name="wn_audit_t">أثبت وأأمن</string>
     <string name="wn_audit_b">فحص كامل للتطبيق: الحفظ مبقاش ممكن يتقطع في النص (القاموس، والتصحيحات، والتعديلات)، والفصول مبقتش بتستنى للأبد لما كل المفاتيح تستريح، والقارئ مبقاش بيعيد ترجمة فصل متحفظ، والتطبيق بقى بيفتح أسرع.</string>
+    <string name="fusion_offer">الترجمة هنا متوقفة عند الفصل %1$s، وفي تكملة لحد الفصل %3$s في مصدر %2$s. تحب تدمج المصدرين مع بعض؟</string>
+    <string name="fusion_yes">نعم، ادمج الفصول وكمّل المانهوا</string>
+    <string name="fusion_no">مش دلوقتي</string>
+    <string name="fusion_mode">وضع الاندماج الذكي: %1$s %2$s + تكملة %3$s %4$s</string>
+    <string name="fusion_unfuse">إلغاء الدمج</string>
+    <string name="fusion_change">غيّر المصدر</string>
+    <string name="fusion_change_title">كمّل من</string>
+    <string name="fusion_search">دوّر على تكملة في المصادر التانية</string>
+    <string name="fusion_searching">بدوّر في المصادر التانية…</string>
+    <string name="fusion_none">مفيش مصدر فيه فصول أكتر دلوقتي</string>
+    <string name="fusion_badge_ready_ar">عربي جاهز · %1$s</string>
+    <string name="fusion_badge_ready">جاهز · %1$s</string>
+    <string name="fusion_badge_next">تكملة %1$s · %2$s</string>
+    <string name="fusion_chapter">الفصل %1$s</string>
+    <string name="fusion_continuing">بنكمّل من %1$s</string>
+    <string name="fusion_translate_queued">اتضاف لقائمة الترجمة</string>
+    <string name="download_cancel_work">إلغاء تحميلات العمل ده</string>
+    <string name="wn_fusion_t">الاندماج الذكي للفصول</string>
+    <string name="wn_fusion_b">لما الترجمة العربية لعمل تقف، التطبيق بيلاقي التكملة في مصدر إنجليزي ويدمجهم في قائمة واحدة: الفصول العربية بتتقري زي ما هي، والباقي بيترجمه التطبيق، والقارئ بينقل بينهم لوحده.</string>
+    <string name="wn_networks_t">التحميل على أي شبكة</string>
+    <string name="wn_networks_b">بيانات أو واي فاي: الموقع اللي الشبكة بتخبيه بيتوصله بطريقة آمنة تانية، والفصل اللي النت يقطعه بيكمّل لوحده، وتقدر تلغي تحميلات العمل من قائمة التحميل بتاعته.</string>
 </resources>
