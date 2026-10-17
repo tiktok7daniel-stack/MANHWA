@@ -31,6 +31,18 @@ class LocalAiTranslator(
 
     private val fallback = GoogleTranslator(fromLang, toLang)
 
+    /** MANHWA: the last lines this translator did, given to the next call so pronouns and tone carry on. */
+    private var recent: List<Pair<String, String>> = emptyList()
+
+    /** The model's line finished like every engine's: clean, the glossary's names, polished Arabic. */
+    private fun finish(translation: String, source: String): String {
+        val clean = eu.kanade.translation.translator.TextSanitizer.clean(translation, source, toLang)
+        if (toLang != TextTranslatorLanguage.ARABIC) return clean
+        val repaired = eu.kanade.translation.translator.LeakRepair.repair(clean, glossary)
+        val named = eu.kanade.translation.glossary.GlossaryEnforcer.fix(source, repaired, glossary)
+        return eu.kanade.translation.translator.ArabicPolisher.polish(named)
+    }
+
     /** Called after every few lines, so the chapter shows it is moving (done, total steps). */
     var onBatchDone: ((Int, Int) -> Unit)? = null
 
@@ -58,7 +70,7 @@ class LocalAiTranslator(
                 blocks.forEachIndexed { i, b ->
                     val t = polished.getOrNull(i) ?: drafts.getOrNull(i)
                     if (t != null) {
-                        b.translation = t
+                        b.translation = finish(t, b.text)
                         b.by = "local"
                     } else {
                         left += b
@@ -86,7 +98,7 @@ class LocalAiTranslator(
             chunk.forEachIndexed { i, block ->
                 val t = answers?.getOrNull(i)?.trim().orEmpty()
                 if (LocalAiRules.usable(block.text, t, toLang.code)) {
-                    block.translation = t
+                    block.translation = finish(t, block.text)
                     block.by = "local"
                 } else {
                     missing += chunkIndex * LINES_PER_CALL + i
@@ -164,6 +176,9 @@ class LocalAiTranslator(
         val terms = glossary.entries.filter { (k, _) -> lines.any { it.contains(k, ignoreCase = true) } }.take(30)
         val prompt = buildString {
             appendLine("You translate manhwa speech bubbles into ${toLang.label}. Short, natural, spoken. Keep names as given.")
+            if (toLang == TextTranslatorLanguage.ARABIC) {
+                appendLine("Arabic: verbs and pronouns agree with who speaks and who is spoken to (man or woman), from the names and the lines before.")
+            }
             if (terms.isNotEmpty()) appendLine("Names and terms: " + terms.joinToString("; ") { "${it.key} = ${it.value}" })
             if (instructions.isNotBlank()) appendLine(instructions.take(800))
             // What the big models corrected before: the phone writes like them
@@ -172,17 +187,27 @@ class LocalAiTranslator(
                 appendLine("Write like these corrected examples:")
                 examples.forEach { appendLine("\"${it.source.take(100)}\" -> \"${it.final.take(100)}\"") }
             }
+            // The lines just before, so "you", "he" and "she" keep pointing at the same people
+            if (recent.isNotEmpty()) {
+                appendLine("Just before (context only, do not translate again):")
+                recent.forEach { (s, t) -> appendLine("\"${s.take(100)}\" -> \"${t.take(100)}\"") }
+            }
             appendLine("Translate each numbered line. Reply with ONLY a JSON object: {\"t\":[\"...\",\"...\"]} with ${lines.size} items in order.")
             lines.forEachIndexed { i, l -> appendLine("${i + 1}. ${l.take(300)}") }
         }
         val reply = LocalAiEngine.generate(context, prompt, model) ?: return null
-        return LocalAiRules.parse(reply, json)
+        val answers = LocalAiRules.parse(reply, json) ?: return null
+        recent = (recent + lines.zip(answers).filter { it.second.isNotBlank() }).takeLast(RECENT_LINES)
+        return answers
     }
 
     override fun close() = Unit
 
     private companion object {
         const val LINES_PER_CALL = 8
+
+        /** Few: a small model reads every word of its prompt before it answers. */
+        const val RECENT_LINES = 4
     }
 }
 

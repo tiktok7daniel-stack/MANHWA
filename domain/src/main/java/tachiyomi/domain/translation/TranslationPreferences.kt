@@ -172,6 +172,9 @@ class TranslationPreferences(
     /** A second on-device model that judges between two translations (empty: the main one judges). */
     fun translationLocalJudgePath() = preferenceStore.getString("manhwa_translation_local_judge_path", "")
 
+    /** MANHWA: the phone's GPU could not run the on-device model once; it runs on the CPU from then on. */
+    fun translationLocalGpuFailed() = preferenceStore.getBoolean("manhwa_translation_local_gpu_failed", false)
+
     /** The reader's own Hugging Face token, only to download gated models they accepted (kept on the phone). */
     fun translationHfToken() = preferenceStore.getString("manhwa_translation_hf_token", "")
 

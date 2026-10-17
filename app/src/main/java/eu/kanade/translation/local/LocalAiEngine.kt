@@ -132,14 +132,31 @@ object LocalAiEngine {
             oldest.lock.withLock { runCatching { oldest.engine.close() } }
             slots.remove(oldest.path)
         }
-        val engine = LlmInference.createFromOptions(
+        Slot(file.absolutePath, file.length(), create(context, file)).also { slots[it.path] = it }
+    }
+
+    /**
+     * MANHWA: the model runs on the phone's GPU (several times faster on most phones); a phone whose GPU can't run
+     * it falls back to the CPU, and is remembered so it is not tried again.
+     */
+    private fun create(context: Context, file: File): LlmInference {
+        val prefs = context.appGraph.translationPreferences
+        fun build(backend: LlmInference.Backend) = LlmInference.createFromOptions(
             context.applicationContext,
             LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(file.absolutePath)
                 .setMaxTokens(MAX_TOKENS)
+                .setPreferredBackend(backend)
                 .build(),
         )
-        Slot(file.absolutePath, file.length(), engine).also { slots[it.path] = it }
+        if (!prefs.translationLocalGpuFailed().get()) {
+            runCatching { return build(LlmInference.Backend.GPU) }
+                .onFailure {
+                    logcat(LogPriority.WARN, it) { "The on-device AI can't run on this GPU, using the CPU" }
+                    prefs.translationLocalGpuFailed().set(true)
+                }
+        }
+        return build(LlmInference.Backend.CPU)
     }
 
     /** The models loaded now (for the screen). */
