@@ -557,6 +557,8 @@ class LiveTranslator(
             }
             // MANHWA: the team is the AI here too. With "quick draft" on, Google's draft shows first and the team's
             // translation replaces it; without any working key, the engine chosen for "no keys" translates.
+            // MANHWA home server: the laptop is pinged when its last answer is old (3 seconds at most)
+            runCatching { teamStore.pingHome() }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
             val team = teamStore.active()
             val quickDraft = preferences.translationQuickDraft().get()
             val teamSignature = team.joinToString(",") { "${it.id}:${it.model}:${it.key.hashCode()}:${it.baseUrl}" } +

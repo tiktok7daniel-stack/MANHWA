@@ -116,6 +116,9 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
         val providerEnum: AiTranslator.Provider
             get() = AiTranslator.Provider.entries.firstOrNull { it.name == provider } ?: AiTranslator.Provider.GEMINI
+
+        /** MANHWA: the reader's own computer (Ollama and the like), not a site. */
+        val isHomeServer: Boolean get() = site == KeySites.HOME_SERVER
     }
 
     /** What the analysis found: [ok] or why not, speed, model, images, and the strength it gives. */
@@ -239,10 +242,92 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         _health.update { it - id }
     }
 
-    /** The members the team works with: enabled, with a key, and not known to be broken. */
-    fun active(): List<Member> = _members.value.filter { m ->
-        m.enabled && m.key.isNotBlank() && _analysis.value[m.id]?.let { it.ok || it.limited } != false && !usage.exhausted(m) &&
-            keyHealth[m.id].statusEnum != ModelHealthManager.Status.DISABLED
+    /**
+     * The members the team works with: enabled, with a key, and not known to be broken. MANHWA home server: while
+     * the laptop answers, it does the work alone; when it does not (out of the house), the other keys do (or the
+     * phone's model when there are none). [TranslationPreferences.translationServerMode] can fix one side.
+     */
+    fun active(): List<Member> {
+        val ready = _members.value.filter { m ->
+            if (!m.enabled || keyHealth[m.id].statusEnum == ModelHealthManager.Status.DISABLED) return@filter false
+            // The laptop needs no key, and whether it answers is told by its ping, not by an old check
+            if (m.isHomeServer) return@filter m.baseUrl.isNotBlank()
+            m.key.isNotBlank() && _analysis.value[m.id]?.let { it.ok || it.limited } != false && !usage.exhausted(m)
+        }
+        val (home, others) = ready.partition { it.isHomeServer }
+        if (home.isNotEmpty()) pingHomeSoon(home)
+        val answering = home.filter { homeAnswers(it.baseUrl) == true }
+        return LocalServerRules.pick(prefs.translationServerMode().get(), answering, home, others)
+    }
+
+    /** Where translation runs now: the laptop, the cloud keys, or the phone (no key works). */
+    fun servingOn(): LocalServerRules.Serving {
+        val now = active()
+        return when {
+            now.any { it.isHomeServer } -> LocalServerRules.Serving.HOME
+            now.isNotEmpty() -> LocalServerRules.Serving.CLOUD
+            else -> LocalServerRules.Serving.PHONE
+        }
+    }
+
+    /** MANHWA home server: whether each address answered its last ping, and when. */
+    private val homeReach = ConcurrentHashMap<String, Pair<Boolean, Long>>()
+    private val homePinging = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val pingClient by lazy {
+        okhttp3.OkHttpClient.Builder()
+            .connectTimeout(LocalServerRules.PING_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .readTimeout(LocalServerRules.PING_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .callTimeout(LocalServerRules.PING_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .build()
+    }
+
+    /** The last ping of [baseUrl] while it is fresh (5 minutes), else null. */
+    fun homeAnswers(baseUrl: String): Boolean? =
+        homeReach[baseUrl.trim()]?.takeIf { LocalServerRules.fresh(it.second, System.currentTimeMillis()) }?.first
+
+    /** Pings in the background the home servers whose last ping is old, so [active] never waits for one. */
+    private fun pingHomeSoon(home: List<Member>) {
+        if (home.all { homeAnswers(it.baseUrl) != null } || !homePinging.compareAndSet(false, true)) return
+        healScope.launch {
+            try {
+                pingHome()
+            } finally {
+                homePinging.set(false)
+            }
+        }
+    }
+
+    /**
+     * Pings every home server (3 seconds at most each) whose last ping is old, or all with [force]. Called before
+     * a chapter is translated, so the first one at home already goes to the laptop.
+     */
+    suspend fun pingHome(force: Boolean = false) = withContext(Dispatchers.IO) {
+        _members.value.filter { it.enabled && it.isHomeServer && it.baseUrl.isNotBlank() }
+            .distinctBy { it.baseUrl.trim() }
+            .filter { force || homeAnswers(it.baseUrl) == null }
+            .forEach { m -> homeReach[m.baseUrl.trim()] = ping(m.baseUrl, m.key) to System.currentTimeMillis() }
+    }
+
+    /** The models the home server at [baseUrl] lists, or null when it does not answer within 3 seconds. */
+    fun homeModels(baseUrl: String, key: String): List<String>? = runCatching {
+        val request = okhttp3.Request.Builder().url(LocalServerRules.modelsUrl(baseUrl)).apply {
+            if (key.isNotBlank()) header("Authorization", "Bearer ${key.trim()}")
+        }.build()
+        pingClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@use null
+            val body = response.body.string()
+            LocalServerRules.modelIds(body)
+        }
+    }.getOrNull()
+
+    private fun ping(baseUrl: String, key: String): Boolean = homeModels(baseUrl, key) != null
+
+    /** A failed call to the laptop: it is taken as away at once, so the next lines go to the other keys. */
+    private fun homeFailed(id: String, error: Throwable) {
+        val member = _members.value.firstOrNull { it.id == id }?.takeIf { it.isHomeServer } ?: return
+        if (error is java.io.IOException || error is kotlinx.coroutines.TimeoutCancellationException) {
+            homeReach[member.baseUrl.trim()] = false to System.currentTimeMillis()
+        }
     }
 
     /** Strength now (1–100): the analysis, adjusted by how the member has done while translating. */
@@ -307,6 +392,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
     /** A failed call: a busy or limited key rests for [restMs] while the others carry on. */
     fun reportFailure(id: String, error: Throwable, restMs: Long) {
+        homeFailed(id, error)
         _health.update { map ->
             val old = map[id] ?: Health()
             map + (

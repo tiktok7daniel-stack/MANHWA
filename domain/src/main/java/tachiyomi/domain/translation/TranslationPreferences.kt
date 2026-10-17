@@ -166,6 +166,12 @@ class TranslationPreferences(
     /** One work, all sources: a dead source or a missing chapter is read from another source by itself. */
     fun translationUnifiedSources() = preferenceStore.getBoolean("manhwa_translation_unified_sources", true)
 
+    /**
+     * MANHWA home server: AUTO (the laptop when it answers, else the other keys or the phone), HOME (the laptop
+     * only) or CLOUD (never the laptop).
+     */
+    fun translationServerMode() = preferenceStore.getString("manhwa_translation_server_mode", "AUTO")
+
     /** The hybrid orchestra: the on-device models and the team's keys work on every chapter together. */
     fun translationOrchestra() = preferenceStore.getBoolean("manhwa_translation_orchestra", true)
 

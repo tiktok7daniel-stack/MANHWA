@@ -274,6 +274,8 @@ class TranslationTeamScreen : Screen() {
                     }
                     // MANHWA: the phone's own model plays in the team with every key
                     item { PhoneMemberCard { navigator.push(eu.kanade.translation.local.LocalModelsScreen()) } }
+                    // MANHWA: the reader's laptop as a free translation server at home
+                    item { HomeServerCard { navigator.push(HomeServerScreen()) } }
                     // MANHWA: which keys translated well lately, and where to get more like them
                     if (members.isNotEmpty()) item { BestKeysCard(store, members) }
                     if (members.isEmpty()) {

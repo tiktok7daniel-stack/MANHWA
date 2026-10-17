@@ -1114,4 +1114,37 @@
     <string name="wn_nara_b">A key starting with sk- that OpenAI refuses is now tried on NaraRouter, DeepSeek, SiliconFlow, Kimi and Qwen, and moves to the site that takes it. On NaraRouter the free models are picked first, and up to 3 models are tried before a key is called broken. When none works, the message names every site tried and what it answered.</string>
     <string name="wn_repeat_t">Phone model lines no longer repeated</string>
     <string name="wn_repeat_b">The phone model sometimes wrote a line twice with an arrow and (=) in the bubble. Its answer is now read right, the instruction it gets is clearer, chapters already translated that way show the line once, and such lines are never saved to the library. By default it now translates each line once, straight away; the fix-only way is used only when the speed test picks it on your phone.</string>
+    <string name="hs_title">Home server (laptop)</string>
+    <string name="hs_subtitle">Your computer translates for free at home</string>
+    <string name="hs_card_none">Not set: tap to use your laptop as a free translation server</string>
+    <string name="hs_card_on">Answering now · %1$s</string>
+    <string name="hs_card_off">Not answering now: the other keys or the phone translate</string>
+    <string name="hs_card_checking">Checking…</string>
+    <string name="hs_address">Server address</string>
+    <string name="hs_model">Model name</string>
+    <string name="hs_key">Key (optional, empty for Ollama)</string>
+    <string name="hs_test">Test the connection</string>
+    <string name="hs_testing">Testing…</string>
+    <string name="hs_test_ok">Connected: the server lists %1$d models. Pick one below.</string>
+    <string name="hs_test_fail">No answer within 3 seconds. Check that the laptop is on, Ollama is running, and the phone is on the same Wi-Fi (or Tailscale).</string>
+    <string name="hs_save">Save and add to the team</string>
+    <string name="hs_saved">Saved: while the laptop answers, it translates; when it does not, the other keys or the phone take over.</string>
+    <string name="hs_member_name">Home server</string>
+    <string name="hs_mode">Translate on</string>
+    <string name="hs_mode_auto">Automatic</string>
+    <string name="hs_mode_home">Laptop only</string>
+    <string name="hs_mode_cloud">Never the laptop</string>
+    <string name="hs_mode_help">Automatic: before translating, the app checks the laptop (3 seconds at most, then every 5 minutes). It answers: everything goes to it. It does not: the other keys translate, or the phone model when there is no key. Laptop only: nothing else is used. Never the laptop: only the other keys.</string>
+    <string name="hs_away_title">Away from home</string>
+    <string name="hs_tailscale">To reach the laptop from outside the house: install Tailscale on the laptop and the phone with the same account, and put the name of the laptop here instead of the IP, like http://laptop-name:11434/v1. Without it, the app switches to your other keys or the phone model by itself when you leave.</string>
+    <string name="hs_models_title">Models for an RTX 4060 (8 GB)</string>
+    <string name="hs_models">A 7B model in Q4 fits (about 5 GB of video memory). A model made for translation (like Hunyuan-MT / Hy-MT 7B) is the most accurate if you find it for Ollama; qwen2.5:7b is a general model that translates well and is easy to get. Bigger than about 8B will not fit in 8 GB and gets slow.</string>
+    <string name="hs_setup_title">Setting up the laptop</string>
+    <string name="hs_setup">1. Install Ollama from ollama.com.\n2. In a terminal: ollama pull qwen2.5:7b\n3. Let the phone reach it: set the environment variable OLLAMA_HOST to 0.0.0.0 (Windows: Settings, System, About, Advanced system settings, Environment variables), then quit Ollama from the tray and open it again.\n4. Allow port 11434 in Windows Firewall for private networks.\n5. Find the laptop IP: in a terminal, ipconfig, the IPv4 line (like 192.168.1.50). The address is then http://192.168.1.50:11434/v1\n6. Tap Test the connection. The laptop has to stay on and awake while it translates.</string>
+    <string name="serving_on">Translating on: %1$s</string>
+    <string name="serving_home">home server</string>
+    <string name="serving_cloud">cloud keys</string>
+    <string name="serving_phone">phone model</string>
+    <string name="wn_home_t">Your laptop as a free translation server</string>
+    <string name="wn_home_b">In the translation team, Home server: put the address of Ollama on your laptop and it translates for free at home. When it does not answer (out of the house), the other keys or the phone model take over by themselves, and Translating now shows where it runs. Works from outside too with Tailscale.</string>
 </resources>

@@ -404,6 +404,8 @@ class ChapterTranslator(
                 textRecognizer = TextRecognizer(translation.fromLang)
             }
             val recognizer = textRecognizer!!
+            // MANHWA home server: is the laptop there (3 seconds at most, then trusted for 5 minutes)?
+            runCatching { teamStore.pingHome() }.onFailure { if (it is CancellationException) throw it }
             // Check if translator reinitialization is needed: other languages, another engine, or the team changed
             val signature = translatorSignature(translation)
             if (signature != builtFor) {

@@ -1055,4 +1055,37 @@
     <string name="wn_nara_b">المفتاح اللي بيبدأ بـ sk- ولو OpenAI رفضته، بقى بيتجرب على NaraRouter وDeepSeek وSiliconFlow وKimi وQwen، ويتنقل للموقع اللي يقبله. وعلى NaraRouter الموديلات المجانية بتتختار الأول، وبيتجرب لحد 3 موديلات قبل ما المفتاح يتقال عليه بايظ. ولو مفيش موقع قبله، الرسالة بتقول اتجرب فين والموقع رد بإيه.</string>
     <string name="wn_repeat_t">موديل الموبايل ما بقاش بيكرر الجملة</string>
     <string name="wn_repeat_b">موديل الموبايل كان ساعات بيكتب الجملة مرتين وبينهم سهم و(=) في الفقاعة. دلوقتي رده بيتقري صح، والتعليمات اللي بتروحله بقت أوضح، والفصول اللي اتترجمت كده بتظهر الجملة مرة واحدة، والجمل دي ما بتتحفظش في مكتبة الترجمة. وبقى افتراضياً بيترجم كل سطر مرة واحدة على طول، وطريقة "تصليح بس" بتشتغل بس لو اختبار السرعة اختارها على موبايلك.</string>
+    <string name="hs_title">سيرفر البيت (اللابتوب)</string>
+    <string name="hs_subtitle">الكمبيوتر بتاعك بيترجم ببلاش وانت في البيت</string>
+    <string name="hs_card_none">مش متظبط: دوس عشان تستخدم اللابتوب سيرفر ترجمة ببلاش</string>
+    <string name="hs_card_on">شغال دلوقتي · %1$s</string>
+    <string name="hs_card_off">مش بيرد دلوقتي: المفاتيح التانية أو الموبايل بيترجموا</string>
+    <string name="hs_card_checking">بيتأكد…</string>
+    <string name="hs_address">عنوان السيرفر</string>
+    <string name="hs_model">اسم الموديل</string>
+    <string name="hs_key">مفتاح (اختياري، سيبه فاضي مع Ollama)</string>
+    <string name="hs_test">اختبر الاتصال</string>
+    <string name="hs_testing">بيختبر…</string>
+    <string name="hs_test_ok">اتوصل: السيرفر فيه %1$d موديل. اختار واحد من تحت.</string>
+    <string name="hs_test_fail">ما ردش في 3 ثواني. اتأكد إن اللابتوب شغال وOllama مفتوح والموبايل على نفس الواي فاي (أو Tailscale).</string>
+    <string name="hs_save">احفظ وضيفه للفريق</string>
+    <string name="hs_saved">اتحفظ: طول ما اللابتوب بيرد هو اللي بيترجم، ولما ما يردش المفاتيح التانية أو الموبايل بيكمّلوا.</string>
+    <string name="hs_member_name">سيرفر البيت</string>
+    <string name="hs_mode">الترجمة على</string>
+    <string name="hs_mode_auto">أوتوماتيك</string>
+    <string name="hs_mode_home">اللابتوب بس</string>
+    <string name="hs_mode_cloud">من غير اللابتوب</string>
+    <string name="hs_mode_help">أوتوماتيك: قبل الترجمة التطبيق بيشوف اللابتوب (3 ثواني بالكتير، وبعدين كل 5 دقايق). لو رد، الشغل كله بيروحله. لو ما ردش، المفاتيح التانية بتترجم، أو موديل الموبايل لو مفيش مفاتيح. اللابتوب بس: مفيش حاجة تانية بتشتغل. من غير اللابتوب: المفاتيح التانية بس.</string>
+    <string name="hs_away_title">وانت بره البيت</string>
+    <string name="hs_tailscale">عشان توصل للابتوب من بره البيت: ثبّت Tailscale على اللابتوب والموبايل بنفس الحساب، وحط هنا اسم اللابتوب بدل الـ IP، زي http://laptop-name:11434/v1. ومن غيره، التطبيق بيتحول لوحده للمفاتيح التانية أو موديل الموبايل لما تطلع.</string>
+    <string name="hs_models_title">موديلات لكارت RTX 4060 (8 جيجا)</string>
+    <string name="hs_models">موديل 7B بضغط Q4 بيكفي (حوالي 5 جيجا من ذاكرة الكارت). الموديل المعمول للترجمة (زي Hunyuan-MT / Hy-MT 7B) هو الأدق لو لقيته لـ Ollama، وqwen2.5:7b موديل عام بيترجم كويس وسهل تجيبه. أكبر من حوالي 8B مش هيكفي في 8 جيجا وهيبقى بطيء.</string>
+    <string name="hs_setup_title">تظبيط اللابتوب</string>
+    <string name="hs_setup">1. نزّل Ollama من ollama.com.\n2. في التيرمنال: ollama pull qwen2.5:7b\n3. خلي الموبايل يقدر يوصله: اعمل متغير بيئة اسمه OLLAMA_HOST وقيمته 0.0.0.0 (في ويندوز: الإعدادات، النظام، حول، إعدادات النظام المتقدمة، متغيرات البيئة)، وبعدين اقفل Ollama من جنب الساعة وافتحه تاني.\n4. اسمح بالبورت 11434 في جدار الحماية بتاع ويندوز للشبكات الخاصة.\n5. اعرف IP اللابتوب: في التيرمنال اكتب ipconfig وبص على سطر IPv4 (زي 192.168.1.50). العنوان يبقى http://192.168.1.50:11434/v1\n6. دوس اختبر الاتصال. واللابتوب لازم يفضل شغال ومش نايم وهو بيترجم.</string>
+    <string name="serving_on">بيترجم على: %1$s</string>
+    <string name="serving_home">سيرفر البيت</string>
+    <string name="serving_cloud">مفاتيح السحابة</string>
+    <string name="serving_phone">موديل الموبايل</string>
+    <string name="wn_home_t">اللابتوب بتاعك سيرفر ترجمة ببلاش</string>
+    <string name="wn_home_b">في فريق الترجمة، سيرفر البيت: حط عنوان Ollama اللي على اللابتوب وهيترجم ببلاش وانت في البيت. ولما ما يردش (وانت بره)، المفاتيح التانية أو موديل الموبايل بيكمّلوا لوحدهم، و"بيترجم دلوقتي" بتقولك الترجمة شغالة على إيه. وبيشتغل من بره البيت كمان بـ Tailscale.</string>
 </resources>

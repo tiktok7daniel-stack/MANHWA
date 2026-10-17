@@ -23,6 +23,9 @@ object KeySites {
 
     const val CUSTOM = "custom"
 
+    /** MANHWA: the reader's own computer running Ollama, LM Studio or llama.cpp (an OpenAI-compatible server). */
+    const val HOME_SERVER = "home_server"
+
     val all: List<Site> = listOf(
         Site(
             "gemini", "Gemini", Provider.GEMINI, Provider.GEMINI.defaultBaseUrl, "https://aistudio.google.com/app/apikey", "gemini-2.5-flash",

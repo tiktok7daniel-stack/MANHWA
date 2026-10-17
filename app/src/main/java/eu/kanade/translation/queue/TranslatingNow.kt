@@ -245,6 +245,7 @@ class TranslatingNowScreen : Screen() {
                         // MANHWA: Android's battery limits still on for the app: one tap so the translation goes on
                         // with the app left or the screen off
                         item(key = "background") { BackgroundCard() }
+                        item(key = "serving") { ServingOnLine() }
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 if (running) {
@@ -358,6 +359,32 @@ class TranslatingNowScreen : Screen() {
             }
         }
     }
+}
+
+/** MANHWA home server: where translation runs now (the laptop, the cloud keys, or the phone's model). */
+@Composable
+private fun ServingOnLine() {
+    val context = LocalContext.current
+    val store = remember { context.appGraph.teamStore }
+    // Asked again every few seconds: the laptop may come and go
+    val serving by androidx.compose.runtime.produceState(store.servingOn()) {
+        while (true) {
+            kotlinx.coroutines.delay(5_000)
+            value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { store.servingOn() }
+        }
+    }
+    val where = when (serving) {
+        eu.kanade.translation.team.LocalServerRules.Serving.HOME -> stringResource(ATMR.strings.serving_home)
+        eu.kanade.translation.team.LocalServerRules.Serving.CLOUD -> stringResource(ATMR.strings.serving_cloud)
+        eu.kanade.translation.team.LocalServerRules.Serving.PHONE -> stringResource(ATMR.strings.serving_phone)
+    }
+    Text(
+        stringResource(ATMR.strings.serving_on, where),
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = Color.White.copy(alpha = 0.8f),
+        modifier = Modifier.glass(RoundedCornerShape(50), alpha = 0.35f).padding(horizontal = 14.dp, vertical = 6.dp),
+    )
 }
 
 /** Shown while Android's battery limits apply to the app; it opens Android's own question to lift them. */
