@@ -390,16 +390,45 @@ object LocalAiRules {
     }
 
     fun editRule(count: Int): String =
-        "Reply with ONLY $count numbered lines (1. ...): \"=\" when the draft is right as it is, else the corrected " +
-            "translation (or the translation when the draft is ?). Fix meaning, names, man or woman, and tone; nothing else."
+        "Reply with ONLY $count numbered lines (1. ...): \"=\" alone when the draft is right as it is, else only the " +
+            "corrected translation (or the translation when the draft is ?). Never copy the English, the draft or the ⇒. " +
+            "Fix meaning, names, man or woman, and tone; nothing else."
 
-    /** The fix-only answers made into lines: "=" (or an empty answer) keeps the draft. */
+    /**
+     * The fix-only answers made into lines: "=" (or an empty answer) keeps the draft. A small model often copies the
+     * line back ("draft ⇒ draft (=)"): only what follows the last arrow is its answer, and a "(=)" at its end keeps
+     * the draft.
+     */
     fun resolveEdits(answers: List<String>, drafts: List<String?>): List<String> =
         answers.mapIndexed { i, a ->
-            val t = a.trim()
             val draft = drafts.getOrNull(i)
-            if ((t.isEmpty() || t == "=" || t == "＝") && draft != null) draft else t
+            val afterArrow = afterLastArrow(a)
+            val keeps = KEEP_MARK.containsMatchIn(afterArrow)
+            val t = afterArrow.replace(KEEP_MARK, "").trim()
+            if (draft != null && (keeps || t.isEmpty())) draft else t
         }
+
+    /**
+     * A translation where the fix-only reply leaked ("draft ⇒ draft (=)"), from before replies were read this way:
+     * the answer it holds, or null when it is clean.
+     */
+    fun repairLeak(translation: String): String? {
+        if (!leaked(translation)) return null
+        return afterLastArrow(translation).replace(KEEP_MARK, "").trim()
+    }
+
+    fun leaked(translation: String): Boolean = '⇒' in translation || KEEP_MARK.containsMatchIn(translation)
+
+    private fun afterLastArrow(text: String): String {
+        val t = text.trim()
+        val arrow = ARROW.findAll(t).lastOrNull() ?: return t
+        return t.substring(arrow.range.last + 1).trim()
+    }
+
+    private val ARROW = Regex("⇒|=>|→")
+
+    /** "=" or "(=)" at the end of an answer: the draft is kept. */
+    private val KEEP_MARK = Regex("[(（]\\s*[=＝]\\s*[)）]\\s*$|(^|\\s)[=＝]\\s*$")
 
     /** For each line, the index of its first copy in [lines] (the same line, spaces and case aside). */
     fun firstOf(lines: List<String>): List<Int> {
@@ -527,7 +556,7 @@ object LocalAiRules {
 
     /** A translation worth keeping: not empty, not the source again, in Arabic letters when the target is Arabic. */
     fun usable(source: String, translation: String, targetCode: String): Boolean {
-        if (translation.isBlank()) return false
+        if (translation.isBlank() || leaked(translation)) return false
         if (translation.equals(source.trim(), ignoreCase = true) && source.any { it.isLetter() }) return false
         if (targetCode == "ar") {
             val letters = translation.filter { it.isLetter() }

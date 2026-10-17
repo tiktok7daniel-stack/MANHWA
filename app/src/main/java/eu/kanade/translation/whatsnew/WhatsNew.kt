@@ -115,6 +115,7 @@ object WhatsNew {
             Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_pip_t, ATMR.strings.wn_pip_b),
             Feature(MaterialSymbols.Rounded.Widgets, ATMR.strings.wn_float_t, ATMR.strings.wn_float_b),
             Feature(MaterialSymbols.Rounded.Key, ATMR.strings.wn_nara_t, ATMR.strings.wn_nara_b),
+            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_repeat_t, ATMR.strings.wn_repeat_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */

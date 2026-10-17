@@ -13,7 +13,25 @@ class PhoneCascadeTest {
     @Test
     fun `an equals sign keeps the draft and a written line replaces it`() {
         LocalAiRules.resolveEdits(listOf("=", "جين وو، اهرب!", "", "＝"), listOf("مرحبا", "اهرب", "لا", null)) shouldBe
-            listOf("مرحبا", "جين وو، اهرب!", "لا", "＝")
+            listOf("مرحبا", "جين وو، اهرب!", "لا", "")
+    }
+
+    @Test
+    fun `a reply that copies the line back keeps only its answer`() {
+        val draft = "أقدر عرضك... ولكن معرف ترغب في البقاء هنا."
+        LocalAiRules.resolveEdits(listOf("$draft ⇒ $draft (=)"), listOf(draft)) shouldBe listOf(draft)
+        LocalAiRules.resolveEdits(listOf("Stay behind me. ⇒ ابقَ خلفي."), listOf("ابق ورائي")) shouldBe listOf("ابقَ خلفي.")
+        LocalAiRules.resolveEdits(listOf("ابقَ خلفي. ="), listOf("ابق ورائي")) shouldBe listOf("ابق ورائي")
+        LocalAiRules.resolveEdits(listOf("ابقَ خلفي.(=)"), listOf("ابق ورائي")) shouldBe listOf("ابق ورائي")
+    }
+
+    @Test
+    fun `a saved line with the leaked reply is repaired and never learnt`() {
+        val draft = "مجرد حقيقة أنك جعلت هذا العرض موجود بالفعل من وسائل شرف."
+        LocalAiRules.repairLeak("$draft ⇒ $draft (=)") shouldBe draft
+        LocalAiRules.repairLeak(draft) shouldBe null
+        LocalAiRules.usable("Just the fact", "$draft ⇒ $draft (=)", "ar") shouldBe false
+        LocalAiRules.usable("Just the fact", draft, "ar") shouldBe true
     }
 
     @Test

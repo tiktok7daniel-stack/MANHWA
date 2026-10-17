@@ -133,11 +133,14 @@ class TranslationCollection(private val context: Context) {
      * series' own names put in, or null when the line is new. [glossary] is the series glossary.
      */
     fun lookup(src: String, tgt: String, text: String, glossary: Map<String, String>, acceptNear: Boolean = false): Hit? {
-        lookupIn(src, tgt, text, glossary, acceptNear)?.let { return it }
+        // MANHWA: a line learnt with the phone model's leaked reply ("draft ⇒ draft (=)") is never given back
+        lookupIn(src, tgt, text, glossary, acceptNear)?.let { return it.takeUnless { h -> eu.kanade.translation.local.LocalAiRules.leaked(h.translation) } }
         // MANHWA: with the Egyptian dialect, a line known only in formal Arabic (the phrasebook) is still a draft
         val base = tgt.removeSuffix(DIALECT_SUFFIX)
         if (base == tgt) return null
-        return lookupIn(src, base, text, glossary, acceptNear)?.let { Hit(it.translation, sure = false, match = it.match) }
+        return lookupIn(src, base, text, glossary, acceptNear)
+            ?.takeUnless { eu.kanade.translation.local.LocalAiRules.leaked(it.translation) }
+            ?.let { Hit(it.translation, sure = false, match = it.match) }
     }
 
     private fun lookupIn(src: String, tgt: String, text: String, glossary: Map<String, String>, acceptNear: Boolean): Hit? = runCatching {
@@ -262,6 +265,7 @@ class TranslationCollection(private val context: Context) {
                     val translation = line.translation.trim()
                     if (line.text.isBlank() || translation.isBlank() || line.text.length > MAX_LENGTH) continue
                     if (translation.equals(line.text.trim(), ignoreCase = true)) continue
+                    if (eu.kanade.translation.local.LocalAiRules.leaked(translation)) continue
                     val keyed = TextKey.key(line.text, glossary)
                     val template = TextKey.templateOf(translation, keyed, glossary)
                     // Saved as a template when its numbers and names are found in the translation, else word for word

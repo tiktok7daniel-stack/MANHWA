@@ -1112,4 +1112,6 @@
     <string name="wn_float_b">The app now works in the floating window of the phone (like Hang app on RedMagic) and in split screen, and the main screen no longer reloads when the window is resized or turned.</string>
     <string name="wn_nara_t">NaraRouter keys and keys that start with sk-</string>
     <string name="wn_nara_b">A key starting with sk- that OpenAI refuses is now tried on NaraRouter, DeepSeek, SiliconFlow, Kimi and Qwen, and moves to the site that takes it. On NaraRouter the free models are picked first, and up to 3 models are tried before a key is called broken. When none works, the message names every site tried and what it answered.</string>
+    <string name="wn_repeat_t">Phone model lines no longer repeated</string>
+    <string name="wn_repeat_b">The phone model sometimes wrote a line twice with an arrow and (=) in the bubble. Its answer is now read right, the instruction it gets is clearer, chapters already translated that way show the line once, and such lines are never saved to the library.</string>
 </resources>

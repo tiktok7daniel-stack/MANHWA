@@ -314,7 +314,12 @@ class TranslationManager(
         file: UniFile,
     ): Map<String, PageTranslation> {
         try {
-            return file.openInputStream().use { Json.decodeFromStream<Map<String, PageTranslation>>(it) }
+            val pages = file.openInputStream().use { Json.decodeFromStream<Map<String, PageTranslation>>(it) }
+            // MANHWA: lines saved with the phone model's leaked reply ("draft ⇒ draft (=)") are shown as the answer
+            pages.values.forEach { page ->
+                page.blocks.forEach { b -> eu.kanade.translation.local.LocalAiRules.repairLeak(b.translation)?.let { b.translation = it } }
+            }
+            return pages
         } catch (e: kotlinx.serialization.SerializationException) {
             // Only a file that is really broken is removed (a passing read error keeps a good translation)
             file.delete()
