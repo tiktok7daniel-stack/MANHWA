@@ -323,17 +323,28 @@ class LibraryOrganizer(
      */
     private suspend fun moveCompleted(library: List<LibraryManga>): Int {
         val category = completedCategory() ?: return 0
+        val managed = managedCategoryIds()
         var changed = 0
-        library.forEach { item ->
+        library.distinctBy { it.manga.id }.forEach { item ->
             val finished = LibraryRules.isFinished(item.manga.status)
-            val inside = category.id in item.categories
-            if (finished == inside) return@forEach
-            val mine = item.categories.filter { it != 0L && it != category.id }
-            // MANHWA: a finished series is in "Completed" only
-            setMangaCategories.await(item.manga.id, if (finished) listOf(category.id) else mine)
+            val current = item.categories.filter { it != 0L }.distinct()
+            // MANHWA: a finished series is in one place: a category the reader chose by hand stays, else "Completed"
+            val target = if (finished) {
+                LibraryRules.oneCategory(current + category.id, managed, category.id, finished = true)
+            } else {
+                current.filter { it != category.id }
+            }
+            if (target.toSet() == current.toSet()) return@forEach
+            setMangaCategories.await(item.manga.id, target)
             changed++
         }
         return changed
+    }
+
+    /** The categories the organizer made or manages (the rest are the reader's own). */
+    private suspend fun managedCategoryIds(): Set<Long> {
+        val managedKeys = (scheme().map { it.name } + preferences.organizerCreated.get()).map(LibraryRules::normalize).toSet()
+        return userCategories().filter { LibraryRules.normalize(it.name) in managedKeys }.map { it.id }.toSet()
     }
 
     /**
@@ -344,8 +355,7 @@ class LibraryOrganizer(
     suspend fun oneCategoryEach(): Int = mutex.withLock {
         val library = getLibraryManga.await()
         val completed = completedCategory()
-        val managedKeys = (scheme().map { it.name } + preferences.organizerCreated.get()).map(LibraryRules::normalize).toSet()
-        val managed = userCategories().filter { LibraryRules.normalize(it.name) in managedKeys }.map { it.id }.toSet()
+        val managed = managedCategoryIds()
         var changed = 0
         library.distinctBy { it.manga.id }.forEach { item ->
             val current = item.categories.filter { it != 0L }.distinct()

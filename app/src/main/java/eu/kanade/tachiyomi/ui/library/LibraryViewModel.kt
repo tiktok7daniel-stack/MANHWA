@@ -155,8 +155,9 @@ class LibraryViewModel(
         val showSystemCategory = favorites.any { it.libraryManga.categories.contains(0) }
         val filteredFavorites = favorites
             .applyFilters(tracksMap, trackingFilters, itemPreferences)
-            // MANHWA: the same work added from two sources shows once (the one read last)
+            // MANHWA: the same work added from two sources shows once (the one read last); a search finds every copy
             .let { items ->
+                if (!searchQuery.isNullOrEmpty()) return@let items
                 eu.kanade.tachiyomi.ui.library.ai.LibraryRules.oneCardPerWork(
                     items,
                     { it.libraryManga.manga.title },

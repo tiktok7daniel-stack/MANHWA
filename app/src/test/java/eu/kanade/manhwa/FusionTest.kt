@@ -113,4 +113,21 @@ class FusionRulesTest {
         FusionRules.newChapters(before, after) { it } shouldBe listOf(29L, 30L)
         FusionRules.newChapters(after.toSet(), after) { it } shouldBe emptyList()
     }
+
+    @Test
+    fun `a kept chapter in the middle ends the reader run so it is not skipped`() {
+        // B (id 2) reads 26 27 29 30, chapter 28 was kept from the earlier source A (id 1)
+        val fused = listOf(
+            Triple(26.0, 2L, 126L),
+            Triple(27.0, 2L, 127L),
+            Triple(28.0, 1L, 28L),
+            Triple(29.0, 2L, 129L),
+            Triple(30.0, 2L, 130L),
+            Triple(-1.0, 2L, 999L),
+        )
+        FusionRules.runAround(fused, 2L, 127L) shouldBe setOf(126L, 127L, 999L)
+        FusionRules.runAround(fused, 2L, 130L) shouldBe setOf(129L, 130L, 999L)
+        FusionRules.runAround(fused, 2L, null) shouldBe setOf(126L, 127L, 129L, 130L, 999L)
+        FusionRules.runAround(fused, 2L, 555L) shouldBe setOf(126L, 127L, 129L, 130L, 999L)
+    }
 }

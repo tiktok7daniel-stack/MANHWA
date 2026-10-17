@@ -377,9 +377,11 @@ class ChapterFusion(
     }
 
     /** The chapters a reader of [mangaId] (a continuation entry) goes through: its own in the fused list. */
-    suspend fun readerChapterIds(mangaId: Long): Set<Long>? = withContext(Dispatchers.IO) {
+    suspend fun readerChapterIds(mangaId: Long, chapterId: Long? = null): Set<Long>? = withContext(Dispatchers.IO) {
         val fusion = continuationOf(mangaId) ?: return@withContext null
-        continuation(fusion.baseMangaId, refresh = false).filter { it.chapter.mangaId == mangaId }.map { it.chapter.id }.toSet()
+        val fused = continuation(fusion.baseMangaId, refresh = false).map { Triple(it.number, it.chapter.mangaId, it.chapter.id) }
+        // A chapter kept from an earlier source in the middle ends this run: the reader hands over to it there
+        FusionRules.runAround(fused, mangaId, chapterId)
     }
 
     /**
@@ -467,6 +469,26 @@ object FusionRules {
      */
     fun <T> layered(ours: List<Double>, kept: List<Pair<Double, T>>, theirs: List<Pair<Double, T>>): List<Pair<Double, T>> =
         continuation(ours, kept + theirs)
+
+    /**
+     * The chapters of [mangaId] read in one go from [chapterId] in the fused list of (number, manga id, chapter id):
+     * they stop where another entry's chapter (one kept from an earlier source) sits between them, so the reader
+     * reaches an edge there and goes on from that entry. Without [chapterId], or when it is not in the list, all of
+     * [mangaId]'s chapters.
+     */
+    fun runAround(fused: List<Triple<Double, Long, Long>>, mangaId: Long, chapterId: Long?): Set<Long> {
+        val own = fused.filter { it.second == mangaId }.map { it.third }.toSet()
+        val ordered = fused.filter { countable(it.first) }.sortedBy { it.first }
+        val index = ordered.indexOfFirst { it.third == chapterId }
+        if (index < 0 || ordered[index].second != mangaId) return own
+        var from = index
+        while (from > 0 && ordered[from - 1].second == mangaId) from--
+        var to = index
+        while (to < ordered.lastIndex && ordered[to + 1].second == mangaId) to++
+        val run = ordered.subList(from, to + 1).map { it.third }.toSet()
+        // Unnumbered extras of this entry stay where they are
+        return run + fused.filter { it.second == mangaId && !countable(it.first) }.map { it.third }
+    }
 
     /** The chapters in [after] that were not there [before] (by id): what a refresh brought. */
     fun <T> newChapters(before: Set<Long>, after: List<T>, idOf: (T) -> Long): List<T> = after.filter { idOf(it) !in before }

@@ -134,9 +134,12 @@ class LiveTranslator(
         /** "Translate this chapter now" from the reader: works on this chapter even with auto translation off. */
         @Volatile private var forced = false
 
+        /** A fused work's continuation: translated for this reader session only, the saved setting stays as it is. */
+        @Volatile private var sessionOn = false
+
         // MANHWA: a chapter already in the reading language (an Arabic source, the Arabic part of a fused work) is
         // shown as it is; "translate now" still works on it
-        private fun active() = (preferences.liveTranslation().get() && !alreadyInTargetLanguage()) || forced
+        private fun active() = ((preferences.liveTranslation().get() || sessionOn) && !alreadyInTargetLanguage()) || forced
 
         private fun alreadyInTargetLanguage(): Boolean {
             val lang = sourceLang()?.lowercase()?.substringBefore('-') ?: return false
@@ -195,12 +198,16 @@ class LiveTranslator(
             val chapterPages = page.chapter.pages ?: return
             if (chapterPages !== pages) {
                 synchronized(failed) { failed.clear() }
+                // Pages of the chapter left behind are not kept for the whole session
+                synchronized(textless) { textless.retainAll { runCatching { it.chapter.pages === chapterPages }.getOrDefault(false) } }
                 // Checked before this session's own results are put back: a translation from the file means the
                 // chapter was translated already (pages without text are not in the file and need nothing)
                 savedChapter = chapterPages.any { it.translation != null }
                 heldFor = null
                 synchronized(fromPartial) { fromPartial.clear() }
                 pages = chapterPages
+                // The chapter left behind is no longer "translating now"; this one reports itself when it starts
+                if (liveProgress.current.value?.chapterId != page.chapter.chapter.id) liveProgress.stop()
                 if (!savedChapter) handOver(page.chapter.chapter.id, page.chapter.chapter.name, page.chapter.chapter.scanlator)
                 forced = false
                 restoreFromCache(chapterPages)
@@ -211,6 +218,7 @@ class LiveTranslator(
         }
 
         fun setEnabled(enabled: Boolean) {
+            if (!enabled) sessionOn = false
             preferences.liveTranslation().set(enabled)
             paused = false
             synchronized(failed) { failed.clear() }
@@ -222,6 +230,16 @@ class LiveTranslator(
         fun togglePause() {
             paused = !paused
             publish()
+            wake.trySend(Unit)
+        }
+
+        /** Translates every chapter of this reader session (a fused continuation) without saving the setting. */
+        fun enableForSession() {
+            sessionOn = true
+            paused = false
+            synchronized(failed) { failed.clear() }
+            lastError = null
+            publish(error = null)
             wake.trySend(Unit)
         }
 

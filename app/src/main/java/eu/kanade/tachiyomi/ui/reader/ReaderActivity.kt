@@ -824,7 +824,7 @@ class ReaderActivity : BaseActivity() {
         if (!fusionTranslationChecked) {
             fusionTranslationChecked = true
             if (viewModel.isFusedContinuation() && !appGraph.translationPreferences.liveTranslation().get()) {
-                viewModel.liveTranslation.setEnabled(true)
+                viewModel.liveTranslation.enableForSession()
             }
         }
 

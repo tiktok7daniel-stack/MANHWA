@@ -358,10 +358,12 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
         fusion.fusions.value.values.filter { it.baseMangaId in updating }.forEach { fused ->
             val before = fusion.continuation(fused.baseMangaId, refresh = false).map { it.chapter.id }.toSet()
             val after = fusion.continuation(fused.baseMangaId, refresh = true).map { it.chapter }
+            // The continuation's entry may have been made again (new id) while it was looked up
+            val otherId = fusion.fusionOf(fused.baseMangaId)?.otherMangaId ?: fused.otherMangaId
             val fresh = eu.kanade.translation.unified.FusionRules.newChapters(before, after) { it.id }
-                .filter { it.mangaId == fused.otherMangaId }
+                .filter { it.mangaId == otherId }
             if (fresh.isEmpty()) return@forEach
-            val other = getManga.await(fused.otherMangaId) ?: return@forEach
+            val other = getManga.await(otherId) ?: return@forEach
             synchronized(libraryPreferences.newUpdatesCount) {
                 libraryPreferences.newUpdatesCount.getAndSet { it + fresh.size }
             }

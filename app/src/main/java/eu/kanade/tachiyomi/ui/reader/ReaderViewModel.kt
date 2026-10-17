@@ -241,7 +241,7 @@ class ReaderViewModel(
             .let { list ->
                 // MANHWA: only this entry's chapters in the fused list (kept ones from an earlier source included);
                 // unnumbered extras stay
-                val allowed = runCatching { chapterFusion.readerChapterIds(manga.id) }.getOrNull()
+                val allowed = runCatching { chapterFusion.readerChapterIds(manga.id, chapterId) }.getOrNull()
                 list.filter { it.id == chapterId || allowed == null || it.id in allowed || !eu.kanade.translation.unified.FusionRules.countable(it.chapterNumber) }
             }
 

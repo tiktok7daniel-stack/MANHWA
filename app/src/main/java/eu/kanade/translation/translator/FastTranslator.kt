@@ -74,7 +74,10 @@ class FastTranslator(
             } catch (e: Throwable) {
                 logcat(LogPriority.WARN, e) { "Fast translation: ${engine.name} failed, the next engine takes over" }
                 if (e is EngineOut) rest(engine)
-                left
+                // The parts this engine did before it stopped are kept (not sent again, not billed twice)
+                val (done, rest) = left.partition { it.translation.isNotBlank() }
+                done.forEach { it.translation = finish(it.translation, it.text) }
+                rest
             }
         }
     }
