@@ -3,6 +3,8 @@
 > آخر تحديث: 17 أكتوبر 2026.
 > الملف ده مكتوب لك ولأي مساعد ذكاء اصطناعي (أو مبرمج) هيكمّل الشغل بعدي. اديله الملف ده كله في أول رسالة.
 
+> **تحديث 17 أكتوبر (بالليل): الملف ده هو التسليم النهائي لشات جديد.** اقرا الأقسام 2 و2.1 و3 الأول، وبعدين 4 (من ط لـ م) و8.
+>
 > **تحديث 17 أكتوبر (بعد الظهر):** الشغل كمل في شات تاني على فرع `claude/new-session-hidbs8` (البنايات من 64 لـ 80). آخر حاجة في `main` وقت التحديث ده: `2b1b161c4` (البناء 79). البناء 80 (`e94f6cc8b`) كان لسه شغال.
 > وفي skills اتضافت للمشروع في `.claude/skills/`: find-skills، وfrontend-design، وskill-creator، وvercel-composition-patterns، وvercel-react-best-practices، وvercel-react-native-skills.
 
@@ -15,12 +17,12 @@
 | المستودع | `github.com/tiktok7daniel-stack/MANHWA` (الاسم القديم `manhwa` بيحوّل عليه) |
 | فرع الشغل | `claude/fix-live-crash-and-batch-loading` |
 | الفرع الأساسي | `main` |
-| آخر بناء ناجح ومدموج في `main` | **البناء 63**، commit `80eb70db5` |
-| آخر commit فيه كود | `80eb70db5` (البناء 63 نجح واتدمج) |
+| آخر بناء اتسلّم للمستخدم قبل البيلد النهائي | **البناء 86**، commit `f26ef7f5a` (اتثبّت على موبايله) |
+| البيلد النهائي | **البناء 89**، commit `c50c347e4` (workflow_dispatch). نتيجته في القسم 8 |
+| الفرع التاني | `claude/new-session-hidbs8` (شات تاني بيشتغل عليه وبيعمل fast-forward لـ main كمان) |
 | أصل التطبيق | Mihon / TachiyomiAT (Kotlin + Jetpack Compose + Voyager + Metro DI) |
 
-**لينك آخر APK ناجح (البناء 63):**
-https://github.com/tiktok7daniel-stack/MANHWA/actions/runs/39014241527/artifacts/12093419521
+**لينك الـ APK:** في القسم 8 (البيلد النهائي).
 
 **تحميل الـ APK:** من Actions تفتح الـ run، وبعدين Artifacts، وبعدين `MANHWA-build-N`، وجوه الـ zip تلاقي `app-arm64-v8a-debug.apk`.
 
@@ -201,6 +203,64 @@ https://github.com/tiktok7daniel-stack/MANHWA/actions/runs/39014241527/artifacts
 
 ---
 
+### ط) الترجمة في الخلفية حتى والتطبيق مقفول
+- **`TranslationJob`** (WorkManager، foreground من نوع dataSync):
+  - لو اتقفل بيبدأ تاني بمهلة بتزيد (`RESTART_BASE_S = 10`، و`MAX_BACKOFF_STEPS = 6`).
+  - `keepResuming`: شغل دوري كل 15 دقيقة (`TranslationResumeJob`) بيرجّع الطابور لو Android قفله.
+- **`ChapterCheckpoint`** (`translation/ChapterCheckpoint.kt`):
+  - تقدم كل فصل محفوظ على الديسك في `filesDir/translation_checkpoints`: الصفحات اللي اتقرت (`.read.json`)، والصفحات اللي اتترجمت (`.done.json`).
+  - الفصل بيكمّل من مكانه بدل ما يبدأ من الأول.
+  - بيتمسح لما الفصل يتحفظ أو يتشال من الطابور.
+  - `prune` بيمسح أي حاجة عدّى عليها 7 أيام.
+  - `CheckpointRules.applyDone` متختبر.
+- **`TranslationManager.restorePending()`** بيتنادى في `App.kt` مع كل تشغيل للتطبيق.
+- **نصايح لموبايل المستخدم** (RedMagic 10S Pro، Android 16، RedMagicOS 11): Auto-start، وSecondary launch، وBackground running كلهم Allowed، والبطارية Unrestricted.
+
+### ي) مشكلة "App not installed" (اتحلّت)
+- الـ APK كان سليم: خطوة "Check the APKs can be installed" في الـ CI بتفحص apksigner، وzipalign -P 16، وaapt2، والمكتبات الأصلية.
+- المساحة كانت كفاية.
+- **السبب الحقيقي:** الموبايل ما كانش بيعرض موافقة "مصادر غير معروفة" وPlay Protect. المستخدم صلّحها وبقى بيثبّت عادي.
+- **التوقيع ثابت** (`signing/manhwa-dev.jks` عن طريق `keystore.properties`)، فالتحديث فوق النسخة القديمة شغال.
+  - versionCode 38، وapplicationId `app.danghwa` (والـ debug بيزود `.dev`).
+
+### ك) الدمج أسرع + زرار البحث (التعديلين 1 و2 في PENDING_CHANGES)
+- `ChapterFusion.findOffers` بيستخدم نتيجة `UnifiedSources.discover` (كارت "Also on") ويجيب الفصول بس.
+- `UnifiedSources.discover` عليه Mutex لكل عمل، فالبحث بيحصل مرة واحدة.
+- 6 مصادر في نفس الوقت، ومهلة البحث 12 ثانية، ومهلة الفصول 15 ثانية.
+- النتايج بتظهر أول بأول (`onFound`).
+- آخر عروض محفوظة في `fusion_offers.json`.
+- **`FusionRules.sameName`:** بيعرف الأسماء لو الكلمات بترتيب مختلف، بس بيرفض لو رقم الجزء/الموسم مختلف.
+- **`FusionUi.ManualSearch`:** زرار بحث (Search IconButton)، والصف كله بيتداس، وسطر "بدوّر على: …".
+
+### ل) مساعدين السرعة على الموبايل + تنضيف الموديلات (التعديل 3 في PENDING_CHANGES)
+- **`ModelCatalog.models`** بقت 3 بس: Gemma 3n E4B، وGemma 3n E2B، وGemma 3 1B (المسودة).
+  - **`retired`:** Phi-4 mini وQwen 2.5 3B وQwen 2.5 1.5B. بيظهروا في الشاشة بس لو فيه نسخة متحملة، ومعاهم زرار مسح ومن غير زرار تحميل.
+  - **`known`:** = models + retired. ده اللي بيستخدمه PhoneEnsemble والشاشة، عشان الإعداد القديم ما يبوظش.
+- **ML Kit بيعمل المسودة الأول بقى الافتراضي:**
+  - `translationLocalTuning` الافتراضي بقى `"AUTO"`، و`Tuning.named` بيرجّع EDIT لأي قيمة غير `"FAST"`.
+  - موديل ML Kit بيتحمّل على أي شبكة (اتشال `requireWifi`).
+- **NPU** (`NpuSupport`، و`NpuRules`، و`LocalAiEngine.create`):
+  - بيدوّر على `LlmInference.Backend.valueOf("NPU")` بالاسم عن طريق reflection، فالكود بيتبني في الحالتين.
+  - بيشتغل بس على Qualcomm.
+  - **أول مرة:**
+    1. يسجّل "failed" بـ `commit()` قبل التجربة، فلو الموبايل وقع ما يجربش تاني.
+    2. يطلب إجابة صغيرة يتأكد بيها.
+    3. لو نجح يسجّل "works" في `manhwa_models` (`npu:<file>`).
+  - **مش متأكد** إن MediaPipe 0.10.27 فيه NPU، لأن dl.google.com مقفول من بيئة التطوير.
+- **قواعد البرومبت بتتقري مرة** (`generate(..., prefix = head)`):
+  - كل Slot بيحتفظ بجلسة قرت الـ head.
+  - كل طلب بيعمل `cloneSession` (reflection) ويضيف الباقي.
+  - لو فيه أي خطأ، بيرجع للبرومبت كله ويعمل `dropPrefix`.
+  - الـ head = أول سطر + قاعدة العربي + تعليمات المستخدم. القاموس والشخصيات والسياق بقوا بعد الـ head.
+- **كارت "السرعة على موبايلك"** في `LocalModelsScreen`: الـ backend الحالي، ونصايح وضع الأداء.
+- **الاختبارات:** `PhoneSpeedTest` (جديد)، و`PhoneCascadeTest` (اتحدّث).
+
+### م) Skills في `.claude/skills/`
+- الموجودة من قبل: find-skills، وfrontend-design، وskill-creator، وvercel-*.
+- ضفت: ponytail، وponytail-review، وponytail-audit، وchangelog-generator، وdiagram-design (والمصادر في `SOURCES.md`).
+- **ما اتضافش Scrapling** ولا أي حاجة بتتخطى الحماية أو الـ CAPTCHA، لأن ده ممنوع.
+- skills.sh مقفول من البروكسي.
+
 ## 5. ملفات مهمة (خريطة سريعة)
 
 **ملحوظة:** المسارات اللي في الجدول تحت `app/src/main/java/eu/kanade/`، ما عدا الصفوف اللي فيها مسار كامل.
@@ -216,6 +276,11 @@ https://github.com/tiktok7daniel-stack/MANHWA/actions/runs/39014241527/artifacts
 | الشبكة | `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkHelper.kt`، و`SmartDns.kt` |
 | المصادر الموحدة | `translation/unified/UnifiedSources.kt` ("موجود كمان في...") |
 | الاختبارات | `app/src/test/java/eu/kanade/manhwa/*Test.kt` (JUnit5 + kotest) |
+| موديلات الموبايل | `translation/local/ModelCatalog.kt`، و`LocalAiEngine.kt`، و`LocalAiTranslator.kt`، و`PhoneEnsemble.kt`، و`LocalModelsScreen.kt` |
+| الترجمة في الخلفية | `translation/TranslationJob.kt`، و`TranslationManager.kt`، و`ChapterTranslator.kt`، و`ChapterCheckpoint.kt` |
+| الدمج | `translation/unified/ChapterFusion.kt`، و`FusionUi.kt`، و`UnifiedSources.kt` |
+| قائمة البناء الجاي | `docs/PENDING_CHANGES.md` |
+| الـ CI | `.github/workflows/build_branch.yml` |
 
 ---
 
@@ -226,6 +291,8 @@ https://github.com/tiktok7daniel-stack/MANHWA/actions/runs/39014241527/artifacts
 - [ ] تحديث فصول التكملة أثناء تحديث المكتبة التلقائي.
 - [ ] ترجمة مسبقة لعدد معيّن من فصول التكملة مرة واحدة (زي زرار "ترجم الفصول").
 - [ ] التأكد من روابط موديل PaddleOCR الكوري.
+- [ ] تجربة NPU وcloneSession على الموبايل، وبص في الـ logcat على: "can't run … on this NPU" و"The kept rules could not be reused".
+- [ ] لو ML Kit بيخلّي الجودة أقل: اختبار السرعة في شاشة الموديلات يقدر يرجّعها لـ "FAST".
 - [ ] **أكبر نقطة ضعف حالياً:** مفاتيح الـ API قليلة. كل ما زادت المفاتيح الرسمية المجانية، كل ما الترجمة بقت أسرع.
 
 ---
