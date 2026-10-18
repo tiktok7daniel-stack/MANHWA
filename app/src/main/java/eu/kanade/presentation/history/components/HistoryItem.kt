@@ -46,7 +46,11 @@ import tachiyomi.i18n.MR
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
 
-private val HistoryItemHeight = 120.dp
+/**
+ * MANHWA: room for a title on two lines, the chapter line and the whole resume button (at 120 dp a long title
+ * squeezed the button under the chapter line and cut its word).
+ */
+private val HistoryItemHeight = 140.dp
 
 /** One read manhwa in the history, as a MANHWA glass card with a glowing resume button. */
 @Composable
@@ -108,6 +112,7 @@ fun HistoryItem(
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .neonGlow(RoundedCornerShape(8.dp), colors.primary, 0.2f, 6.dp)
                     .clip(RoundedCornerShape(8.dp))
