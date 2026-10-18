@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.backup.vault.IdMap
 import eu.kanade.tachiyomi.data.backup.vault.IdRemapRules
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.content
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -75,5 +76,25 @@ class IdRemapTest {
             listOf(IdMap.ChapterRef(5, 1, "/c")),
         )
         json.decodeFromString(IdMap.serializer(), json.encodeToString(IdMap.serializer(), map)) shouldBe map
+    }
+
+    @Test
+    fun `a restored backup never removes this phone's fusions or links`() {
+        val here = Json.parseToJsonElement("""{"fusions":[{"baseMangaId":1,"otherMangaId":2}],"dismissed":[5]}""")
+        val incoming = Json.parseToJsonElement("""{"fusions":[{"baseMangaId":1,"otherMangaId":9},{"baseMangaId":3,"otherMangaId":4}],"dismissed":[5,6]}""")
+        val merged = IdRemapRules.merge("chapter_fusions.json", here, incoming).jsonObject
+        merged["fusions"]!!.jsonArray.map { it.jsonObject["otherMangaId"]!!.jsonPrimitive.long } shouldBe listOf(2L, 4L)
+        merged["dismissed"]!!.jsonArray.map { it.jsonPrimitive.long } shouldBe listOf(5L, 6L)
+        val links = IdRemapRules.merge("unified_sources.json", Json.parseToJsonElement("""{"1":"here"}"""), Json.parseToJsonElement("""{"1":"backup","2":"new"}""")).jsonObject
+        links["1"]!!.jsonPrimitive.content shouldBe "here"
+        links["2"]!!.jsonPrimitive.content shouldBe "new"
+    }
+
+    @Test
+    fun `a custom backup keeps only the chosen works' fusions`() {
+        val fusions = Json.parseToJsonElement("""{"fusions":[{"baseMangaId":1,"otherMangaId":2},{"baseMangaId":3,"otherMangaId":4}]}""")
+        val chosen = setOf(1L, 2L)
+        val out = IdRemapRules.remap("chapter_fusions.json", fusions, { if (it in chosen) it else null }) { it }.jsonObject
+        out["fusions"]!!.jsonArray.map { it.jsonObject["baseMangaId"]!!.jsonPrimitive.long } shouldBe listOf(1L)
     }
 }

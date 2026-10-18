@@ -58,7 +58,11 @@ class BackupCreator(
         fun create(isAutoBackup: Boolean): BackupCreator
     }
 
-    suspend fun backup(uri: Uri, options: BackupOptions): String {
+    /**
+     * @param only MANHWA custom backup: when given, only these works (by id) go in, whether in the library or not;
+     * otherwise the whole library (and the read works outside it when [BackupOptions.readEntries]).
+     */
+    suspend fun backup(uri: Uri, options: BackupOptions, only: Collection<Long>? = null): String {
         var file: UniFile? = null
         try {
             file = if (isAutoBackup) {
@@ -82,8 +86,13 @@ class BackupCreator(
                 throw IllegalStateException(context.stringResource(MR.strings.create_backup_file_error))
             }
 
-            val nonFavoriteManga = if (options.readEntries) mangaRepository.getReadMangaNotInLibrary() else emptyList()
-            val backupManga = backupMangas(getFavorites.await() + nonFavoriteManga, options)
+            val mangas = if (only != null) {
+                only.distinct().mapNotNull { id -> runCatching { mangaRepository.getMangaById(id) }.getOrNull() }
+            } else {
+                val nonFavoriteManga = if (options.readEntries) mangaRepository.getReadMangaNotInLibrary() else emptyList()
+                getFavorites.await() + nonFavoriteManga
+            }
+            val backupManga = backupMangas(mangas, options)
 
             val backup = Backup(
                 backupManga = backupManga,

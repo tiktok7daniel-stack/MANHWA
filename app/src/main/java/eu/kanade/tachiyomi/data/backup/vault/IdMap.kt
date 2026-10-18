@@ -152,6 +152,30 @@ object IdRemapRules {
         else -> element
     }
 
+    /** Files a custom backup (a few works) carries, filtered to those works. */
+    val customContentFiles = setOf("chapter_fusions.json", "glossary_works.json", "unified_sources.json")
+
+    /**
+     * [incoming] (from a backup) merged into [existing] (on this phone) without losing anything here: the entries
+     * of a map keyed by work are added when this phone has none for that work, the fusions of works without one
+     * here are added, and the dismissed works are joined. Other files: the backup's copy.
+     */
+    fun merge(name: String, existing: JsonElement, incoming: JsonElement): JsonElement {
+        if (existing !is JsonObject || incoming !is JsonObject) return incoming
+        if (name in keyedByManga) return JsonObject(incoming + existing)
+        if (name == "chapter_fusions.json") {
+            val here = (existing["fusions"] as? JsonArray).orEmpty()
+            val bases = here.mapNotNull { (it as? JsonObject)?.get("baseMangaId")?.let { b -> (b as? JsonPrimitive)?.longOrNull } }.toSet()
+            val added = (incoming["fusions"] as? JsonArray).orEmpty().filter { f ->
+                val base = ((f as? JsonObject)?.get("baseMangaId") as? JsonPrimitive)?.longOrNull
+                base != null && base !in bases
+            }
+            val dismissed = ((existing["dismissed"] as? JsonArray).orEmpty() + (incoming["dismissed"] as? JsonArray).orEmpty()).distinct()
+            return JsonObject(existing + mapOf("fusions" to JsonArray(here + added), "dismissed" to JsonArray(dismissed)))
+        }
+        return incoming
+    }
+
     /** Every work and chapter id that [path] and its [content] (when it holds ids) use. */
     fun idsOf(path: String, content: JsonElement?): Pair<Set<Long>, Set<Long>> {
         val mangas = HashSet<Long>()
