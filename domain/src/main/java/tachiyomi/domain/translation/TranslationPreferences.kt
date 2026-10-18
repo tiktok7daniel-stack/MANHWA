@@ -172,6 +172,9 @@ class TranslationPreferences(
      */
     fun translationServerMode() = preferenceStore.getString("manhwa_translation_server_mode", "AUTO")
 
+    /** MANHWA home server: the calls the laptop runs at once (2 to 8; more only with a server set for it). */
+    fun translationHomeCalls() = preferenceStore.getInt("manhwa_translation_home_calls", 2)
+
     /**
      * MANHWA translate only: every line is translated once, English to Arabic, and nothing else, whoever translates
      * (laptop, keys or phone): no names scouted, no rechecks, no editor, no second opinion, no summary. Off by

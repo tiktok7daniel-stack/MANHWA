@@ -112,13 +112,16 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_guard_t, ATMR.strings.wn_guard_b),
-            Feature(MaterialSymbols.Rounded.Speed, ATMR.strings.wn_rocket_t, ATMR.strings.wn_rocket_b),
+            Feature(MaterialSymbols.Rounded.TextFields, ATMR.strings.wn_clean_t, ATMR.strings.wn_clean_b),
+            Feature(MaterialSymbols.Rounded.Home, ATMR.strings.wn_calls_t, ATMR.strings.wn_calls_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 97
+            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_guard_t, ATMR.strings.wn_guard_b),
+            Feature(MaterialSymbols.Rounded.Speed, ATMR.strings.wn_rocket_t, ATMR.strings.wn_rocket_b),
             // Build 94
             Feature(MaterialSymbols.Rounded.Home, ATMR.strings.wn_home_t, ATMR.strings.wn_home_b),
             // Build 93

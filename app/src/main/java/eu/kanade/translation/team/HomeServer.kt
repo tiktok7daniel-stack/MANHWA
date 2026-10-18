@@ -118,20 +118,34 @@ object LocalServerRules {
     /** Calls the laptop runs at once from the start: a GPU answers two together about as fast as one. */
     const val START_CALLS = 2.0
 
-    /** At most: more only wait in the laptop's own queue (one GPU, often one call at a time). */
+    /**
+     * At most, unless set otherwise on the laptop's screen: more only wait in the laptop's own queue (Ollama runs
+     * one or a few calls at once unless OLLAMA_NUM_PARALLEL says more; vLLM and TabbyAPI take many).
+     */
     const val MAX_CALLS = 2
+
+    /** The calls the laptop may be set to run at once. */
+    val CALL_CHOICES = listOf(2, 4, 6, 8)
+
+    /** A stored setting made a safe number of calls (2 to 8). */
+    fun calls(setting: Int): Int = setting.coerceIn(CALL_CHOICES.first(), CALL_CHOICES.last())
 
     /** How long a batch may take on the laptop: a base, and some seconds a line (a slow GPU still finishes). */
     fun batchTimeoutMs(lines: Int): Long = (60_000L + lines * 8_000L).coerceAtLeast(150_000L)
 
-    /** A ready model for the laptop: its Ollama name and what it is for. */
-    data class Preset(val model: String, val fastest: Boolean)
+    /** A ready model for the laptop: its Ollama name and what it is for (a translation-only model when [translator]). */
+    data class Preset(val model: String, val fastest: Boolean, val translator: Boolean = false)
 
     /**
      * The ready models for an RTX 4060 (8 GB) with 16 GB of RAM, best first: Aya Expanse 8B fits whole on the card
-     * (the fastest strong one, good in Arabic); Gemma 3 12B spills a little into the RAM (slower, more accurate).
+     * (the fastest strong one, good in Arabic); Gemma 3 12B spills a little into the RAM (slower, more accurate);
+     * Hunyuan-MT 1.5 7B is made only to translate (fits on the card, strong in Arabic, no names or notes).
      */
-    val PRESETS = listOf(Preset("aya-expanse:8b", fastest = true), Preset("gemma3:12b", fastest = false))
+    val PRESETS = listOf(
+        Preset("aya-expanse:8b", fastest = true),
+        Preset("gemma3:12b", fastest = false),
+        Preset("ali6parmak/hy-mt1.5:7b", fastest = false, translator = true),
+    )
 
     /** The model to pick from what the laptop has: a ready one first, in the order above, else the first listed. */
     fun preferredModel(available: List<String>): String? =
@@ -207,6 +221,7 @@ class HomeServerScreen : Screen() {
         var saved by remember { mutableStateOf(false) }
         val mode by prefs.translationServerMode().collectPreference()
         val rocket by prefs.translationTranslateOnly().collectPreference()
+        val calls by prefs.translationHomeCalls().collectPreference()
         val okTemplate = stringResource(ATMR.strings.hs_test_ok)
         val failText = stringResource(ATMR.strings.hs_test_fail)
         val memberName = stringResource(ATMR.strings.hs_member_name)
@@ -323,6 +338,27 @@ class HomeServerScreen : Screen() {
                     }
                     item {
                         Section {
+                            Text(stringResource(ATMR.strings.hs_calls), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                LocalServerRules.CALL_CHOICES.forEach { value ->
+                                    FilterChip(
+                                        selected = LocalServerRules.calls(calls) == value,
+                                        onClick = { prefs.translationHomeCalls().set(value) },
+                                        label = { Text(value.toString()) },
+                                    )
+                                }
+                            }
+                            Help(stringResource(ATMR.strings.hs_calls_help))
+                        }
+                    }
+                    item {
+                        Section {
+                            Text(stringResource(ATMR.strings.hs_servers_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                            Help(stringResource(ATMR.strings.hs_servers))
+                        }
+                    }
+                    item {
+                        Section {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 HubIconTile(MaterialSymbols.Rounded.RocketLaunch, size = 36)
                                 Spacer(Modifier.width(10.dp))
@@ -367,7 +403,15 @@ class HomeServerScreen : Screen() {
                                         fontWeight = FontWeight.Black,
                                         color = if (preset.fastest) Color(0xFF3DDC97) else Color.White,
                                     )
-                                    Help(stringResource(if (preset.fastest) ATMR.strings.hs_preset_fast else ATMR.strings.hs_preset_quality))
+                                    Help(
+                                        stringResource(
+                                            when {
+                                                preset.fastest -> ATMR.strings.hs_preset_fast
+                                                preset.translator -> ATMR.strings.hs_preset_mt
+                                                else -> ATMR.strings.hs_preset_quality
+                                            },
+                                        ),
+                                    )
                                     Text("ollama pull ${preset.model}", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.9f))
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         ManhwaKit.GhostButton(stringResource(ATMR.strings.hs_preset_copy), icon = MaterialSymbols.Rounded.ContentCopy, modifier = Modifier.weight(1f)) {

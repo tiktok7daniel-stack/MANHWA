@@ -184,7 +184,7 @@ class TeamTranslator(
             for (member in members) {
                 val vision = store.analysis.value[member.id]?.vision ?: true
                 // As many workers as a key could ever run; the router's permits decide how many work at once
-                repeat(AiRouter.MAX_CAPACITY) {
+                repeat(maxOf(AiRouter.MAX_CAPACITY, store.router.cap(member.id))) {
                     launch {
                         while (true) {
                             val batch = take(member, vision) ?: break

@@ -9,6 +9,9 @@ package eu.kanade.translation.live
  * - a word split over two lines with a hyphen is joined ("some- thing" to "something");
  * - a 0 between letters is an O, a 1 or | between letters is an I or an l ("C0ME" to "COME", "he1p" to "help");
  * - a lone | is the word I; "l" alone between spaces in an all-caps line is I;
+ * - in an all-caps line, digits read where letters are drawn at the start of a word are letters ("50ME" to
+ *   "SOME": 5 to S, 0 to O, 8 to B, 1 to I), never in ordinals or units (5TH, 10PM, 50KG); a 6 can be a G or an
+ *   S, so it is left for the AI;
  * - runs of punctuation are tidied ("!!!!!" to "!!!", ". . ." to "...", "? !" to "?!") and spaces before them go.
  */
 object OcrHealer {
@@ -23,6 +26,21 @@ object OcrHealer {
     private val spacedMix = Regex("([?!])\\s+([?!])")
     private val spaceBefore = Regex("\\s+([?!.,;:])")
     private val spaces = Regex("[ \\t]{2,}")
+
+    /** A word that starts with letter-like digits and goes on in at least two capitals, not an ordinal or a unit. */
+    private val leadingDigits = Regex(
+        "(?<![\\p{L}\\p{N}])[0158]{1,2}(?=[A-Z]{2,})(?!(?:ST|ND|RD|TH|AM|PM|KG|KM|CM|MM|MB|GB|HP|FPS|MPH)(?![A-Z]))(?!MIN|SEC|HOUR|HRS|DAY|WEEK|MONTH|YEAR|YRS|METER|TIME|LEVEL|PERCENT|KILO)",
+    )
+
+    private fun lettersFor(digits: String): String = digits.map {
+        when (it) {
+            '0' -> 'O'
+            '1' -> 'I'
+            '5' -> 'S'
+            '8' -> 'B'
+            else -> it
+        }
+    }.joinToString("")
 
     fun heal(text: String): String {
         if (text.isBlank()) return text
@@ -41,6 +59,7 @@ object OcrHealer {
         }
         out = lonePipe.replace(out, "I")
         if (upper) out = Regex("(?<=\\s|^)l(?=\\s|$)").replace(out, "I")
+        if (upper) out = leadingDigits.replace(out) { m -> lettersFor(m.value) }
         out = spacedDots.replace(out, "...")
         out = manyBangs.replace(out, "!!!")
         out = manyQuestions.replace(out, "???")

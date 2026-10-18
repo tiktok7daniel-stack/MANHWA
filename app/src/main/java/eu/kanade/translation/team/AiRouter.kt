@@ -37,6 +37,8 @@ import tachiyomi.core.common.util.system.logcat
 class AiRouter internal constructor(
     private val store: TeamStore,
     private val record: Preference<String>,
+    // MANHWA home server: the calls the laptop may run at once, as set on its screen
+    private val homeCalls: () -> Int = { LocalServerRules.MAX_CALLS },
 ) {
 
     enum class Lane(val rank: Int) {
@@ -103,7 +105,7 @@ class AiRouter internal constructor(
 
     private fun startingCapacity(memberId: String): Double {
         // MANHWA home server: two calls at once from the start, whatever its first answers measured
-        if (isHome(memberId)) return LocalServerRules.START_CALLS
+        if (isHome(memberId)) return LocalServerRules.START_CALLS.coerceAtMost(cap(memberId).toDouble())
         val strength = store.strength(memberId)
         return when {
             strength >= STRONG -> 3.0
@@ -114,8 +116,12 @@ class AiRouter internal constructor(
 
     /** Calls [memberId] may run at once now. */
     fun capacity(memberId: String): Int = synchronized(lock) {
-        (adaptive[memberId] ?: startingCapacity(memberId)).toInt().coerceIn(1, if (isHome(memberId)) LocalServerRules.MAX_CALLS else MAX_CAPACITY)
+        (adaptive[memberId] ?: startingCapacity(memberId)).toInt().coerceIn(1, cap(memberId))
     }
+
+    /** The most calls [memberId] may ever run at once: the laptop's own setting, else [MAX_CAPACITY]. */
+    fun cap(memberId: String): Int =
+        if (isHome(memberId)) LocalServerRules.calls(runCatching { homeCalls() }.getOrDefault(LocalServerRules.MAX_CALLS)) else MAX_CAPACITY
 
     private fun isHome(memberId: String): Boolean = store.members.value.any { it.id == memberId && it.isHomeServer }
 
@@ -127,12 +133,12 @@ class AiRouter internal constructor(
         synchronized(lock) {
             val current = adaptive[memberId] ?: startingCapacity(memberId)
             val next = when {
-                error == null -> (current + 1.0 / current).coerceAtMost(MAX_CAPACITY.toDouble())
+                error == null -> (current + 1.0 / current).coerceAtMost(cap(memberId).toDouble())
                 congested(error) -> (current / 2).coerceAtLeast(1.0)
                 else -> current
             }
             adaptive[memberId] = next
-            _capacities.value = adaptive.mapValues { (_, v) -> v.toInt().coerceIn(1, MAX_CAPACITY) }
+            _capacities.value = adaptive.mapValues { (id, v) -> v.toInt().coerceIn(1, cap(id)) }
             // Room grew: calls waiting for this key may go now
             pumpLocked(memberId)
         }

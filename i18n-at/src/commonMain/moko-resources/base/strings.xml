@@ -1161,4 +1161,13 @@
     <string name="hs_missing">Write the server address and pick a model first (Test the connection lists them).</string>
     <string name="wn_guard_t">No bubble left in English</string>
     <string name="wn_guard_b">Whoever translates (laptop, keys or phone model), a bubble that comes back still in English is translated again so it ends in Arabic, misread words (PAMN for DAMN) are read as meant, sound effects and noise are left as drawn, and a line that was not translated is no longer erased and redrawn in English. The laptop also stops falling back to Google when it is only slow, never swaps its model, and shows why it is not answering.</string>
+    <string name="hs_preset_mt">Made only to translate: fits on the card, strong in Arabic and quick. It does not scout names or write notes, so use it when speed matters.</string>
+    <string name="hs_calls">Calls at once</string>
+    <string name="hs_calls_help">How many batches the laptop translates together. 2 suits Ollama as it is. Choose more only after setting the server for it (below): extra calls on a server that runs one at a time only wait.</string>
+    <string name="hs_servers_title">Faster servers</string>
+    <string name="hs_servers">Ollama (simple): set OLLAMA_NUM_PARALLEL=4 and OLLAMA_KV_CACHE_TYPE=q8_0 in the Windows environment variables, then restart Ollama, and choose 4 above. vLLM (fastest, many calls together): install WSL with Ubuntu, then pip install vllm and run an AWQ 7B model with vllm serve on port 8000; put the laptop address with :8000 above and choose 6 or 8. TabbyAPI (ExLlamaV2, fast on 8 GB): run it with a 4-bit EXL2 model on port 5000 and choose 4. All three speak the same language as the app, nothing else changes.</string>
+    <string name="wn_clean_t">Cleaner bubbles and Arabic words never cut</string>
+    <string name="wn_clean_b">An English line the translation already covers is erased instead of staying beside the Arabic, an Arabic word is never split over two lines, and misread letters like 50ME are read as SOME.</string>
+    <string name="wn_calls_t">The laptop translates more at once</string>
+    <string name="wn_calls_b">Choose how many batches the laptop runs together (2 to 8), with the steps to set Ollama, vLLM or TabbyAPI for it, and Hunyuan-MT, a model made only to translate, is a ready choice.</string>
 </resources>

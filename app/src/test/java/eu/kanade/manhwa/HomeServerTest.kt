@@ -64,4 +64,17 @@ class HomeServerTest {
         LocalServerRules.modelIds("""{"object":"list","data":[{"id":"qwen2.5:7b"},{"id":"llama3.1:8b"}]}""") shouldBe listOf("qwen2.5:7b", "llama3.1:8b")
         LocalServerRules.modelIds("not json") shouldBe null
     }
+
+    @Test
+    fun `the laptop calls setting is kept between 2 and 8`() {
+        LocalServerRules.calls(0) shouldBe 2
+        LocalServerRules.calls(4) shouldBe 4
+        LocalServerRules.calls(50) shouldBe 8
+    }
+
+    @Test
+    fun `Hunyuan is a ready choice but never taken over Aya`() {
+        LocalServerRules.preferredModel(listOf("ali6parmak/hy-mt1.5:7b", "aya-expanse:8b")) shouldBe "aya-expanse:8b"
+        LocalServerRules.preferredModel(listOf("ali6parmak/hy-mt1.5:7b")) shouldBe "ali6parmak/hy-mt1.5:7b"
+    }
 }

@@ -298,7 +298,11 @@ object ScanlationRenderer {
         private fun eraseJoinedLines(page: PageTranslation, cleaned: List<Cleaned>) {
             if (cleaned.isEmpty()) return
             page.blocks.forEach { block ->
-                if (block.translation.isNotBlank() || block.lineBoxes.isEmpty()) return@forEach
+                // Also a line left as it was (the AI put its words in the neighbour's translation): next to a
+                // translated bubble it is part of it and is erased, alone it stays as drawn
+                val joined = block.translation.isBlank() ||
+                    (untranslated(block) && eu.kanade.translation.translator.EnglishGuard.joined(block, page.blocks))
+                if (!joined || block.lineBoxes.isEmpty()) return@forEach
                 val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
                 if (kind == BubbleKind.SFX || kind == BubbleKind.ART) return@forEach
                 val box = RectF(block.lineBoxes.first().let { RectF(it.x * s, it.y * s, it.right * s, it.bottom * s) })
@@ -702,7 +706,9 @@ object ScanlationRenderer {
             var layout = layout(text, paint, maxW)
             // Balanced lines: the narrowest width that keeps the same number of lines
             if (layout.lineCount > 1) {
-                var low = (maxW * 0.45f).toInt()
+                // Never narrower than the widest word: a word is never cut over two lines
+                val widest = text.split(WORD_GAP).filter { it.isNotEmpty() }.maxOfOrNull { paint.measureText(it) } ?: 0f
+                var low = max((maxW * 0.45f).toInt(), kotlin.math.ceil(widest).toInt() + 2).coerceAtMost(maxW)
                 var high = maxW
                 repeat(8) {
                     val mid = (low + high) / 2
@@ -953,6 +959,7 @@ object ScanlationRenderer {
 
     // MANHWA: how far (in line heights) an empty joined line may be from the bubble that took its words
     private const val JOINED_REACH = 1.5f
+    private val WORD_GAP = Regex("\\s+")
 
     // MANHWA: a bubble grown this much wider than its text keeps a wider margin (sides, top and bottom)
     private const val GROWN_FACTOR = 1.15f
