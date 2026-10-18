@@ -91,6 +91,8 @@ class UsageMeter(private val store: Preference<String>) {
     fun level(member: TeamStore.Member): Level {
         val u = current(member.id)
         val (percent, real) = when {
+            // MANHWA: the laptop has no daily quota: always full, however many requests it answered today
+            member.isHomeServer -> 100 to true
             u.exhausted -> 0 to true
             u.reportedLeft >= 0 -> u.reportedLeft to true
             else -> {
@@ -102,7 +104,7 @@ class UsageMeter(private val store: Preference<String>) {
     }
 
     /** Out of quota for today: the team does not give it work until tomorrow. */
-    fun exhausted(member: TeamStore.Member): Boolean = current(member.id).exhausted
+    fun exhausted(member: TeamStore.Member): Boolean = !member.isHomeServer && current(member.id).exhausted
 
     /** OpenRouter's credit left on the key, as a percentage of its limit (keys without a limit: unknown). */
     suspend fun refreshOpenRouter(member: TeamStore.Member) {
