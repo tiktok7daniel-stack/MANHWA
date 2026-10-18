@@ -1111,4 +1111,17 @@
     <string name="wn_clean_b">السطر الإنجليزي اللي ترجمته موجودة خلاص في السطر اللي جنبه بيتمسح بدل ما يفضل جنب العربي، والكلمة العربي عمرها ما بتتقسم على سطرين، والحروف اللي اتقرت غلط زي 50ME بتتقري SOME.</string>
     <string name="wn_calls_t">اللابتوب بيترجم أكتر في نفس الوقت</string>
     <string name="wn_calls_b">اختار عدد الدفعات اللي اللابتوب يشغّلها مع بعض (من 2 لـ 8)، ومعاها خطوات ظبط Ollama أو vLLM أو TabbyAPI. وكمان Hunyuan-MT، موديل معمول للترجمة بس، بقى اختيار جاهز.</string>
+    <string name="full_backup_title">نسخة احتياطية كاملة (كل حاجة)</string>
+    <string name="full_backup_info">ملف واحد فيه كل اللي عملته: المكتبة، والفصول المقروءة، والسجل، والإعدادات، ومفاتيح الفريق، ومكتبة الترجمة، والقواميس، والدروس، والتعديلات، والمصادر المتثبّتة، وكل فصل مترجم ومعاه صفحاته المحمّلة. لو مسحت التطبيق ورجعته، أو اديته لحد تاني، التطبيق بيرجع زي ما كان بالظبط والفصول المترجمة جاهزة. ممكن يبقى جيجا أو أكتر. موديلات الذكاء الاصطناعي اللي على الموبايل مش فيه (بتتحمل تاني من صفحتها).</string>
+    <string name="full_backup_all_downloads">كل الفصول المحمّلة كمان</string>
+    <string name="full_backup_all_downloads_info">مقفول: الصفحات المحمّلة للأعمال اللي فيها ترجمة بس. مفتوح: كل فصل محمّل (الملف أكبر).</string>
+    <string name="full_backup_make">اعمل نسخة كاملة</string>
+    <string name="full_backup_restore">رجّع نسخة كاملة</string>
+    <string name="full_backup_progress">شغال… %1$d%%</string>
+    <string name="full_backup_done">خلصت: %1$d فصل مترجم، و%2$d ملف. لو كنت بترجّع نسخة، اقفل التطبيق وافتحه تاني.</string>
+    <string name="full_backup_not_backup">الملف ده مش نسخة كاملة من MANHWA.</string>
+    <string name="full_backup_failed">ما خلصتش. اتأكد إن فيه مساحة فاضية وجرّب تاني.</string>
+    <string name="full_backup_share_warning">الملف فيه مفاتيحك وحساباتك: اديه بس لحد تثق فيه.</string>
+    <string name="full_backup_making">MANHWA · نسخة احتياطية كاملة</string>
+    <string name="full_backup_restoring">MANHWA · بيرجّع النسخة الكاملة</string>
 </resources>

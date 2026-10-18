@@ -21,6 +21,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Switch
+import androidx.compose.runtime.collectAsState
+import androidx.work.WorkInfo
+import mihon.icons.materialsymbols.rounded.Storage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -84,6 +89,14 @@ class ManhwaVaultScreen : Screen() {
         val syncWrote = stringResource(ATMR.strings.vault_sync_wrote)
         val syncMerged = stringResource(ATMR.strings.vault_sync_merged)
         val needFolder = stringResource(ATMR.strings.vault_need_folder)
+        val fullState by remember { FullBackupWorker.state(context) }.collectAsState(initial = null)
+        var allDownloads by remember { mutableStateOf(false) }
+        val fullBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+            if (uri != null) FullBackupWorker.backup(context, uri, allDownloads)
+        }
+        val fullRestoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) FullBackupWorker.restore(context, uri)
+        }
 
         fun launchTask(block: suspend () -> String) {
             if (working) return
@@ -134,6 +147,53 @@ class ManhwaVaultScreen : Screen() {
                     onBack = navigator::pop,
                 )
                 LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    // MANHWA: the full backup, everything including the translated chapters
+                    item {
+                        Card {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(MaterialSymbols.Rounded.Storage, contentDescription = null, tint = colors.primary, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(ATMR.strings.full_backup_title), style = MaterialTheme.typography.labelLarge, color = colors.primary)
+                            }
+                            Text(stringResource(ATMR.strings.full_backup_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(stringResource(ATMR.strings.full_backup_all_downloads), style = MaterialTheme.typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(ATMR.strings.full_backup_all_downloads_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                }
+                                Switch(checked = allDownloads, onCheckedChange = { allDownloads = it })
+                            }
+                            val state = fullState
+                            if (state?.running == true) {
+                                Text(stringResource(ATMR.strings.full_backup_progress, state.percent), style = MaterialTheme.typography.labelLarge, color = colors.primary, fontWeight = FontWeight.Bold)
+                                LinearProgressIndicator(progress = { state.percent / 100f }, modifier = Modifier.fillMaxWidth())
+                                if (state.name.isNotBlank()) {
+                                    Text(state.name.substringAfterLast('/'), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.55f), maxLines = 1)
+                                }
+                            } else {
+                                ManhwaKit.NeonButton(stringResource(ATMR.strings.full_backup_make), Modifier.fillMaxWidth(), MaterialSymbols.Rounded.Upload) {
+                                    val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(Date())
+                                    fullBackupLauncher.launch("MANHWA-full-$day.${FullBackup.EXTENSION}")
+                                }
+                                ManhwaKit.GhostButton(stringResource(ATMR.strings.full_backup_restore), Modifier.fillMaxWidth(), MaterialSymbols.Rounded.Download) {
+                                    fullRestoreLauncher.launch(arrayOf("*/*"))
+                                }
+                            }
+                            state?.finished?.let { info ->
+                                val text = when {
+                                    info.state == WorkInfo.State.SUCCEEDED -> stringResource(
+                                        ATMR.strings.full_backup_done,
+                                        info.outputData.getInt(FullBackupWorker.KEY_CHAPTERS, 0),
+                                        info.outputData.getInt(FullBackupWorker.KEY_FILES, 0),
+                                    )
+                                    info.outputData.getString(FullBackupWorker.KEY_ERROR) == FullBackupWorker.ERROR_NOT_BACKUP -> stringResource(ATMR.strings.full_backup_not_backup)
+                                    else -> stringResource(ATMR.strings.full_backup_failed)
+                                }
+                                Text(text, style = MaterialTheme.typography.bodySmall, color = if (info.state == WorkInfo.State.SUCCEEDED) Color(0xFF3DDC97) else Color(0xFFFFB020), fontWeight = FontWeight.Bold)
+                            }
+                            Text(stringResource(ATMR.strings.full_backup_share_warning), style = MaterialTheme.typography.labelSmall, color = Color(0xFFFFB020))
+                        }
+                    }
                     item {
                         Card {
                             Row(verticalAlignment = Alignment.CenterVertically) {

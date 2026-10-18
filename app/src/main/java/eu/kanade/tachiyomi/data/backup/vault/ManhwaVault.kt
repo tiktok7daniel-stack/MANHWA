@@ -49,8 +49,11 @@ import javax.crypto.spec.SecretKeySpec
 @SingleIn(AppScope::class)
 class ManhwaVault(
     private val context: Context,
-    private val backupCreatorFactory: BackupCreator.Factory,
-    private val collection: TranslationCollection,
+    internal val backupCreatorFactory: BackupCreator.Factory,
+    internal val collection: TranslationCollection,
+    /** For the full backup ([FullBackup]): where the translations and the downloaded chapters are. */
+    internal val storageManager: tachiyomi.domain.storage.service.StorageManager,
+    internal val downloadCache: eu.kanade.tachiyomi.data.download.DownloadCache,
 ) {
 
     class WrongPasswordException : Exception("Wrong password")

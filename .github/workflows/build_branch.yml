@@ -61,6 +61,8 @@ jobs:
         with:
           name: build-log-${{ github.sha }}
           path: build.log
+          # MANHWA: kept briefly, the free artifact storage is small
+          retention-days: 3
 
       # Prints the name and package read from inside the APK, so it is clear which build it is
       - name: Verify app name and package
@@ -95,9 +97,9 @@ jobs:
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: MANHWA-build-${{ github.run_number }}
-          path: |
-            app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
-            app/build/outputs/apk/debug/app-universal-debug.apk
+          # MANHWA: only the phone's APK, kept a week: every build kept 90 days filled the free storage quota
+          path: app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+          retention-days: 7
 
       # MANHWA: the unit tests of the app (key health, sources, organizer, translation rules)
       - name: Run unit tests
