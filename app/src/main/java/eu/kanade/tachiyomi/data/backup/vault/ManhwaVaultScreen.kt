@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.data.backup.vault
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult

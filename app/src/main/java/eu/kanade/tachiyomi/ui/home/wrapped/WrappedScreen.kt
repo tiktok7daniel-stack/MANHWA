@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.home.wrapped
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import android.graphics.Bitmap
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing

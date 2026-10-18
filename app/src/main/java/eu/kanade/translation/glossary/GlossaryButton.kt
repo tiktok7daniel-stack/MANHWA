@@ -1,5 +1,7 @@
 package eu.kanade.translation.glossary
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer

@@ -1,5 +1,7 @@
 package eu.kanade.translation.live
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.input.pointer.pointerInput

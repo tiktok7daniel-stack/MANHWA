@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.home.stats
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat

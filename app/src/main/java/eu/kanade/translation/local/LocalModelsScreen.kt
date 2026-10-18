@@ -1,5 +1,7 @@
 package eu.kanade.translation.local
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.background

@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.home.smart
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import android.text.format.Formatter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween

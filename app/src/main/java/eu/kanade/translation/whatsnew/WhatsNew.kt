@@ -1,5 +1,7 @@
 package eu.kanade.translation.whatsnew
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import android.content.Context
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring

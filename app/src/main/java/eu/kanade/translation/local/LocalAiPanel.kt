@@ -1,5 +1,7 @@
 package eu.kanade.translation.local
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts

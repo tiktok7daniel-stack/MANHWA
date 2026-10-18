@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.home
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.foundation.layout.fillMaxHeight
 
 import eu.kanade.presentation.components.neonGlow

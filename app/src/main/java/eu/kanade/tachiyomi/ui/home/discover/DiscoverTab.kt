@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.home.discover
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import android.text.format.DateUtils
 import androidx.compose.animation.Crossfade
 import androidx.compose.ui.draw.drawWithContent

@@ -1,5 +1,7 @@
 package eu.kanade.presentation.more
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background

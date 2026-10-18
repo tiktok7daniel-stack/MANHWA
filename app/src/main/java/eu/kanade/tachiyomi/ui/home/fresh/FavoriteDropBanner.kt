@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.home.fresh
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring

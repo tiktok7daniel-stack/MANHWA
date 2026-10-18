@@ -1,5 +1,7 @@
 package eu.kanade.translation.settings
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement

@@ -1,5 +1,7 @@
 package eu.kanade.translation.live
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import mihon.icons.materialsymbols.rounded.Check
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode

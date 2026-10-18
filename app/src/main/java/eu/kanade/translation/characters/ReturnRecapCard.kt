@@ -1,5 +1,7 @@
 package eu.kanade.translation.characters
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row

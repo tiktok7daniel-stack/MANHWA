@@ -1,5 +1,7 @@
 package eu.kanade.translation.live
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween

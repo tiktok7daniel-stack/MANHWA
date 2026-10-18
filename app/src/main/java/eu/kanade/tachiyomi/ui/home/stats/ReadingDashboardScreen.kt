@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.home.stats
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row

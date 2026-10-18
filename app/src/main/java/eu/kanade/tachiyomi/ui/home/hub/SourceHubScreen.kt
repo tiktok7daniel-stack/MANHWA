@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.ui.home.hub
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

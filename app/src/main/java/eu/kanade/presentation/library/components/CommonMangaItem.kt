@@ -1,5 +1,7 @@
 package eu.kanade.presentation.library.components
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import eu.kanade.presentation.components.glass
 import eu.kanade.presentation.components.obsidianPill
 import eu.kanade.presentation.components.pressCombinedClickable

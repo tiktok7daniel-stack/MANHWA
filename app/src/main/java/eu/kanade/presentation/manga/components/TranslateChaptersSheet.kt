@@ -1,5 +1,7 @@
 package eu.kanade.presentation.manga.components
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background

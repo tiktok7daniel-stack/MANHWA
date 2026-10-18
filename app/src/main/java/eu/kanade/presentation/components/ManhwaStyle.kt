@@ -210,8 +210,8 @@ fun ManhwaStyledScreen(content: @Composable () -> Unit) {
         bars?.isAppearanceLightStatusBars = true
         bars?.isAppearanceLightNavigationBars = true
         onDispose {
-            if (status != null) bars.isAppearanceLightStatusBars = status
-            if (navigation != null) bars.isAppearanceLightNavigationBars = navigation
+            status?.let { bars?.isAppearanceLightStatusBars = it }
+            navigation?.let { bars?.isAppearanceLightNavigationBars = it }
         }
     }
     CompositionLocalProvider(LocalManhwaLook provides lightLook) {
@@ -321,5 +321,5 @@ fun Modifier.obsidianPill(): Modifier = composed {
         .clip(shape)
         .background(ObsidianTokens.PillFill, shape)
         .border(0.5.dp, accent.copy(alpha = 0.9f), shape)
-        .padding(horizontal = 7.dp, vertical = 2.dp)
+        .padding(horizontal = 4.dp, vertical = 1.dp)
 }

@@ -1,5 +1,7 @@
 package eu.kanade.translation.unified
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import android.widget.Toast
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat

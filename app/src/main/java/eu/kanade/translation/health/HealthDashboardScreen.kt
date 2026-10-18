@@ -1,5 +1,7 @@
 package eu.kanade.translation.health
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import android.text.format.DateUtils
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement

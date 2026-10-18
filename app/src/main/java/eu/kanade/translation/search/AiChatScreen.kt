@@ -1,5 +1,7 @@
 package eu.kanade.translation.search
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import mihon.icons.materialsymbols.rounded.Check
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri

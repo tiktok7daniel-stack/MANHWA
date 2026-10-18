@@ -1,5 +1,7 @@
 package eu.kanade.translation.team
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent

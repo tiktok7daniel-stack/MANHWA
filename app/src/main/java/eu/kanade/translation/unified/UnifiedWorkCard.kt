@@ -1,5 +1,7 @@
 package eu.kanade.translation.unified
 
+import eu.kanade.presentation.components.ManhwaInk
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
