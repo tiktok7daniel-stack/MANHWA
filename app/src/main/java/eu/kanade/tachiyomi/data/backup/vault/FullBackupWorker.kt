@@ -54,7 +54,10 @@ class FullBackupWorker(private val context: Context, params: WorkerParameters) :
                 if (restore) {
                     FullBackup.import(context, uri, onProgress)
                 } else {
-                    FullBackup.export(context, uri, FullBackup.Options(allDownloads = inputData.getBoolean(KEY_ALL, false)), onProgress)
+                    FullBackup.export(context, uri, FullBackup.Options(
+                            allDownloads = inputData.getBoolean(KEY_ALL, false),
+                            translatedPages = inputData.getBoolean(KEY_PAGES, false),
+                        ), onProgress)
                 }
             }
             Result.success(workDataOf(KEY_FILES to result.files, KEY_CHAPTERS to result.chapters, KEY_LINES to result.lines))
@@ -92,6 +95,7 @@ class FullBackupWorker(private val context: Context, params: WorkerParameters) :
         private const val KEY_URI = "uri"
         private const val KEY_RESTORE = "restore"
         private const val KEY_ALL = "all_downloads"
+        private const val KEY_PAGES = "translated_pages"
         const val KEY_PERCENT = "percent"
         const val KEY_NAME = "name"
         const val KEY_FILES = "files"
@@ -100,14 +104,15 @@ class FullBackupWorker(private val context: Context, params: WorkerParameters) :
         const val KEY_ERROR = "error"
         const val ERROR_NOT_BACKUP = "not_backup"
 
-        fun backup(context: Context, uri: Uri, allDownloads: Boolean) = start(context, uri, restore = false, allDownloads)
+        fun backup(context: Context, uri: Uri, allDownloads: Boolean, translatedPages: Boolean) =
+            start(context, uri, restore = false, allDownloads, translatedPages)
 
-        fun restore(context: Context, uri: Uri) = start(context, uri, restore = true, allDownloads = false)
+        fun restore(context: Context, uri: Uri) = start(context, uri, restore = true, allDownloads = false, translatedPages = false)
 
-        private fun start(context: Context, uri: Uri, restore: Boolean, allDownloads: Boolean) {
+        private fun start(context: Context, uri: Uri, restore: Boolean, allDownloads: Boolean, translatedPages: Boolean) {
             val request = OneTimeWorkRequestBuilder<FullBackupWorker>()
                 .addTag(TAG)
-                .setInputData(workDataOf(KEY_URI to uri.toString(), KEY_RESTORE to restore, KEY_ALL to allDownloads))
+                .setInputData(workDataOf(KEY_URI to uri.toString(), KEY_RESTORE to restore, KEY_ALL to allDownloads, KEY_PAGES to translatedPages))
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
         }

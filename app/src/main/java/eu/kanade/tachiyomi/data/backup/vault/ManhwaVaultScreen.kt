@@ -91,8 +91,9 @@ class ManhwaVaultScreen : Screen() {
         val needFolder = stringResource(ATMR.strings.vault_need_folder)
         val fullState by remember { FullBackupWorker.state(context) }.collectAsState(initial = null)
         var allDownloads by remember { mutableStateOf(false) }
+        var translatedPages by remember { mutableStateOf(true) }
         val fullBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-            if (uri != null) FullBackupWorker.backup(context, uri, allDownloads)
+            if (uri != null) FullBackupWorker.backup(context, uri, allDownloads, translatedPages)
         }
         val fullRestoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) FullBackupWorker.restore(context, uri)
@@ -162,6 +163,13 @@ class ManhwaVaultScreen : Screen() {
                                     Text(stringResource(ATMR.strings.full_backup_all_downloads_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
                                 }
                                 Switch(checked = allDownloads, onCheckedChange = { allDownloads = it })
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(stringResource(ATMR.strings.full_backup_pages), style = MaterialTheme.typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(ATMR.strings.full_backup_pages_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                }
+                                Switch(checked = translatedPages, onCheckedChange = { translatedPages = it })
                             }
                             val state = fullState
                             if (state?.running == true) {

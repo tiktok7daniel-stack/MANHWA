@@ -1171,7 +1171,7 @@
     <string name="wn_calls_t">The laptop translates more at once</string>
     <string name="wn_calls_b">Choose how many batches the laptop runs together (2 to 8), with the steps to set Ollama, vLLM or TabbyAPI for it, and Hunyuan-MT, a model made only to translate, is a ready choice.</string>
     <string name="full_backup_title">Full backup (everything)</string>
-    <string name="full_backup_info">One file with everything you did: the library, read marks, history, settings and the team\'s keys, the translation collection, glossaries, lessons and edits, the installed sources, and every translated chapter with its downloaded pages. Put it back after removing the app, or give it to someone else, and the app comes back exactly as it was, translated chapters included. It can be a gigabyte or more. Phone AI models are left out (download them again from their page).</string>
+    <string name="full_backup_info">One file with everything you did: the library, read marks, history, settings and the team\'s keys, the translation collection, glossaries, lessons and edits, the fusions of every work, the installed sources, and every translated chapter with its downloaded pages. Put it back after removing the app, or give it to someone else, and the app comes back exactly as it was, translated chapters included. It can be a gigabyte or more. Phone AI models are left out (download them again from their page).</string>
     <string name="full_backup_all_downloads">All downloaded chapters too</string>
     <string name="full_backup_all_downloads_info">Off: the downloaded pages of the works that have translations. On: every downloaded chapter (bigger).</string>
     <string name="full_backup_make">Make a full backup</string>
@@ -1185,4 +1185,6 @@
     <string name="full_backup_restoring">MANHWA · Restoring the full backup</string>
     <string name="wn_fullbackup_t">A full backup with your translated chapters</string>
     <string name="wn_fullbackup_b">MANHWA Vault › Full backup: one file with everything, from the library and keys to every translated chapter and its pages. Put it back after removing the app, or give it to a friend, and everything comes back as it was.</string>
+    <string name="full_backup_pages">Pages of every translated chapter</string>
+    <string name="full_backup_pages_info">On: translated chapters that are not downloaded get their pages downloaded first, so on the other phone every translated chapter opens at once, even offline (takes longer, the file is bigger).</string>
 </resources>

@@ -4,9 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
-import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreWorker
 import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
-import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -42,7 +40,11 @@ import java.util.zip.ZipOutputStream
  */
 object FullBackup {
 
-    data class Options(val allDownloads: Boolean = false)
+    data class Options(
+        val allDownloads: Boolean = false,
+        /** The translated chapters that are not downloaded get their pages downloaded first, so they travel too. */
+        val translatedPages: Boolean = false,
+    )
 
     data class Progress(val done: Long, val total: Long, val name: String)
 
@@ -56,6 +58,15 @@ object FullBackup {
 
     suspend fun export(context: Context, uri: Uri, options: Options, onProgress: (Progress) -> Unit): Result {
         val vault = context.appGraph.manhwaVault
+        // The ids every MANHWA file uses, found before anything is written (and before the pages are fetched)
+        val used = usedIds(context)
+        if (options.translatedPages) {
+            runCatching { downloadTranslated(context, used.first) { onProgress(Progress(0, 0, it)) } }
+                .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it else logcat(LogPriority.WARN, it) { "Translated pages not all fetched" } }
+        }
+        val idMap = runCatching { buildIdMap(vault, used) }
+            .onFailure { logcat(LogPriority.WARN, it) { "Id map of the full backup incomplete" } }
+            .getOrDefault(IdMap())
         val items = plan(context, options)
         val total = items.sumOf { it.size }
         var done = 0L
@@ -87,7 +98,11 @@ object FullBackup {
             zip.putNextEntry(ZipEntry(ENTRY_PREFS))
             zip.write(prefsJson(context).toByteArray())
             zip.closeEntry()
-            // 4. Every file: the app's own, the translations and the downloaded pages
+            // 4. The map of the ids the files below use (before them: the restore reads it first)
+            zip.putNextEntry(ZipEntry(ENTRY_IDS))
+            zip.write(idJson.encodeToString(IdMap.serializer(), idMap).toByteArray())
+            zip.closeEntry()
+            // 5. Every file: the app's own, the translations and the downloaded pages
             for (item in items) {
                 onProgress(Progress(done, total, item.name))
                 val entry = ZipEntry(item.name).apply { if (item.time > 0) time = item.time }
@@ -107,6 +122,91 @@ object FullBackup {
     }
 
     private class Item(val name: String, val size: Long, val time: Long, val open: () -> InputStream)
+
+    private val idJson = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+
+    /** The work and chapter ids the app's files use (fusions, glossaries, edits...). */
+    private fun usedIds(context: Context): Pair<Set<Long>, Set<Long>> {
+        val root = context.filesDir
+        val mangas = HashSet<Long>()
+        val chapters = HashSet<Long>()
+        root.walkTopDown()
+            .onEnter { dir -> dir == root || FullBackupRules.keepDir(dir.relativeTo(root).invariantSeparatorsPath) }
+            .filter { it.isFile }
+            .forEach { file ->
+                val path = file.relativeTo(root).invariantSeparatorsPath
+                val content = if (IdRemapRules.holdsIds(path)) runCatching { Json.parseToJsonElement(file.readText()) }.getOrNull() else null
+                val (m, c) = IdRemapRules.idsOf(path, content)
+                mangas += m
+                chapters += c
+            }
+        return mangas to chapters
+    }
+
+    /** Each used id with what finds it again on another phone; a work not in the library travels whole. */
+    private suspend fun buildIdMap(vault: ManhwaVault, used: Pair<Set<Long>, Set<Long>>): IdMap {
+        val chapterRefs = used.second.mapNotNull { id ->
+            runCatching { vault.chapterRepository.getChapterById(id) }.getOrNull()?.let { IdMap.ChapterRef(it.id, it.mangaId, it.url) }
+        }
+        val mangaIds = used.first + chapterRefs.map { it.mangaId }
+        val mangas = mangaIds.mapNotNull { id ->
+            val manga = runCatching { vault.mangaRepository.getMangaById(id) }.getOrNull() ?: return@mapNotNull null
+            if (manga.favorite) {
+                IdMap.MangaRef(manga.id, manga.source, manga.url, manga.title, favorite = true)
+            } else {
+                // Not in the library, so not in Mihon's backup: its details and chapters go with the map
+                val chapters = runCatching { vault.chapterRepository.getChapterByMangaId(manga.id) }.getOrDefault(emptyList())
+                IdMap.MangaRef(
+                    manga.id, manga.source, manga.url, manga.title, favorite = false,
+                    details = IdMap.Details(manga.artist, manga.author, manga.description, manga.genre, manga.status, manga.thumbnailUrl),
+                    chapters = chapters.map {
+                        IdMap.ChapterData(
+                            it.url, it.name, it.chapterNumber, it.scanlator, it.read, it.bookmark, it.lastPageRead.toLong(),
+                            it.sourceOrder, it.dateUpload?.toEpochMilliseconds(),
+                        )
+                    },
+                )
+            }
+        }
+        return IdMap(mangas, chapterRefs)
+    }
+
+    /**
+     * Downloads the pages of every translated chapter that is not downloaded (the library's works and the works
+     * the fusions use), with the app's own downloader, and waits for them: the backup then holds them too.
+     */
+    private suspend fun downloadTranslated(context: Context, usedMangas: Set<Long>, onStep: (String) -> Unit) {
+        val graph = context.appGraph
+        val vault = graph.manhwaVault
+        val downloads = graph.downloadManager
+        val mangas = (vault.mangaRepository.getFavorites() + usedMangas.mapNotNull { runCatching { vault.mangaRepository.getMangaById(it) }.getOrNull() })
+            .distinctBy { it.id }
+        val waiting = mutableListOf<Long>()
+        for (manga in mangas) {
+            val source = graph.sourceManager.getOrStub(manga.source)
+            val translated = runCatching { graph.translationManager.getTranslatedFileNames(manga, source) }.getOrDefault(emptySet())
+            if (translated.isEmpty()) continue
+            val chapters = vault.chapterRepository.getChapterByMangaId(manga.id).filter { chapter ->
+                graph.translationManager.getTranslationFileName(chapter) in translated &&
+                    !downloads.isChapterDownloaded(chapter.name, chapter.scanlator, chapter.url, manga.title, manga.source)
+            }
+            if (chapters.isEmpty()) continue
+            onStep(manga.title)
+            downloads.downloadChapters(manga, chapters)
+            waiting += chapters.map { it.id }
+        }
+        if (waiting.isEmpty()) return
+        // Until every one is done or failed; a download that stops moving for a long while (no network) is not waited for
+        var left = waiting.size
+        var still = 0
+        while (left > 0 && still < FullBackupRules.STALL_STEPS) {
+            kotlinx.coroutines.delay(FullBackupRules.WAIT_STEP_MS)
+            val now = waiting.count { downloads.getQueuedDownloadOrNull(it) != null }
+            still = if (now < left) 0 else still + 1
+            left = now
+            onStep("${waiting.size - left}/${waiting.size}")
+        }
+    }
 
     /** Everything that goes in, with its size (for the progress). */
     private fun plan(context: Context, options: Options): List<Item> {
@@ -163,8 +263,11 @@ object FullBackup {
      * deletes), the collection keeps both sides' lines, and every file is written only where nothing is yet (a
      * MANHWA file also when the backup's copy is newer).
      */
-    fun import(context: Context, uri: Uri, onProgress: (Progress) -> Unit): Result {
+    suspend fun import(context: Context, uri: Uri, onProgress: (Progress) -> Unit): Result {
         val vault = context.appGraph.manhwaVault
+        // Old ids to the ids on this phone, once the map is read (a backup without one keeps the names as they are)
+        var mangaIds: Map<Long, Long>? = null
+        var chapterIds: Map<Long, Long> = emptyMap()
         val total = runCatching {
             context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
         }.getOrNull()?.takeIf { it > 0 } ?: 0L
@@ -186,7 +289,23 @@ object FullBackup {
                     name == ENTRY_MIHON -> {
                         val file = File(context.cacheDir, "full_restore.tachibk")
                         file.outputStream().use { zip.copyTo(it, BUFFER) }
-                        BackupRestoreWorker.start(context.workManager, Uri.fromFile(file), RestoreOptions())
+                        // Restored now, before the ids are looked for: every work and chapter is then on the phone
+                        try {
+                            vault.backupRestorerFactory.create(vault.backupNotifier, isSync = false).restore(Uri.fromFile(file), RestoreOptions())
+                        } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            logcat(LogPriority.WARN, e) { "Library restore of the full backup failed" }
+                        } finally {
+                            file.delete()
+                        }
+                    }
+                    name == ENTRY_IDS -> {
+                        val map = runCatching { idJson.decodeFromString(IdMap.serializer(), zip.readBytes().decodeToString()) }.getOrNull()
+                        if (map != null) {
+                            val found = resolve(vault, map)
+                            mangaIds = found.first
+                            chapterIds = found.second
+                        }
                     }
                     name == ENTRY_COLLECTION -> {
                         lines = runCatching { vault.collection.importFrom(KeepOpen(zip)) }.getOrDefault(0)
@@ -194,13 +313,25 @@ object FullBackup {
                     name == ENTRY_PREFS -> runCatching { restorePrefs(context, zip.readBytes().decodeToString()) }
                     entry.isDirectory -> Unit
                     name.startsWith(FILES) -> {
-                        val path = FullBackupRules.safePath(name.removePrefix(FILES)) ?: continue
+                        val original = FullBackupRules.safePath(name.removePrefix(FILES)) ?: continue
+                        val manga = mangaIds
+                        // The file named after a work or a chapter takes its id on this phone (left out when it is not here)
+                        val path = if (manga == null) original else IdRemapRules.renamed(original, manga::get, chapterIds::get) ?: continue
                         val target = File(root, path).canonicalFile
                         // Never outside the app's files
                         if (!target.path.startsWith(root.path + File.separator)) continue
                         if (target.exists() && entry.time > 0 && entry.time <= target.lastModified()) continue
                         target.parentFile?.mkdirs()
-                        target.outputStream().use { zip.copyTo(it, BUFFER) }
+                        if (manga != null && IdRemapRules.holdsIds(path)) {
+                            // The ids inside the file are written again too
+                            val text = zip.readBytes().decodeToString()
+                            val remapped = runCatching {
+                                IdRemapRules.remap(path, Json.parseToJsonElement(text), manga::get, chapterIds::get).toString()
+                            }.getOrNull() ?: continue
+                            target.writeText(remapped)
+                        } else {
+                            target.outputStream().use { zip.copyTo(it, BUFFER) }
+                        }
                         if (entry.time > 0) target.setLastModified(entry.time)
                         files++
                     }
@@ -226,6 +357,50 @@ object FullBackup {
         onProgress(Progress(total, total, ""))
         return Result(files, chapters, lines)
     }
+
+    /**
+     * Finds each work and chapter of [map] on this phone by its source and address, adding back the works that were
+     * not in the library (with their chapters). Returns old id to new id, for works and for chapters.
+     */
+    private suspend fun resolve(vault: ManhwaVault, map: IdMap): Pair<Map<Long, Long>, Map<Long, Long>> {
+        val mangas = HashMap<Long, Long>()
+        for (ref in map.mangas) {
+            val here = runCatching { vault.mangaRepository.getMangaByUrlAndSourceId(ref.url, ref.source) }.getOrNull()
+                ?: ref.details?.let { d -> addBack(vault, ref, d) }
+                ?: continue
+            mangas[ref.id] = here.id
+        }
+        val chapters = HashMap<Long, Long>()
+        for (ref in map.chapters) {
+            val manga = mangas[ref.mangaId] ?: continue
+            runCatching { vault.chapterRepository.getChapterByUrlAndMangaId(ref.url, manga) }.getOrNull()?.let { chapters[ref.id] = it.id }
+        }
+        return mangas to chapters
+    }
+
+    /** A work of the backup that is not in the library here (a fusion's continuation): added, with its chapters. */
+    private suspend fun addBack(vault: ManhwaVault, ref: IdMap.MangaRef, d: IdMap.Details): tachiyomi.domain.manga.model.Manga? = runCatching {
+        val manga = vault.mangaRepository.insertNetworkManga(
+            listOf(
+                tachiyomi.domain.manga.model.Manga.create().copy(
+                    source = ref.source, url = ref.url, title = ref.title, artist = d.artist, author = d.author,
+                    description = d.description, genre = d.genre, status = d.status, thumbnailUrl = d.thumbnailUrl,
+                    initialized = true,
+                ),
+            ),
+        ).firstOrNull() ?: return@runCatching null
+        val have = vault.chapterRepository.getChapterByMangaId(manga.id).map { it.url }.toSet()
+        val now = kotlin.time.Clock.System.now()
+        val added = ref.chapters.filter { it.url !in have }.map { c ->
+            tachiyomi.domain.chapter.model.Chapter.create().copy(
+                mangaId = manga.id, url = c.url, name = c.name, chapterNumber = c.number, scanlator = c.scanlator,
+                read = c.read, bookmark = c.bookmark, lastPageRead = c.lastPageRead.toInt(), sourceOrder = c.sourceOrder,
+                dateUpload = c.dateUpload?.let { kotlin.time.Instant.fromEpochMilliseconds(it) }, dateFetch = now,
+            )
+        }
+        if (added.isNotEmpty()) vault.chapterRepository.updateFromRemote(emptyList(), added, emptyList())
+        manga
+    }.onFailure { logcat(LogPriority.WARN, it) { "${ref.title} not added back" } }.getOrNull()
 
     /** Writes the entry at [path] under [dir] when no file is there yet; true when written. */
     private fun put(dir: UniFile, path: String, input: InputStream): Boolean {
@@ -312,6 +487,7 @@ object FullBackup {
     private const val ENTRY_MIHON = "mihon.tachibk"
     private const val ENTRY_COLLECTION = "collection.db"
     private const val ENTRY_PREFS = "prefs.json"
+    private const val ENTRY_IDS = "ids.json"
     private const val FILES = "files/"
     private const val TRANSLATIONS = "translations/"
     private const val DOWNLOADS = "downloads/"
@@ -342,6 +518,10 @@ object FullBackupRules {
         val ext = name.substringAfterLast('.', "").lowercase()
         return ext in setOf("jpg", "jpeg", "png", "webp", "gif", "avif", "heif", "jxl", "cbz", "zip", "apk", "onnx", "tflite", "task")
     }
+
+    /** Fetching translated pages: checked every few seconds, and given up after this many checks without progress. */
+    const val WAIT_STEP_MS = 3_000L
+    const val STALL_STEPS = 200
 
     /** How far, 0..100 (0 while the size is not known). */
     fun percent(done: Long, total: Long): Int = if (total <= 0) 0 else (done * 100 / total).toInt().coerceIn(0, 100)

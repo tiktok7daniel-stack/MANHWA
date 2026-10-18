@@ -54,6 +54,11 @@ class ManhwaVault(
     /** For the full backup ([FullBackup]): where the translations and the downloaded chapters are. */
     internal val storageManager: tachiyomi.domain.storage.service.StorageManager,
     internal val downloadCache: eu.kanade.tachiyomi.data.download.DownloadCache,
+    /** For the full backup: the library restored before the ids are found again, and the works it adds back. */
+    internal val backupRestorerFactory: eu.kanade.tachiyomi.data.backup.restore.BackupRestorer.Factory,
+    internal val backupNotifier: eu.kanade.tachiyomi.data.backup.BackupNotifier,
+    internal val mangaRepository: tachiyomi.domain.manga.repository.MangaRepository,
+    internal val chapterRepository: tachiyomi.domain.chapter.repository.ChapterRepository,
 ) {
 
     class WrongPasswordException : Exception("Wrong password")
