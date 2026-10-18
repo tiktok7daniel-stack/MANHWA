@@ -79,7 +79,11 @@ object FullBackup {
             zip.closeEntry()
             // 1. The Mihon backup, with the private settings (the team's keys, the trackers' logins)
             onProgress(Progress(done, total, ENTRY_MIHON))
-            val mihon = File(context.cacheDir, "full_backup.tachibk").apply { delete() }
+            // Mihon's backup writes into a file that is there already
+            val mihon = File(context.cacheDir, "full_backup.tachibk").apply {
+                delete()
+                createNewFile()
+            }
             try {
                 vault.backupCreatorFactory.create(isAutoBackup = false)
                     .backup(Uri.fromFile(mihon), BackupOptions(privateSettings = true))
@@ -271,7 +275,6 @@ object FullBackup {
         val total = runCatching {
             context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
         }.getOrNull()?.takeIf { it > 0 } ?: 0L
-        var read = 0L
         var files = 0
         var chapters = 0
         var lines = 0
@@ -279,11 +282,13 @@ object FullBackup {
         val root = context.filesDir.canonicalFile
         val storage = vault.storageManager
         val input = context.contentResolver.openInputStream(uri) ?: error("The file could not be opened")
-        ZipInputStream(BufferedInputStream(input, BUFFER)).use { zip ->
+        // Counts what was read of the file, for the progress
+        val counted = Counted(BufferedInputStream(input, BUFFER))
+        ZipInputStream(counted).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
                 val name = entry.name
-                onProgress(Progress(read, total, name))
+                onProgress(Progress(counted.count, total, name))
                 when {
                     name == ENTRY_MANIFEST -> valid = true
                     name == ENTRY_MIHON -> {
@@ -347,7 +352,6 @@ object FullBackup {
                         if (put(dir, name.removePrefix(DOWNLOADS), zip)) files++
                     }
                 }
-                read += entry.compressedSize.takeIf { it > 0 } ?: 0L
                 zip.closeEntry()
             }
         }
@@ -415,6 +419,18 @@ object FullBackup {
         val file = current.createFile(name) ?: return false
         file.openOutputStream().use { input.copyTo(it, BUFFER) }
         return true
+    }
+
+    /** The bytes read so far from the backup file. */
+    private class Counted(input: InputStream) : FilterInputStream(input) {
+        @Volatile var count = 0L
+            private set
+
+        override fun read(): Int = super.read().also { if (it >= 0) count++ }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int = super.read(b, off, len).also { if (it > 0) count += it }
+
+        override fun skip(n: Long): Long = super.skip(n).also { count += it }
     }
 
     /** Lets a reader that closes its stream read one entry without closing the whole backup. */
