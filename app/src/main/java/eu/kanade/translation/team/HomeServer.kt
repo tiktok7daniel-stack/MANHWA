@@ -72,8 +72,19 @@ object LocalServerRules {
     /** A ping waits this long at most: an answer from the same house comes in well under a second. */
     const val PING_MS = 3_000L
 
-    /** A ping is trusted this long, so a chapter never pings for every line. */
-    const val CACHE_MS = 5 * 60_000L
+    /** A ping is trusted this long, then asked again (on the same Wi-Fi it takes a fraction of a second). */
+    const val CACHE_MS = 60_000L
+
+    /** Failures in a row of calls that reached the laptop before it counts as away for a while. */
+    const val AWAY_STRIKES = 2
+
+    /** A failure that says the laptop could not be reached at all (not a slow or wrong answer). */
+    fun unreachable(error: Throwable): Boolean = when (error) {
+        is java.net.ConnectException, is java.net.UnknownHostException, is java.net.NoRouteToHostException -> true
+        // A connect that timed out is no laptop; a read that timed out is a busy one
+        is java.net.SocketTimeoutException -> error.message.orEmpty().contains("connect", ignoreCase = true)
+        else -> error.cause?.let(::unreachable) ?: false
+    }
 
     /** A laptop that did not answer is asked again sooner: back home, it takes over within half a minute. */
     const val AWAY_MS = 30_000L
@@ -107,8 +118,11 @@ object LocalServerRules {
     /** Calls the laptop runs at once from the start: a GPU answers two together about as fast as one. */
     const val START_CALLS = 2.0
 
-    /** At most: more only wait in the laptop's own queue. */
-    const val MAX_CALLS = 3
+    /** At most: more only wait in the laptop's own queue (one GPU, often one call at a time). */
+    const val MAX_CALLS = 2
+
+    /** How long a batch may take on the laptop: a base, and some seconds a line (a slow GPU still finishes). */
+    fun batchTimeoutMs(lines: Int): Long = (60_000L + lines * 8_000L).coerceAtLeast(150_000L)
 
     /** A ready model for the laptop: its Ollama name and what it is for. */
     data class Preset(val model: String, val fastest: Boolean)
@@ -141,15 +155,16 @@ internal fun HomeServerCard(onOpen: () -> Unit) {
     val answers by produceState<Boolean?>(null, home?.baseUrl) {
         val url = home?.baseUrl ?: return@produceState
         while (true) {
-            store.pingHome()
-            value = store.homeAnswers(url)
+            // Asked whatever the "translate on" choice, so the card never stays on "checking"
+            store.pingHome(force = true)
+            value = store.homeKnown(url)
             kotlinx.coroutines.delay(10_000)
         }
     }
     val (text, color) = when {
         home == null -> stringResource(ATMR.strings.hs_card_none) to Color.White.copy(alpha = 0.6f)
         answers == true -> stringResource(ATMR.strings.hs_card_on, home.model) to Color(0xFF3DDC97)
-        answers == false -> stringResource(ATMR.strings.hs_card_off) to Color(0xFFFFB020)
+        answers == false -> (stringResource(ATMR.strings.hs_card_off) + (store.homeProblem(home.baseUrl)?.let { "\n$it" } ?: "")) to Color(0xFFFFB020)
         else -> stringResource(ATMR.strings.hs_card_checking) to Color.White.copy(alpha = 0.6f)
     }
     Row(
@@ -195,6 +210,7 @@ class HomeServerScreen : Screen() {
         val okTemplate = stringResource(ATMR.strings.hs_test_ok)
         val failText = stringResource(ATMR.strings.hs_test_fail)
         val memberName = stringResource(ATMR.strings.hs_member_name)
+        val missingText = stringResource(ATMR.strings.hs_missing)
         val bottom = WindowInsets.navigationBars.asPaddingValues()
 
         GlassBackdrop {
@@ -244,10 +260,12 @@ class HomeServerScreen : Screen() {
                                 scope.launch {
                                     val url = LocalServerRules.normalize(address)
                                     address = url
-                                    val found = withContext(Dispatchers.IO) { store.homeModels(url, key) }
+                                    val check = withContext(Dispatchers.IO) { store.homeCheck(url, key) }
+                                    val found = check.models
                                     models = found
                                     if (found != null && (model.isBlank() || model !in found)) model = LocalServerRules.preferredModel(found).orEmpty()
-                                    result = if (found == null) failText else okTemplate.replace("%1\$d", "${found.size}")
+                                    // The reason it failed, so a wrong port or a closed firewall can be told apart
+                                    result = if (found == null) failText + (check.problem?.let { "\n$it" } ?: "") else okTemplate.replace("%1\$d", "${found.size}")
                                     testing = false
                                 }
                             }
@@ -267,7 +285,10 @@ class HomeServerScreen : Screen() {
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 val url = LocalServerRules.normalize(address)
-                                if (url.isBlank() || model.isBlank()) return@NeonButton
+                                if (url.isBlank() || model.isBlank()) {
+                                    result = missingText
+                                    return@NeonButton
+                                }
                                 val current = store.members.value.firstOrNull { it.isHomeServer }
                                 val member = (current ?: store.add(key, AiTranslator.Provider.OPENAI_COMPATIBLE, model)).copy(
                                     provider = AiTranslator.Provider.OPENAI_COMPATIBLE.name,

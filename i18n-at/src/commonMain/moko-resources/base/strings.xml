@@ -1134,7 +1134,7 @@
     <string name="hs_mode_auto">Automatic</string>
     <string name="hs_mode_home">Laptop only</string>
     <string name="hs_mode_cloud">Never the laptop</string>
-    <string name="hs_mode_help">Automatic: before translating, the app checks the laptop (3 seconds at most, then every 5 minutes). It answers: everything goes to it. It does not: the other keys translate, or the phone model when there is no key. Laptop only: nothing else is used. Never the laptop: only the other keys.</string>
+    <string name="hs_mode_help">Automatic: before translating, the app checks the laptop (3 seconds at most, then every minute). It answers: everything goes to it. It does not: the other keys translate, or the phone model when there is no key. Laptop only: nothing else is used. Never the laptop: only the other keys.</string>
     <string name="hs_away_title">Away from home</string>
     <string name="hs_tailscale">To reach the laptop from outside the house: install Tailscale on the laptop and the phone with the same account, and put the name of the laptop here instead of the IP, like http://laptop-name:11434/v1. Without it, the app switches to your other keys or the phone model by itself when you leave.</string>
     <string name="hs_models_title">Models for an RTX 4060 (8 GB)</string>
@@ -1158,4 +1158,7 @@
     <string name="wn_rocket_b">The laptop now gets the lines as a plain numbered list it follows well, so its Arabic is far better, and lines it missed are asked again instead of staying in English. The full careful way (names, recheck, review) is back for every engine. Translate only stays as a switch in Translation settings for when speed matters more.</string>
     <string name="pref_translate_only">Translate only (fastest)</string>
     <string name="info_translate_only">Every line is translated once, English to Arabic, and that is it, whoever translates (laptop, keys or phone model): no separate call for the names, no rechecks, no editor, no second opinion, no summary, no second reading. Far faster and lighter. Turn it off for the full careful way.</string>
+    <string name="hs_missing">Write the server address and pick a model first (Test the connection lists them).</string>
+    <string name="wn_guard_t">No bubble left in English</string>
+    <string name="wn_guard_b">Whoever translates (laptop, keys or phone model), a bubble that comes back still in English is translated again so it ends in Arabic, misread words (PAMN for DAMN) are read as meant, sound effects and noise are left as drawn, and a line that was not translated is no longer erased and redrawn in English. The laptop also stops falling back to Google when it is only slow, never swaps its model, and shows why it is not answering.</string>
 </resources>

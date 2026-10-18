@@ -299,6 +299,8 @@ class LocalAiTranslator(
         // once and keeps them (see LocalAiEngine.generate), each call reads only what follows
         val head = buildString {
             appendLine("You translate manhwa speech bubbles into ${toLang.label}. Short, natural, spoken. Keep names as given.")
+            // MANHWA: the lines come from reading the image: a misread word is read as meant, never copied back
+            appendLine("The ${fromLang.label} lines were read from the image and may have misread letters (PAMN = DAMN, AIREADY = ALREADY): translate what was meant. Every answer is written in ${toLang.label}, never left in ${fromLang.label}; a shout like AAAARGH becomes the ${toLang.label} cry.")
             if (toLang == TextTranslatorLanguage.ARABIC) {
                 appendLine("Arabic: verbs and pronouns agree with who speaks and who is spoken to (man or woman), from the names and the lines before.")
             }
@@ -470,14 +472,23 @@ object LocalAiRules {
     fun answers(reply: String, count: Int, json: Json = Json { ignoreUnknownKeys = true; isLenient = true }): List<String>? =
         parseNumbered(reply, count) ?: parse(reply, json)
 
-    private val numberedLine = Regex("^\\s*(\\d{1,3})\\s*[.)\\-:،]\\s*(.*)$")
+    // Western, Arabic-Indic or Persian digits: a model writing Arabic often numbers its lines the Arabic way
+    private val numberedLine = Regex("^\\s*([0-9\u0660-\u0669\u06F0-\u06F9]{1,3})\\s*[.)\\-:،]\\s*(.*)$")
+
+    private fun digitsOf(text: String): Int = text.map { c ->
+        when (c) {
+            in '\u0660'..'\u0669' -> '0' + (c - '\u0660')
+            in '\u06F0'..'\u06F9' -> '0' + (c - '\u06F0')
+            else -> c
+        }
+    }.joinToString("").toInt()
 
     /** "1. ...", "2) ..." lines, in their places (a missing number is an empty answer); null when there are none. */
     fun parseNumbered(reply: String, count: Int): List<String>? {
         val found = HashMap<Int, String>()
         reply.lines().forEach { line ->
             val m = numberedLine.find(line) ?: return@forEach
-            val n = m.groupValues[1].toInt()
+            val n = digitsOf(m.groupValues[1])
             if (n in 1..count && n !in found) found[n] = m.groupValues[2].trim().trim('"', '“', '”')
         }
         if (found.isEmpty()) return null

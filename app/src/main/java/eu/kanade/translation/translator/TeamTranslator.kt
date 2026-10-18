@@ -93,12 +93,18 @@ class TeamTranslator(
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) = translate(pages, emptyMap())
 
-    /** True when some of the last pages had to be translated by Google (no key could do them). */
+    /**
+     * True when some pages since [clearFellBack] had to be translated by Google (no key could do them). Kept over
+     * the second pass of a chapter or page, so a Google line is never learnt as the team's.
+     */
     @Volatile var fellBack = false
         private set
 
-    override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
+    fun clearFellBack() {
         fellBack = false
+    }
+
+    override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
         learnt = emptyMap()
         if (lane != AiRouter.Lane.LIVE) {
             recent = emptyList()
@@ -205,7 +211,13 @@ class TeamTranslator(
                             val started = System.currentTimeMillis()
                             var ok = false
                             try {
-                                withTimeout(BATCH_TIMEOUT_MS) { translator.translate(part, partImages) }
+                                // MANHWA: the laptop gets time by the size of the batch (a few seconds a line)
+                                val limit = if (member.isHomeServer) {
+                                    eu.kanade.translation.team.LocalServerRules.batchTimeoutMs(part.values.sumOf { it.blocks.size })
+                                } else {
+                                    BATCH_TIMEOUT_MS
+                                }
+                                withTimeout(limit) { translator.translate(part, partImages) }
                                 ok = true
                                 // Speed per weight point, so a light batch and a heavy one count the same
                                 val perPoint = (System.currentTimeMillis() - started) / batch.weight.coerceAtLeast(1f)
@@ -510,8 +522,9 @@ class TeamTranslator(
         translator.askSummary = lead.askSummary
         translator.useDrafts = lead.useDrafts
         translator.skipSfx = lead.skipSfx
-        // With other keys around, a busy key hands its batch over at once instead of waiting
-        translator.fastFail = members.size > 1
+        // With other keys around, a busy key hands its batch over at once instead of waiting; the laptop always does
+        // (the team tries the batch again, a dead laptop never holds a page through minutes of retries)
+        translator.fastFail = members.size > 1 || translator.plainLines
     }
 
     /** What a key found while translating a batch, gathered on [lead] (called under the team's lock). */

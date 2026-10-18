@@ -249,16 +249,19 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
      */
     fun active(): List<Member> {
         val ready = _members.value.filter { m ->
-            if (!m.enabled || keyHealth[m.id].statusEnum == ModelHealthManager.Status.DISABLED) return@filter false
-            // The laptop needs no key, and whether it answers is told by its ping, not by an old check
+            if (!m.enabled) return@filter false
+            // The laptop needs no key, and whether it answers is told by its ping, not by an old check or a key
+            // health that refused it once (a proxy's 401): it is never shut out for good
             if (m.isHomeServer) return@filter m.baseUrl.isNotBlank()
-            m.key.isNotBlank() && _analysis.value[m.id]?.let { it.ok || it.limited } != false && !usage.exhausted(m)
+            keyHealth[m.id].statusEnum != ModelHealthManager.Status.DISABLED &&
+                m.key.isNotBlank() && _analysis.value[m.id]?.let { it.ok || it.limited } != false && !usage.exhausted(m)
         }
         val (home, others) = ready.partition { it.isHomeServer }
         val mode = prefs.translationServerMode().get()
         // Only the automatic way needs to know whether the laptop is there
         if (home.isNotEmpty() && mode == LocalServerRules.AUTO) pingHomeSoon(home)
-        val answering = home.filter { homeAnswers(it.baseUrl) == true }
+        // The last answer counts until a new ping says otherwise: a ping growing old never drops the laptop mid-chapter
+        val answering = home.filter { homeKnown(it.baseUrl) == true }
         return LocalServerRules.pick(mode, answering, home, others)
     }
 
@@ -283,9 +286,20 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
             .build()
     }
 
-    /** The last ping of [baseUrl] while it is fresh (5 minutes when it answered, 30 seconds when not), else null. */
+    /** The last ping of [baseUrl] while it is fresh (a minute when it answered, 30 seconds when not), else null. */
     fun homeAnswers(baseUrl: String): Boolean? =
         homeReach[baseUrl.trim()]?.takeIf { LocalServerRules.fresh(it.second, System.currentTimeMillis(), answered = it.first) }?.first
+
+    /** The last ping of [baseUrl] whatever its age; null when it was never pinged. */
+    fun homeKnown(baseUrl: String): Boolean? = homeReach[baseUrl.trim()]?.first
+
+    /** Why the last ping of [baseUrl] failed (shown on the card), or null. */
+    fun homeProblem(baseUrl: String): String? = homeProblems[baseUrl.trim()]
+
+    private val homeProblems = ConcurrentHashMap<String, String>()
+
+    /** Failures in a row of calls to each laptop that did reach it: two make it count as away for a while. */
+    private val homeStrikes = ConcurrentHashMap<String, Int>()
 
     /** Pings in the background the home servers whose last ping is old, so [active] never waits for one. */
     private fun pingHomeSoon(home: List<Member>) {
@@ -308,33 +322,65 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         _members.value.filter { it.enabled && it.isHomeServer && it.baseUrl.isNotBlank() }
             .distinctBy { it.baseUrl.trim() }
             .filter { force || homeAnswers(it.baseUrl) == null }
-            .forEach { m -> homeReach[m.baseUrl.trim()] = ping(m.baseUrl, m.key) to System.currentTimeMillis() }
+            .forEach { m ->
+                val check = homeCheck(m.baseUrl, m.key)
+                val url = m.baseUrl.trim()
+                val answers = check.models != null
+                if (homeReach[url]?.first != answers) {
+                    logcat(if (answers) LogPriority.INFO else LogPriority.WARN) { "Home server $url ${if (answers) "answers" else "away: ${check.problem}"}" }
+                }
+                homeReach[url] = answers to System.currentTimeMillis()
+                if (answers) homeProblems.remove(url) else homeProblems[url] = check.problem.orEmpty()
+                if (answers) homeStrikes.remove(url)
+            }
     }
 
-    /** The models the home server at [baseUrl] lists, or null when it does not answer within 3 seconds. */
-    fun homeModels(baseUrl: String, key: String): List<String>? = runCatching {
+    /** What a ping of the home server found: its models, or why it gave none. */
+    data class HomeCheck(val models: List<String>?, val problem: String?)
+
+    /** Asks the home server at [baseUrl] for its models (3 seconds at most), with the reason when it fails. */
+    fun homeCheck(baseUrl: String, key: String): HomeCheck = try {
         val request = okhttp3.Request.Builder().url(LocalServerRules.modelsUrl(baseUrl)).apply {
             if (key.isNotBlank()) header("Authorization", "Bearer ${key.trim()}")
         }.build()
         pingClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return@use null
             val body = response.body.string()
-            LocalServerRules.modelIds(body)
+            when {
+                !response.isSuccessful -> HomeCheck(null, "HTTP ${response.code}")
+                else -> LocalServerRules.modelIds(body)?.let { HomeCheck(it, null) }
+                    ?: HomeCheck(null, "not an OpenAI-compatible server (no /v1/models list)")
+            }
         }
-    }.getOrNull()
+    } catch (e: Exception) {
+        HomeCheck(null, e.message?.takeIf { it.isNotBlank() }?.let { "${e.javaClass.simpleName}: $it" } ?: e.javaClass.simpleName)
+    }
 
-    private fun ping(baseUrl: String, key: String): Boolean = homeModels(baseUrl, key) != null
+    /** The models the home server at [baseUrl] lists, or null when it does not answer within 3 seconds. */
+    fun homeModels(baseUrl: String, key: String): List<String>? = homeCheck(baseUrl, key).models
 
     /**
-     * A call to the laptop that could not reach it: it is taken as away at once, so the next lines go to the other
-     * keys. An answer it gave (an HTTP error, a garbled reply) says it is there, so it is not taken as away.
+     * A failed call to the laptop. One that could not reach it (no connection) takes it as away at once, so the
+     * next lines go to the other keys; any other failure (a timeout, an error page, a garbled reply) twice in a row
+     * does too, for a while, so a laptop that answers its ping but not the work never holds the chapter.
      */
     private fun homeFailed(id: String, error: Throwable) {
         val member = _members.value.firstOrNull { it.id == id }?.takeIf { it.isHomeServer } ?: return
-        val unreachable = error is java.net.ConnectException || error is java.net.SocketTimeoutException ||
-            error is java.net.UnknownHostException || error is java.net.NoRouteToHostException ||
-            error is kotlinx.coroutines.TimeoutCancellationException
-        if (unreachable) homeReach[member.baseUrl.trim()] = false to System.currentTimeMillis()
+        val url = member.baseUrl.trim()
+        // Failures that reached it only send the work elsewhere when there is somewhere else: with the laptop alone
+        // the team tries again on it instead of handing the chapter to Google
+        val othersReady = _members.value.any { !it.isHomeServer && it.enabled && it.key.isNotBlank() }
+        val strikes = if (othersReady) (homeStrikes[url] ?: 0) + 1 else 0
+        homeStrikes[url] = strikes
+        if (LocalServerRules.unreachable(error) || (othersReady && strikes >= LocalServerRules.AWAY_STRIKES)) {
+            homeReach[url] = false to System.currentTimeMillis()
+            homeProblems[url] = error.message?.take(120) ?: error.javaClass.simpleName
+            homeStrikes.remove(url)
+        }
+    }
+
+    /** A call to the laptop that worked: its failures in a row start again. */
+    private fun homeWorked(id: String) {
+        _members.value.firstOrNull { it.id == id }?.takeIf { it.isHomeServer }?.let { homeStrikes.remove(it.baseUrl.trim()) }
     }
 
     /** Strength now (1–100): the analysis, adjusted by how the member has done while translating. */
@@ -378,6 +424,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     }
 
     fun reportSuccess(id: String, latencyMs: Long) {
+        homeWorked(id)
         _health.update { map ->
             val old = map[id] ?: Health()
             val latency = if (old.latencyMs == 0L) latencyMs else (old.latencyMs * 0.7 + latencyMs * 0.3).toLong()
@@ -389,6 +436,7 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
 
     /** A call that worked, whose time says nothing about the key's speed (chat, search, review). */
     fun reportOk(id: String) {
+        homeWorked(id)
         _health.update { map ->
             val old = map[id] ?: Health()
             map + (id to old.copy(done = old.done + 1, restingUntil = 0, streak = 0))
@@ -493,8 +541,10 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         siteDefaultModel = KeySites.byId(member.siteOrGuess)?.defaultModel.orEmpty(),
         knownDeadModels = member.deadModels.toSet(),
     ).apply {
-        // MANHWA home server: plain numbered lines, which a small local model follows well
+        // MANHWA home server: plain numbered lines, which a small local model follows well, and no minutes of
+        // retries on one call (the team tries the batch again)
         plainLines = member.isHomeServer
+        if (member.isHomeServer) fastFail = true
         onLimit = { limit -> setLimit(member.id, limit) }
         onContextLimit = { limit -> setContextLimit(member.id, limit) }
         onModelDead = { dead, next -> markDead(member.id, dead, next) }

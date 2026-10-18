@@ -34,6 +34,7 @@ import eu.kanade.translation.live.PageOcr.rescaled
 import eu.kanade.translation.data.TranslationProvider
 import eu.kanade.translation.translator.AiTranslator
 import eu.kanade.translation.translator.aiPart
+import eu.kanade.translation.translator.clearFellBack
 import eu.kanade.translation.translator.fellBack
 import eu.kanade.translation.translator.bubbleCharBudget
 import eu.kanade.translation.model.PageTranslation
@@ -431,7 +432,8 @@ class ChapterTranslator(
             ) ?: throw StepFailure(Translation.Note.NOT_DOWNLOADED)
 
             // Vision engines also get the page images, so they can read what the OCR missed
-            val vision = textTranslator.aiPart != null && translationPreferences.translationVision().get()
+            // (not for the laptop: it reads the lines as text, the page images would only cost time)
+            val vision = textTranslator.aiPart != null && textTranslator.aiPart?.plainLines != true && translationPreferences.translationVision().get()
             // MANHWA: sound effects stay as drawn; unsure readings are cut out to be read again from their image
             val skipSfx = translationPreferences.translationSkipSfx().get()
             val artText = translationPreferences.translationArtText().get()
@@ -560,6 +562,9 @@ class ChapterTranslator(
             // MANHWA translate only: each line is translated once and nothing else (no names scouted, no second look,
             // no summary), whoever translates: every call goes to the translation itself
             val rocket = translationPreferences.translationTranslateOnly().get()
+            // MANHWA home server alone: the long JSON passes over the whole chapter (editor, work brain, lesson
+            // summing up) are too much for a small model's window and only cost time; it translates and rechecks
+            val homeOnly = textTranslator is TeamTranslator && teamStore.active().let { it.isNotEmpty() && it.all { m -> m.isHomeServer } }
             withContext(Dispatchers.IO) {
                 // The series glossary keeps names consistent; new names found are added to it
                 // MANHWA master codex: each genre's standard terms found in this chapter, under the series glossary
@@ -685,6 +690,7 @@ class ChapterTranslator(
                     // Suggestions from the collection go to the AI as drafts to follow or fix
                     if (library.hinted > 0) ai?.useDrafts = true
                     // Translate the text in blocks , this mutates the original blocks
+                    textTranslator.clearFellBack()
                     if (work.isNotEmpty()) withWatchdog(translation) { textTranslator.translate(work, workImages) }
                 } finally {
                     chapterSummary = ai?.summaries?.takeLast(SUMMARY_LINES)?.joinToString(" ").orEmpty()
@@ -709,7 +715,7 @@ class ChapterTranslator(
                 ai?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms, termDetails) }
                 glossaryStore.addChapterSummary(translation.manga.id, translation.chapter.name, chapterSummary, translation.chapter.chapterNumber)
                 // MANHWA work brain: who is who and what happened, learnt from this chapter in the background
-                if (translationPreferences.translationSeriesBrain().get() && !rocket) {
+                if (translationPreferences.translationSeriesBrain().get() && !rocket && !homeOnly) {
                     context.appGraph.seriesBrain.learnLater(
                         translation.manga.id,
                         translation.manga.title,
@@ -725,13 +731,17 @@ class ChapterTranslator(
                 showProgress()
                 val glossaryAfter = glossaryStore.asMap(translation.manga.id)
                 if (!rocket) recheck(pages, glossaryAfter, translation)
+                // MANHWA: whatever translated, no bubble stays in English (Google's Arabic for what is left)
+                if (translation.toLang == eu.kanade.translation.translator.TextTranslatorLanguage.ARABIC) {
+                    eu.kanade.translation.translator.EnglishGuard.fix(pages, eu.kanade.translation.translator.GoogleTranslator(translation.fromLang, translation.toLang))
+                }
                 translation.advance(Translation.Stage.REVIEWING, 1, 3)
                 showProgress()
                 // MANHWA smart review: the whole chapter in accurate mode, otherwise only the bubbles that look doubtful
                 val accurate = translationPreferences.translationTeamAccurate().get()
                 val newTerms = ai?.discoveredTerms?.keys?.toSet().orEmpty()
                 val doubts = if (accurate) null else doubtful(pages, glossaryAfter, translation, newTerms)
-                if (ai != null && !rocket && (accurate || !doubts.isNullOrEmpty())) {
+                if (ai != null && !rocket && !homeOnly && (accurate || !doubts.isNullOrEmpty())) {
                     translation.note(Translation.Note.AI)
                     // With the team, the review goes to its strongest key and model through the router
                     val team = textTranslator as? TeamTranslator
@@ -855,7 +865,7 @@ class ChapterTranslator(
             readCache.remove(translation.chapter.id)
             ChapterCheckpoint.clear(context, translation.chapter.id)
             // Enough new lessons: the lead turns them into short rules for the next chapters
-            textTranslator.aiPart?.let { lead -> lessonStore.compressIfDue(translation.manga.id, lead) }
+            if (!homeOnly) textTranslator.aiPart?.let { lead -> lessonStore.compressIfDue(translation.manga.id, lead) }
             // Everything this chapter taught goes into the collection, for every manhwa after it
             if (useLibrary && textTranslator.aiPart != null && !textTranslator.fellBack) {
                 withContext(Dispatchers.IO) {

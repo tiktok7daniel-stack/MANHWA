@@ -30,6 +30,7 @@ import eu.kanade.translation.recognizer.TextRecognizerLanguage
 import eu.kanade.translation.translator.AiTranslator
 import eu.kanade.translation.translator.HybridTranslator
 import eu.kanade.translation.translator.aiPart
+import eu.kanade.translation.translator.clearFellBack
 import eu.kanade.translation.translator.fellBack
 import eu.kanade.translation.translator.GoogleTranslator
 import eu.kanade.translation.translator.TextTranslator
@@ -341,7 +342,7 @@ class LiveTranslator(
                 try {
                     val result = translate(next)
                     if (result != null) {
-                        cache.put(key(next), result)
+                        if (!lastFellBack) cache.put(key(next), result)
                         withContext(Dispatchers.Main) { next.translation = result }
                     } else {
                         // Nothing to translate on this page (art only): don't try it again
@@ -711,6 +712,7 @@ class LiveTranslator(
                 }
             }
             try {
+                engine.clearFellBack()
                 if (work.blocks.isNotEmpty() || known.isEmpty()) engine.translate(map, images)
                 // MANHWA quick check: bubbles left untranslated, too long or missing a glossary name are asked once
                 // more; the new answer stays only when it passes where the first did not
@@ -729,6 +731,10 @@ class LiveTranslator(
                             eu.kanade.translation.team.QualityCheck.check(block.text, block.translation, checkGlossary, latin) == null
                         if (!fixed) block.translation = old
                     }
+                }
+                // MANHWA: whatever translated, no bubble stays in English (Google's Arabic for what is left)
+                if (to == TextTranslatorLanguage.ARABIC) {
+                    eu.kanade.translation.translator.EnglishGuard.fix(mapOf(KEY to work), GoogleTranslator(from, to))
                 }
             } finally {
                 engine.aiPart?.apply {
@@ -800,8 +806,13 @@ class LiveTranslator(
                     }
                 }
             }
+            // MANHWA: a page Google had to do is shown but not kept, so it is translated again once a key can
+            lastFellBack = engine.fellBack
             return result.takeIf { it.blocks.isNotEmpty() }
         }
+
+        /** Whether the page [translate] just gave was (partly) Google's because no key could do it. */
+        @Volatile private var lastFellBack = false
 
         private suspend fun applyGlossaryEdit(edit: GlossaryStore.Edit) {
             val changed = pages.mapNotNull { page ->

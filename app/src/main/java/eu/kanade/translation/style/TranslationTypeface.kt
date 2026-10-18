@@ -27,7 +27,8 @@ enum class BubbleKind { SPEECH, SHOUT, THOUGHT, NARRATION, SYSTEM, SFX, ART;
         fun guess(source: String, translation: String): BubbleKind {
             val letters = source.filter { it.isLetter() }
             return when {
-                source.trimStart().startsWith("[") || Regex("(?i)\\b(system|quest|level up|status|skill)\\b").containsMatchIn(source) -> SYSTEM
+                // A game window: in brackets, or its words in capitals ("QUEST", "LEVEL UP"), not a line that says "skill"
+                source.trimStart().startsWith("[") || Regex("\\b(SYSTEM|QUEST|LEVEL UP|STATUS|SKILL)\\b").containsMatchIn(source) -> SYSTEM
                 source.trimStart().startsWith("(") -> THOUGHT
                 letters.length >= 3 && letters.all { !it.isLowerCase() } && source.count { it == '!' } >= 1 -> SHOUT
                 translation.count { it == '!' } >= 2 -> SHOUT

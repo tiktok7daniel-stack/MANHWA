@@ -196,11 +196,18 @@ object ScanlationRenderer {
 
         private class Placement(val cleaned: Cleaned, val area: RectF, val paint: TextPaint, val fit: Float)
 
+        /** The translation is the source as it was (letters, same words): nothing was translated. */
+        private fun untranslated(block: TranslationBlock): Boolean =
+            block.text.any { it.isLetter() } && block.translation.trim().equals(block.text.trim(), ignoreCase = true)
+
         fun draw(page: PageTranslation) {
             // 1. Cleaning, every bubble first, so free space is measured on the cleaned page
             val cleaned = page.blocks.mapNotNull { block ->
                 if (stop()) throw kotlinx.coroutines.CancellationException("Page scrolled away")
                 if (block.translation.isBlank()) return@mapNotNull null
+                // MANHWA: a line the translation left as it was (the model missed it) is not erased and drawn again
+                // in another font: the original stays clean on the page
+                if (untranslated(block)) return@mapNotNull null
                 var kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
                 if (kind == BubbleKind.SFX && style.skipSfx) return@mapNotNull null
                 if (block.lineBoxes.isEmpty()) return@mapNotNull null

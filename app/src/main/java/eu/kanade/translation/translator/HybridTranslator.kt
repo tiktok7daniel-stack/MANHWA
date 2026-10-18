@@ -29,8 +29,12 @@ class HybridTranslator(
     @Volatile var fellBack = false
         private set
 
-    override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
+    fun clearFellBack() {
         fellBack = false
+        (ai as? TeamTranslator)?.clearFellBack()
+    }
+
+    override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
         // 1. Fast draft
         runCatching { google.translate(pages) }
             .onFailure { if (it is CancellationException) throw it }
@@ -60,6 +64,15 @@ class HybridTranslator(
 /** The AI part of an engine, if any: the engine itself, or the AI pass of the hybrid engine. */
 val TextTranslator.aiPart: AiTranslator?
     get() = this as? AiTranslator ?: (this as? HybridTranslator)?.ai?.aiPart ?: (this as? TeamTranslator)?.lead
+
+/** MANHWA: a new chapter or page starts: what fell back to Google before is no longer counted. */
+fun TextTranslator.clearFellBack() {
+    when (this) {
+        is HybridTranslator -> clearFellBack()
+        is TeamTranslator -> clearFellBack()
+        else -> Unit
+    }
+}
 
 /** MANHWA: the last translation is (partly) Google's because the AI could not do it; such lines are not learnt. */
 val TextTranslator.fellBack: Boolean

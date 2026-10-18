@@ -53,6 +53,8 @@ fun ScanlationRenderer.styleChanges(context: Context): Flow<ScanlationRenderer.S
         prefs.translationOutline().changes().map { },
         prefs.translationLineSpacing().changes().map { },
         prefs.translationSkipSfx().changes().map { },
+        prefs.translationDeepClean().changes().map { },
+        prefs.translationDramaticStyle().changes().map { },
         prefs.translateToLanguage().changes().map { },
     )
         .onStart { emit(Unit) }

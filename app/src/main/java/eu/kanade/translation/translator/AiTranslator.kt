@@ -357,9 +357,21 @@ class AiTranslator(
      * missed is asked again once; a call with no numbered line at all fails, so the team tries again or falls back.
      */
     private suspend fun translatePlain(pages: MutableMap<String, PageTranslation>) {
+        // A numbered answer for 12 lines is short: a model that loops stops long before the reply times out
+        val wanted = maxOutputTokens
+        maxOutputTokens = wanted.coerceAtMost(PLAIN_MAX_TOKENS)
+        try {
+            translatePlainLines(pages)
+        } finally {
+            maxOutputTokens = wanted
+        }
+    }
+
+    private suspend fun translatePlainLines(pages: MutableMap<String, PageTranslation>) {
         val blocks = pages.values.flatMap { it.blocks }.filter { it.text.isNotBlank() }
         val chunks = blocks.chunked(PLAIN_LINES)
-        var before: List<Pair<String, String>> = emptyList()
+        // The lines just before this page (the reader's last pages), so "you", "he" and "she" keep their people
+        var before: List<Pair<String, String>> = recentLines.filter { it.second.isNotBlank() }.takeLast(PLAIN_CONTEXT)
         chunks.forEachIndexed { index, chunk ->
             val lines = chunk.map { it.text.replace('\n', ' ').trim() }
             val answers = MutableList(lines.size) { "" }
@@ -370,24 +382,33 @@ class AiTranslator(
                 val got = if (attempt == 0) {
                     // A reply with no numbered line at all is asked again like any failed call
                     withRetry {
-                        plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before)))), asked.size)
+                        plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before))), json = false), asked.size)
                             ?: throw IOException("No numbered lines in the reply")
                     }
                 } else {
                     // The lines the first reply missed: what came back is kept whatever this one does
-                    runCatching { plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before)))), asked.size) }
+                    runCatching { plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before))), json = false), asked.size) }
                         .onFailure { if (it is CancellationException) throw it }
                         .getOrNull()
                         .orEmpty()
                 }
-                missing.forEachIndexed { n, i -> got.getOrNull(n)?.takeIf { it.isNotBlank() }?.let { answers[i] = it } }
+                // An answer left in the source language (no Arabic letter for an Arabic line) counts as missing
+                missing.forEachIndexed { n, i -> got.getOrNull(n)?.takeIf { plainAccepts(lines[i], it) }?.let { answers[i] = it } }
             }
+            // Most of the lines still missing after asking again: the call failed, the team tries again or falls back
+            if (answers.count { it.isBlank() } * 2 > answers.size) throw IOException("Most lines missing from the reply")
             chunk.forEachIndexed { i, block ->
                 val text = answers[i]
                 val sfx = block.kind.equals(SFX_KIND, ignoreCase = true)
                 block.translation = when {
+                    // A sound effect drawn as art, or no real text (noise, art read as letters): left as drawn
+                    text == PLAIN_SKIP -> {
+                        if (block.text.any { it.isLetter() }) block.kind = SFX_KIND
+                        ""
+                    }
                     text.isBlank() && skipSfx && sfx -> ""
-                    text.isBlank() -> block.text
+                    // A line still missing keeps the draft it came with (quick draft), else its source
+                    text.isBlank() -> block.translation.takeIf { useDrafts && it.isNotBlank() } ?: block.text
                     else -> finishLine(text, block.text)
                 }
             }
@@ -397,6 +418,9 @@ class AiTranslator(
         pages.values.forEach { page -> page.blocks = page.blocks.filterNot { it.translation.contains(WATERMARK) }.toMutableList() }
     }
 
+    /** Whether [answer] is a translation of [source] (not left in the source language, for an Arabic target). */
+    private fun plainAccepts(source: String, answer: String): Boolean = plainAccepted(source, answer, toLang == TextTranslatorLanguage.ARABIC)
+
     /** The numbered answers of [reply]; one line asked alone may come back without its number. */
     private fun plainAnswers(reply: String, count: Int): List<String>? =
         eu.kanade.translation.local.LocalAiRules.parseNumbered(reply, count)
@@ -405,13 +429,18 @@ class AiTranslator(
     private fun plainSystem(): String = buildString {
         appendLine("You translate comic (manhwa) speech bubbles from ${fromLang.label} into ${toLang.label}.")
         appendLine("Reply with ONLY the translations, one per line, numbered exactly like the input (1. ...). No notes, no source text.")
+        appendLine("Every answer is written in ${toLang.label}, never left in ${fromLang.label}; a shout like AAAARGH becomes the ${toLang.label} cry.")
+        appendLine("The lines were read from the image and may have misread letters (PAMN = DAMN, AIREADY = ALREADY, LFT'C = LET'S): translate what was meant.")
         appendLine("Natural, fluent dialogue that fits a speech bubble; keep the tone and emotion.")
         appendLine("Keep each translation about as long as its source line or shorter: it is written back into the same bubble.")
         if (toLang == TextTranslatorLanguage.ARABIC) {
             appendLine("Modern Standard Arabic with Arabic punctuation (، ؟ !). Agree verbs and pronouns with the gender of who speaks and who is spoken to.")
         }
         appendLine("A site name, URL or scanlation credit becomes exactly $WATERMARK. A line of only symbols stays as it is.")
+        appendLine("A sound effect drawn as art (BOOM, crash, thud) or a line that is not real text (noise, misread art) becomes exactly $PLAIN_SKIP.")
         if (instructions.isNotBlank()) appendLine(instructions.take(PLAIN_INSTRUCTIONS))
+        if (storySoFar.isNotBlank()) appendLine("The story so far: " + storySoFar.take(PLAIN_STORY))
+        if (lessons.isNotBlank()) appendLine(lessons.take(PLAIN_STORY))
     }
 
     private fun plainPrompt(lines: List<String>, before: List<Pair<String, String>>): String = buildString {
@@ -855,7 +884,8 @@ class AiTranslator(
         }
         appendLine("6. Replace watermarks, scanlation credits, site names and URLs with exactly \"$WATERMARK\".")
         if (toLang == TextTranslatorLanguage.ARABIC) {
-            appendLine("7. Use clear Modern Standard Arabic suited to comics, with Arabic punctuation (، ؟ !).")
+            appendLine("7. Use clear Modern Standard Arabic suited to comics, with Arabic punctuation (، ؟ !). Every bubble with words is")
+            appendLine("   written in Arabic, never left in English (a shout like AAAARGH becomes آآآه!, a misread word is read as meant).")
             appendLine("   Agree verbs, adjectives and pronouns with the gender of the speaker and of the one spoken to (from the glossary notes")
             appendLine("   and the scene); when the gender of \"you\" would be ambiguous, add the vowel mark: أنتَ / أنتِ، لكَ / لكِ، عليكَ / عليكِ.")
             appendLine("   Agree counted nouns with their numbers (دقيقة واحدة، دقيقتان، 5 دقائق، 11 دقيقة) and keep names in Arabic letters.")
@@ -951,7 +981,7 @@ class AiTranslator(
         }
     }
 
-    private suspend fun request(system: String, parts: List<Part>, web: Boolean = false): String = withContext(Dispatchers.IO) {
+    private suspend fun request(system: String, parts: List<Part>, web: Boolean = false, json: Boolean = true): String = withContext(Dispatchers.IO) {
         val textOnly = parts.all { it is Part.Text }
         val (url, body, headers) = when (provider) {
             Provider.GEMINI -> Triple(
@@ -993,6 +1023,8 @@ class AiTranslator(
                     put("temperature", temperature)
                     // DeepSeek refuses answers longer than 8K tokens
                     put("max_tokens", if (provider == Provider.DEEPSEEK) maxOutputTokens.coerceAtMost(8192) else maxOutputTokens)
+                    // MANHWA home server: the JSON calls ask for JSON mode, so a small model always gives valid JSON
+                    if (plainLines && json && !web) putJsonObject("response_format") { put("type", "json_object") }
                     putJsonArray("messages") {
                         addJsonObject {
                             put("role", "system")
@@ -1193,20 +1225,21 @@ class AiTranslator(
                             }
                             throw e
                         }
-                        eu.kanade.translation.team.ModelHealthManager.Problem.ModelInvalid -> if (replaced < 1 && replaceDeadModel()) {
+                        // The reader's own laptop: its model is the one chosen, never swapped for another
+                        eu.kanade.translation.team.ModelHealthManager.Problem.ModelInvalid -> if (!plainLines && replaced < 1 && replaceDeadModel()) {
                             replaced++
                             return@repeat
                         }
                         else -> Unit
                     }
-                    if (replaced < 2 && replaceRetiredModel(e)) {
+                    if (!plainLines && replaced < 2 && replaceRetiredModel(e)) {
                         replaced++
                         return@repeat
                     }
                 }
                 // MANHWA team: no waiting here, the team hands the work to another key at once
                 if (fastFail) throw e
-                if (switchToFallback(e)) return@repeat
+                if (!plainLines && switchToFallback(e)) return@repeat
                 if (e is ApiException && e.code in 400..499 && e.code != 408 && e.code != 429) throw e
                 logcat(LogPriority.WARN, e) { "AI translation attempt ${attempt + 1} failed, retrying" }
                 if (e !is CancellationException) onRetry?.invoke(e)
@@ -1259,6 +1292,25 @@ class AiTranslator(
     companion object {
         /** MANHWA home server: bubbles a plain call, tries for the lines a reply missed, context lines, sizes. */
         const val PLAIN_LINES = 12
+
+        /** A plain answer meaning "leave this as drawn" (a sound effect or no real text). */
+        const val PLAIN_SKIP = "-"
+
+        /** The longest plain answer asked for (12 short lines need far less; a looping model stops here). */
+        private const val PLAIN_MAX_TOKENS = 1500
+
+        /**
+         * Whether [answer] translates [source]: not blank, and for an Arabic target with Arabic letters in it unless
+         * the source has no letters or the answer is the skip mark.
+         */
+        fun plainAccepted(source: String, answer: String, arabic: Boolean): Boolean {
+            val a = answer.trim()
+            if (a.isEmpty()) return false
+            if (a == PLAIN_SKIP || !arabic || source.none { it.isLetter() }) return true
+            if (a.equals(source.trim(), ignoreCase = true)) return false
+            return a.any { it in '\u0600'..'\u06FF' }
+        }
+        private const val PLAIN_STORY = 500
         private const val PLAIN_TRIES = 2
         private const val PLAIN_CONTEXT = 3
         private const val PLAIN_INSTRUCTIONS = 600

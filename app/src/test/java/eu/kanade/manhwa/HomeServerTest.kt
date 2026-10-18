@@ -19,13 +19,27 @@ class HomeServerTest {
     }
 
     @Test
-    fun `a ping is trusted for five minutes`() {
-        LocalServerRules.fresh(at = 1_000, now = 1_000 + 60_000) shouldBe true
-        LocalServerRules.fresh(at = 1_000, now = 1_000 + 5 * 60_000) shouldBe false
+    fun `a ping is trusted for a minute and an away laptop is asked again sooner`() {
+        LocalServerRules.fresh(at = 1_000, now = 1_000 + 30_000) shouldBe true
+        LocalServerRules.fresh(at = 1_000, now = 1_000 + 60_000) shouldBe false
         LocalServerRules.fresh(at = 10_000, now = 1_000) shouldBe false
-        // Away: asked again after half a minute
         LocalServerRules.fresh(at = 1_000, now = 1_000 + 20_000, answered = false) shouldBe true
         LocalServerRules.fresh(at = 1_000, now = 1_000 + 30_000, answered = false) shouldBe false
+    }
+
+    @Test
+    fun `only a failed connection says the laptop is away`() {
+        LocalServerRules.unreachable(java.net.ConnectException("Failed to connect to /192.168.1.41:11434")) shouldBe true
+        LocalServerRules.unreachable(java.net.SocketTimeoutException("connect timed out")) shouldBe true
+        // A slow answer is a busy laptop, not a missing one
+        LocalServerRules.unreachable(java.net.SocketTimeoutException("timeout")) shouldBe false
+        LocalServerRules.unreachable(java.io.IOException("HTTP 500")) shouldBe false
+    }
+
+    @Test
+    fun `a big batch gets more time on the laptop`() {
+        LocalServerRules.batchTimeoutMs(5) shouldBe 150_000L
+        LocalServerRules.batchTimeoutMs(40) shouldBe 380_000L
     }
 
     @Test
