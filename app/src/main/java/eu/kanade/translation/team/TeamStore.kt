@@ -493,6 +493,8 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
         siteDefaultModel = KeySites.byId(member.siteOrGuess)?.defaultModel.orEmpty(),
         knownDeadModels = member.deadModels.toSet(),
     ).apply {
+        // MANHWA home server: plain numbered lines, which a small local model follows well
+        plainLines = member.isHomeServer
         onLimit = { limit -> setLimit(member.id, limit) }
         onContextLimit = { limit -> setContextLimit(member.id, limit) }
         onModelDead = { dead, next -> markDead(member.id, dead, next) }

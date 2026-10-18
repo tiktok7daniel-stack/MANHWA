@@ -569,8 +569,8 @@ class ChapterTranslator(
                     learnTerms = !rocket
                     discoveredTerms.clear()
                     // MANHWA smart glossary: who each name is (gender, how they speak) and the story so far
-                    // (rocket mode: a short request, the lines alone)
-                    glossaryNotes = if (rocket) emptyMap() else glossaryStore.notes(translation.manga.id)
+                    // (translate only keeps these: one short line that keeps he and she right)
+                    glossaryNotes = glossaryStore.notes(translation.manga.id)
                     richTerms = !rocket
                     discoveredDetails.clear()
                     storySoFar = if (rocket) "" else glossaryStore.storySoFar(translation.manga.id) + brainContext(translation.manga.id, translation.manga.title, translation.chapter.chapterNumber)

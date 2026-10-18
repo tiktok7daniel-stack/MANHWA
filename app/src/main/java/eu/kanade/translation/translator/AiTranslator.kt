@@ -157,6 +157,12 @@ class AiTranslator(
     /** MANHWA: what each glossary term is (kind, gender, how they speak), shown next to it. Empty: as before. */
     var glossaryNotes: Map<String, String> = emptyMap()
 
+    /**
+     * MANHWA home server: the bubbles go as a plain numbered list and come back the same way, a few at a time. A
+     * small model on the reader's computer follows that far better than the JSON of pages and ids big models get.
+     */
+    var plainLines: Boolean = false
+
     /** MANHWA: ask new terms with their kind and gender too (collected in [discoveredDetails]). Off: as before. */
     var richTerms: Boolean = false
 
@@ -265,6 +271,7 @@ class AiTranslator(
     }
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
+        if (plainLines) return translatePlain(pages)
         val context = ArrayDeque<String>()
         val all = batches(pages)
         for ((i, batch) in all.withIndex()) {
@@ -279,7 +286,7 @@ class AiTranslator(
      * A batch that fails in vision mode falls back to text-only translation.
      */
     override suspend fun translate(pages: MutableMap<String, PageTranslation>, images: Map<String, PageImage>) {
-        if (images.isEmpty()) return translate(pages)
+        if (images.isEmpty() || plainLines) return translate(pages)
         val context = ArrayDeque<String>()
         val all = visionBatches(pages, images)
         for ((i, batch) in all.withIndex()) {
@@ -343,6 +350,67 @@ class AiTranslator(
             }
             page.blocks = page.blocks.filterNot { it.translation.contains(WATERMARK) }.toMutableList()
         }
+    }
+
+    /**
+     * MANHWA home server: [PLAIN_LINES] bubbles a call as "1. …" lines, answered the same way. A line the reply
+     * missed is asked again once; a call with no numbered line at all fails, so the team tries again or falls back.
+     */
+    private suspend fun translatePlain(pages: MutableMap<String, PageTranslation>) {
+        val blocks = pages.values.flatMap { it.blocks }.filter { it.text.isNotBlank() }
+        val chunks = blocks.chunked(PLAIN_LINES)
+        var before: List<Pair<String, String>> = emptyList()
+        chunks.forEachIndexed { index, chunk ->
+            val lines = chunk.map { it.text.replace('\n', ' ').trim() }
+            val answers = MutableList(lines.size) { "" }
+            repeat(PLAIN_TRIES) {
+                val missing = answers.indices.filter { answers[it].isBlank() }
+                if (missing.isEmpty()) return@repeat
+                val asked = missing.map { lines[it] }
+                // A reply with no numbered line at all is asked again like any failed call
+                val got = withRetry {
+                    eu.kanade.translation.local.LocalAiRules.parseNumbered(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before)))), asked.size)
+                        ?: throw IOException("No numbered lines in the reply")
+                }
+                missing.forEachIndexed { n, i -> got.getOrNull(n)?.takeIf { it.isNotBlank() }?.let { answers[i] = it } }
+            }
+            chunk.forEachIndexed { i, block ->
+                val text = answers[i]
+                val sfx = block.kind.equals(SFX_KIND, ignoreCase = true)
+                block.translation = when {
+                    text.isBlank() && skipSfx && sfx -> ""
+                    text.isBlank() -> block.text
+                    else -> finishLine(text, block.text)
+                }
+            }
+            before = chunk.takeLast(PLAIN_CONTEXT).map { it.text.replace('\n', ' ') to it.translation }
+            onBatchDone?.invoke(index + 1, chunks.size)
+        }
+        pages.values.forEach { page -> page.blocks = page.blocks.filterNot { it.translation.contains(WATERMARK) }.toMutableList() }
+    }
+
+    private fun plainSystem(): String = buildString {
+        appendLine("You translate comic (manhwa) speech bubbles from ${fromLang.label} into ${toLang.label}.")
+        appendLine("Reply with ONLY the translations, one per line, numbered exactly like the input (1. ...). No notes, no source text.")
+        appendLine("Natural, fluent dialogue that fits a speech bubble; keep the tone and emotion.")
+        if (toLang == TextTranslatorLanguage.ARABIC) {
+            appendLine("Modern Standard Arabic with Arabic punctuation (، ؟ !). Agree verbs and pronouns with the gender of who speaks and who is spoken to.")
+        }
+        appendLine("A site name, URL or scanlation credit becomes exactly $WATERMARK. A line of only symbols stays as it is.")
+        if (instructions.isNotBlank()) appendLine(instructions.take(PLAIN_INSTRUCTIONS))
+    }
+
+    private fun plainPrompt(lines: List<String>, before: List<Pair<String, String>>): String = buildString {
+        val terms = plainTerms(lines, glossary)
+        if (terms.isNotEmpty()) appendLine("Names and terms: " + terms.entries.joinToString("; ") { "${it.key} = ${it.value}" })
+        val people = terms.keys.mapNotNull { term -> glossaryNotes[term]?.takeIf { it.isNotBlank() }?.let { "$term (${it.take(60)})" } }
+        if (people.isNotEmpty()) appendLine("Who they are: " + people.joinToString("; "))
+        if (before.isNotEmpty()) {
+            appendLine("Just before (context only, do not translate):")
+            before.forEach { (s, t) -> appendLine("\"${s.take(100)}\" -> \"${t.take(100)}\"") }
+        }
+        appendLine("Translate:")
+        lines.forEachIndexed { i, l -> appendLine("${i + 1}. ${l.take(PLAIN_LINE_CHARS)}") }
     }
 
     /** The text-mode request for the bubbles [todo] of each page, by id, with their sizes and the unsure readings. */
@@ -1175,6 +1243,22 @@ class AiTranslator(
     }
 
     companion object {
+        /** MANHWA home server: bubbles a plain call, tries for the lines a reply missed, context lines, sizes. */
+        const val PLAIN_LINES = 12
+        private const val PLAIN_TRIES = 2
+        private const val PLAIN_CONTEXT = 3
+        private const val PLAIN_INSTRUCTIONS = 600
+        private const val PLAIN_LINE_CHARS = 300
+
+        /** The glossary entries named in [lines] (whole words, any case): only those go with a plain call. */
+        fun plainTerms(lines: List<String>, glossary: Map<String, String>): Map<String, String> {
+            if (glossary.isEmpty()) return emptyMap()
+            val text = lines.joinToString("\n")
+            return glossary.filter { (term, _) ->
+                term.isNotBlank() && Regex("(?<![\\p{L}\\p{N}])" + Regex.escape(term) + "(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE).containsMatchIn(text)
+            }
+        }
+
         const val DRAFT_MARK = "|||"
         val FALLBACK_MODELS = mapOf(
             Provider.GEMINI to listOf("gemini-flash-latest", "gemini-flash-lite-latest"),
