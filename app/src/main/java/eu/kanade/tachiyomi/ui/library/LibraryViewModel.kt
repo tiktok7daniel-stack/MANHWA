@@ -180,15 +180,23 @@ class LibraryViewModel(
             favorites = filteredFavorites,
             tracksMap = tracksMap,
             loggedInTrackerIds = trackingFilters.keys,
+            searching = !searchQuery.isNullOrEmpty(),
         )
     }
         .distinctUntilChanged()
         .map { data ->
+            // MANHWA: a search looks through the whole library, every category at once, in one list (each work once)
+            val grouped = if (data.searching) {
+                mapOf(
+                    Category(Category.UNCATEGORIZED_ID, "", 0, data.categories.firstOrNull()?.flags ?: 0L) to
+                        data.favorites.map { it.id },
+                )
+            } else {
+                data.favorites.applyGrouping(data.categories, data.showSystemCategory)
+            }
             Library(
                 data = data,
-                groupedFavorites = data.favorites
-                    .applyGrouping(data.categories, data.showSystemCategory)
-                    .applySort(data.favoritesById, data.tracksMap, data.loggedInTrackerIds),
+                groupedFavorites = grouped.applySort(data.favoritesById, data.tracksMap, data.loggedInTrackerIds),
             )
         }
         .flowOn(Dispatchers.Default)
@@ -793,6 +801,8 @@ class LibraryViewModel(
         val favorites: List<LibraryItem> = emptyList(),
         val tracksMap: Map</* Manga */ Long, List<Track>> = emptyMap(),
         val loggedInTrackerIds: Set<Long> = emptySet(),
+        /** MANHWA: a search is on, so the results of every category are shown together. */
+        val searching: Boolean = false,
     ) {
         val favoritesById by lazy { favorites.associateBy { it.id } }
     }
