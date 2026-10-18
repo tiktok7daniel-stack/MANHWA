@@ -35,6 +35,8 @@ class PlainLinesTest {
         AiTranslator.plainAccepted("RUN AWAY NOW!", "Run away!", arabic = true) shouldBe false
         AiTranslator.plainAccepted("RUN AWAY NOW!", "اهرب الآن!", arabic = true) shouldBe true
         AiTranslator.plainAccepted("BOOM", "-", arabic = true) shouldBe true
+        // A site name answered with the watermark mark is taken, so it is removed from the page
+        AiTranslator.plainAccepted("ARVENCOMICS.COM", AiTranslator.WATERMARK, arabic = true) shouldBe true
         AiTranslator.plainAccepted("!?", "!?", arabic = true) shouldBe true
         AiTranslator.plainAccepted("Hi", "Salut", arabic = false) shouldBe true
     }

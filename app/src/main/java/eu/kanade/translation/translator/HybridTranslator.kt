@@ -68,8 +68,8 @@ val TextTranslator.aiPart: AiTranslator?
 /** MANHWA: a new chapter or page starts: what fell back to Google before is no longer counted. */
 fun TextTranslator.clearFellBack() {
     when (this) {
-        is HybridTranslator -> clearFellBack()
-        is TeamTranslator -> clearFellBack()
+        is HybridTranslator -> this.clearFellBack()
+        is TeamTranslator -> this.clearFellBack()
         else -> Unit
     }
 }

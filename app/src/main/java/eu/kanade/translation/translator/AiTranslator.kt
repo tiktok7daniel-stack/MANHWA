@@ -1306,7 +1306,7 @@ class AiTranslator(
         fun plainAccepted(source: String, answer: String, arabic: Boolean): Boolean {
             val a = answer.trim()
             if (a.isEmpty()) return false
-            if (a == PLAIN_SKIP || !arabic || source.none { it.isLetter() }) return true
+            if (a == PLAIN_SKIP || a.contains(WATERMARK) || !arabic || source.none { it.isLetter() }) return true
             if (a.equals(source.trim(), ignoreCase = true)) return false
             return a.any { it in '\u0600'..'\u06FF' }
         }
