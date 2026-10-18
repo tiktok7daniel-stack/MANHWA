@@ -165,9 +165,20 @@ class GlossaryStore(private val context: Context) {
         storyFile(mangaId).takeIf { it.existsAtomic() }?.readTextAtomic()?.let { json.decodeFromString<List<ChapterSummary>>(it) }
     }.getOrNull().orEmpty()
 
-    /** Terms from a backup: the ones not known here are added; known ones keep theirs, only filling what they lack. */
-    fun importEntries(mangaId: Long, entries: List<Entry>) {
+    /**
+     * Terms from a backup: the ones not known here are added; known ones keep theirs, only filling what they lack.
+     * MANHWA [replace]: a cleaned glossary takes the place of the AI's terms; the reader's own edits stay.
+     */
+    fun importEntries(mangaId: Long, entries: List<Entry>, replace: Boolean = false) {
         if (entries.isEmpty()) return
+        if (replace) {
+            update(mangaId) { list ->
+                val mine = list.filter { it.edited }
+                val taken = mine.map { it.source.lowercase() }.toSet()
+                mine + entries.filter { it.source.isNotBlank() && it.source.lowercase() !in taken }.distinctBy { it.source.lowercase() }
+            }
+            return
+        }
         update(mangaId) { list ->
             val known = list.associateBy { it.source.lowercase() }
             val filled = list.map { entry ->

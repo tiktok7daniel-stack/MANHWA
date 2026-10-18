@@ -8,7 +8,8 @@ import java.io.OutputStream
 
 /**
  * MANHWA glossary pack: one series' names and terms (with kind, gender and notes) and its story so far, in a
- * small JSON file. Importing adds what is missing and fills what entries lack; nothing the reader has is replaced.
+ * small JSON file. Importing adds what is missing and fills what entries lack; nothing the reader has is replaced
+ * (a pack marked [Pack.replace] replaces the AI's terms, never the reader's own edits).
  */
 object GlossaryPack {
 
@@ -18,6 +19,8 @@ object GlossaryPack {
         val version: Int = 1,
         val entries: List<GlossaryStore.Entry> = emptyList(),
         val story: List<GlossaryStore.ChapterSummary> = emptyList(),
+        /** MANHWA: a cleaned glossary that replaces the AI's terms (the reader's own edits stay). */
+        val replace: Boolean = false,
     )
 
     const val FORMAT = "manhwa-glossary"
@@ -36,7 +39,7 @@ object GlossaryPack {
     /** Returns how many entries the pack held. */
     fun read(store: GlossaryStore, mangaId: Long, input: InputStream): Int {
         val pack = decode(input.readBytes().decodeToString()) ?: throw IllegalArgumentException("Not a glossary pack")
-        store.importEntries(mangaId, pack.entries)
+        store.importEntries(mangaId, pack.entries, pack.replace)
         pack.story.forEach { store.addChapterSummary(mangaId, it.chapter, it.summary, it.number) }
         return pack.entries.size
     }

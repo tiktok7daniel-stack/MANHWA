@@ -34,4 +34,11 @@ class TermFilterTest {
         TermFilter.accepts("12 Nations (Faster Updates)", "أمر", arabicTarget = true) shouldBe false
         TermFilter.accepts("+3 (O]@nusamnu", "+3", arabicTarget = true) shouldBe false
     }
+
+    @Test
+    fun `a cleaned glossary pack says it replaces, an old pack does not`() {
+        val cleaned = """{"format": "manhwa-glossary", "replace": true, "entries": [{"source": "Doyul", "translation": "دو يول"}]}"""
+        eu.kanade.translation.glossary.GlossaryPack.decode(cleaned)?.replace shouldBe true
+        eu.kanade.translation.glossary.GlossaryPack.decode("""{"format": "manhwa-glossary", "entries": []}""")?.replace shouldBe false
+    }
 }
