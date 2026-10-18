@@ -1107,8 +1107,8 @@
     <string name="hs_calls_help">عدد الدفعات اللي اللابتوب بيترجمها مع بعض. 2 مناسب لـ Ollama من غير تعديل. اختار أكتر بس بعد ما تظبط السيرفر (تحت): الطلبات الزيادة على سيرفر بيشغّل واحد بس هتستنى في الدور.</string>
     <string name="hs_servers_title">سيرفرات أسرع</string>
     <string name="hs_servers">Ollama (الأسهل): ضيف OLLAMA_NUM_PARALLEL=4 وOLLAMA_KV_CACHE_TYPE=q8_0 في متغيرات البيئة في ويندوز، وبعدين اقفل Ollama وافتحه تاني، واختار 4 فوق. vLLM (الأسرع، طلبات كتير مع بعض): نزّل WSL بـ Ubuntu، وبعدين pip install vllm، وشغّل موديل AWQ حجمه 7B بأمر vllm serve على بورت 8000؛ اكتب عنوان اللابتوب بـ :8000 فوق واختار 6 أو 8. TabbyAPI (ExLlamaV2، سريع على 8 جيجا): شغّله بموديل EXL2 4-bit على بورت 5000 واختار 4. التلاتة بيكلموا التطبيق بنفس الطريقة، ومفيش حاجة تانية بتتغير.</string>
-    <string name="wn_clean_t">فقاعات أنضف وكلمات عربي ما بتتقطعش</string>
-    <string name="wn_clean_b">السطر الإنجليزي اللي ترجمته موجودة خلاص في السطر اللي جنبه بيتمسح بدل ما يفضل جنب العربي، والكلمة العربي عمرها ما بتتقسم على سطرين، والحروف اللي اتقرت غلط زي 50ME بتتقري SOME.</string>
+    <string name="wn_clean2_t">فقاعات أنضف وكلمات عربي ما بتتقطعش</string>
+    <string name="wn_clean2_b">السطر الإنجليزي اللي ترجمته موجودة خلاص في السطر اللي جنبه بيتمسح بدل ما يفضل جنب العربي، والكلمة العربي عمرها ما بتتقسم على سطرين، والحروف اللي اتقرت غلط زي 50ME بتتقري SOME.</string>
     <string name="wn_calls_t">اللابتوب بيترجم أكتر في نفس الوقت</string>
     <string name="wn_calls_b">اختار عدد الدفعات اللي اللابتوب يشغّلها مع بعض (من 2 لـ 8)، ومعاها خطوات ظبط Ollama أو vLLM أو TabbyAPI. وكمان Hunyuan-MT، موديل معمول للترجمة بس، بقى اختيار جاهز.</string>
     <string name="full_backup_title">نسخة احتياطية كاملة (كل حاجة)</string>
@@ -1134,4 +1134,10 @@
     <string name="style_dark">غامق</string>
     <string name="style_light">فاتح</string>
     <string name="app_look_title">الشكل</string>
+    <string name="wn_obsidian_t">شكل جديد: أوبسيديان رويال</string>
+    <string name="wn_obsidian_b">الإعدادات › المظهر › الشكل: أسود أوبسيديان عميق أو ورق حريري دافي، وكروت صلبة عليها حافة ضوء رفيعة، وكروت مانهوا سينمائية، وشريط عائم. أخف على البطارية، وبيشتغل مع لونك. وMANHWA Glass فضل زي ما هو.</string>
+    <string name="wn_clone_t">النسخة الكاملة بقت طبق الأصل</string>
+    <string name="wn_clone_b">على أي جهاز تاني كل حاجة بترجع زي ما كانت: الدمج في كل مانهوا، والقواميس، والقصة، والتعديلات، وكل فصل مترجم بصفحاته حتى من غير نت.</string>
+    <string name="wn_libsearch_t">البحث في المكتبة كلها</string>
+    <string name="wn_libsearch_b">البحث في المكتبة بيدوّر في كل الفئات مرة واحدة.</string>
 </resources>

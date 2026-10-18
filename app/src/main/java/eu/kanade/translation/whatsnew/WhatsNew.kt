@@ -66,6 +66,7 @@ import mihon.icons.materialsymbols.rounded.CallMerge
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.Home
+import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.rounded.TextFields
 import mihon.icons.materialsymbols.rounded.Speed
@@ -113,14 +114,18 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.TextFields, ATMR.strings.wn_clean_t, ATMR.strings.wn_clean_b),
-            Feature(MaterialSymbols.Rounded.Home, ATMR.strings.wn_calls_t, ATMR.strings.wn_calls_b),
-            Feature(MaterialSymbols.Rounded.Storage, ATMR.strings.wn_fullbackup_t, ATMR.strings.wn_fullbackup_b),
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_obsidian_t, ATMR.strings.wn_obsidian_b),
+            Feature(MaterialSymbols.Rounded.Storage, ATMR.strings.wn_clone_t, ATMR.strings.wn_clone_b),
+            Feature(MaterialSymbols.Rounded.Search, ATMR.strings.wn_libsearch_t, ATMR.strings.wn_libsearch_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 100
+            Feature(MaterialSymbols.Rounded.TextFields, ATMR.strings.wn_clean2_t, ATMR.strings.wn_clean2_b),
+            Feature(MaterialSymbols.Rounded.Home, ATMR.strings.wn_calls_t, ATMR.strings.wn_calls_b),
+            Feature(MaterialSymbols.Rounded.Storage, ATMR.strings.wn_fullbackup_t, ATMR.strings.wn_fullbackup_b),
             // Build 97
             Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_guard_t, ATMR.strings.wn_guard_b),
             Feature(MaterialSymbols.Rounded.Speed, ATMR.strings.wn_rocket_t, ATMR.strings.wn_rocket_b),
