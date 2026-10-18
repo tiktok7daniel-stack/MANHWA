@@ -125,10 +125,10 @@ class LocalModelsScreen : Screen() {
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(stringResource(ATMR.strings.orchestra_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Color.White, modifier = Modifier.weight(1f))
+                                Text(stringResource(ATMR.strings.orchestra_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = ManhwaInk.text, modifier = Modifier.weight(1f))
                                 Switch(checked = orchestra, onCheckedChange = { prefs.translationOrchestra().set(it) })
                             }
-                            Text(stringResource(ATMR.strings.orchestra_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+                            Text(stringResource(ATMR.strings.orchestra_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.75f))
                             Text(
                                 stringResource(ATMR.strings.orchestra_today, stats.localLines, stats.teamLines, OrchestraRules.callsSaved(stats.localLines), stats.judged),
                                 style = MaterialTheme.typography.labelMedium,
@@ -138,12 +138,12 @@ class LocalModelsScreen : Screen() {
                             if (lineup == null) {
                                 Text(stringResource(ATMR.strings.ensemble_none), style = MaterialTheme.typography.bodySmall, color = Color(0xFFFFB020))
                             } else {
-                                Text(stringResource(ATMR.strings.ensemble_header, lineup.playing, keys), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = Color.White)
+                                Text(stringResource(ATMR.strings.ensemble_header, lineup.playing, keys), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                                 lineup.members.forEach { m -> RoleLine(m.name, m.role) }
-                                if (!lineup.ensemble) Text(stringResource(ATMR.strings.ensemble_add_more), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.65f))
+                                if (!lineup.ensemble) Text(stringResource(ATMR.strings.ensemble_add_more), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.65f))
                             }
                             // How many phone models play: 1, 2, 3 or all of the active ones
-                            Text(stringResource(ATMR.strings.models_count_title), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(stringResource(ATMR.strings.models_count_title), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = ManhwaInk.text)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf(1, 2, 3, 0).forEach { n ->
                                     androidx.compose.material3.FilterChip(
@@ -153,8 +153,8 @@ class LocalModelsScreen : Screen() {
                                     )
                                 }
                             }
-                            Text(stringResource(ATMR.strings.models_count_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
-                            Text(stringResource(ATMR.strings.models_ram, ram), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
+                            Text(stringResource(ATMR.strings.models_count_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.6f))
+                            Text(stringResource(ATMR.strings.models_ram, ram), style = MaterialTheme.typography.labelMedium, color = ManhwaInk.text.copy(alpha = 0.7f))
                         }
                     }
                     // MANHWA speed and accuracy test of the main phone model: before and now, measured on this phone
@@ -165,14 +165,14 @@ class LocalModelsScreen : Screen() {
                             Modifier.fillMaxWidth().glass(RoundedCornerShape(22.dp), alpha = 0.5f).padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Text(stringResource(ATMR.strings.speed_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                            Text(stringResource(ATMR.strings.speed_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                             Text(
                                 backend?.let { stringResource(ATMR.strings.speed_backend, it) } ?: stringResource(ATMR.strings.speed_backend_none),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF3DDC97),
                             )
-                            Text(stringResource(ATMR.strings.speed_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+                            Text(stringResource(ATMR.strings.speed_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.75f))
                             Text(stringResource(ATMR.strings.speed_tips), style = MaterialTheme.typography.bodySmall, color = Color(0xFFFFB020))
                         }
                     }
@@ -182,7 +182,7 @@ class LocalModelsScreen : Screen() {
                             Modifier.fillMaxWidth().glass(RoundedCornerShape(20.dp), alpha = 0.45f).padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text(stringResource(ATMR.strings.models_token_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+                            Text(stringResource(ATMR.strings.models_token_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.75f))
                             OutlinedTextField(
                                 value = token,
                                 onValueChange = {
@@ -195,7 +195,7 @@ class LocalModelsScreen : Screen() {
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(stringResource(ATMR.strings.models_wifi_only), style = MaterialTheme.typography.bodySmall, color = Color.White, modifier = Modifier.weight(1f))
+                                Text(stringResource(ATMR.strings.models_wifi_only), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text, modifier = Modifier.weight(1f))
                                 Switch(checked = wifiOnly, onCheckedChange = { wifiOnly = it })
                             }
                             ManhwaKit.GhostButton(stringResource(ATMR.strings.models_token_page), icon = MaterialSymbols.Rounded.OpenInNew, modifier = Modifier.fillMaxWidth()) {
@@ -404,7 +404,7 @@ class LocalModelsScreen : Screen() {
             EnsembleRules.Role.DRAFTS -> stringResource(ATMR.strings.ensemble_role_drafts) to Color(0xFFFFB020)
             EnsembleRules.Role.JUDGES -> stringResource(ATMR.strings.ensemble_role_judges) to Color(0xFF4FD8FF)
             EnsembleRules.Role.DRAFTS_AND_JUDGES -> stringResource(ATMR.strings.ensemble_role_both) to Color(0xFFFFB020)
-            EnsembleRules.Role.NO_ROOM -> stringResource(ATMR.strings.ensemble_role_no_room) to Color.White.copy(alpha = 0.55f)
+            EnsembleRules.Role.NO_ROOM -> stringResource(ATMR.strings.ensemble_role_no_room) to ManhwaInk.text.copy(alpha = 0.55f)
         }
         Text(
             if (name != null) "$name · $text" else text,
@@ -423,7 +423,7 @@ class LocalModelsScreen : Screen() {
                         .width(10.dp)
                         .height(6.dp)
                         .clip(RoundedCornerShape(3.dp))
-                        .background(if (i < strength) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)),
+                        .background(if (i < strength) MaterialTheme.colorScheme.primary else ManhwaInk.text.copy(alpha = 0.15f)),
                 )
             }
         }
@@ -431,7 +431,7 @@ class LocalModelsScreen : Screen() {
 
     @Composable
     private fun Progress(fraction: Float) {
-        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f))) {
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(ManhwaInk.text.copy(alpha = 0.12f))) {
             Box(Modifier.fillMaxWidth(fraction.coerceIn(0.02f, 1f)).height(6.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary))
         }
         Spacer(Modifier.height(2.dp))

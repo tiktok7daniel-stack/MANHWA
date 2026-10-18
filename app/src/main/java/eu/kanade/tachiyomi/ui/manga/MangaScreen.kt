@@ -74,6 +74,12 @@ class MangaScreen(
 
     @Composable
     override fun Content() {
+        // MANHWA: this screen follows the chosen style (and its light version)
+        eu.kanade.presentation.components.ManhwaStyledScreen { MangaContent() }
+    }
+
+    @Composable
+    private fun MangaContent() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val haptic = LocalHapticFeedback.current

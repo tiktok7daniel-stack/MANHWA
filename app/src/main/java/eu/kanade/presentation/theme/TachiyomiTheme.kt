@@ -3,7 +3,15 @@ package eu.kanade.presentation.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
+import eu.kanade.presentation.components.LocalManhwaLook
+import eu.kanade.presentation.components.LocalManhwaWantsLight
+import eu.kanade.presentation.components.ManhwaLook
+import eu.kanade.presentation.components.ManhwaStyle
+import eu.kanade.presentation.components.ManhwaStyleState
+import eu.kanade.presentation.components.obsidianDarkScheme
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.theme.colorscheme.DanghwaColorScheme
@@ -23,10 +31,14 @@ fun TachiyomiTheme(
     val context = LocalContext.current
     val uiPreferences = remember { context.appGraph.uiPreferences }
     val accent by uiPreferences.manhwaAccent.collectAsState()
+    val styleName by uiPreferences.manhwaStyle.collectAsState()
+    val light by uiPreferences.manhwaStyleLight.collectAsState()
     BaseTachiyomiTheme(
         appTheme = appTheme ?: uiPreferences.appTheme.get(),
         isAmoled = amoled ?: uiPreferences.themeDarkAmoled.get(),
         accent = accent,
+        style = if (styleName == ManhwaStyle.OBSIDIAN.name) ManhwaStyle.OBSIDIAN else ManhwaStyle.GLASS,
+        light = light,
         content = content,
     )
 }
@@ -43,16 +55,25 @@ private fun BaseTachiyomiTheme(
     @Suppress("UNUSED_PARAMETER") appTheme: AppTheme,
     @Suppress("UNUSED_PARAMETER") isAmoled: Boolean,
     accent: Int? = null,
+    style: ManhwaStyle = ManhwaStyle.GLASS,
+    light: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    // MANHWA Glass only: always the dark obsidian glass scheme, tinted live with the chosen accent
-    MaterialExpressiveTheme(
-        colorScheme = remember(accent) {
-            DanghwaColorScheme.getColorScheme(isDark = true, isAmoled = true, overrideDarkSurfaceContainers = true)
-                .let { if (accent != null) it.withAccent(Color(accent), true) else it }
-        },
-        content = content,
-    )
+    // MANHWA: the dark scheme tinted live with the chosen accent; Obsidian Royal lays its obsidian surfaces on it.
+    // Its light version is given by the screens that follow the style ([ManhwaStyledScreen]).
+    val scheme = remember(accent, style) {
+        DanghwaColorScheme.getColorScheme(isDark = true, isAmoled = true, overrideDarkSurfaceContainers = true)
+            .let { if (accent != null) it.withAccent(Color(accent), true) else it }
+            .let { if (style == ManhwaStyle.OBSIDIAN) obsidianDarkScheme(it) else it }
+    }
+    val look = remember(scheme.primary, style) {
+        if (style == ManhwaStyle.OBSIDIAN) ManhwaLook.obsidian(scheme.primary, light = false) else ManhwaLook.glass(scheme.primary)
+    }
+    // Read while drawing (the glow), outside of composition
+    SideEffect { ManhwaStyleState.style = style }
+    CompositionLocalProvider(LocalManhwaLook provides look, LocalManhwaWantsLight provides light) {
+        MaterialExpressiveTheme(colorScheme = scheme, content = content)
+    }
 }
 
 /** Re-tints the MANHWA Glass scheme with the accent the reader picked in the side menu. */

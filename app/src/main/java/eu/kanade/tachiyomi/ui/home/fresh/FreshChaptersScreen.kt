@@ -171,7 +171,7 @@ class FreshChaptersScreen : Screen() {
 
     @Composable
     private fun Empty(text: String) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.padding(8.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.text.copy(alpha = 0.6f), modifier = Modifier.padding(8.dp))
     }
 
     @Composable
@@ -196,10 +196,10 @@ class FreshChaptersScreen : Screen() {
                 )
             }
             Column(modifier = Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
                 Text(chapter, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = colors.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(detail, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(detail, style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Box(
                 modifier = Modifier.padding(end = 14.dp).size(10.dp).background(colors.primary, androidx.compose.foundation.shape.CircleShape),

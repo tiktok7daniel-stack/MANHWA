@@ -91,7 +91,7 @@ internal fun HubDivider() {
             .fillMaxWidth()
             .padding(start = 66.dp, end = 14.dp)
             .height(1.dp)
-            .background(Color.White.copy(alpha = 0.07f)),
+            .background(ManhwaInk.text.copy(alpha = 0.07f)),
     )
 }
 
@@ -169,7 +169,7 @@ internal fun InfoButton(title: String, text: String) {
         Icon(
             MaterialSymbols.Rounded.Info,
             contentDescription = stringResource(ATMR.strings.th_info),
-            tint = Color.White.copy(alpha = 0.55f),
+            tint = ManhwaInk.text.copy(alpha = 0.55f),
             modifier = Modifier.size(20.dp),
         )
     }
@@ -191,7 +191,7 @@ internal fun HubChevron() {
     Icon(
         MaterialSymbols.Rounded.KeyboardArrowRight,
         contentDescription = null,
-        tint = Color.White.copy(alpha = 0.45f),
+        tint = ManhwaInk.text.copy(alpha = 0.45f),
         modifier = Modifier.size(22.dp).graphicsLayer { if (rtl) scaleX = -1f },
     )
 }

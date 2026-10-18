@@ -146,7 +146,7 @@ class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = null, tint = Color.White)
+                Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = null, tint = ManhwaInk.text)
             }
             Column(modifier = Modifier.padding(start = 12.dp)) {
                 Text(
@@ -198,7 +198,7 @@ class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             Text(
                 text = text,
-                color = Color.White,
+                color = ManhwaInk.text,
                 modifier = Modifier
                     .widthIn(max = 300.dp)
                     .background(
@@ -266,7 +266,7 @@ class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
                     androidx.compose.material3.Icon(
                         mihon.icons.materialsymbols.MaterialSymbols.Rounded.Check,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = ManhwaInk.text,
                         modifier = Modifier.size(14.dp),
                     )
                     }
@@ -457,9 +457,9 @@ class AiChatScreen(private val initialPrompt: String? = null) : Screen() {
                 contentAlignment = Alignment.Center,
             ) {
                 if (busy) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = ManhwaInk.text)
                 } else {
-                    Icon(MaterialSymbols.AutoMirroredRounded.Send, contentDescription = null, tint = Color.White)
+                    Icon(MaterialSymbols.AutoMirroredRounded.Send, contentDescription = null, tint = ManhwaInk.text)
                 }
             }
         }

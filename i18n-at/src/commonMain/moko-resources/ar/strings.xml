@@ -1128,4 +1128,10 @@
     <string name="wn_fullbackup_b">MANHWA Vault › نسخة احتياطية كاملة: ملف واحد فيه كل حاجة، من المكتبة والمفاتيح لحد كل فصل مترجم وصفحاته. لو مسحت التطبيق ورجعته، أو اديته لصاحبك، كل حاجة بترجع زي ما كانت.</string>
     <string name="full_backup_pages">صفحات كل فصل مترجم</string>
     <string name="full_backup_pages_info">مفتوح: الفصول المترجمة اللي مش محمّلة، صفحاتها بتتحمّل الأول، فعلى الجهاز التاني كل فصل مترجم بيفتح على طول حتى من غير نت (بياخد وقت أطول، والملف بيبقى أكبر).</string>
+    <string name="style_sub">شكل التطبيق كله. واللون اللي تحت بيشتغل مع أي شكل.</string>
+    <string name="style_glass">MANHWA Glass</string>
+    <string name="style_obsidian">أوبسيديان رويال</string>
+    <string name="style_dark">غامق</string>
+    <string name="style_light">فاتح</string>
+    <string name="app_look_title">الشكل</string>
 </resources>

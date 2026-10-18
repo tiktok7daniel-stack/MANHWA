@@ -66,11 +66,11 @@ fun ReturnRecapCard(mangaId: Long, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(MaterialSymbols.Rounded.AutoStories, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(MaterialSymbols.Rounded.AutoStories, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(ATMR.strings.recap_back_title, days), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+            Text(stringResource(ATMR.strings.recap_back_title, days), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
         }
-        Text(story, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
+        Text(story, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.85f))
         ManhwaKit.GhostButton(stringResource(ATMR.strings.recap_back_dismiss)) { dismissed = true }
     }
 }

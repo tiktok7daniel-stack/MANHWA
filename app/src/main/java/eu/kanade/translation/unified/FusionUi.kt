@@ -252,11 +252,11 @@ private fun OfferBanner(ui: FusionUi, offer: ChapterFusion.Offer, modifier: Modi
                 stringResource(ATMR.strings.fusion_offer, number(offer.oursMax), offer.otherSourceName, number(offer.theirsMax)),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = ManhwaInk.text,
                 modifier = Modifier.weight(1f),
             )
             IconButton(onClick = onDismiss) {
-                Icon(MaterialSymbols.Rounded.Close, contentDescription = stringResource(ATMR.strings.fusion_no), tint = Color.White.copy(alpha = 0.7f))
+                Icon(MaterialSymbols.Rounded.Close, contentDescription = stringResource(ATMR.strings.fusion_no), tint = ManhwaInk.text.copy(alpha = 0.7f))
             }
         }
         ManhwaKit.NeonButton(
@@ -288,7 +288,7 @@ private fun FusedStrip(ui: FusionUi, fusion: ChapterFusion.Fusion, modifier: Mod
                 stringResource(ATMR.strings.fusion_mode, langLabel(ui.baseLang), ours, langCode(fusion.otherLang), theirs),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = ManhwaInk.text,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -326,13 +326,13 @@ private fun ManualSearch(ui: FusionUi, modifier: Modifier, onSearch: () -> Unit)
                     else -> stringResource(ATMR.strings.fusion_search)
                 },
                 style = MaterialTheme.typography.labelLarge,
-                color = Color.White.copy(alpha = 0.85f),
+                color = ManhwaInk.text.copy(alpha = 0.85f),
             )
             if (ui.searching && names.isNotEmpty()) {
                 Text(
                     stringResource(ATMR.strings.fusion_searching_for, names.joinToString("، ")),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.55f),
+                    color = ManhwaInk.text.copy(alpha = 0.55f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -369,7 +369,7 @@ private fun FusionPicker(ui: FusionUi, onPick: (ChapterFusion.Offer) -> Unit, on
         title = { Text(stringResource(ATMR.strings.fusion_pick_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(ATMR.strings.fusion_pick_hint), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                Text(stringResource(ATMR.strings.fusion_pick_hint), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.7f))
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
@@ -416,11 +416,11 @@ private fun CandidateRow(offer: ChapterFusion.Offer, current: Boolean, onClick: 
         MangaCover.Book(data = offer.other, modifier = Modifier.width(46.dp))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(offer.other.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(offer.other.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 "${offer.otherSourceName} · ${langCode(offer.otherLang)}",
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.75f),
+                color = ManhwaInk.text.copy(alpha = 0.75f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -428,7 +428,7 @@ private fun CandidateRow(offer: ChapterFusion.Offer, current: Boolean, onClick: 
                 Text(
                     stringResource(ATMR.strings.fusion_up_to, number(offer.theirsMax)),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (offer.theirsMax > offer.oursMax) Ember else Color.White.copy(alpha = 0.6f),
+                    color = if (offer.theirsMax > offer.oursMax) Ember else ManhwaInk.text.copy(alpha = 0.6f),
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.width(8.dp))
@@ -486,7 +486,7 @@ private fun ContinuationRow(ui: FusionUi, fusion: ChapterFusion.Fusion, item: Ch
             Text(
                 item.chapter.name,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = if (read) 0.45f else 1f),
+                color = ManhwaInk.text.copy(alpha = if (read) 0.45f else 1f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

@@ -588,7 +588,7 @@ data object DiscoverTab : Tab {
                     message,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -596,7 +596,7 @@ data object DiscoverTab : Tab {
                 Text(
                     stringResource(ATMR.strings.alert_yours, formatChapter(alert.ourNumber)),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.55f),
+                    color = ManhwaInk.text.copy(alpha = 0.55f),
                 )
                 Spacer(Modifier.height(10.dp))
                 AccentButton(
@@ -718,7 +718,7 @@ data object DiscoverTab : Tab {
                 .glass(RoundedCornerShape(22.dp), accent = true, alpha = 0.45f)
                 .padding(18.dp),
         ) {
-            Text(text, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.text.copy(alpha = 0.85f))
             Spacer(Modifier.height(12.dp))
             AccentButton(button, MaterialSymbols.Rounded.AutoAwesome, Modifier, onClick)
         }
@@ -731,7 +731,7 @@ data object DiscoverTab : Tab {
     @Composable
     private fun Header(solid: Boolean, newCount: Int, onMenu: () -> Unit, onSearch: () -> Unit, onBell: () -> Unit) {
         val colors = MaterialTheme.colorScheme
-        val bg by animateColorAsState(if (solid) Color(0xF2050506) else Color.Transparent, label = "header")
+        val bg by animateColorAsState(if (solid) ManhwaInk.background.copy(alpha = 0.95f) else Color.Transparent, label = "header")
         Column(modifier = Modifier.fillMaxWidth().background(bg)) {
             Row(
                 modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 6.dp),
@@ -758,7 +758,7 @@ data object DiscoverTab : Tab {
                             },
                         ),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = ManhwaInk.text.copy(alpha = 0.6f),
                     )
                 }
                 // MANHWA: what is being translated right now, one tap from home
@@ -771,7 +771,7 @@ data object DiscoverTab : Tab {
                             if (newCount > 99) "99+" else "$newCount",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = ManhwaInk.text,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .offset(x = 4.dp, y = (-4).dp)
@@ -804,7 +804,7 @@ data object DiscoverTab : Tab {
                 Text(
                     stringResource(ATMR.strings.home_search_hint),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.55f),
+                    color = ManhwaInk.text.copy(alpha = 0.55f),
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                 )
@@ -835,7 +835,7 @@ data object DiscoverTab : Tab {
                 .glass(RoundedCornerShape(14.dp), alpha = 0.45f)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
-        ) { Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+        ) { Icon(icon, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(22.dp)) }
     }
 
     private class MenuEntry(
@@ -861,7 +861,7 @@ data object DiscoverTab : Tab {
     ) {
         val colors = MaterialTheme.colorScheme
         ModalDrawerSheet(
-            drawerContainerColor = Color(0xFF0A0A0D),
+            drawerContainerColor = ManhwaInk.surface,
             drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
         ) {
             Column(
@@ -1138,7 +1138,7 @@ data object DiscoverTab : Tab {
                             .height(6.dp)
                             .width(width)
                             .clip(CircleShape)
-                            .background(if (selected) colors.primary else Color.White.copy(alpha = 0.3f)),
+                            .background(if (selected) colors.primary else ManhwaInk.text.copy(alpha = 0.3f)),
                     )
                 }
             }
@@ -1201,7 +1201,7 @@ data object DiscoverTab : Tab {
                         action.label,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
+                        color = ManhwaInk.text,
                     )
                 }
             }
@@ -1600,7 +1600,7 @@ data object DiscoverTab : Tab {
                                     if (value > 0) {
                                         Brush.verticalGradient(listOf(if (isToday) Color.White else colors.primary, lerp(colors.primary, Color.Black, 0.55f)))
                                     } else {
-                                        Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.04f)))
+                                        Brush.verticalGradient(listOf(ManhwaInk.text.copy(alpha = 0.1f), ManhwaInk.text.copy(alpha = 0.04f)))
                                     },
                                 ),
                         )
@@ -1611,7 +1611,7 @@ data object DiscoverTab : Tab {
                             .getDisplayName(java.time.format.TextStyle.NARROW, locale),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isToday) FontWeight.Black else FontWeight.Normal,
-                        color = if (isToday) colors.primary else Color.White.copy(alpha = 0.5f),
+                        color = if (isToday) colors.primary else ManhwaInk.text.copy(alpha = 0.5f),
                     )
                 }
             }
@@ -1634,11 +1634,11 @@ data object DiscoverTab : Tab {
                 contentAlignment = Alignment.Center,
             ) { Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(19.dp)) }
             Spacer(Modifier.height(10.dp))
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = Color.White)
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.55f),
+                color = ManhwaInk.text.copy(alpha = 0.55f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1699,7 +1699,7 @@ data object DiscoverTab : Tab {
                                         listOf(lerp(colors.primary, Color.White, 0.2f), colors.primary, lerp(colors.primary, Color.Black, 0.5f)),
                                     ),
                                 )
-                                .border(1.5.dp, Color.White.copy(alpha = 0.45f), CircleShape)
+                                .border(1.5.dp, ManhwaInk.text.copy(alpha = 0.45f), CircleShape)
                         } else {
                             Modifier.glass(CircleShape, alpha = 0.4f)
                         },
@@ -1707,14 +1707,14 @@ data object DiscoverTab : Tab {
                     .clickable(onClick = onClick),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(icon, contentDescription = label, tint = if (on) Color.White else Color.White.copy(alpha = 0.6f), modifier = Modifier.size(26.dp))
+                Icon(icon, contentDescription = label, tint = if (on) ManhwaInk.text else ManhwaInk.text.copy(alpha = 0.6f), modifier = Modifier.size(26.dp))
             }
             Spacer(Modifier.height(8.dp))
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-                color = if (on) colors.primary else Color.White.copy(alpha = 0.6f),
+                color = if (on) colors.primary else ManhwaInk.text.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
                 maxLines = 2,
             )
@@ -1730,7 +1730,7 @@ data object DiscoverTab : Tab {
                     .fillMaxWidth()
                     .height(118.dp)
                     .clip(RoundedCornerShape(18.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(18.dp)),
+                    .border(1.dp, ManhwaInk.text.copy(alpha = 0.1f), RoundedCornerShape(18.dp)),
             ) {
                 Cover(cover, Modifier.fillMaxSize())
                 Box(
@@ -1761,7 +1761,7 @@ data object DiscoverTab : Tab {
                 title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = ManhwaInk.text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 8.dp, start = 2.dp),
@@ -1851,7 +1851,7 @@ data object DiscoverTab : Tab {
                     stringResource(ATMR.strings.home_new_badge),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -1865,7 +1865,7 @@ data object DiscoverTab : Tab {
                     title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1878,7 +1878,7 @@ data object DiscoverTab : Tab {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(whenText, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f))
+                Text(whenText, style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.5f))
             }
             Box(
                 modifier = Modifier
@@ -1889,7 +1889,7 @@ data object DiscoverTab : Tab {
                         CircleShape,
                     ),
                 contentAlignment = Alignment.Center,
-            ) { Icon(MaterialSymbols.RoundedFilled.PlayArrow, contentDescription = null, tint = Color.White) }
+            ) { Icon(MaterialSymbols.RoundedFilled.PlayArrow, contentDescription = null, tint = ManhwaInk.text) }
         }
     }
 
@@ -1905,7 +1905,7 @@ data object DiscoverTab : Tab {
                     shadow = Shadow(colors.primary.copy(alpha = 0.8f), blurRadius = 30f),
                 ),
                 fontWeight = FontWeight.Black,
-                color = if (rank <= 3) colors.primary else Color.White.copy(alpha = 0.85f),
+                color = if (rank <= 3) colors.primary else ManhwaInk.text.copy(alpha = 0.85f),
                 modifier = Modifier.align(Alignment.BottomStart).offset(y = 30.dp),
                 maxLines = 1,
             )
@@ -1916,7 +1916,7 @@ data object DiscoverTab : Tab {
                     .width(122.dp)
                     .aspectRatio(2f / 3f)
                     .clip(RoundedCornerShape(16.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(16.dp)),
+                    .border(1.dp, ManhwaInk.text.copy(alpha = 0.18f), RoundedCornerShape(16.dp)),
             )
         }
     }
@@ -1974,7 +1974,7 @@ data object DiscoverTab : Tab {
                             stringResource(ATMR.strings.home_show_more),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = ManhwaInk.text,
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2004,7 +2004,7 @@ data object DiscoverTab : Tab {
                     label,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = if (selected) Color.White else Color.White.copy(alpha = 0.6f),
+                    color = if (selected) ManhwaInk.text else ManhwaInk.text.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .weight(1f)
@@ -2035,7 +2035,7 @@ data object DiscoverTab : Tab {
                 .border(
                     1.dp,
                     Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.2f), MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                        listOf(ManhwaInk.text.copy(alpha = 0.2f), MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                     ),
                     shape,
                 )
@@ -2059,7 +2059,7 @@ data object DiscoverTab : Tab {
                     manga.title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -2071,12 +2071,12 @@ data object DiscoverTab : Tab {
                             Text(
                                 it,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.85f),
+                                color = ManhwaInk.text.copy(alpha = 0.85f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier
                                     .weight(1f, fill = false)
-                                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(50))
+                                    .border(1.dp, ManhwaInk.text.copy(alpha = 0.25f), RoundedCornerShape(50))
                                     .padding(horizontal = 8.dp, vertical = 2.dp),
                             )
                         }
@@ -2233,13 +2233,13 @@ data object DiscoverTab : Tab {
                         Text(
                             prompt,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White,
+                            color = ManhwaInk.text,
                             modifier = Modifier.weight(1f),
                         )
                         Icon(
                             MaterialSymbols.AutoMirroredRounded.ArrowForward,
                             contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.5f),
+                            tint = ManhwaInk.text.copy(alpha = 0.5f),
                             modifier = Modifier.size(16.dp),
                         )
                     }
@@ -2265,21 +2265,21 @@ data object DiscoverTab : Tab {
                 .height(84.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(Brush.linearGradient(listOf(hue.copy(alpha = 0.85f), lerp(hue, Ink, 0.75f))))
-                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(20.dp))
+                .border(1.dp, ManhwaInk.text.copy(alpha = 0.18f), RoundedCornerShape(20.dp))
                 .clickable(onClick = onClick)
                 .padding(14.dp),
         ) {
             Icon(
                 MaterialSymbols.Rounded.LocalLibrary,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.35f),
+                tint = ManhwaInk.text.copy(alpha = 0.35f),
                 modifier = Modifier.align(Alignment.TopEnd).size(30.dp),
             )
             Text(
                 name,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Black,
-                color = Color.White,
+                color = ManhwaInk.text,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.align(Alignment.BottomStart),
@@ -2308,13 +2308,13 @@ data object DiscoverTab : Tab {
                 stringResource(ATMR.strings.home_setup_title),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Black,
-                color = Color.White,
+                color = ManhwaInk.text,
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 stringResource(ATMR.strings.home_setup_body),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.7f),
+                color = ManhwaInk.text.copy(alpha = 0.7f),
             )
             Spacer(Modifier.height(16.dp))
             AccentButton(stringResource(ATMR.strings.home_my_sources), MaterialSymbols.Rounded.Explore, Modifier, onClick)
@@ -2345,7 +2345,7 @@ data object DiscoverTab : Tab {
                     .fillMaxWidth()
                     .aspectRatio(2f / 3f)
                     .clip(RoundedCornerShape(18.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp)),
+                    .border(1.dp, ManhwaInk.text.copy(alpha = 0.12f), RoundedCornerShape(18.dp)),
             ) {
                 Cover(manga.asMangaCover(), Modifier.fillMaxSize())
                 Box(
@@ -2361,7 +2361,7 @@ data object DiscoverTab : Tab {
                 manga.title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = ManhwaInk.text,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 7.dp, start = 2.dp),
@@ -2394,7 +2394,7 @@ data object DiscoverTab : Tab {
             text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = ManhwaInk.text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
@@ -2412,7 +2412,7 @@ data object DiscoverTab : Tab {
             text = text,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = Color.White.copy(alpha = if (selected) 1f else 0.75f),
+            color = ManhwaInk.text.copy(alpha = if (selected) 1f else 0.75f),
             modifier = Modifier
                 .then(
                     if (selected) {
@@ -2461,7 +2461,7 @@ data object DiscoverTab : Tab {
         Row(
             modifier = modifier
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White)
+                .background(ManhwaInk.text)
                 .clickable(onClick = onClick)
                 .padding(vertical = 13.dp),
             horizontalArrangement = Arrangement.Center,
@@ -2484,14 +2484,14 @@ data object DiscoverTab : Tab {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (icon != null) {
-                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(icon, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
             }
             Text(
                 text,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = ManhwaInk.text,
                 maxLines = 1,
             )
         }

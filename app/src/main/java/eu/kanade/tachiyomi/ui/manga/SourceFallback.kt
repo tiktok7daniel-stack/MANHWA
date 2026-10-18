@@ -62,7 +62,7 @@ fun SourceDownCard(mangaId: Long, sourceId: Long, favorite: Boolean, modifier: M
             Text(
                 stringResource(ATMR.strings.fallback_text, entry.fails),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
+                color = ManhwaInk.text,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )
@@ -126,7 +126,7 @@ fun ChapterGapsCard(mangaId: Long, favorite: Boolean, modifier: Modifier = Modif
             Text(
                 stringResource(ATMR.strings.gaps_text, gaps.size, ChapterGaps.describe(gaps)),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
+                color = ManhwaInk.text,
                 modifier = Modifier.weight(1f),
             )
         }

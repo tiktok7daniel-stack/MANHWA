@@ -153,11 +153,11 @@ private fun DropCard(drop: FavoriteDrops.Drop, onRead: () -> Unit, onClose: () -
                 )
             }
             Spacer(Modifier.height(2.dp))
-            Text(drop.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(drop.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 if (drop.chapterNumber >= 0) stringResource(ATMR.strings.history_chapter, formatChapterNumber(drop.chapterNumber)) else drop.chapterName,
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.75f),
+                color = ManhwaInk.text.copy(alpha = 0.75f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -177,7 +177,7 @@ private fun DropCard(drop: FavoriteDrops.Drop, onRead: () -> Unit, onClose: () -
                 .clickable(onClick = onClose),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(MaterialSymbols.Rounded.Close, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+            Icon(MaterialSymbols.Rounded.Close, contentDescription = null, tint = ManhwaInk.text.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
         }
     }
 }

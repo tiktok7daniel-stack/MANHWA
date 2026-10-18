@@ -176,10 +176,10 @@ internal fun HomeServerCard(onOpen: () -> Unit) {
         }
     }
     val (text, color) = when {
-        home == null -> stringResource(ATMR.strings.hs_card_none) to Color.White.copy(alpha = 0.6f)
+        home == null -> stringResource(ATMR.strings.hs_card_none) to ManhwaInk.text.copy(alpha = 0.6f)
         answers == true -> stringResource(ATMR.strings.hs_card_on, home.model) to Color(0xFF3DDC97)
         answers == false -> (stringResource(ATMR.strings.hs_card_off) + (store.homeProblem(home.baseUrl)?.let { "\n$it" } ?: "")) to Color(0xFFFFB020)
-        else -> stringResource(ATMR.strings.hs_card_checking) to Color.White.copy(alpha = 0.6f)
+        else -> stringResource(ATMR.strings.hs_card_checking) to ManhwaInk.text.copy(alpha = 0.6f)
     }
     Row(
         Modifier
@@ -192,7 +192,7 @@ internal fun HomeServerCard(onOpen: () -> Unit) {
         HubIconTile(MaterialSymbols.Rounded.Home, size = 44)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(stringResource(ATMR.strings.hs_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+            Text(stringResource(ATMR.strings.hs_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
             Text(text, style = MaterialTheme.typography.bodySmall, color = color)
         }
     }
@@ -323,7 +323,7 @@ class HomeServerScreen : Screen() {
                     }
                     item {
                         Section {
-                            Text(stringResource(ATMR.strings.hs_mode), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                            Text(stringResource(ATMR.strings.hs_mode), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 listOf(
                                     LocalServerRules.AUTO to ATMR.strings.hs_mode_auto,
@@ -338,7 +338,7 @@ class HomeServerScreen : Screen() {
                     }
                     item {
                         Section {
-                            Text(stringResource(ATMR.strings.hs_calls), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                            Text(stringResource(ATMR.strings.hs_calls), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 LocalServerRules.CALL_CHOICES.forEach { value ->
                                     FilterChip(
@@ -353,7 +353,7 @@ class HomeServerScreen : Screen() {
                     }
                     item {
                         Section {
-                            Text(stringResource(ATMR.strings.hs_servers_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                            Text(stringResource(ATMR.strings.hs_servers_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                             Help(stringResource(ATMR.strings.hs_servers))
                         }
                     }
@@ -366,7 +366,7 @@ class HomeServerScreen : Screen() {
                                     stringResource(ATMR.strings.hs_rocket),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Black,
-                                    color = Color.White,
+                                    color = ManhwaInk.text,
                                     modifier = Modifier.weight(1f),
                                 )
                                 Switch(checked = rocket, onCheckedChange = { prefs.translationTranslateOnly().set(it) })
@@ -379,14 +379,14 @@ class HomeServerScreen : Screen() {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 HubIconTile(MaterialSymbols.Rounded.CloudSync, size = 36)
                                 Spacer(Modifier.width(10.dp))
-                                Text(stringResource(ATMR.strings.hs_away_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                                Text(stringResource(ATMR.strings.hs_away_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                             }
                             Help(stringResource(ATMR.strings.hs_tailscale))
                         }
                     }
                     item {
                         Section {
-                            Text(stringResource(ATMR.strings.hs_models_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                            Text(stringResource(ATMR.strings.hs_models_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                             Help(stringResource(ATMR.strings.hs_models))
                             // MANHWA: the ready models, one tap to use, the command to download them one tap to copy
                             LocalServerRules.PRESETS.forEach { preset ->
@@ -401,7 +401,7 @@ class HomeServerScreen : Screen() {
                                         preset.model + if (preset.fastest) " · " + stringResource(ATMR.strings.hs_preset_best) else "",
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Black,
-                                        color = if (preset.fastest) Color(0xFF3DDC97) else Color.White,
+                                        color = if (preset.fastest) Color(0xFF3DDC97) else ManhwaInk.text,
                                     )
                                     Help(
                                         stringResource(
@@ -412,7 +412,7 @@ class HomeServerScreen : Screen() {
                                             },
                                         ),
                                     )
-                                    Text("ollama pull ${preset.model}", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.9f))
+                                    Text("ollama pull ${preset.model}", style = MaterialTheme.typography.labelMedium, color = ManhwaInk.text.copy(alpha = 0.9f))
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         ManhwaKit.GhostButton(stringResource(ATMR.strings.hs_preset_copy), icon = MaterialSymbols.Rounded.ContentCopy, modifier = Modifier.weight(1f)) {
                                             context.getSystemService(android.content.ClipboardManager::class.java)
@@ -428,7 +428,7 @@ class HomeServerScreen : Screen() {
                     }
                     item {
                         Section {
-                            Text(stringResource(ATMR.strings.hs_setup_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                            Text(stringResource(ATMR.strings.hs_setup_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                             Help(stringResource(ATMR.strings.hs_setup))
                         }
                     }
@@ -450,6 +450,6 @@ class HomeServerScreen : Screen() {
 
     @Composable
     private fun Help(text: String) {
-        Text(text, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.75f))
     }
 }

@@ -1187,4 +1187,10 @@
     <string name="wn_fullbackup_b">MANHWA Vault › Full backup: one file with everything, from the library and keys to every translated chapter and its pages. Put it back after removing the app, or give it to a friend, and everything comes back as it was.</string>
     <string name="full_backup_pages">Pages of every translated chapter</string>
     <string name="full_backup_pages_info">On: translated chapters that are not downloaded get their pages downloaded first, so on the other phone every translated chapter opens at once, even offline (takes longer, the file is bigger).</string>
+    <string name="style_sub">The look of the whole app. The colour below works with every look.</string>
+    <string name="style_glass">MANHWA Glass</string>
+    <string name="style_obsidian">Obsidian Royal</string>
+    <string name="style_dark">Dark</string>
+    <string name="style_light">Light</string>
+    <string name="app_look_title">Look</string>
 </resources>

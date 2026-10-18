@@ -102,7 +102,7 @@ fun TranslatingNowButton() {
                         .background(Ember),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(if (count > 9) "9+" else count.toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text(if (count > 9) "9+" else count.toString(), color = ManhwaInk.text, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -131,7 +131,7 @@ fun TranslatingNowOrb() {
             Icon(
                 MaterialSymbols.Rounded.Translate,
                 contentDescription = stringResource(ATMR.strings.tn_title),
-                tint = if (active) Ember else Color.White,
+                tint = if (active) Ember else ManhwaInk.text,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -140,7 +140,7 @@ fun TranslatingNowOrb() {
                 if (count > 99) "99+" else "$count",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = ManhwaInk.text,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 4.dp, y = (-4).dp)
@@ -237,7 +237,7 @@ class TranslatingNowScreen : Screen() {
                             Text(
                                 stringResource(ATMR.strings.tn_empty),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = ManhwaInk.text.copy(alpha = 0.7f),
                                 modifier = Modifier.padding(top = 24.dp),
                             )
                         }
@@ -295,8 +295,8 @@ class TranslatingNowScreen : Screen() {
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
-            Text(live.chapterName, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f), maxLines = 1)
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1)
+            Text(live.chapterName, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.75f), maxLines = 1)
             Text(
                 stringResource(ATMR.strings.fusion_live_translating, live.done, live.total),
                 style = MaterialTheme.typography.labelMedium,
@@ -306,7 +306,7 @@ class TranslatingNowScreen : Screen() {
                 progress = { if (live.total > 0) live.done.toFloat() / live.total else 0f },
                 modifier = Modifier.fillMaxWidth(),
                 color = Ember,
-                trackColor = Color.White.copy(alpha = 0.15f),
+                trackColor = ManhwaInk.text.copy(alpha = 0.15f),
             )
         }
     }
@@ -326,14 +326,14 @@ class TranslatingNowScreen : Screen() {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(t.manga.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(t.chapter.name, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(t.manga.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(t.chapter.name, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Text(
                     "${progress.percent}%",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
-                    color = if (working) Ember else Color.White.copy(alpha = 0.5f),
+                    color = if (working) Ember else ManhwaInk.text.copy(alpha = 0.5f),
                 )
             }
             translationStageLabel(state, progress)?.let {
@@ -344,7 +344,7 @@ class TranslatingNowScreen : Screen() {
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(Color.White.copy(alpha = 0.12f)),
+                    .background(ManhwaInk.text.copy(alpha = 0.12f)),
             ) {
                 Box(
                     Modifier
@@ -382,7 +382,7 @@ private fun ServingOnLine() {
         stringResource(ATMR.strings.serving_on, where),
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Bold,
-        color = Color.White.copy(alpha = 0.8f),
+        color = ManhwaInk.text.copy(alpha = 0.8f),
         modifier = Modifier.glass(RoundedCornerShape(50), alpha = 0.35f).padding(horizontal = 14.dp, vertical = 6.dp),
     )
 }
@@ -407,8 +407,8 @@ private fun BackgroundCard() {
         Modifier.fillMaxWidth().glass(RoundedCornerShape(20.dp), accent = true, alpha = 0.45f).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(stringResource(ATMR.strings.tn_bg_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
-        Text(stringResource(ATMR.strings.tn_bg_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+        Text(stringResource(ATMR.strings.tn_bg_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
+        Text(stringResource(ATMR.strings.tn_bg_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.75f))
         ManhwaKit.NeonButton(stringResource(ATMR.strings.tn_bg_allow), icon = MaterialSymbols.Rounded.Speed, modifier = Modifier.fillMaxWidth()) {
             runCatching {
                 @android.annotation.SuppressLint("BatteryLife")

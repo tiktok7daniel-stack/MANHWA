@@ -126,7 +126,7 @@ class ReadingDashboardScreen : Screen() {
                             Text(
                                 stringResource(ATMR.strings.filter_empty),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.6f),
+                                color = ManhwaInk.text.copy(alpha = 0.6f),
                                 modifier = Modifier.fillMaxWidth().padding(16.dp).animateItem(),
                             )
                         }
@@ -136,7 +136,7 @@ class ReadingDashboardScreen : Screen() {
                             Text(
                                 stringResource(ATMR.strings.game_empty),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = ManhwaInk.text.copy(alpha = 0.7f),
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                             )
                         }

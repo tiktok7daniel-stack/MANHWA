@@ -18,6 +18,8 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.ManhwaGlassPalette
+import eu.kanade.presentation.components.ManhwaStyle
+import eu.kanade.presentation.components.ManhwaStylePicker
 import tachiyomi.i18n.at.ATMR
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.datetime.TimeZone
@@ -51,9 +53,34 @@ object SettingsAppearanceScreen : SearchableSettings {
         uiPreferences: UiPreferences,
     ): Preference.PreferenceGroup {
         val accent by uiPreferences.manhwaAccent.collectAsState()
+        val styleName by uiPreferences.manhwaStyle.collectAsState()
+        val light by uiPreferences.manhwaStyleLight.collectAsState()
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_theme),
             preferenceItems = listOf(
+                // MANHWA: the look of the whole app (MANHWA Glass or Obsidian Royal); the colour below works with both
+                Preference.PreferenceItem.CustomPreference(
+                    title = stringResource(ATMR.strings.app_look_title),
+                ) {
+                    Column {
+                        Text(
+                            text = stringResource(ATMR.strings.style_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                        ManhwaStylePicker(
+                            style = if (styleName == ManhwaStyle.OBSIDIAN.name) ManhwaStyle.OBSIDIAN else ManhwaStyle.GLASS,
+                            light = light,
+                            onStyle = { uiPreferences.manhwaStyle.set(it.name) },
+                            onLight = { uiPreferences.manhwaStyleLight.set(it) },
+                            glassName = stringResource(ATMR.strings.style_glass),
+                            obsidianName = stringResource(ATMR.strings.style_obsidian),
+                            darkName = stringResource(ATMR.strings.style_dark),
+                            lightName = stringResource(ATMR.strings.style_light),
+                        )
+                    }
+                },
                 Preference.PreferenceItem.CustomPreference(
                     title = stringResource(MR.strings.theme_danghwa),
                 ) {

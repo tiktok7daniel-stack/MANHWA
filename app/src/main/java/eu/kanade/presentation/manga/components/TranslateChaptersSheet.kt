@@ -333,6 +333,6 @@ private fun StepButton(label: String, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+        Text(label, color = ManhwaInk.text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
     }
 }

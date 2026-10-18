@@ -31,6 +31,12 @@ class SettingsScreen(
 
     @Composable
     override fun Content() {
+        // MANHWA: this screen follows the chosen style (and its light version)
+        eu.kanade.presentation.components.ManhwaStyledScreen { SettingsContent() }
+    }
+
+    @Composable
+    private fun SettingsContent() {
         val parentNavigator = LocalNavigator.currentOrThrow
         if (!isTabletUi()) {
             Navigator(

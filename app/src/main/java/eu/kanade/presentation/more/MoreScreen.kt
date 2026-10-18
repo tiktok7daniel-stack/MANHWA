@@ -194,7 +194,7 @@ private fun BrandHeader() {
                 )
                 .border(
                     1.5.dp,
-                    Brush.linearGradient(listOf(Color.White.copy(alpha = 0.45f), colors.primary, Color.Transparent)),
+                    Brush.linearGradient(listOf(ManhwaInk.text.copy(alpha = 0.45f), colors.primary, Color.Transparent)),
                     RoundedCornerShape(32.dp),
                 ),
             contentAlignment = Alignment.Center,
@@ -213,7 +213,7 @@ private fun BrandHeader() {
             ),
             fontWeight = FontWeight.Black,
             letterSpacing = 8.sp,
-            color = Color.White,
+            color = ManhwaInk.text,
         )
         Spacer(Modifier.height(4.dp))
         Box(
@@ -227,7 +227,7 @@ private fun BrandHeader() {
         Text(
             stringResource(ATMR.strings.more_tagline),
             style = MaterialTheme.typography.labelLarge,
-            color = Color.White.copy(alpha = 0.6f),
+            color = ManhwaInk.text.copy(alpha = 0.6f),
             letterSpacing = 1.sp,
         )
     }
@@ -259,7 +259,7 @@ private fun Divider() {
             .padding(start = 72.dp, end = 18.dp)
             .fillMaxWidth()
             .height(1.dp)
-            .background(Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.1f), Color.Transparent))),
+            .background(Brush.horizontalGradient(listOf(ManhwaInk.text.copy(alpha = 0.1f), Color.Transparent))),
     )
 }
 

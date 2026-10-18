@@ -88,7 +88,7 @@ fun CharacterGallery(mangaId: Long, title: String, modifier: Modifier = Modifier
                 stringResource(ATMR.strings.chars_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Black,
-                color = Color.White,
+                color = ManhwaInk.text,
                 modifier = Modifier.weight(1f),
             )
             if (cast?.uncertain == true && cast?.candidates.orEmpty().size > 1) {
@@ -153,7 +153,7 @@ private fun CharacterCard(c: CharacterStore.Character, isHero: Boolean, onClick:
         if (c.image.isNotBlank()) {
             AsyncImage(model = c.image, contentDescription = c.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         } else {
-            Icon(MaterialSymbols.Rounded.Person, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(48.dp).align(Alignment.Center))
+            Icon(MaterialSymbols.Rounded.Person, contentDescription = null, tint = ManhwaInk.text.copy(alpha = 0.3f), modifier = Modifier.size(48.dp).align(Alignment.Center))
         }
         Box(
             Modifier.fillMaxSize().background(
@@ -183,12 +183,12 @@ private fun CharacterCard(c: CharacterStore.Character, isHero: Boolean, onClick:
                 c.arabicName.ifBlank { c.name },
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Black,
-                color = Color.White,
+                color = ManhwaInk.text,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (c.arabicName.isNotBlank()) {
-                Text(c.name, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(c.name, style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.6f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -273,11 +273,11 @@ private fun CharacterSheet(title: String, c: CharacterStore.Character, isHero: B
 private fun PickWorkSheet(candidates: List<CharacterStore.Candidate>, onDismiss: () -> Unit, onPick: (CharacterStore.Candidate) -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF0B0709)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(ATMR.strings.chars_pick_work), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Color.White)
+            Text(stringResource(ATMR.strings.chars_pick_work), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = ManhwaInk.text)
             candidates.forEach { c ->
                 Text(
                     listOf(c.title, c.country).filter { it.isNotBlank() }.joinToString(" · "),
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     modifier = Modifier
                         .fillMaxWidth()
                         .glass(RoundedCornerShape(16.dp), alpha = 0.45f)

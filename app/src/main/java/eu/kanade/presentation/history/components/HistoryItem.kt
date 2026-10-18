@@ -148,7 +148,7 @@ private fun SmallOrb(icon: androidx.compose.ui.graphics.vector.ImageVector, desc
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = description, tint = ManhwaInk.text, modifier = Modifier.size(18.dp))
     }
 }
 

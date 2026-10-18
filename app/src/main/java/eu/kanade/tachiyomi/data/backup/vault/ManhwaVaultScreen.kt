@@ -156,18 +156,18 @@ class ManhwaVaultScreen : Screen() {
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(ATMR.strings.full_backup_title), style = MaterialTheme.typography.labelLarge, color = colors.primary)
                             }
-                            Text(stringResource(ATMR.strings.full_backup_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+                            Text(stringResource(ATMR.strings.full_backup_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.75f))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(stringResource(ATMR.strings.full_backup_all_downloads), style = MaterialTheme.typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
-                                    Text(stringResource(ATMR.strings.full_backup_all_downloads_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                    Text(stringResource(ATMR.strings.full_backup_all_downloads), style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.text, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(ATMR.strings.full_backup_all_downloads_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.6f))
                                 }
                                 Switch(checked = allDownloads, onCheckedChange = { allDownloads = it })
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(stringResource(ATMR.strings.full_backup_pages), style = MaterialTheme.typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
-                                    Text(stringResource(ATMR.strings.full_backup_pages_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                    Text(stringResource(ATMR.strings.full_backup_pages), style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.text, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(ATMR.strings.full_backup_pages_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.6f))
                                 }
                                 Switch(checked = translatedPages, onCheckedChange = { translatedPages = it })
                             }
@@ -176,7 +176,7 @@ class ManhwaVaultScreen : Screen() {
                                 Text(stringResource(ATMR.strings.full_backup_progress, state.percent), style = MaterialTheme.typography.labelLarge, color = colors.primary, fontWeight = FontWeight.Bold)
                                 LinearProgressIndicator(progress = { state.percent / 100f }, modifier = Modifier.fillMaxWidth())
                                 if (state.name.isNotBlank()) {
-                                    Text(state.name.substringAfterLast('/'), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.55f), maxLines = 1)
+                                    Text(state.name.substringAfterLast('/'), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.55f), maxLines = 1)
                                 }
                             } else {
                                 ManhwaKit.NeonButton(stringResource(ATMR.strings.full_backup_make), Modifier.fillMaxWidth(), MaterialSymbols.Rounded.Upload) {
@@ -213,8 +213,8 @@ class ManhwaVaultScreen : Screen() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(Color.White.copy(alpha = 0.06f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                                    .background(ManhwaInk.text.copy(alpha = 0.06f))
+                                    .border(1.dp, ManhwaInk.text.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
                                     .padding(12.dp),
                             ) {
                                 BasicTextField(
@@ -225,12 +225,12 @@ class ManhwaVaultScreen : Screen() {
                                     },
                                     singleLine = true,
                                     visualTransformation = PasswordVisualTransformation(),
-                                    textStyle = TextStyle(color = Color.White, fontSize = MaterialTheme.typography.bodyLarge.fontSize),
+                                    textStyle = TextStyle(color = ManhwaInk.text, fontSize = MaterialTheme.typography.bodyLarge.fontSize),
                                     cursorBrush = SolidColor(colors.primary),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
-                            Text(stringResource(ATMR.strings.vault_password_hint), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                            Text(stringResource(ATMR.strings.vault_password_hint), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.6f))
                         }
                     }
                     item {
@@ -241,7 +241,7 @@ class ManhwaVaultScreen : Screen() {
                             ManhwaKit.GhostButton(stringResource(ATMR.strings.vault_import), Modifier.fillMaxWidth(), MaterialSymbols.Rounded.Download) {
                                 if (password.length < MIN_PASSWORD) message = needPassword else importLauncher.launch(arrayOf("*/*"))
                             }
-                            Text(stringResource(ATMR.strings.vault_contents), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                            Text(stringResource(ATMR.strings.vault_contents), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.6f))
                         }
                     }
                     item {
@@ -251,7 +251,7 @@ class ManhwaVaultScreen : Screen() {
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(ATMR.strings.vault_sync), style = MaterialTheme.typography.labelLarge, color = colors.primary)
                             }
-                            Text(stringResource(ATMR.strings.vault_sync_hint), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                            Text(stringResource(ATMR.strings.vault_sync_hint), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.7f))
                             ManhwaKit.GhostButton(
                                 folder?.let { Uri.parse(it).lastPathSegment?.substringAfterLast(':') } ?: stringResource(ATMR.strings.vault_pick_folder),
                                 Modifier.fillMaxWidth(),
@@ -277,7 +277,7 @@ class ManhwaVaultScreen : Screen() {
                                 Text(
                                     stringResource(ATMR.strings.vault_last_sync, DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(lastSync))),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.6f),
+                                    color = ManhwaInk.text.copy(alpha = 0.6f),
                                 )
                             }
                         }

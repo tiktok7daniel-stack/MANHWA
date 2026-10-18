@@ -72,7 +72,7 @@ fun UnifiedWorkCard(manga: Manga, modifier: Modifier = Modifier) {
             Text(
                 stringResource(ATMR.strings.unified_also_on, links.joinToString("، ") { it.sourceName }),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
+                color = ManhwaInk.text,
                 fontWeight = FontWeight.SemiBold,
             )
         }
@@ -85,9 +85,9 @@ fun UnifiedWorkCard(manga: Manga, modifier: Modifier = Modifier) {
                     loading = false
                 }
             }
-            missing!!.isEmpty() -> Text(stringResource(ATMR.strings.unified_nothing_missing), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+            missing!!.isEmpty() -> Text(stringResource(ATMR.strings.unified_nothing_missing), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.6f))
             else -> {
-                Text(stringResource(ATMR.strings.unified_missing, missing!!.size), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
+                Text(stringResource(ATMR.strings.unified_missing, missing!!.size), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.8f))
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     missing!!.take(MAX_SHOWN).forEach { ch ->
                         Text(

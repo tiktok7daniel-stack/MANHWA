@@ -62,7 +62,7 @@ fun LocalAiPanel(modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(stringResource(ATMR.strings.local_ai_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(stringResource(ATMR.strings.local_ai_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = ManhwaInk.text)
                 Text(
                     if (file != null) {
                         stringResource(ATMR.strings.local_ai_ready, Formatter.formatShortFileSize(context, file.length()))
@@ -70,12 +70,12 @@ fun LocalAiPanel(modifier: Modifier = Modifier) {
                         stringResource(ATMR.strings.local_ai_none)
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (file != null) Color(0xFF3DDC97) else Color.White.copy(alpha = 0.6f),
+                    color = if (file != null) Color(0xFF3DDC97) else ManhwaInk.text.copy(alpha = 0.6f),
                 )
             }
             Switch(checked = on, onCheckedChange = { prefs.translationLocalAi().set(it) })
         }
-        Text(stringResource(ATMR.strings.local_ai_info), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.65f))
+        Text(stringResource(ATMR.strings.local_ai_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.65f))
         status?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ManhwaKit.NeonButton(

@@ -121,7 +121,7 @@ fun GlowProgress(fraction: Float, color: Color, modifier: Modifier = Modifier) {
                 .fillMaxWidth(shown.coerceAtLeast(0.03f))
                 .height(7.dp)
                 .clip(RoundedCornerShape(50))
-                .background(Brush.horizontalGradient(listOf(color.copy(alpha = 0.7f), color, Color.White.copy(alpha = 0.9f)))),
+                .background(Brush.horizontalGradient(listOf(color.copy(alpha = 0.7f), color, ManhwaInk.text.copy(alpha = 0.9f)))),
         )
     }
 }
@@ -149,7 +149,7 @@ fun GlowIcon(icon: ImageVector, color: Color, size: Int = 54, pulse: Boolean = f
             .border(1.dp, color.copy(alpha = 0.6f), CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size((size * 0.55f).dp))
+        Icon(icon, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size((size * 0.55f).dp))
     }
 }
 
@@ -172,7 +172,7 @@ fun StreakCard(streak: ReadingLevels.Streak, modifier: Modifier = Modifier) {
                     stringResource(ATMR.strings.game_streak_days, streak.days),
                     style = MaterialTheme.typography.titleLarge.copy(shadow = Shadow(color.copy(alpha = 0.7f), blurRadius = 22f)),
                     fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                 )
                 Text(stageName(streak.stage), style = MaterialTheme.typography.labelLarge, color = color, fontWeight = FontWeight.Bold)
             }
@@ -186,7 +186,7 @@ fun StreakCard(streak: ReadingLevels.Streak, modifier: Modifier = Modifier) {
                 else -> stringResource(ATMR.strings.game_to_next_stage, streak.daysToNext ?: 0, stageName(nextStage))
             },
             style = MaterialTheme.typography.labelMedium,
-            color = Color.White.copy(alpha = 0.7f),
+            color = ManhwaInk.text.copy(alpha = 0.7f),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             streak.week.forEachIndexed { index, read ->
@@ -196,14 +196,14 @@ fun StreakCard(streak: ReadingLevels.Streak, modifier: Modifier = Modifier) {
                         .weight(1f)
                         .height(8.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(if (read) color else Color.White.copy(alpha = if (today) 0.22f else 0.1f)),
+                        .background(if (read) color else ManhwaInk.text.copy(alpha = if (today) 0.22f else 0.1f)),
                 )
             }
         }
         Text(
             stringResource(ATMR.strings.game_longest, streak.longest),
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.5f),
+            color = ManhwaInk.text.copy(alpha = 0.5f),
         )
     }
 }
@@ -223,7 +223,7 @@ fun HunterCard(hunter: ReadingLevels.Hunter, totalChapters: Int, modifier: Modif
             GlowIcon(MaterialSymbols.Rounded.MilitaryTech, color, size = 48)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(ATMR.strings.game_hunter), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.6f))
+                Text(stringResource(ATMR.strings.game_hunter), style = MaterialTheme.typography.labelMedium, color = ManhwaInk.text.copy(alpha = 0.6f))
                 Text(
                     hunterTitle(hunter.rank),
                     style = MaterialTheme.typography.titleMedium.copy(shadow = Shadow(color.copy(alpha = 0.7f), blurRadius = 18f)),
@@ -234,7 +234,7 @@ fun HunterCard(hunter: ReadingLevels.Hunter, totalChapters: Int, modifier: Modif
             Text(
                 stringResource(ATMR.strings.game_total, totalChapters),
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.75f),
+                color = ManhwaInk.text.copy(alpha = 0.75f),
             )
         }
         GlowProgress(hunter.toNext, color)
@@ -242,7 +242,7 @@ fun HunterCard(hunter: ReadingLevels.Hunter, totalChapters: Int, modifier: Modif
             hunter.pointsToNext?.let { stringResource(ATMR.strings.game_points, hunter.points, it) }
                 ?: stringResource(ATMR.strings.game_points_max, hunter.points),
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.6f),
+            color = ManhwaInk.text.copy(alpha = 0.6f),
         )
     }
 }
@@ -419,7 +419,7 @@ fun LevelUpBanner(series: ReadingProgressEngine.Series, onClick: () -> Unit, mod
             stringResource(ATMR.strings.level_up_banner, series.level.level, series.manga.title),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = ManhwaInk.text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -432,7 +432,7 @@ fun LevelUpBanner(series: ReadingProgressEngine.Series, onClick: () -> Unit, mod
 @Composable
 private fun DetailRow(label: String, value: String, color: Color) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f), modifier = Modifier.weight(1f))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.text.copy(alpha = 0.7f), modifier = Modifier.weight(1f))
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color)
     }
 }

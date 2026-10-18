@@ -94,29 +94,29 @@ fun ChapterRecapSheet(manga: Manga, currentChapter: Double, store: GlossaryStore
                 Icon(MaterialSymbols.Rounded.AutoStories, contentDescription = null, tint = colors.primary, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(ATMR.strings.crecap_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Color.White)
-                    Text(manga.title, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
+                    Text(stringResource(ATMR.strings.crecap_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = ManhwaInk.text)
+                    Text(manga.title, style = MaterialTheme.typography.labelMedium, color = ManhwaInk.text.copy(alpha = 0.6f), maxLines = 1)
                 }
                 Box(
                     modifier = Modifier
                         .size(34.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.08f))
+                        .background(ManhwaInk.text.copy(alpha = 0.08f))
                         .clickable(onClick = onDismiss),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(MaterialSymbols.Rounded.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Icon(MaterialSymbols.Rounded.Close, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(18.dp))
                 }
             }
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(ATMR.strings.recap_up_to), style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                Text(stringResource(ATMR.strings.recap_up_to), style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.text)
                 Spacer(Modifier.width(10.dp))
                 Box(
                     modifier = Modifier
                         .width(96.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.06f))
+                        .background(ManhwaInk.text.copy(alpha = 0.06f))
                         .border(1.dp, colors.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                 ) {
@@ -125,7 +125,7 @@ fun ChapterRecapSheet(manga: Manga, currentChapter: Double, store: GlossaryStore
                         onValueChange = { chapter = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(7) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        textStyle = TextStyle(color = Color.White, fontWeight = FontWeight.Bold, fontSize = MaterialTheme.typography.titleMedium.fontSize),
+                        textStyle = TextStyle(color = ManhwaInk.text, fontWeight = FontWeight.Bold, fontSize = MaterialTheme.typography.titleMedium.fontSize),
                         cursorBrush = SolidColor(colors.primary),
                     )
                 }
@@ -158,11 +158,11 @@ fun ChapterRecapSheet(manga: Manga, currentChapter: Double, store: GlossaryStore
 private fun RecapBody(recap: ChapterRecap.Recap) {
     val colors = MaterialTheme.colorScheme
     recap.story.split("\n\n").map(String::trim).filter(String::isNotEmpty).forEach { paragraph ->
-        Text(paragraph, color = Color.White, style = MaterialTheme.typography.bodyLarge)
+        Text(paragraph, color = ManhwaInk.text, style = MaterialTheme.typography.bodyLarge)
     }
     if (recap.hero.isNotBlank()) {
         Section(stringResource(ATMR.strings.recap_hero)) {
-            Text(recap.hero, color = Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.bodyMedium)
+            Text(recap.hero, color = ManhwaInk.text.copy(alpha = 0.9f), style = MaterialTheme.typography.bodyMedium)
         }
     }
     if (recap.threads.isNotEmpty()) {
@@ -171,7 +171,7 @@ private fun RecapBody(recap: ChapterRecap.Recap) {
                 Row {
                     Box(Modifier.padding(top = 8.dp).size(6.dp).clip(RoundedCornerShape(50)).background(colors.primary))
                     Spacer(Modifier.width(8.dp))
-                    Text(thread, color = Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.bodyMedium)
+                    Text(thread, color = ManhwaInk.text.copy(alpha = 0.9f), style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -180,12 +180,12 @@ private fun RecapBody(recap: ChapterRecap.Recap) {
         Section(stringResource(ATMR.strings.crecap_characters)) {
             recap.characters.forEach { (name, role) ->
                 Text(name, color = colors.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                if (role.isNotBlank()) Text(role, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
+                if (role.isNotBlank()) Text(role, color = ManhwaInk.text.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall)
             }
         }
     }
     if (recap.fromSummaries == 0) {
-        Text(stringResource(ATMR.strings.recap_from_knowledge), color = Color.White.copy(alpha = 0.5f), style = MaterialTheme.typography.labelSmall)
+        Text(stringResource(ATMR.strings.recap_from_knowledge), color = ManhwaInk.text.copy(alpha = 0.5f), style = MaterialTheme.typography.labelSmall)
     }
 }
 

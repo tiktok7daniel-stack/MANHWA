@@ -165,14 +165,14 @@ fun KeyAdvisorSheet(onDismiss: () -> Unit, onAddFrom: (KeyPrefill) -> Unit) {
                     stringResource(ATMR.strings.keys_advisor_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     modifier = Modifier.weight(1f),
                 )
                 Box(
-                    modifier = Modifier.size(34.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onDismiss),
+                    modifier = Modifier.size(34.dp).clip(RoundedCornerShape(50)).background(ManhwaInk.text.copy(alpha = 0.08f)).clickable(onClick = onDismiss),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(MaterialSymbols.Rounded.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Icon(MaterialSymbols.Rounded.Close, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(18.dp))
                 }
             }
             Spacer(Modifier.height12())
@@ -197,17 +197,17 @@ fun KeyAdvisorSheet(onDismiss: () -> Unit, onAddFrom: (KeyPrefill) -> Unit) {
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.06f))
-                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                        .background(ManhwaInk.text.copy(alpha = 0.06f))
+                        .border(1.dp, ManhwaInk.text.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
                         .padding(12.dp),
                 ) {
                     if (question.isEmpty()) {
-                        Text(stringResource(ATMR.strings.keys_advisor_hint), color = Color.White.copy(alpha = 0.45f), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(ATMR.strings.keys_advisor_hint), color = ManhwaInk.text.copy(alpha = 0.45f), style = MaterialTheme.typography.bodyMedium)
                     }
                     BasicTextField(
                         value = question,
                         onValueChange = { question = it },
-                        textStyle = TextStyle(color = Color.White, fontSize = MaterialTheme.typography.bodyMedium.fontSize),
+                        textStyle = TextStyle(color = ManhwaInk.text, fontSize = MaterialTheme.typography.bodyMedium.fontSize),
                         cursorBrush = SolidColor(colors.primary),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -218,9 +218,9 @@ fun KeyAdvisorSheet(onDismiss: () -> Unit, onAddFrom: (KeyPrefill) -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     if (working) {
-                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = ManhwaInk.text)
                     } else {
-                        Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -268,10 +268,10 @@ private fun AdviceCard(advice: Advice, onOpen: () -> Unit, onAdd: () -> Unit) {
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(advice.name, color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleSmall)
+        Text(advice.name, color = ManhwaInk.text, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleSmall)
         Text(advice.keysUrl, color = colors.primary, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-        if (advice.free.isNotBlank()) Text(advice.free, color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodySmall)
-        if (advice.why.isNotBlank()) Text(advice.why, color = Color.White.copy(alpha = 0.65f), style = MaterialTheme.typography.bodySmall)
+        if (advice.free.isNotBlank()) Text(advice.free, color = ManhwaInk.text.copy(alpha = 0.85f), style = MaterialTheme.typography.bodySmall)
+        if (advice.why.isNotBlank()) Text(advice.why, color = ManhwaInk.text.copy(alpha = 0.65f), style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ManhwaKit.GhostButton(stringResource(ATMR.strings.keys_open_chrome), Modifier.weight(1f), MaterialSymbols.Rounded.OpenInNew, onOpen)
             ManhwaKit.NeonButton(stringResource(ATMR.strings.keys_add_from_site), Modifier.weight(1f), MaterialSymbols.Rounded.Add, onAdd)

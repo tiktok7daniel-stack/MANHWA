@@ -89,7 +89,7 @@ fun GlossaryButton(mangaId: Long, modifier: Modifier = Modifier) {
             stringResource(ATMR.strings.glossary_button, entries.size),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = ManhwaInk.text,
         )
     }
     Spacer(Modifier.width(6.dp))

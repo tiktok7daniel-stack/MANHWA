@@ -66,11 +66,12 @@ object ManhwaKit {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     title,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        shadow = Shadow(MaterialTheme.colorScheme.primary.copy(alpha = 0.6f), blurRadius = 22f),
-                    ),
+                    style = MaterialTheme.typography.titleLarge.let { base ->
+                        // The neon halo behind the title belongs to MANHWA Glass
+                        if (LocalManhwaLook.current.glow) base.copy(shadow = Shadow(MaterialTheme.colorScheme.primary.copy(alpha = 0.6f), blurRadius = 22f)) else base
+                    },
                     fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -103,13 +104,18 @@ object ManhwaKit {
                         Modifier.glass(RoundedCornerShape((size / 3).dp), alpha = 0.45f)
                     },
                 )
-                .clickable(onClick = onClick),
+                .pressClickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 icon,
                 contentDescription = null,
-                tint = if (active) Color.White else colors.primary.let { lerp(it, Color.White, 0.55f) },
+                tint = when {
+                    active -> Color.White
+                    // On paper the pale tint would fade: the accent itself
+                    LocalManhwaLook.current.light -> colors.primary
+                    else -> colors.primary.let { lerp(it, Color.White, 0.55f) }
+                },
                 modifier = Modifier.size((size * 0.5f).dp),
             )
         }
@@ -124,7 +130,7 @@ object ManhwaKit {
                 .clip(RoundedCornerShape(16.dp))
                 .background(accentBrush())
                 .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
-                .clickable(onClick = onClick)
+                .pressClickable(onClick = onClick)
                 .padding(horizontal = 18.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
@@ -142,16 +148,16 @@ object ManhwaKit {
         Row(
             modifier = modifier
                 .glass(RoundedCornerShape(16.dp), alpha = 0.35f)
-                .clickable(onClick = onClick)
+                .pressClickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (icon != null) {
-                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(icon, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
             }
-            Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+            Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1)
         }
     }
 
@@ -162,7 +168,7 @@ object ManhwaKit {
             text = text,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = Color.White.copy(alpha = if (selected) 1f else 0.75f),
+            color = if (selected) Color.White else ManhwaInk.text.copy(alpha = 0.75f),
             maxLines = 1,
             modifier = Modifier
                 .then(
@@ -175,7 +181,7 @@ object ManhwaKit {
                         Modifier.glass(shape, alpha = 0.35f)
                     },
                 )
-                .clickable(onClick = onClick)
+                .pressClickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 9.dp),
         )
     }
@@ -200,13 +206,13 @@ object ManhwaKit {
             Spacer(Modifier.width(10.dp))
             Box(modifier = Modifier.weight(1f)) {
                 if (value.isEmpty()) {
-                    Text(hint, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.5f), maxLines = 1)
+                    Text(hint, style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.muted, maxLines = 1)
                 }
                 BasicTextField(
                     value = value,
                     onValueChange = onValueChange,
                     singleLine = true,
-                    textStyle = TextStyle(color = Color.White, fontSize = MaterialTheme.typography.bodyMedium.fontSize),
+                    textStyle = TextStyle(color = ManhwaInk.text, fontSize = MaterialTheme.typography.bodyMedium.fontSize),
                     cursorBrush = SolidColor(colors.primary),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -235,7 +241,7 @@ object ManhwaKit {
                     title,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -253,7 +259,7 @@ object ManhwaKit {
                 .fillMaxWidth()
                 .height(6.dp)
                 .clip(RoundedCornerShape(50))
-                .background(Color.White.copy(alpha = 0.1f)),
+                .background(ManhwaInk.text.copy(alpha = 0.1f)),
         ) {
             Box(
                 Modifier

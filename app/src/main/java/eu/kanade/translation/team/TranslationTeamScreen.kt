@@ -165,7 +165,7 @@ class TranslationTeamScreen : Screen() {
                                     stringResource(ATMR.strings.team_summary, working, members.size),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Black,
-                                    color = Color.White,
+                                    color = ManhwaInk.text,
                                     modifier = Modifier.weight(1f),
                                 )
                             }
@@ -190,7 +190,7 @@ class TranslationTeamScreen : Screen() {
                             Text(
                                 stringResource(if (accurate) ATMR.strings.team_mode_accurate_summary else ATMR.strings.team_mode_fast_summary),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.6f),
+                                color = ManhwaInk.text.copy(alpha = 0.6f),
                             )
                             // Where today's calls went, by kind of work, and the router's rules behind the (i)
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -198,12 +198,12 @@ class TranslationTeamScreen : Screen() {
                                     Text(
                                         stringResource(ATMR.strings.router_today),
                                         style = MaterialTheme.typography.labelLarge,
-                                        color = Color.White.copy(alpha = 0.75f),
+                                        color = ManhwaInk.text.copy(alpha = 0.75f),
                                     )
                                     Text(
                                         lanesText(todayLanes).ifEmpty { stringResource(ATMR.strings.router_nothing_today) },
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = Color.White.copy(alpha = 0.6f),
+                                        color = ManhwaInk.text.copy(alpha = 0.6f),
                                     )
                                 }
                                 InfoButton(stringResource(ATMR.strings.router_title), stringResource(ATMR.strings.router_info))
@@ -283,7 +283,7 @@ class TranslationTeamScreen : Screen() {
                             Text(
                                 stringResource(ATMR.strings.team_empty),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = ManhwaInk.text.copy(alpha = 0.7f),
                                 modifier = Modifier.padding(horizontal = 6.dp),
                             )
                         }
@@ -312,7 +312,7 @@ class TranslationTeamScreen : Screen() {
                         Text(
                             stringResource(ATMR.strings.team_note),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = ManhwaInk.text.copy(alpha = 0.5f),
                             modifier = Modifier.padding(horizontal = 6.dp),
                         )
                     }
@@ -382,9 +382,9 @@ class TranslationTeamScreen : Screen() {
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, color = Color.White, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+            Text(label, style = MaterialTheme.typography.labelLarge, color = ManhwaInk.text, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
         }
     }
 
@@ -400,7 +400,7 @@ class TranslationTeamScreen : Screen() {
         ) {
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(4.dp))
-            Text(text, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.85f), maxLines = 1)
+            Text(text, style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.85f), maxLines = 1)
         }
     }
 
@@ -558,7 +558,7 @@ class TranslationTeamScreen : Screen() {
             ModelHealthManager.Status.AUTH_FAILED -> stringResource(ATMR.strings.key_status_auth_failed) to Amber
             ModelHealthManager.Status.TEMPORARY_ERROR -> stringResource(ATMR.strings.key_status_temporary) to Amber
             ModelHealthManager.Status.DISABLED -> stringResource(ATMR.strings.key_status_disabled, kh.disabledReason.orEmpty().take(80)) to Crimson
-            ModelHealthManager.Status.UNKNOWN -> stringResource(ATMR.strings.key_status_unknown) to Color.White.copy(alpha = 0.6f)
+            ModelHealthManager.Status.UNKNOWN -> stringResource(ATMR.strings.key_status_unknown) to ManhwaInk.text.copy(alpha = 0.6f)
         }
         Row(
             Modifier.horizontalScroll(rememberScrollState()),
@@ -1004,7 +1004,7 @@ private fun PhoneMemberCard(onOpen: () -> Unit) {
     val lineup = lineupState
     val (text, color) = when {
         lineup == null -> stringResource(ATMR.strings.team_phone_none) to Color(0xFFFFB020)
-        !orchestra -> stringResource(ATMR.strings.team_phone_off) to Color.White.copy(alpha = 0.6f)
+        !orchestra -> stringResource(ATMR.strings.team_phone_off) to ManhwaInk.text.copy(alpha = 0.6f)
         playing -> stringResource(ATMR.strings.team_phone_all_on, lineup.playing) to Color(0xFF3DDC97)
         else -> stringResource(ATMR.strings.team_phone_all_paused, lineup.playing) to Color(0xFFFFB020)
     }
@@ -1020,7 +1020,7 @@ private fun PhoneMemberCard(onOpen: () -> Unit) {
             HubIconTile(MaterialSymbols.Rounded.AutoAwesome, size = 44)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(ATMR.strings.team_phone_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+                Text(stringResource(ATMR.strings.team_phone_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                 Text(text, style = MaterialTheme.typography.bodySmall, color = color)
             }
             Switch(checked = orchestra, onCheckedChange = { prefs.translationOrchestra().set(it) })
@@ -1032,12 +1032,12 @@ private fun PhoneMemberCard(onOpen: () -> Unit) {
                 eu.kanade.translation.local.EnsembleRules.Role.DRAFTS -> stringResource(ATMR.strings.ensemble_role_drafts) to Color(0xFFFFB020)
                 eu.kanade.translation.local.EnsembleRules.Role.JUDGES -> stringResource(ATMR.strings.ensemble_role_judges) to Color(0xFF4FD8FF)
                 eu.kanade.translation.local.EnsembleRules.Role.DRAFTS_AND_JUDGES -> stringResource(ATMR.strings.ensemble_role_both) to Color(0xFFFFB020)
-                eu.kanade.translation.local.EnsembleRules.Role.NO_ROOM -> stringResource(ATMR.strings.ensemble_role_no_room) to Color.White.copy(alpha = 0.4f)
+                eu.kanade.translation.local.EnsembleRules.Role.NO_ROOM -> stringResource(ATMR.strings.ensemble_role_no_room) to ManhwaInk.text.copy(alpha = 0.4f)
             }
             Row(Modifier.padding(start = 56.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).background(roleColor, CircleShape))
                 Spacer(Modifier.width(8.dp))
-                Text("${m.name} · $role", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.85f))
+                Text("${m.name} · $role", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = ManhwaInk.text.copy(alpha = 0.85f))
             }
         }
     }
@@ -1066,9 +1066,9 @@ private fun BestKeysCard(store: TeamStore, members: List<TeamStore.Member>) {
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(stringResource(ATMR.strings.best_keys_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
+        Text(stringResource(ATMR.strings.best_keys_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
         if (rows.all { it.second.calls == 0 }) {
-            Text(stringResource(ATMR.strings.best_keys_none), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+            Text(stringResource(ATMR.strings.best_keys_none), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.7f))
             return@Column
         }
         // The sites that translated best, with a way to get another key there
@@ -1078,7 +1078,7 @@ private fun BestKeysCard(store: TeamStore, members: List<TeamStore.Member>) {
                 Text(
                     stringResource(ATMR.strings.best_keys_site, site?.name ?: siteId, score),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     modifier = Modifier.weight(1f),
                 )
                 if (site != null) {
@@ -1093,7 +1093,7 @@ private fun BestKeysCard(store: TeamStore, members: List<TeamStore.Member>) {
                 KeyReportRules.Verdict.EXCELLENT -> BestMint to stringResource(ATMR.strings.best_keys_excellent)
                 KeyReportRules.Verdict.GOOD -> BestAmber to stringResource(ATMR.strings.best_keys_good)
                 KeyReportRules.Verdict.WEAK -> BestRed to stringResource(ATMR.strings.best_keys_weak)
-                KeyReportRules.Verdict.UNUSED -> Color.White.copy(alpha = 0.5f) to stringResource(ATMR.strings.best_keys_unused)
+                KeyReportRules.Verdict.UNUSED -> ManhwaInk.text.copy(alpha = 0.5f) to stringResource(ATMR.strings.best_keys_unused)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -1101,7 +1101,7 @@ private fun BestKeysCard(store: TeamStore, members: List<TeamStore.Member>) {
                         "${member.displayName} · ${member.model.ifBlank { member.autoModel }.ifBlank { "auto" }}",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = ManhwaInk.text,
                         maxLines = 1,
                     )
                     if (totals.calls > 0) {
@@ -1113,7 +1113,7 @@ private fun BestKeysCard(store: TeamStore, members: List<TeamStore.Member>) {
                                 if (totals.avgLatencyMs > 0) "%.1f".format(totals.avgLatencyMs / 1000f) else "-",
                             ),
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.6f),
+                            color = ManhwaInk.text.copy(alpha = 0.6f),
                         )
                     }
                 }

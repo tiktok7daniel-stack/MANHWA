@@ -262,7 +262,7 @@ private fun ActionRow(icon: ImageVector, title: String, onClick: () -> Unit) {
     ) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
-        Text(title, color = Color.White, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+        Text(title, color = ManhwaInk.text, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
     }
 }
 
@@ -278,11 +278,11 @@ private fun SwitchAction(icon: ImageVector, title: String, checked: Boolean, onC
     ) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
-        Text(title, color = Color.White, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+        Text(title, color = ManhwaInk.text, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
         Switch(
             checked = checked,
             onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = Color.White),
+            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = ManhwaInk.text),
         )
     }
 }
@@ -347,14 +347,14 @@ fun BubbleEditBanner(onDone: () -> Unit, modifier: Modifier = Modifier) {
     ) {
         Text(
             stringResource(ATMR.strings.orb_edit_hint),
-            color = Color.White,
+            color = ManhwaInk.text,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.weight(1f, fill = false),
         )
         Spacer(Modifier.width(8.dp))
         Text(
             stringResource(ATMR.strings.orb_done),
-            color = Color.White,
+            color = ManhwaInk.text,
             fontWeight = FontWeight.Black,
             modifier = Modifier
                 .clip(RoundedCornerShape(50))

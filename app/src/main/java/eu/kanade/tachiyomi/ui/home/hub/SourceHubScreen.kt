@@ -178,7 +178,7 @@ class SourceHubScreen : Screen() {
                     }
                     item { SortChip(MaterialSymbols.Rounded.SortByAlpha, stringResource(ATMR.strings.hub_sort_name), state.sort == SourceHubViewModel.SORT_NAME) { viewModel.setSort(SourceHubViewModel.SORT_NAME) } }
                     if (!discover) {
-                        item { Box(Modifier.width(1.dp).height(22.dp).background(Color.White.copy(alpha = 0.2f))) }
+                        item { Box(Modifier.width(1.dp).height(22.dp).background(ManhwaInk.text.copy(alpha = 0.2f))) }
                         item { ManhwaKit.Chip(stringResource(ATMR.strings.hub_online), health == 1) { health = if (health == 1) 0 else 1 } }
                         item { ManhwaKit.Chip(stringResource(ATMR.strings.hub_offline), health == 2) { health = if (health == 2) 0 else 2 } }
                     }
@@ -682,7 +682,7 @@ class SourceHubScreen : Screen() {
         val latency = health?.latencyMs
         val (color, label) = when {
             health == null -> return
-            latency == null -> Color.White.copy(alpha = 0.4f) to stringResource(ATMR.strings.hub_checking)
+            latency == null -> ManhwaInk.text.copy(alpha = 0.4f) to stringResource(ATMR.strings.hub_checking)
             latency < 0 -> Color(0xFFFF5252) to stringResource(ATMR.strings.hub_offline)
             latency < 700 -> Color(0xFF3DDC97) to "${latency}ms"
             latency < 1800 -> Color(0xFFFFB020) to "${latency}ms"
@@ -730,7 +730,7 @@ class SourceHubScreen : Screen() {
                         extension.name,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = ManhwaInk.text,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -753,7 +753,7 @@ class SourceHubScreen : Screen() {
                     listOf(languageName(extension.lang), stringResource(ATMR.strings.src_count, extension.sources.size), "v${extension.versionName}")
                         .joinToString(" • "),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.55f),
+                    color = ManhwaInk.text.copy(alpha = 0.55f),
                     maxLines = 1,
                 )
             }
@@ -773,7 +773,7 @@ class SourceHubScreen : Screen() {
             ) {
                 when {
                     working -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    done -> Icon(MaterialSymbols.Rounded.Check, contentDescription = null, tint = Color.White)
+                    done -> Icon(MaterialSymbols.Rounded.Check, contentDescription = null, tint = ManhwaInk.text)
                     else -> Icon(MaterialSymbols.Rounded.Add, contentDescription = null, tint = colors.primary)
                 }
             }
@@ -792,10 +792,10 @@ class SourceHubScreen : Screen() {
                 .clickable(onClick = onClick)
                 .padding(16.dp),
         ) {
-            Icon(MaterialSymbols.Rounded.Download, contentDescription = null, tint = Color.White)
+            Icon(MaterialSymbols.Rounded.Download, contentDescription = null, tint = ManhwaInk.text)
             Spacer(Modifier.height(8.dp))
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
-            Text(stringResource(ATMR.strings.src_count, count), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
+            Text(stringResource(ATMR.strings.src_count, count), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.7f))
         }
     }
 
@@ -807,9 +807,9 @@ class SourceHubScreen : Screen() {
                 .glass(RoundedCornerShape(24.dp), accent = true, alpha = 0.45f)
                 .padding(20.dp),
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Color.White)
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = ManhwaInk.text)
             Spacer(Modifier.height(6.dp))
-            Text(body, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+            Text(body, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.7f))
             Spacer(Modifier.height(14.dp))
             ManhwaKit.NeonButton(button, onClick = onClick)
         }
@@ -829,7 +829,7 @@ class SourceHubScreen : Screen() {
                     label,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = if (selected) Color.White else Color.White.copy(alpha = 0.6f),
+                    color = if (selected) ManhwaInk.text else ManhwaInk.text.copy(alpha = 0.6f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     maxLines = 1,
                     modifier = Modifier
@@ -858,7 +858,7 @@ class SourceHubScreen : Screen() {
                 stringResource(ATMR.strings.hub_on_home, count),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = ManhwaInk.text,
                 modifier = Modifier.weight(1f),
             )
             ManhwaKit.NeonButton(stringResource(ATMR.strings.home_done), onClick = onDone)
@@ -882,9 +882,9 @@ class SourceHubScreen : Screen() {
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1)
         }
     }
 
@@ -920,7 +920,7 @@ class SourceHubScreen : Screen() {
                 modifier = Modifier.size(12.dp),
             )
             Spacer(Modifier.width(4.dp))
-            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1)
         }
     }
 
@@ -1234,8 +1234,8 @@ class SourceHubScreen : Screen() {
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(ATMR.strings.hub_hide_adult), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White)
-                Text(stringResource(ATMR.strings.hub_hide_adult_sub), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+                Text(stringResource(ATMR.strings.hub_hide_adult), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = ManhwaInk.text)
+                Text(stringResource(ATMR.strings.hub_hide_adult_sub), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.6f))
             }
             androidx.compose.material3.Switch(checked = hidden, onCheckedChange = onChange)
         }

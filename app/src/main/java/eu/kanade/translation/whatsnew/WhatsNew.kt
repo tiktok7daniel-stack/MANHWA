@@ -282,17 +282,17 @@ private fun Header() {
                 .neonGlow(RoundedCornerShape(26.dp), Crimson, 0.5f, 18.dp)
                 .clip(RoundedCornerShape(26.dp))
                 .background(Brush.linearGradient(listOf(Crimson, Ember)))
-                .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(26.dp)),
+                .border(1.dp, ManhwaInk.text.copy(alpha = 0.3f), RoundedCornerShape(26.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(MaterialSymbols.Rounded.NewReleases, contentDescription = null, tint = Color.White, modifier = Modifier.size(42.dp))
+            Icon(MaterialSymbols.Rounded.NewReleases, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(42.dp))
         }
         Spacer(Modifier.height(14.dp))
         Text(
             stringResource(ATMR.strings.wn_badge, WhatsNew.buildLabel),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Black,
-            color = Color.White,
+            color = ManhwaInk.text,
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
                 .background(Brush.horizontalGradient(listOf(Crimson.copy(alpha = 0.85f), Ember.copy(alpha = 0.85f))))
@@ -303,14 +303,14 @@ private fun Header() {
             stringResource(ATMR.strings.wn_title),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Black,
-            color = Color.White,
+            color = ManhwaInk.text,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(6.dp))
         Text(
             stringResource(ATMR.strings.wn_subtitle),
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.7f),
+            color = ManhwaInk.text.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(8.dp))
@@ -334,12 +334,12 @@ private fun FeatureCard(f: WhatsNew.Feature) {
                 .background(Brush.linearGradient(listOf(Crimson.copy(alpha = 0.9f), Ember.copy(alpha = 0.75f)))),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(f.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+            Icon(f.icon, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(f.title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
-            Text(stringResource(f.body), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+            Text(stringResource(f.title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
+            Text(stringResource(f.body), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.75f))
         }
     }
 }

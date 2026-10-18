@@ -1,6 +1,8 @@
 package eu.kanade.presentation.library.components
 
 import eu.kanade.presentation.components.glass
+import eu.kanade.presentation.components.obsidianPill
+import eu.kanade.presentation.components.pressCombinedClickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -188,6 +190,8 @@ fun MangaComfortableGridItem(
     progress: Float? = null,
     statusLabel: String? = null,
 ) {
+    // MANHWA Obsidian Royal: an editorial card, the cover fills it and the title sits on a soft fade at its bottom
+    val editorial = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
     GridItemSelectable(
         isSelected = isSelected,
         onClick = onClick,
@@ -207,7 +211,46 @@ fun MangaComfortableGridItem(
                 badgesEnd = coverBadgeEnd,
                 content = {
                     // MANHWA: soft fade at the bottom, status chip and a thin reading progress bar
-                    if (progress != null || statusLabel != null) {
+                    if (editorial) {
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        0.45f to Color.Transparent,
+                                        1f to Color.Black.copy(alpha = 0.88f),
+                                    ),
+                                ),
+                        )
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(start = 8.dp, end = 8.dp, bottom = if (progress != null) 9.dp else 7.dp),
+                        ) {
+                            if (statusLabel != null) {
+                                Text(
+                                    statusLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    modifier = Modifier
+                                        .padding(bottom = 4.dp)
+                                        .obsidianPill(),
+                                )
+                            }
+                            Text(
+                                title,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                maxLines = titleMaxLines,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    } else if (progress != null || statusLabel != null) {
                         Box(
                             Modifier
                                 .matchParentSize()
@@ -219,7 +262,7 @@ fun MangaComfortableGridItem(
                                 ),
                         )
                     }
-                    if (statusLabel != null) {
+                    if (statusLabel != null && !editorial) {
                         Text(
                             statusLabel,
                             style = MaterialTheme.typography.labelSmall,
@@ -264,13 +307,15 @@ fun MangaComfortableGridItem(
                     }
                 },
             )
-            GridItemTitle(
-                modifier = Modifier.padding(4.dp),
-                title = title,
-                style = MaterialTheme.typography.titleSmall,
-                minLines = 2,
-                maxLines = titleMaxLines,
-            )
+            if (!editorial) {
+                GridItemTitle(
+                    modifier = Modifier.padding(4.dp),
+                    title = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    minLines = 2,
+                    maxLines = titleMaxLines,
+                )
+            }
         }
     }
 }
@@ -291,7 +336,7 @@ private fun MangaGridCover(
             .fillMaxWidth()
             .aspectRatio(MangaCover.Book.ratio)
             .clip(RoundedCornerShape(14.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp)),
+            .border(1.dp, ManhwaInk.text.copy(alpha = 0.12f), RoundedCornerShape(14.dp)),
     ) {
         cover()
         content?.invoke(this)
@@ -346,17 +391,19 @@ private fun GridItemSelectable(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    // MANHWA: each title sits on a glass card; a crimson rim marks the selection
-    val shape = RoundedCornerShape(18.dp)
+    // MANHWA: each title sits on a glass card; a crimson rim marks the selection.
+    // Obsidian Royal: the cover is the card (14 dp corners), and the card gives a little under the finger
+    val editorial = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
+    val shape = RoundedCornerShape(if (editorial) eu.kanade.presentation.components.ObsidianTokens.CARD_RADIUS.dp else 18.dp)
     Box(
         modifier = modifier
             .glass(shape, accent = isSelected, alpha = if (isSelected) 0.7f else 0.45f)
             .then(if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
-            .combinedClickable(
+            .pressCombinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .padding(5.dp),
+            .padding(if (editorial) 0.dp else 5.dp),
     ) {
         val contentColor = LocalContentColor.current
         CompositionLocalProvider(LocalContentColor provides contentColor) {
@@ -385,7 +432,7 @@ fun MangaListItem(
             .padding(horizontal = 10.dp, vertical = 3.dp)
             .glass(RoundedCornerShape(16.dp), accent = isSelected, alpha = if (isSelected) 0.7f else 0.4f)
             .height(60.dp)
-            .combinedClickable(
+            .pressCombinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )

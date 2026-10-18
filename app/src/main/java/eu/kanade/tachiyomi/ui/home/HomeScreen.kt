@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import eu.kanade.presentation.components.glass
+import eu.kanade.presentation.components.obsidianSurface
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
@@ -123,6 +124,12 @@ object HomeScreen : Screen() {
 
     @Composable
     override fun Content() {
+        // MANHWA: this screen follows the chosen style (and its light version)
+        eu.kanade.presentation.components.ManhwaStyledScreen { HomeContent() }
+    }
+
+    @Composable
+    private fun HomeContent() {
         val navigator = LocalNavigator.currentOrThrow
         TabNavigator(
             tab = DiscoverTab,
@@ -287,8 +294,18 @@ object HomeScreen : Screen() {
                 .navigationBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            // The glass is drawn behind the row, so nothing in the row (the AI orb's glow) gets clipped
-            Box(Modifier.matchParentSize().glass(RoundedCornerShape(28.dp), accent = true, alpha = 0.85f))
+            val look = eu.kanade.presentation.components.LocalManhwaLook.current
+            // The glass is drawn behind the row, so nothing in the row (the AI orb's glow) gets clipped.
+            // Obsidian Royal: a floating pill dock, solid, its top edge lit by a hairline
+            Box(
+                Modifier.matchParentSize().then(
+                    if (look.isObsidian) {
+                        Modifier.obsidianSurface(RoundedCornerShape(50), accent = false, look = look)
+                    } else {
+                        Modifier.glass(RoundedCornerShape(28.dp), accent = true, alpha = 0.85f)
+                    },
+                ),
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -314,11 +331,11 @@ object HomeScreen : Screen() {
                             },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // Glowing line over the selected tab
+                        // Glowing line over the selected tab (Obsidian Royal marks it with a pill around the icon)
                         Box(
                             modifier = Modifier
                                 .padding(top = 2.dp)
-                                .width(if (selected) 22.dp else 0.dp)
+                                .width(if (selected && !look.isObsidian) 22.dp else 0.dp)
                                 .height(3.dp)
                                 .clip(RoundedCornerShape(50))
                                 .background(Brush.horizontalGradient(listOf(colors.primary.copy(alpha = 0.4f), colors.primary, colors.primary.copy(alpha = 0.4f)))),
@@ -330,7 +347,18 @@ object HomeScreen : Screen() {
                                         painter = tab.options.icon!!,
                                         contentDescription = tab.options.title,
                                         tint = tint,
-                                        modifier = Modifier.neonGlow(CircleShape, colors.primary, if (selected) 0.22f else 0f, 10.dp),
+                                        modifier = Modifier
+                                            .neonGlow(CircleShape, colors.primary, if (selected) 0.22f else 0f, 10.dp)
+                                            .then(
+                                                if (look.isObsidian) {
+                                                    Modifier
+                                                        .clip(RoundedCornerShape(50))
+                                                        .background(if (selected) colors.primary.copy(alpha = 0.16f) else Color.Transparent)
+                                                        .padding(horizontal = 14.dp, vertical = 3.dp)
+                                                } else {
+                                                    Modifier
+                                                },
+                                            ),
                                     )
                                 }
                                 Text(
@@ -359,11 +387,13 @@ object HomeScreen : Screen() {
             label = "halo",
         )
         // Same width as every tab, so the orb sits exactly in the middle of the bar
+        val calm = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
         Box(
             modifier = Modifier.weight(1f).fillMaxHeight(),
             contentAlignment = Alignment.Center,
         ) {
-            Box(
+            // The breathing halo belongs to MANHWA Glass; Obsidian Royal keeps the orb still
+            if (!calm) Box(
                 modifier = Modifier
                     .size(60.dp)
                     .graphicsLayer {
@@ -379,7 +409,7 @@ object HomeScreen : Screen() {
                 modifier = Modifier
                     .size(50.dp)
                     .neonGlow(CircleShape, colors.primary, 0.35f, 10.dp)
-                    .border(1.5.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                    .border(1.5.dp, ManhwaInk.text.copy(alpha = 0.35f), CircleShape)
                     .background(
                         Brush.linearGradient(listOf(colors.primary, Color(0xFF9B5CFF))),
                         CircleShape,
@@ -388,7 +418,7 @@ object HomeScreen : Screen() {
                     .clickable(onClick = onClick),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = "MANHWA AI", tint = Color.White)
+                Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = "MANHWA AI", tint = ManhwaInk.text)
             }
         }
     }

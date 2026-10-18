@@ -64,13 +64,13 @@ fun BrainButton(mangaId: Long, title: String, modifier: Modifier = Modifier) {
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(MaterialSymbols.Rounded.Psychology, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Icon(MaterialSymbols.Rounded.Psychology, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
         Text(
             stringResource(ATMR.strings.brain_button, brain.entities.size, brain.events.size),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = ManhwaInk.text,
         )
     }
     if (open) BrainSheet(mangaId, title, onDismiss = { open = false })
@@ -149,7 +149,7 @@ private fun BrainSheet(mangaId: Long, title: String, onDismiss: () -> Unit) {
 
 @Composable
 private fun Section(title: String) {
-    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White, modifier = Modifier.padding(top = 6.dp))
+    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text, modifier = Modifier.padding(top = 6.dp))
 }
 
 @Composable
@@ -165,13 +165,13 @@ private fun EntityCard(e: SeriesBrain.Entity) {
     Card {
         Text(
             listOf(e.arabic, e.name).filter { it.isNotBlank() }.distinct().joinToString(" · "),
-            color = Color.White,
+            color = ManhwaInk.text,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.bodyMedium,
         )
-        if (e.details.isNotBlank()) Text(e.details, color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall)
+        if (e.details.isNotBlank()) Text(e.details, color = ManhwaInk.text.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall)
         e.history.takeLast(3).forEach { f ->
-            Text("${BrainRules.number(f.chapter)} · ${f.text}", color = Color.White.copy(alpha = 0.55f), style = MaterialTheme.typography.labelSmall)
+            Text("${BrainRules.number(f.chapter)} · ${f.text}", color = ManhwaInk.text.copy(alpha = 0.55f), style = MaterialTheme.typography.labelSmall)
         }
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.neonGlow
+import eu.kanade.presentation.components.obsidianPill
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -13,9 +14,25 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Folder
 import tachiyomi.presentation.core.components.Badge
 
+/** MANHWA Obsidian Royal: the card badges are small dark pills edged with the accent. */
+@Composable
+private fun PillBadge(text: String) {
+    Badge(
+        text = text,
+        modifier = Modifier.obsidianPill(),
+        color = androidx.compose.ui.graphics.Color.Transparent,
+        textColor = eu.kanade.presentation.components.ObsidianTokens.Ink,
+    )
+}
+
+@Composable
+private fun obsidian() = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
+
 @Composable
 internal fun DownloadsBadge(count: Int) {
-    if (count > 0) {
+    if (count > 0 && obsidian()) {
+        PillBadge("$count")
+    } else if (count > 0) {
         Badge(
             text = "$count",
             color = MaterialTheme.colorScheme.tertiary,
@@ -26,7 +43,9 @@ internal fun DownloadsBadge(count: Int) {
 
 @Composable
 internal fun UnreadBadge(count: Long) {
-    if (count > 0) {
+    if (count > 0 && obsidian()) {
+        PillBadge("$count")
+    } else if (count > 0) {
         // Glowing unread count, the MANHWA way
         Badge(
             text = "$count",
@@ -51,6 +70,8 @@ internal fun LanguageBadge(
             color = MaterialTheme.colorScheme.tertiary,
             iconColor = MaterialTheme.colorScheme.onTertiary,
         )
+    } else if (sourceLanguage.isNotEmpty() && obsidian()) {
+        PillBadge(sourceLanguage.uppercase())
     } else if (sourceLanguage.isNotEmpty()) {
         Badge(
             text = sourceLanguage.uppercase(),

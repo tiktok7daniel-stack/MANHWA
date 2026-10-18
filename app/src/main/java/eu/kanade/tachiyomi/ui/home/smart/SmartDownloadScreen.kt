@@ -178,7 +178,7 @@ class SmartDownloadScreen : Screen() {
                                 Text(
                                     stringResource(ATMR.strings.smart_preload_count),
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White.copy(alpha = 0.6f),
+                                    color = ManhwaInk.text.copy(alpha = 0.6f),
                                 )
                                 Spacer(Modifier.height(8.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -201,7 +201,7 @@ class SmartDownloadScreen : Screen() {
                                 Text(
                                     stringResource(ATMR.strings.smart_cleanup_keep),
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White.copy(alpha = 0.6f),
+                                    color = ManhwaInk.text.copy(alpha = 0.6f),
                                 )
                                 Spacer(Modifier.height(8.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -272,11 +272,11 @@ class SmartDownloadScreen : Screen() {
                         CircularProgressIndicator(modifier = Modifier.size(26.dp), strokeWidth = 2.dp)
                     } else {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(fmt(all), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color.White)
+                            Text(fmt(all), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = ManhwaInk.text)
                             Text(
                                 stringResource(ATMR.strings.smart_series, state.series),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.6f),
+                                color = ManhwaInk.text.copy(alpha = 0.6f),
                             )
                         }
                     }
@@ -302,12 +302,12 @@ class SmartDownloadScreen : Screen() {
             Text(
                 name,
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.8f),
+                color = ManhwaInk.text.copy(alpha = 0.8f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Text(value, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(value, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ManhwaInk.text)
         }
     }
 

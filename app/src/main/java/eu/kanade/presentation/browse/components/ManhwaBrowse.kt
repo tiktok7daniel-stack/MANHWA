@@ -55,7 +55,7 @@ fun SourceFameTag(name: String, modifier: Modifier = Modifier) {
             modifier = Modifier.size(12.dp),
         )
         Spacer(Modifier.width(4.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1)
     }
 }
 
@@ -79,7 +79,7 @@ fun GlowHeader(text: String, modifier: Modifier = Modifier, action: @Composable 
             text,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Black,
-            color = Color.White,
+            color = ManhwaInk.text,
             modifier = Modifier.weight(1f),
         )
         action()

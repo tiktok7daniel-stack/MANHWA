@@ -236,7 +236,7 @@ class HealthDashboardScreen : Screen() {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 HubIconTile(icon, size = 40)
                 Spacer(Modifier.width(12.dp))
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Color.White, modifier = Modifier.weight(1f))
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = ManhwaInk.text, modifier = Modifier.weight(1f))
                 androidx.compose.foundation.layout.Box(
                     Modifier
                         .size(10.dp)
@@ -262,10 +262,10 @@ class HealthDashboardScreen : Screen() {
                     "${p.host} · ${networkName(p.network)} · $time",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                 )
                 Line(stringResource(causeText(p.cause)), color = if (p.cause == NetworkProblemLog.Cause.UNREACHABLE) Crimson else Amber)
-                Line(p.error, color = Color.White.copy(alpha = 0.5f))
+                Line(p.error, color = ManhwaInk.text.copy(alpha = 0.5f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ManhwaKit.GhostButton(stringResource(ATMR.strings.net_copy), icon = MaterialSymbols.Rounded.ContentCopy, modifier = Modifier.weight(1f)) {

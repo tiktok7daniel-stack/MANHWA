@@ -216,7 +216,7 @@ class WrappedScreen : Screen() {
                     val failed by viewModel.failed.collectAsState()
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         if (failed) {
-                            Text(stringResource(ATMR.strings.recs_failed), color = Color.White.copy(alpha = 0.7f))
+                            Text(stringResource(ATMR.strings.recs_failed), color = ManhwaInk.text.copy(alpha = 0.7f))
                         } else {
                             CircularProgressIndicator(strokeWidth = 2.dp)
                         }
@@ -275,7 +275,7 @@ class WrappedScreen : Screen() {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(32.dp))
                 .background(Brush.verticalGradient(listOf(Color(0xFF16060A), ManhwaKit.Ink)))
-                .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.3f), colors.primary)), RoundedCornerShape(32.dp))
+                .border(1.dp, Brush.linearGradient(listOf(ManhwaInk.text.copy(alpha = 0.3f), colors.primary)), RoundedCornerShape(32.dp))
                 .padding(20.dp),
         ) {
             // Hero number
@@ -305,7 +305,7 @@ class WrappedScreen : Screen() {
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 6.sp,
-                color = Color.White.copy(alpha = 0.6f),
+                color = ManhwaInk.text.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -365,7 +365,7 @@ class WrappedScreen : Screen() {
                     stringResource(ATMR.strings.wrapped_top_series),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -376,7 +376,7 @@ class WrappedScreen : Screen() {
                                     .fillMaxWidth()
                                     .aspectRatio(2f / 3f)
                                     .clip(RoundedCornerShape(16.dp))
-                                    .border(1.dp, if (index == 0) colors.primary else Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
+                                    .border(1.dp, if (index == 0) colors.primary else ManhwaInk.text.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
                             ) {
                                 AsyncImage(
                                     // Software bitmaps, so the poster can be drawn into the shared picture
@@ -393,7 +393,7 @@ class WrappedScreen : Screen() {
                                     "#${index + 1}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Black,
-                                    color = Color.White,
+                                    color = ManhwaInk.text,
                                     modifier = Modifier
                                         .padding(6.dp)
                                         .background(if (index == 0) colors.primary else ManhwaKit.Ink.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
@@ -404,7 +404,7 @@ class WrappedScreen : Screen() {
                                 item.title,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = ManhwaInk.text,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(top = 6.dp),
@@ -424,7 +424,7 @@ class WrappedScreen : Screen() {
                 stringResource(if (data.nightOwl) ATMR.strings.wrapped_night else ATMR.strings.wrapped_day),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = 0.85f),
+                color = ManhwaInk.text.copy(alpha = 0.85f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -439,7 +439,7 @@ class WrappedScreen : Screen() {
             "${value.value.toInt()}",
             fontSize = sizeSp.sp,
             fontWeight = FontWeight.Black,
-            color = Color.White,
+            color = ManhwaInk.text,
             style = MaterialTheme.typography.displayMedium.copy(
                 shadow = Shadow(MaterialTheme.colorScheme.primary, blurRadius = 30f),
             ),
@@ -456,8 +456,8 @@ class WrappedScreen : Screen() {
         ) {
             Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(24.dp))
             Spacer(Modifier.height(8.dp))
-            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = Color.White)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
+            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = ManhwaInk.text)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.6f), maxLines = 1)
         }
     }
 }

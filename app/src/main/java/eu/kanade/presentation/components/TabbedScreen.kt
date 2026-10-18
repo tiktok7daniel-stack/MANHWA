@@ -146,7 +146,7 @@ private fun TabPill(text: String, badge: Int?, selected: Boolean, modifier: Modi
             text,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = if (selected) Color.White else Color.White.copy(alpha = 0.6f),
+            color = if (selected) ManhwaInk.text else ManhwaInk.text.copy(alpha = 0.6f),
             textAlign = TextAlign.Center,
             maxLines = 1,
         )
@@ -156,7 +156,7 @@ private fun TabPill(text: String, badge: Int?, selected: Boolean, modifier: Modi
                 modifier = Modifier
                     .neonGlow(CircleShape, colors.primary, 0.4f, 6.dp)
                     .clip(CircleShape)
-                    .background(if (selected) Color.White else colors.primary)
+                    .background(if (selected) ManhwaInk.text else colors.primary)
                     .padding(horizontal = 6.dp, vertical = 1.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -164,7 +164,7 @@ private fun TabPill(text: String, badge: Int?, selected: Boolean, modifier: Modi
                     "$badge",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Black,
-                    color = if (selected) colors.primary else Color.White,
+                    color = if (selected) colors.primary else ManhwaInk.text,
                 )
             }
         }

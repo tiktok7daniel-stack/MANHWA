@@ -221,16 +221,16 @@ private fun HudButton(icon: ImageVector, label: String, active: Boolean, onClick
                 .size(42.dp)
                 .then(if (active) Modifier.neonGlow(CircleShape, colors.primary, 0.35f, 8.dp) else Modifier)
                 .clip(CircleShape)
-                .background(if (active) ManhwaKit.accentBrush() else Brush.linearGradient(listOf(Color.White.copy(alpha = 0.1f), Color.White.copy(alpha = 0.06f)))),
+                .background(if (active) ManhwaKit.accentBrush() else Brush.linearGradient(listOf(ManhwaInk.text.copy(alpha = 0.1f), ManhwaInk.text.copy(alpha = 0.06f)))),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+            Icon(icon, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.height(4.dp))
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
-            color = if (active) Color.White else Color.White.copy(alpha = 0.7f),
+            color = if (active) ManhwaInk.text else ManhwaInk.text.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
             maxLines = 1,
         )
@@ -271,7 +271,7 @@ fun BoxScope.TranslationToggleChip(event: Pair<Boolean, Long>?) {
             Spacer(Modifier.width(10.dp))
             Text(
                 stringResource(if (on) ATMR.strings.hud_translation_on else ATMR.strings.hud_translation_off),
-                color = Color.White,
+                color = ManhwaInk.text,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleSmall,
             )

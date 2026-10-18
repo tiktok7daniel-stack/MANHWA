@@ -32,6 +32,12 @@ class UiPreferences(
     /** MANHWA accent color, applied on top of the MANHWA Glass theme. */
     val manhwaAccent: Preference<Int> = preferenceStore.getInt("manhwa_accent", 0xFFFF3B4E.toInt())
 
+    /** MANHWA look of the whole app: "GLASS" (MANHWA Glass, the default) or "OBSIDIAN" (Obsidian Royal). */
+    val manhwaStyle: Preference<String> = preferenceStore.getString("manhwa_style", "GLASS")
+
+    /** Obsidian Royal in its light version (silk paper) instead of the dark one. */
+    val manhwaStyleLight: Preference<Boolean> = preferenceStore.getBoolean("manhwa_style_light", false)
+
     val relativeTime: Preference<Boolean> = preferenceStore.getBoolean("relative_time_v2", true)
 
     val dateFormat: Preference<String> = preferenceStore.getString("app_date_format", "")

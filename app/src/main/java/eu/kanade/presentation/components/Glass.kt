@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
 /**
@@ -28,6 +30,9 @@ import androidx.compose.ui.unit.dp
  * light bleeding around the edge, which gives cards depth without a live backdrop blur.
  */
 fun Modifier.glass(shape: Shape, accent: Boolean = false, alpha: Float = 0.55f): Modifier = composed {
+    val look = LocalManhwaLook.current
+    // MANHWA Obsidian Royal: a solid lit surface instead of the glass
+    if (look.isObsidian) return@composed obsidianSurface(shape, accent, look)
     val colors = MaterialTheme.colorScheme
     // Built once per look, not on every recomposition of every card
     val brushes = remember(colors.primary, colors.surfaceContainerHighest, colors.surfaceContainer, accent, alpha) {
@@ -60,6 +65,25 @@ fun Modifier.glass(shape: Shape, accent: Boolean = false, alpha: Float = 0.55f):
         .border(1.dp, brushes.third, shape)
 }
 
+/**
+ * MANHWA Obsidian Royal surface: a solid card (lightly tinted by the accent) with a hairline rim lit from above
+ * (bright at the top, nearly gone at the bottom), and a very soft shadow on paper. No blur, no glow: almost nothing
+ * for the GPU to draw.
+ */
+fun Modifier.obsidianSurface(shape: Shape, accent: Boolean, look: ManhwaLook): Modifier = composed {
+    val hairline = (1f / LocalDensity.current.density).dp
+    val rim = remember(look, accent) {
+        Brush.verticalGradient(listOf(if (accent) look.rimAccentTop else look.rimTop, look.rimBottom))
+    }
+    this
+        .then(if (look.light) Modifier.shadow(2.dp, shape, ambientColor = ShadowTint, spotColor = ShadowTint) else Modifier)
+        .clip(shape)
+        .background(if (accent) look.surfaceRaised else look.surface, shape)
+        .border(hairline, rim, shape)
+}
+
+private val ShadowTint = Color.Black.copy(alpha = 0.18f)
+
 /** Soft neon light around [shape], drawn as fading strokes outside the edge. The outline is cached per size. */
 fun Modifier.neonGlow(shape: Shape, color: Color, strength: Float = 0.18f, spread: Dp = 10.dp): Modifier =
     if (strength <= 0f) this else neonGlow(shape, color, { strength }, spread)
@@ -74,6 +98,8 @@ fun Modifier.neonGlow(shape: Shape, color: Color, strength: () -> Float, spread:
         val step = spread.toPx() / 4f
         val strokes = (4 downTo 1).map { i -> i to Stroke(width = step * i * 2f) }
         onDrawBehind {
+            // MANHWA Obsidian Royal draws no glow
+            if (!ManhwaStyleState.glow) return@onDrawBehind
             val value = strength()
             if (value <= 0f) return@onDrawBehind
             strokes.forEach { (i, stroke) -> drawOutline(outline, color.copy(alpha = value / i), style = stroke) }
@@ -83,6 +109,12 @@ fun Modifier.neonGlow(shape: Shape, color: Color, strength: () -> Float, spread:
 /** Near-black backdrop with red ambient light and soft bokeh, used behind glass screens. */
 @Composable
 fun GlassBackdrop(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    val look = LocalManhwaLook.current
+    if (look.isObsidian) {
+        // MANHWA Obsidian Royal: one deep, still colour (obsidian, or silk paper), nothing animated behind
+        Box(modifier = modifier.fillMaxSize().background(look.background), content = content)
+        return
+    }
     val primary = MaterialTheme.colorScheme.primary
     Box(modifier = modifier.fillMaxSize().background(Color(0xFF030304))) {
         // Its own layer, painted once per size: scrolling the content above never repaints the light

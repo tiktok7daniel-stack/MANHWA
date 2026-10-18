@@ -72,7 +72,7 @@ class TranslationSearchScreen : Screen() {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (query.trim().length >= 2 && hits.isEmpty()) {
-                        item { Text(stringResource(ATMR.strings.tsearch_none), color = Color.White.copy(alpha = 0.6f)) }
+                        item { Text(stringResource(ATMR.strings.tsearch_none), color = ManhwaInk.text.copy(alpha = 0.6f)) }
                     }
                     items(hits, key = { "${it.chapterId}:${it.page}:${it.original.hashCode()}" }) { hit ->
                         Column(
@@ -84,8 +84,8 @@ class TranslationSearchScreen : Screen() {
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Text("${hit.title} · ${hit.chapterName}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                            Text(hit.translation, style = MaterialTheme.typography.bodyMedium, color = Color.White)
-                            Text(hit.original, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f))
+                            Text(hit.translation, style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.text)
+                            Text(hit.original, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.55f))
                         }
                     }
                 }

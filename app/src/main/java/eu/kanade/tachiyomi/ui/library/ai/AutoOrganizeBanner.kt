@@ -102,7 +102,7 @@ fun BoxScope.AutoOrganizeBanner() {
                     },
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = ManhwaInk.text,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

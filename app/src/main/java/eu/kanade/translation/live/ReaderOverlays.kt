@@ -256,11 +256,11 @@ private fun SmallOrb(icon: androidx.compose.ui.graphics.vector.ImageVector, acti
             .padding(start = 4.dp)
             .size(32.dp)
             .clip(CircleShape)
-            .background(if (active) colors.primary else Color.White.copy(alpha = 0.08f))
+            .background(if (active) colors.primary else ManhwaInk.text.copy(alpha = 0.08f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(17.dp))
+        Icon(icon, contentDescription = null, tint = ManhwaInk.text, modifier = Modifier.size(17.dp))
     }
 }
 
@@ -526,18 +526,18 @@ private fun InlineField(value: String, hint: String, modifier: Modifier, onChang
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.06f))
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+            .background(ManhwaInk.text.copy(alpha = 0.06f))
+            .border(1.dp, ManhwaInk.text.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
             .padding(horizontal = 10.dp, vertical = 9.dp),
     ) {
         if (value.isEmpty() && hint.isNotEmpty()) {
-            Text(hint, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.45f), maxLines = 1)
+            Text(hint, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.45f), maxLines = 1)
         }
         BasicTextField(
             value = value,
             onValueChange = onChange,
             singleLine = true,
-            textStyle = TextStyle(color = Color.White, fontSize = MaterialTheme.typography.bodyMedium.fontSize),
+            textStyle = TextStyle(color = ManhwaInk.text, fontSize = MaterialTheme.typography.bodyMedium.fontSize),
             cursorBrush = SolidColor(colors.primary),
             modifier = Modifier.fillMaxWidth(),
         )

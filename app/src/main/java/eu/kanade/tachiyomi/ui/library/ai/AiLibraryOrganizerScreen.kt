@@ -222,21 +222,21 @@ class AiLibraryOrganizerScreen : Screen() {
                                     .fillMaxWidth()
                                     .heightIn(min = 70.dp)
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(Color.White.copy(alpha = 0.06f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp))
+                                    .background(ManhwaInk.text.copy(alpha = 0.06f))
+                                    .border(1.dp, ManhwaInk.text.copy(alpha = 0.1f), RoundedCornerShape(14.dp))
                                     .padding(12.dp),
                             ) {
                                 if (instruction.isEmpty()) {
                                     Text(
                                         stringResource(ATMR.strings.org_instruction_hint),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = Color.White.copy(alpha = 0.45f),
+                                        color = ManhwaInk.text.copy(alpha = 0.45f),
                                     )
                                 }
                                 BasicTextField(
                                     value = instruction,
                                     onValueChange = { instruction = it },
-                                    textStyle = TextStyle(color = Color.White, fontSize = MaterialTheme.typography.bodyMedium.fontSize),
+                                    textStyle = TextStyle(color = ManhwaInk.text, fontSize = MaterialTheme.typography.bodyMedium.fontSize),
                                     cursorBrush = SolidColor(colors.primary),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
@@ -276,7 +276,7 @@ class AiLibraryOrganizerScreen : Screen() {
                             Text(
                                 stringResource(ATMR.strings.org_auto_sub),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.6f),
+                                color = ManhwaInk.text.copy(alpha = 0.6f),
                             )
                             Spacer(Modifier.height(4.dp))
                             SwitchRow(stringResource(ATMR.strings.org_auto_completed), autoCompleted, viewModel::setAutoCompletedMove)
@@ -294,8 +294,8 @@ class AiLibraryOrganizerScreen : Screen() {
                                     Icon(MaterialSymbols.Rounded.Category, contentDescription = null, tint = colors.primary, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
                                     Column(Modifier.weight(1f)) {
-                                        Text(stringResource(ATMR.strings.org_scheme), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
-                                        Text(stringResource(ATMR.strings.org_scheme_sub), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                        Text(stringResource(ATMR.strings.org_scheme), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = ManhwaInk.text)
+                                        Text(stringResource(ATMR.strings.org_scheme_sub), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.6f))
                                     }
                                     Text(
                                         stringResource(ATMR.strings.org_scheme_clear),
@@ -310,9 +310,9 @@ class AiLibraryOrganizerScreen : Screen() {
                                 }
                                 state.scheme.forEach { category ->
                                     Spacer(Modifier.height(8.dp))
-                                    Text(category.name, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text(category.name, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = ManhwaInk.text)
                                     if (category.about.isNotBlank()) {
-                                        Text(category.about, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                        Text(category.about, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.6f))
                                     }
                                 }
                             }
@@ -329,7 +329,7 @@ class AiLibraryOrganizerScreen : Screen() {
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(entry.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(entry.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(entry.categories.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 Row(
@@ -339,9 +339,9 @@ class AiLibraryOrganizerScreen : Screen() {
                                         .padding(horizontal = 10.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Icon(MaterialSymbols.Rounded.Undo, contentDescription = null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(16.dp))
+                                    Icon(MaterialSymbols.Rounded.Undo, contentDescription = null, tint = ManhwaInk.text.copy(alpha = 0.8f), modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text(stringResource(ATMR.strings.org_undo), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
+                                    Text(stringResource(ATMR.strings.org_undo), style = MaterialTheme.typography.labelMedium, color = ManhwaInk.text.copy(alpha = 0.8f))
                                 }
                             }
                         }
@@ -386,10 +386,10 @@ class AiLibraryOrganizerScreen : Screen() {
                                         group.name,
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Black,
-                                        color = Color.White,
+                                        color = ManhwaInk.text,
                                     )
                                     if (group.about.isNotBlank()) {
-                                        Text(group.about, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                        Text(group.about, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text.copy(alpha = 0.6f))
                                     }
                                 }
                                 Text(
@@ -411,13 +411,13 @@ class AiLibraryOrganizerScreen : Screen() {
                                 Text(
                                     stringResource(ATMR.strings.org_keep),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White,
+                                    color = ManhwaInk.text,
                                     modifier = Modifier.weight(1f),
                                 )
                                 Switch(
                                     checked = state.keepExisting,
                                     onCheckedChange = viewModel::setKeepExisting,
-                                    colors = SwitchDefaults.colors(checkedTrackColor = colors.primary, checkedThumbColor = Color.White),
+                                    colors = SwitchDefaults.colors(checkedTrackColor = colors.primary, checkedThumbColor = ManhwaInk.text),
                                 )
                             }
                         }
@@ -440,11 +440,11 @@ class AiLibraryOrganizerScreen : Screen() {
 private fun SwitchRow(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.weight(1f))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.text, modifier = Modifier.weight(1f))
         Switch(
             checked = checked,
             onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = colors.primary, checkedThumbColor = Color.White),
+            colors = SwitchDefaults.colors(checkedTrackColor = colors.primary, checkedThumbColor = ManhwaInk.text),
         )
     }
 }

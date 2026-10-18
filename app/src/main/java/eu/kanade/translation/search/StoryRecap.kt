@@ -148,7 +148,7 @@ fun StoryRecapButton(mangaId: Long, title: String, description: String?, modifie
     ) {
         Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
-        Text(stringResource(ATMR.strings.recap_button), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(stringResource(ATMR.strings.recap_button), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = ManhwaInk.text)
     }
     if (open) RecapSheet(mangaId, title, description) { open = false }
 }

@@ -86,7 +86,7 @@ fun SourceRadar(mangaId: Long, modifier: Modifier = Modifier) {
                 stringResource(ATMR.strings.radar_text, number(found.chapterNumber), found.source.name, number(found.ourNumber)),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = ManhwaInk.text,
                 modifier = Modifier.weight(1f),
             )
         }
