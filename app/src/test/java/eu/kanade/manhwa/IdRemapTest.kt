@@ -4,7 +4,6 @@ import eu.kanade.tachiyomi.data.backup.vault.IdMap
 import eu.kanade.tachiyomi.data.backup.vault.IdRemapRules
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.content
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
