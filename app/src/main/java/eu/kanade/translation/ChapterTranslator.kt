@@ -557,22 +557,29 @@ class ChapterTranslator(
 
             // 3. Translate (60–92%), batch by batch, never waiting silently
             val ai = textTranslator.aiPart
+            // MANHWA rocket mode: while the laptop translates, each line is translated once and nothing else (no
+            // names scouted, no second look, no summary): every call goes to the translation itself
+            val rocket = eu.kanade.translation.team.LocalServerRules.rocket(
+                translationPreferences.translationHomeRocket().get(),
+                textTranslator is TeamTranslator && teamStore.servingOn() == eu.kanade.translation.team.LocalServerRules.Serving.HOME,
+            )
             withContext(Dispatchers.IO) {
                 // The series glossary keeps names consistent; new names found are added to it
                 // MANHWA master codex: each genre's standard terms found in this chapter, under the series glossary
                 val codex = codexFor(translation.fromLang, translation.toLang, pages.values.joinToString("\n") { page -> page.blocks.joinToString(" ") { it.text } })
                 ai?.apply {
                     glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
-                    learnTerms = true
+                    learnTerms = !rocket
                     discoveredTerms.clear()
                     // MANHWA smart glossary: who each name is (gender, how they speak) and the story so far
-                    glossaryNotes = glossaryStore.notes(translation.manga.id)
-                    richTerms = true
+                    // (rocket mode: a short request, the lines alone)
+                    glossaryNotes = if (rocket) emptyMap() else glossaryStore.notes(translation.manga.id)
+                    richTerms = !rocket
                     discoveredDetails.clear()
-                    storySoFar = glossaryStore.storySoFar(translation.manga.id) + brainContext(translation.manga.id, translation.manga.title, translation.chapter.chapterNumber)
-                    lessons = lessonStore.forPrompt(translation.manga.id)
-                    fitHints = true
-                    askSummary = true
+                    storySoFar = if (rocket) "" else glossaryStore.storySoFar(translation.manga.id) + brainContext(translation.manga.id, translation.manga.title, translation.chapter.chapterNumber)
+                    lessons = if (rocket) "" else lessonStore.forPrompt(translation.manga.id)
+                    fitHints = !rocket
+                    askSummary = !rocket
                     this.skipSfx = skipSfx
                     summaries.clear()
                     onBatchDone = { done, total ->
@@ -584,7 +591,7 @@ class ChapterTranslator(
                 }
                 // MANHWA scout: the chapter's names and terms (with gender and how they speak) found in one call
                 // before translating, so every key uses the same ones from the first page
-                if (ai != null && pages.values.sumOf { it.blocks.size } >= SCOUT_MIN_LINES) {
+                if (ai != null && !rocket && pages.values.sumOf { it.blocks.size } >= SCOUT_MIN_LINES) {
                     translation.note(Translation.Note.AI)
                     runCatching {
                         val text = pages.values.joinToString("\n") { page -> page.blocks.joinToString(" | ") { it.text } }
@@ -705,7 +712,7 @@ class ChapterTranslator(
                 ai?.let { glossaryStore.merge(translation.manga.id, it.discoveredTerms, termDetails) }
                 glossaryStore.addChapterSummary(translation.manga.id, translation.chapter.name, chapterSummary, translation.chapter.chapterNumber)
                 // MANHWA work brain: who is who and what happened, learnt from this chapter in the background
-                if (translationPreferences.translationSeriesBrain().get()) {
+                if (translationPreferences.translationSeriesBrain().get() && !rocket) {
                     context.appGraph.seriesBrain.learnLater(
                         translation.manga.id,
                         translation.manga.title,
@@ -720,14 +727,14 @@ class ChapterTranslator(
                 translation.advance(Translation.Stage.REVIEWING, 0, 3)
                 showProgress()
                 val glossaryAfter = glossaryStore.asMap(translation.manga.id)
-                recheck(pages, glossaryAfter, translation)
+                if (!rocket) recheck(pages, glossaryAfter, translation)
                 translation.advance(Translation.Stage.REVIEWING, 1, 3)
                 showProgress()
                 // MANHWA smart review: the whole chapter in accurate mode, otherwise only the bubbles that look doubtful
                 val accurate = translationPreferences.translationTeamAccurate().get()
                 val newTerms = ai?.discoveredTerms?.keys?.toSet().orEmpty()
                 val doubts = if (accurate) null else doubtful(pages, glossaryAfter, translation, newTerms)
-                if (ai != null && (accurate || !doubts.isNullOrEmpty())) {
+                if (ai != null && !rocket && (accurate || !doubts.isNullOrEmpty())) {
                     translation.note(Translation.Note.AI)
                     // With the team, the review goes to its strongest key and model through the router
                     val team = textTranslator as? TeamTranslator
@@ -750,7 +757,7 @@ class ChapterTranslator(
                 // MANHWA second opinion: the doubtful and important lines are translated again by another key, and
                 // the better translation of each is kept
                 var consensus = eu.kanade.translation.team.TranslationConsensusEngine.Outcome(0, 0)
-                if (ai != null && translationPreferences.translationConsensus().get() && textTranslator is TeamTranslator) {
+                if (ai != null && !rocket && translationPreferences.translationConsensus().get() && textTranslator is TeamTranslator) {
                     val lines = eu.kanade.translation.team.TranslationConsensusEngine.pick(pages, doubts?.keys.orEmpty(), newTerms)
                     val genders = glossaryStore.get(translation.manga.id).filter { it.gender.isNotBlank() }.associate { it.source to it.gender }
                     consensus = runCatching {

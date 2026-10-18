@@ -102,6 +102,8 @@ class AiRouter internal constructor(
     val capacities: StateFlow<Map<String, Int>> = _capacities.asStateFlow()
 
     private fun startingCapacity(memberId: String): Double {
+        // MANHWA home server: two calls at once from the start, whatever its first answers measured
+        if (isHome(memberId)) return LocalServerRules.START_CALLS
         val strength = store.strength(memberId)
         return when {
             strength >= STRONG -> 3.0
@@ -112,8 +114,10 @@ class AiRouter internal constructor(
 
     /** Calls [memberId] may run at once now. */
     fun capacity(memberId: String): Int = synchronized(lock) {
-        (adaptive[memberId] ?: startingCapacity(memberId)).toInt().coerceIn(1, MAX_CAPACITY)
+        (adaptive[memberId] ?: startingCapacity(memberId)).toInt().coerceIn(1, if (isHome(memberId)) LocalServerRules.MAX_CALLS else MAX_CAPACITY)
     }
+
+    private fun isHome(memberId: String): Boolean = store.members.value.any { it.id == memberId && it.isHomeServer }
 
     /**
      * How a call on [memberId] ended: null when it worked (one step up), or the error. Busy, overloaded or slow

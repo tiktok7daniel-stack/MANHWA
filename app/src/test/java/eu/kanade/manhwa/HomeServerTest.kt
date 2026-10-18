@@ -19,6 +19,13 @@ class HomeServerTest {
     }
 
     @Test
+    fun `rocket mode only while the laptop translates and the reader keeps it on`() {
+        LocalServerRules.rocket(enabled = true, laptopServing = true) shouldBe true
+        LocalServerRules.rocket(enabled = true, laptopServing = false) shouldBe false
+        LocalServerRules.rocket(enabled = false, laptopServing = true) shouldBe false
+    }
+
+    @Test
     fun `a ping is trusted for five minutes`() {
         LocalServerRules.fresh(at = 1_000, now = 1_000 + 60_000) shouldBe true
         LocalServerRules.fresh(at = 1_000, now = 1_000 + 5 * 60_000) shouldBe false

@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -56,6 +57,7 @@ import mihon.icons.materialsymbols.rounded.CloudSync
 import mihon.icons.materialsymbols.rounded.ContentCopy
 import mihon.icons.materialsymbols.rounded.Home
 import mihon.icons.materialsymbols.rounded.Refresh
+import mihon.icons.materialsymbols.rounded.RocketLaunch
 import mihon.icons.materialsymbols.rounded.Verified
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -101,6 +103,15 @@ object LocalServerRules {
     }
 
     fun modelsUrl(baseUrl: String): String = normalize(baseUrl) + "/models"
+
+    /** Rocket mode is on when the reader keeps it on and the laptop is the one translating now. */
+    fun rocket(enabled: Boolean, laptopServing: Boolean): Boolean = enabled && laptopServing
+
+    /** Calls the laptop runs at once from the start: a GPU answers two together about as fast as one. */
+    const val START_CALLS = 2.0
+
+    /** At most: more only wait in the laptop's own queue. */
+    const val MAX_CALLS = 3
 
     /** A ready model for the laptop: its Ollama name and what it is for. */
     data class Preset(val model: String, val fastest: Boolean)
@@ -183,6 +194,7 @@ class HomeServerScreen : Screen() {
         var result by remember { mutableStateOf<String?>(null) }
         var saved by remember { mutableStateOf(false) }
         val mode by prefs.translationServerMode().collectPreference()
+        val rocket by prefs.translationHomeRocket().collectPreference()
         val okTemplate = stringResource(ATMR.strings.hs_test_ok)
         val failText = stringResource(ATMR.strings.hs_test_fail)
         val memberName = stringResource(ATMR.strings.hs_member_name)
@@ -289,6 +301,23 @@ class HomeServerScreen : Screen() {
                                 }
                             }
                             Help(stringResource(ATMR.strings.hs_mode_help))
+                        }
+                    }
+                    item {
+                        Section {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                HubIconTile(MaterialSymbols.Rounded.RocketLaunch, size = 36)
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    stringResource(ATMR.strings.hs_rocket),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Switch(checked = rocket, onCheckedChange = { prefs.translationHomeRocket().set(it) })
+                            }
+                            Help(stringResource(ATMR.strings.hs_rocket_help))
                         }
                     }
                     item {
