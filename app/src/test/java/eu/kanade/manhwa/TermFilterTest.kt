@@ -1,0 +1,37 @@
+package eu.kanade.manhwa
+
+import eu.kanade.translation.glossary.TermFilter
+import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Test
+
+class TermFilterTest {
+
+    @Test
+    fun `names and short terms in Arabic are kept`() {
+        TermFilter.accepts("Doyul", "دويول", arabicTarget = true) shouldBe true
+        TermFilter.accepts("12 NATIONS", "الأمم الاثنتا عشرة", arabicTarget = true) shouldBe true
+        TermFilter.accepts("Shadow Monarch", "ملك الظلال", arabicTarget = true) shouldBe true
+    }
+
+    @Test
+    fun `an English answer is dropped for an Arabic glossary`() {
+        TermFilter.accepts("AMARAN ACH", "Amaran Ach", arabicTarget = true) shouldBe false
+        TermFilter.accepts("12 NATIONS", "The Twelve Nations", arabicTarget = true) shouldBe false
+        TermFilter.accepts("12 NATIONS", "The Twelve Nations", arabicTarget = false) shouldBe true
+    }
+
+    @Test
+    fun `whole lines, questions and cries are not names`() {
+        TermFilter.accepts("...WOW. ARE YOU THE SCHOOL BOSS?", "سؤال", arabicTarget = true) shouldBe false
+        TermFilter.accepts("..HUH?", "مرتبك", arabicTarget = true) shouldBe false
+        TermFilter.accepts("ALRIGHT, KEEP ACTING BRAVE!", "شجاع", arabicTarget = true) shouldBe false
+        TermFilter.accepts("ALL 21 GANG MEMBERS PRESENT", "العصابة", arabicTarget = true) shouldBe false
+    }
+
+    @Test
+    fun `site credits and handles are dropped`() {
+        TermFilter.accepts("12 Nations (Read at HIVETDON.COM)", "منظمة", arabicTarget = true) shouldBe false
+        TermFilter.accepts("12 Nations (Faster Updates)", "أمر", arabicTarget = true) shouldBe false
+        TermFilter.accepts("+3 (O]@nusamnu", "+3", arabicTarget = true) shouldBe false
+    }
+}
