@@ -557,12 +557,9 @@ class ChapterTranslator(
 
             // 3. Translate (60–92%), batch by batch, never waiting silently
             val ai = textTranslator.aiPart
-            // MANHWA rocket mode: while the laptop translates, each line is translated once and nothing else (no
-            // names scouted, no second look, no summary): every call goes to the translation itself
-            val rocket = eu.kanade.translation.team.LocalServerRules.rocket(
-                translationPreferences.translationHomeRocket().get(),
-                textTranslator is TeamTranslator && teamStore.servingOn() == eu.kanade.translation.team.LocalServerRules.Serving.HOME,
-            )
+            // MANHWA translate only: each line is translated once and nothing else (no names scouted, no second look,
+            // no summary), whoever translates: every call goes to the translation itself
+            val rocket = translationPreferences.translationTranslateOnly().get()
             withContext(Dispatchers.IO) {
                 // The series glossary keeps names consistent; new names found are added to it
                 // MANHWA master codex: each genre's standard terms found in this chapter, under the series glossary

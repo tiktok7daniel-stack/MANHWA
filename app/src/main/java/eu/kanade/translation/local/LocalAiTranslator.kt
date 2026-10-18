@@ -1,6 +1,7 @@
 package eu.kanade.translation.local
 
 import android.content.Context
+import mihon.app.di.appGraph
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.model.TranslationBlock
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
@@ -106,7 +107,9 @@ class LocalAiTranslator(
         val state = PhoneState.read(context)
         // MANHWA phone ensemble with no key: the quick model drafts, the strong model rereads the doubtful lines.
         // A hot phone or a low battery keeps to one model.
-        val lineup = if (model == null && LocalAiRules.governor(state) == LocalAiRules.Power.FULL) PhoneEnsemble.lineup(context) else null
+        // (translate only: one model, no second reading of the doubtful lines)
+        val translateOnly = runCatching { context.appGraph.translationPreferences.translationTranslateOnly().get() }.getOrDefault(true)
+        val lineup = if (model == null && !translateOnly && LocalAiRules.governor(state) == LocalAiRules.Power.FULL) PhoneEnsemble.lineup(context) else null
         if (lineup != null && lineup.drafter != lineup.polisher) {
             // The second model loads while the first one drafts
             LocalAiEngine.warm(context, lineup.polisher)

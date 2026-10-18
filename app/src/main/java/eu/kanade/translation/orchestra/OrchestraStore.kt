@@ -31,6 +31,8 @@ object OrchestraStore {
     fun active(context: Context): Boolean {
         val prefs = context.appGraph.translationPreferences
         if (!prefs.translationOrchestra().get() || !LocalAiEngine.available(context)) return false
+        // MANHWA translate only: no drafts to fix and no judging, the keys translate once
+        if (prefs.translationTranslateOnly().get()) return false
         if (slowNow(context)) return false
         // MANHWA home server: while the laptop translates, it does all of it (far faster than the phone's drafts)
         if (context.appGraph.teamStore.servingOn() == eu.kanade.translation.team.LocalServerRules.Serving.HOME) return false

@@ -104,9 +104,6 @@ object LocalServerRules {
 
     fun modelsUrl(baseUrl: String): String = normalize(baseUrl) + "/models"
 
-    /** Rocket mode is on when the reader keeps it on and the laptop is the one translating now. */
-    fun rocket(enabled: Boolean, laptopServing: Boolean): Boolean = enabled && laptopServing
-
     /** Calls the laptop runs at once from the start: a GPU answers two together about as fast as one. */
     const val START_CALLS = 2.0
 
@@ -194,7 +191,7 @@ class HomeServerScreen : Screen() {
         var result by remember { mutableStateOf<String?>(null) }
         var saved by remember { mutableStateOf(false) }
         val mode by prefs.translationServerMode().collectPreference()
-        val rocket by prefs.translationHomeRocket().collectPreference()
+        val rocket by prefs.translationTranslateOnly().collectPreference()
         val okTemplate = stringResource(ATMR.strings.hs_test_ok)
         val failText = stringResource(ATMR.strings.hs_test_fail)
         val memberName = stringResource(ATMR.strings.hs_member_name)
@@ -315,7 +312,7 @@ class HomeServerScreen : Screen() {
                                     color = Color.White,
                                     modifier = Modifier.weight(1f),
                                 )
-                                Switch(checked = rocket, onCheckedChange = { prefs.translationHomeRocket().set(it) })
+                                Switch(checked = rocket, onCheckedChange = { prefs.translationTranslateOnly().set(it) })
                             }
                             Help(stringResource(ATMR.strings.hs_rocket_help))
                         }

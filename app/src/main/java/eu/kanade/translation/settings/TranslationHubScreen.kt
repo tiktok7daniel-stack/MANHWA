@@ -131,6 +131,7 @@ class TranslationHubScreen : Screen() {
         val freeSpace by prefs.translationFreeSpaceOnRead().collectPreference()
         val deleteDownload by prefs.translationDeleteDownloadOnRead().collectPreference()
         val consensus by prefs.translationConsensus().collectPreference()
+        val translateOnly by prefs.translationTranslateOnly().collectPreference()
         val nightly by prefs.translationNightly().collectPreference()
         val dialect by prefs.translationStyleDialect().collectPreference()
         val ocrEngine by prefs.translationOcrEngine().collectPreference()
@@ -453,6 +454,15 @@ class TranslationHubScreen : Screen() {
                                     prefs.translationNightly().set(it)
                                     eu.kanade.translation.night.NightTranslateWorker.schedule(context)
                                 },
+                            )
+                            HubDivider()
+                            // MANHWA translate only: the fastest, lightest way, whoever translates
+                            HubSwitchRow(
+                                icon = MaterialSymbols.Rounded.Speed,
+                                title = stringResource(ATMR.strings.pref_translate_only),
+                                info = stringResource(ATMR.strings.info_translate_only),
+                                checked = translateOnly,
+                                onChange = { prefs.translationTranslateOnly().set(it) },
                             )
                             HubDivider()
                             HubSwitchRow(

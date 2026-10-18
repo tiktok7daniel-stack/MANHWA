@@ -172,8 +172,11 @@ class TranslationPreferences(
      */
     fun translationServerMode() = preferenceStore.getString("manhwa_translation_server_mode", "AUTO")
 
-    /** MANHWA rocket mode: while the laptop translates, each line is translated once and nothing else. */
-    fun translationHomeRocket() = preferenceStore.getBoolean("manhwa_translation_home_rocket", true)
+    /**
+     * MANHWA translate only: every line is translated once, English to Arabic, and nothing else, whoever translates
+     * (laptop, keys or phone): no names scouted, no rechecks, no editor, no second opinion, no summary.
+     */
+    fun translationTranslateOnly() = preferenceStore.getBoolean("manhwa_translation_translate_only", true)
 
     /** The hybrid orchestra: the on-device models and the team's keys work on every chapter together. */
     fun translationOrchestra() = preferenceStore.getBoolean("manhwa_translation_orchestra", true)

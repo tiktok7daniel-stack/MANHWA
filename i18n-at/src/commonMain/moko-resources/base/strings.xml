@@ -1152,8 +1152,10 @@
     <string name="hs_preset_quality">More accurate, a little slower: part of it runs from the RAM. Close games and the browser while it translates.</string>
     <string name="hs_preset_copy">Copy command</string>
     <string name="hs_preset_use">Use it</string>
-    <string name="hs_rocket">Rocket mode</string>
-    <string name="hs_rocket_help">While the laptop translates: each line is translated once, English to Arabic, and that is it. No separate call to find the names, no second look, no summary, two calls at once. A chapter takes a fraction of the time. Names still come from the dictionary of the work when it has them.</string>
-    <string name="wn_rocket_t">Rocket mode on the laptop</string>
-    <string name="wn_rocket_b">While your laptop translates, each line is translated once and that is it: no names search, no review, no second opinion, two calls at once. On by default; the switch is in Home server.</string>
+    <string name="hs_rocket">Translate only (fastest)</string>
+    <string name="hs_rocket_help">Each line is translated once, English to Arabic, and that is it, on the laptop and everywhere else: no names search, no second look, no summary. The laptop also takes two calls at once. The same switch is in Translation settings.</string>
+    <string name="wn_rocket_t">Translate only: the fastest way</string>
+    <string name="wn_rocket_b">On by default, everywhere (laptop, keys, phone model): each line is translated once, English to Arabic, and that is it. No names search, no review, no second opinion, no summary. The switch is in Translation settings and in Home server.</string>
+    <string name="pref_translate_only">Translate only (fastest)</string>
+    <string name="info_translate_only">Every line is translated once, English to Arabic, and that is it, whoever translates (laptop, keys or phone model): no separate call for the names, no rechecks, no editor, no second opinion, no summary, no second reading. Far faster and lighter. Turn it off for the full careful way.</string>
 </resources>

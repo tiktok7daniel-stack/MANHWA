@@ -581,7 +581,12 @@ class LiveTranslator(
             val bytes = stream().use { it.readBytes() }
             val images = mutableMapOf<String, PageImage>()
             // MANHWA: the team that reads unsure and stylised lines again from their own image (null without keys)
-            val rereader = (engine as? TeamTranslator) ?: ((engine as? HybridTranslator)?.ai as? TeamTranslator)
+            // (translate only: no second reading)
+            val rereader = if (preferences.translationTranslateOnly().get()) {
+                null
+            } else {
+                (engine as? TeamTranslator) ?: ((engine as? HybridTranslator)?.ai as? TeamTranslator)
+            }
             val unsureCrops = mutableListOf<kotlin.Pair<Int, ByteArray>>()
             // MANHWA: sound effects stay as drawn, neither translated nor erased
             val skipSfx = preferences.translationSkipSfx().get()
