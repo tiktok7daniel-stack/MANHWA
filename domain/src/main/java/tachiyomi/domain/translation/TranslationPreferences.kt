@@ -174,9 +174,10 @@ class TranslationPreferences(
 
     /**
      * MANHWA translate only: every line is translated once, English to Arabic, and nothing else, whoever translates
-     * (laptop, keys or phone): no names scouted, no rechecks, no editor, no second opinion, no summary.
+     * (laptop, keys or phone): no names scouted, no rechecks, no editor, no second opinion, no summary. Off by
+     * default: the full careful way (a new key, so the earlier default of on does not stay).
      */
-    fun translationTranslateOnly() = preferenceStore.getBoolean("manhwa_translation_translate_only", true)
+    fun translationTranslateOnly() = preferenceStore.getBoolean("manhwa_translation_translate_only_v2", false)
 
     /** The hybrid orchestra: the on-device models and the team's keys work on every chapter together. */
     fun translationOrchestra() = preferenceStore.getBoolean("manhwa_translation_orchestra", true)

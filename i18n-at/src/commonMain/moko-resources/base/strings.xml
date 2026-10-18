@@ -1154,8 +1154,8 @@
     <string name="hs_preset_use">Use it</string>
     <string name="hs_rocket">Translate only (fastest)</string>
     <string name="hs_rocket_help">Each line is translated once, English to Arabic, and that is it, on the laptop and everywhere else: no names search, no second look, no summary. The laptop also takes two calls at once. The same switch is in Translation settings.</string>
-    <string name="wn_rocket_t">Translate only: the fastest way</string>
-    <string name="wn_rocket_b">On by default, everywhere (laptop, keys, phone model): each line is translated once, English to Arabic, and that is it. No names search, no review, no second opinion, no summary. The switch is in Translation settings and in Home server.</string>
+    <string name="wn_rocket_t">Professional translation on the laptop</string>
+    <string name="wn_rocket_b">The laptop now gets the lines as a plain numbered list it follows well, so its Arabic is far better, and lines it missed are asked again instead of staying in English. The full careful way (names, recheck, review) is back for every engine. Translate only stays as a switch in Translation settings for when speed matters more.</string>
     <string name="pref_translate_only">Translate only (fastest)</string>
     <string name="info_translate_only">Every line is translated once, English to Arabic, and that is it, whoever translates (laptop, keys or phone model): no separate call for the names, no rechecks, no editor, no second opinion, no summary, no second reading. Far faster and lighter. Turn it off for the full careful way.</string>
 </resources>
