@@ -15,6 +15,8 @@ class PlainLinesTest {
         // Part of another word is not the name
         AiTranslator.plainTerms(listOf("Jinwooo"), glossary) shouldBe emptyMap()
         AiTranslator.plainTerms(listOf("Jinwoo"), emptyMap()) shouldBe emptyMap()
+        // A Korean name with its particle joined is still found
+        AiTranslator.plainTerms(listOf("진우는 어디야?"), mapOf("진우" to "جين وو")) shouldBe mapOf("진우" to "جين وو")
     }
 
     @Test

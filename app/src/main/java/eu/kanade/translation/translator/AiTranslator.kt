@@ -363,14 +363,22 @@ class AiTranslator(
         chunks.forEachIndexed { index, chunk ->
             val lines = chunk.map { it.text.replace('\n', ' ').trim() }
             val answers = MutableList(lines.size) { "" }
-            repeat(PLAIN_TRIES) {
-                val missing = answers.indices.filter { answers[it].isBlank() }
+            repeat(PLAIN_TRIES) { attempt ->
+                val missing = answers.indices.filter { i -> answers[i].isBlank() }
                 if (missing.isEmpty()) return@repeat
                 val asked = missing.map { lines[it] }
-                // A reply with no numbered line at all is asked again like any failed call
-                val got = withRetry {
-                    eu.kanade.translation.local.LocalAiRules.parseNumbered(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before)))), asked.size)
-                        ?: throw IOException("No numbered lines in the reply")
+                val got = if (attempt == 0) {
+                    // A reply with no numbered line at all is asked again like any failed call
+                    withRetry {
+                        plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before)))), asked.size)
+                            ?: throw IOException("No numbered lines in the reply")
+                    }
+                } else {
+                    // The lines the first reply missed: what came back is kept whatever this one does
+                    runCatching { plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before)))), asked.size) }
+                        .onFailure { if (it is CancellationException) throw it }
+                        .getOrNull()
+                        .orEmpty()
                 }
                 missing.forEachIndexed { n, i -> got.getOrNull(n)?.takeIf { it.isNotBlank() }?.let { answers[i] = it } }
             }
@@ -388,6 +396,11 @@ class AiTranslator(
         }
         pages.values.forEach { page -> page.blocks = page.blocks.filterNot { it.translation.contains(WATERMARK) }.toMutableList() }
     }
+
+    /** The numbered answers of [reply]; one line asked alone may come back without its number. */
+    private fun plainAnswers(reply: String, count: Int): List<String>? =
+        eu.kanade.translation.local.LocalAiRules.parseNumbered(reply, count)
+            ?: reply.trim().trim('"', '“', '”').takeIf { count == 1 && it.isNotBlank() && '\n' !in it }?.let { listOf(it) }
 
     private fun plainSystem(): String = buildString {
         appendLine("You translate comic (manhwa) speech bubbles from ${fromLang.label} into ${toLang.label}.")
@@ -1255,7 +1268,14 @@ class AiTranslator(
             if (glossary.isEmpty()) return emptyMap()
             val text = lines.joinToString("\n")
             return glossary.filter { (term, _) ->
-                term.isNotBlank() && Regex("(?<![\\p{L}\\p{N}])" + Regex.escape(term) + "(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE).containsMatchIn(text)
+                if (term.isBlank()) return@filter false
+                // Korean, Japanese and Chinese join particles to names (진우가): found anywhere; Latin names as words
+                val latin = term.any { it in 'A'..'Z' || it in 'a'..'z' }
+                if (!latin) {
+                    text.contains(term, ignoreCase = true)
+                } else {
+                    Regex("(?<![\\p{L}\\p{N}])" + Regex.escape(term) + "(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE).containsMatchIn(text)
+                }
             }
         }
 
