@@ -152,6 +152,9 @@ object IdRemapRules {
         else -> element
     }
 
+    /** Whether [merge] joins the file [name] with this phone's copy (the others are taken whole or left). */
+    fun merges(name: String): Boolean = name == "chapter_fusions.json" || name in keyedByManga
+
     /** Files a custom backup (a few works) carries, filtered to those works. */
     val customContentFiles = setOf("chapter_fusions.json", "glossary_works.json", "unified_sources.json")
 

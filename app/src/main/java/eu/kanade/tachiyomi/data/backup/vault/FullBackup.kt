@@ -413,8 +413,10 @@ object FullBackup {
                         // Never outside the app's files
                         if (!target.path.startsWith(root.path + File.separator)) continue
                         val holdsIds = manga != null && IdRemapRules.holdsIds(path)
-                        // A file of fusions or links is merged with this phone's (nothing of either side is lost)
-                        if (!holdsIds && target.exists() && entry.time > 0 && entry.time <= target.lastModified()) continue
+                        // A file of fusions or links is merged with this phone's (nothing of either side is lost);
+                        // any other file is taken only when this phone has none, or an older one
+                        val merges = holdsIds && IdRemapRules.merges(path)
+                        if (!merges && target.exists() && entry.time > 0 && entry.time <= target.lastModified()) continue
                         target.parentFile?.mkdirs()
                         if (holdsIds) {
                             // The ids inside the file are written again too

@@ -57,7 +57,9 @@ class FullBackupWorker(private val context: Context, params: WorkerParameters) :
                     FullBackup.export(context, uri, FullBackup.Options(
                             allDownloads = inputData.getBoolean(KEY_ALL, false),
                             translatedPages = inputData.getBoolean(KEY_PAGES, false),
-                            only = inputData.getLongArray(KEY_ONLY)?.toSet(),
+                            only = inputData.getString(KEY_ONLY)?.let { path ->
+                                runCatching { java.io.File(path).readText().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet() }.getOrNull()
+                            },
                             extras = inputData.getBoolean(KEY_EXTRAS, true),
                             fusions = inputData.getBoolean(KEY_FUSIONS, true),
                             settings = inputData.getBoolean(KEY_SETTINGS, true),
@@ -139,7 +141,9 @@ class FullBackupWorker(private val context: Context, params: WorkerParameters) :
                         KEY_RESTORE to false,
                         KEY_ALL to false,
                         KEY_PAGES to translatedPages,
-                        KEY_ONLY to only.toLongArray(),
+                        // The chosen works go through a small file: a long list would not fit in the work's data
+                        KEY_ONLY to java.io.File(context.cacheDir, "custom_backup_ids.txt")
+                            .apply { writeText(only.joinToString(",")) }.absolutePath,
                         KEY_EXTRAS to extras,
                         KEY_FUSIONS to fusions,
                         KEY_SETTINGS to settings,
