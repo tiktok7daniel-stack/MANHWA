@@ -406,6 +406,7 @@ class AiTranslator(
         appendLine("You translate comic (manhwa) speech bubbles from ${fromLang.label} into ${toLang.label}.")
         appendLine("Reply with ONLY the translations, one per line, numbered exactly like the input (1. ...). No notes, no source text.")
         appendLine("Natural, fluent dialogue that fits a speech bubble; keep the tone and emotion.")
+        appendLine("Keep each translation about as long as its source line or shorter: it is written back into the same bubble.")
         if (toLang == TextTranslatorLanguage.ARABIC) {
             appendLine("Modern Standard Arabic with Arabic punctuation (، ؟ !). Agree verbs and pronouns with the gender of who speaks and who is spoken to.")
         }
