@@ -1124,4 +1124,6 @@
     <string name="full_backup_share_warning">الملف فيه مفاتيحك وحساباتك: اديه بس لحد تثق فيه.</string>
     <string name="full_backup_making">MANHWA · نسخة احتياطية كاملة</string>
     <string name="full_backup_restoring">MANHWA · بيرجّع النسخة الكاملة</string>
+    <string name="wn_fullbackup_t">نسخة احتياطية كاملة بالفصول المترجمة</string>
+    <string name="wn_fullbackup_b">MANHWA Vault › نسخة احتياطية كاملة: ملف واحد فيه كل حاجة، من المكتبة والمفاتيح لحد كل فصل مترجم وصفحاته. لو مسحت التطبيق ورجعته، أو اديته لصاحبك، كل حاجة بترجع زي ما كانت.</string>
 </resources>

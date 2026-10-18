@@ -1183,4 +1183,6 @@
     <string name="full_backup_share_warning">The file holds your keys and logins: give it only to someone you trust.</string>
     <string name="full_backup_making">MANHWA · Full backup</string>
     <string name="full_backup_restoring">MANHWA · Restoring the full backup</string>
+    <string name="wn_fullbackup_t">A full backup with your translated chapters</string>
+    <string name="wn_fullbackup_b">MANHWA Vault › Full backup: one file with everything, from the library and keys to every translated chapter and its pages. Put it back after removing the app, or give it to a friend, and everything comes back as it was.</string>
 </resources>

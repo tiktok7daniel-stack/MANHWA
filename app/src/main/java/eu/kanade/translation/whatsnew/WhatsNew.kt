@@ -66,6 +66,7 @@ import mihon.icons.materialsymbols.rounded.CallMerge
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.Home
+import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.rounded.TextFields
 import mihon.icons.materialsymbols.rounded.Speed
 import mihon.icons.materialsymbols.rounded.Translate
@@ -114,6 +115,7 @@ object WhatsNew {
         get() = listOf(
             Feature(MaterialSymbols.Rounded.TextFields, ATMR.strings.wn_clean_t, ATMR.strings.wn_clean_b),
             Feature(MaterialSymbols.Rounded.Home, ATMR.strings.wn_calls_t, ATMR.strings.wn_calls_b),
+            Feature(MaterialSymbols.Rounded.Storage, ATMR.strings.wn_fullbackup_t, ATMR.strings.wn_fullbackup_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
