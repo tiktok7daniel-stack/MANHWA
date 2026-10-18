@@ -382,12 +382,12 @@ class AiTranslator(
                 val got = if (attempt == 0) {
                     // A reply with no numbered line at all is asked again like any failed call
                     withRetry {
-                        plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before))), json = false), asked.size)
+                        plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before))), jsonMode = false), asked.size)
                             ?: throw IOException("No numbered lines in the reply")
                     }
                 } else {
                     // The lines the first reply missed: what came back is kept whatever this one does
-                    runCatching { plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before))), json = false), asked.size) }
+                    runCatching { plainAnswers(request(plainSystem(), listOf(Part.Text(plainPrompt(asked, before))), jsonMode = false), asked.size) }
                         .onFailure { if (it is CancellationException) throw it }
                         .getOrNull()
                         .orEmpty()
@@ -981,7 +981,7 @@ class AiTranslator(
         }
     }
 
-    private suspend fun request(system: String, parts: List<Part>, web: Boolean = false, json: Boolean = true): String = withContext(Dispatchers.IO) {
+    private suspend fun request(system: String, parts: List<Part>, web: Boolean = false, jsonMode: Boolean = true): String = withContext(Dispatchers.IO) {
         val textOnly = parts.all { it is Part.Text }
         val (url, body, headers) = when (provider) {
             Provider.GEMINI -> Triple(
@@ -1024,7 +1024,7 @@ class AiTranslator(
                     // DeepSeek refuses answers longer than 8K tokens
                     put("max_tokens", if (provider == Provider.DEEPSEEK) maxOutputTokens.coerceAtMost(8192) else maxOutputTokens)
                     // MANHWA home server: the JSON calls ask for JSON mode, so a small model always gives valid JSON
-                    if (plainLines && json && !web) putJsonObject("response_format") { put("type", "json_object") }
+                    if (plainLines && jsonMode && !web) putJsonObject("response_format") { put("type", "json_object") }
                     putJsonArray("messages") {
                         addJsonObject {
                             put("role", "system")
