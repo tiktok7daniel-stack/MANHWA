@@ -118,6 +118,7 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_menus_t, ATMR.strings.wn_menus_b),
             Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_homesec_t, ATMR.strings.wn_homesec_b),
         )
 

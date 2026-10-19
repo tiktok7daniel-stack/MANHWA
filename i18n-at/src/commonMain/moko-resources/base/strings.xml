@@ -1297,4 +1297,6 @@
     <string name="hubm_test_running">Testing...</string>
     <string name="hubm_test_ok">Works: %1$d of %2$d lines translated in %3$d ms</string>
     <string name="hubm_test_fail">Did not work: %s</string>
+    <string name="wn_menus_t">Translation settings in menus</string>
+    <string name="wn_menus_b">Who translates (home server, API keys, phone models, without AI) and how, each in its own menu, with a card saying who translates now. Google Translate asks again when a request fails, translates bubbles in capitals better, and has a test button.</string>
 </resources>

@@ -1238,4 +1238,6 @@
     <string name="hubm_test_running">بيختبر...</string>
     <string name="hubm_test_ok">شغال: اترجم %1$d من %2$d سطر في %3$d ملي ثانية</string>
     <string name="hubm_test_fail">ما اشتغلش: %s</string>
+    <string name="wn_menus_t">إعدادات الترجمة بقت قوايم</string>
+    <string name="wn_menus_b">مين بيترجم (سيرفر البيت، مفاتيح الـ API، موديلات الموبايل، من غير AI) وبيترجم إزاي، كل حاجة في قايمة لوحدها، ومعاها كارت بيقولك مين بيترجم دلوقتي. وGoogle Translate بقى يعيد الطلب لو فشل، ويترجم الفقاعات المكتوبة بحروف كبيرة أحسن، وليه زرار اختبار.</string>
 </resources>
