@@ -1195,4 +1195,10 @@
     <string name="wn_looks_b">الإعدادات › المظهر › الشكل: أورورا، وحبر المانهوا (ورق أو ليلي)، ومونارك هولو. كل شكل ليه خلفيته وكروته وإحساسه تحت الصباع، وبتشوفهم بيتحركوا قبل ما تختار. والحركة هادية وبتقف لو أنيميشن الموبايل مقفولة.</string>
     <string name="hub_only_adult">إظهار مصادر +18 بس</string>
     <string name="hub_only_adult_sub">كل المصادر والإضافات التانية ومانهواتها بتختفي من التطبيق كله، ومصادر +18 بس هي اللي بتظهر</string>
+    <string name="home_sections">أقسام الرئيسية</string>
+    <string name="home_sec_hero">البانر المميز</string>
+    <string name="home_sec_quick">الاختصارات السريعة</string>
+    <string name="home_sec_rails">صف لكل مصدر</string>
+    <string name="wn_homesec_t">اختار أقسام الرئيسية</string>
+    <string name="wn_homesec_b">الإعدادات &gt; المظهر &gt; أقسام الرئيسية: تظهر أو تخفي أي جزء من الرئيسية. قسم الفصول الجديدة مخفي من الأول.</string>
 </resources>

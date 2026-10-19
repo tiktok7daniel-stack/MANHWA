@@ -118,12 +118,14 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.Visibility, ATMR.strings.hub_only_adult, ATMR.strings.hub_only_adult_sub),
+            Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_homesec_t, ATMR.strings.wn_homesec_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 108
+            Feature(MaterialSymbols.Rounded.Visibility, ATMR.strings.hub_only_adult, ATMR.strings.hub_only_adult_sub),
             // Build 107
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_looks_t, ATMR.strings.wn_looks_b),
             // Build 106

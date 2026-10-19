@@ -12,6 +12,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.appearance.AppLanguageScreen
+import eu.kanade.tachiyomi.ui.home.discover.HomeSection
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,6 +45,7 @@ object SettingsAppearanceScreen : SearchableSettings {
 
         return listOf(
             getThemeGroup(uiPreferences = uiPreferences),
+            getHomeGroup(uiPreferences = uiPreferences),
             getDisplayGroup(uiPreferences = uiPreferences),
         )
     }
@@ -100,6 +102,20 @@ object SettingsAppearanceScreen : SearchableSettings {
                     }
                 },
             ),
+        )
+    }
+
+    // MANHWA: show or hide each section of the home
+    @Composable
+    private fun getHomeGroup(uiPreferences: UiPreferences): Preference.PreferenceGroup {
+        return Preference.PreferenceGroup(
+            title = stringResource(ATMR.strings.home_sections),
+            preferenceItems = HomeSection.entries.map {
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.homeSection(it.key, it.shownByDefault),
+                    title = stringResource(it.title),
+                )
+            },
         )
     }
 

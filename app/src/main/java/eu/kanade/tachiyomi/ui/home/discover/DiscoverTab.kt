@@ -126,6 +126,7 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.translation.search.AiChatScreen
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -193,6 +194,15 @@ data object DiscoverTab : Tab {
         val scope = rememberCoroutineScope()
         val openHub = { navigator.push(SourceHubScreen()) }
         val listState = rememberLazyListState()
+        val shown by remember {
+            combine(HomeSection.entries.map { uiPreferences.homeSection(it.key, it.shownByDefault).changes() }) { on ->
+                HomeSection.entries.filterIndexedTo(mutableSetOf()) { i, _ -> on[i] }
+            }
+        }.collectAsState(
+            initial = remember {
+                HomeSection.entries.filterTo(mutableSetOf()) { uiPreferences.homeSection(it.key, it.shownByDefault).get() }
+            },
+        )
         val solidHeader by remember {
             derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 420 }
         }
@@ -264,8 +274,10 @@ data object DiscoverTab : Tab {
                         contentPadding = PaddingValues(bottom = 32.dp),
                         verticalArrangement = Arrangement.spacedBy(30.dp),
                     ) {
-                        // 1. Cinematic hero
-                        item(key = "hero") {
+                        // 1. Cinematic hero (the setup card always shows; hidden hero leaves room for the header)
+                        if (!state.needsSetup && HomeSection.HERO !in shown) {
+                            item(key = "top") { Spacer(Modifier.statusBarsPadding().height(76.dp)) }
+                        } else item(key = "hero") {
                             val hero = state.trending.take(7)
                             when {
                                 state.needsSetup -> Column {
@@ -282,7 +294,7 @@ data object DiscoverTab : Tab {
                         }
 
                         // 2. Quick actions
-                        item(key = "quick") {
+                        if (HomeSection.QUICK in shown) item(key = "quick") {
                             QuickActions(
                                 listOf(
                                     QuickAction(MaterialSymbols.Rounded.LocalLibrary, stringResource(ATMR.strings.home_library), Color(0xFFFF5A6A)) {
@@ -308,7 +320,7 @@ data object DiscoverTab : Tab {
                         }
 
                         // Dashboard
-                        item(key = "dashboard") {
+                        if (HomeSection.DASHBOARD in shown) item(key = "dashboard") {
                             Dashboard(
                                 stats = state.stats,
                                 newCount = state.newInLibrary.size,
@@ -331,10 +343,10 @@ data object DiscoverTab : Tab {
                         }
 
                         // Quick toggles
-                        item(key = "toggles") { QuickToggles() }
+                        if (HomeSection.TOGGLES in shown) item(key = "toggles") { QuickToggles() }
 
                         // Smart alerts: a newer chapter on another source
-                        if (state.alerts.isNotEmpty()) {
+                        if (HomeSection.ALERTS in shown && state.alerts.isNotEmpty()) {
                             item(key = "alerts") {
                                 Section(
                                     title = stringResource(ATMR.strings.alert_title),
@@ -360,7 +372,7 @@ data object DiscoverTab : Tab {
                         }
 
                         // 3. Continue reading
-                        if (state.continueReading.isNotEmpty()) {
+                        if (HomeSection.CONTINUE in shown && state.continueReading.isNotEmpty()) {
                             item(key = "continue") {
                                 Section(
                                     title = stringResource(ATMR.strings.home_continue),
@@ -403,7 +415,7 @@ data object DiscoverTab : Tab {
                         }
 
                         // 4. New chapters of every series on the home sources (and of the library)
-                        if (state.fresh.isNotEmpty() || state.newInLibrary.isNotEmpty() || state.freshRunning) {
+                        if (HomeSection.NEW in shown && (state.fresh.isNotEmpty() || state.newInLibrary.isNotEmpty() || state.freshRunning)) {
                             item(key = "new") {
                                 FreshSection(
                                     state = state,
@@ -418,7 +430,7 @@ data object DiscoverTab : Tab {
                         if (!state.needsSetup) {
                             // 5. Top 10
                             val top = state.trending.take(10)
-                            if (top.isNotEmpty()) {
+                            if (HomeSection.TOP10 in shown && top.isNotEmpty()) {
                                 item(key = "top10") {
                                     Section(
                                         title = stringResource(ATMR.strings.home_top10),
@@ -438,7 +450,7 @@ data object DiscoverTab : Tab {
                             }
 
                             // AI picks with the reason for each one
-                            item(key = "recs") {
+                            if (HomeSection.RECS in shown) item(key = "recs") {
                                 Recommendations(
                                     state = state,
                                     onOpen = openManga,
@@ -448,12 +460,12 @@ data object DiscoverTab : Tab {
                             }
 
                             // 6. All sources: latest / popular grid
-                            item(key = "feed") {
+                            if (HomeSection.FEED in shown) item(key = "feed") {
                                 SourcesFeed(state = state, onFilter = viewModel::setSourceFilter, onOpen = openManga)
                             }
 
                             // 7. Genres
-                            item(key = "genres") {
+                            if (HomeSection.GENRES in shown) item(key = "genres") {
                                 GenreExplorer(all = state.latest + state.popular, onOpen = openManga)
                             }
 
@@ -461,7 +473,7 @@ data object DiscoverTab : Tab {
                             val completed = (state.popular + state.latest)
                                 .filter { it.first.status.isCompleted() }
                                 .distinctBy { it.first.id }
-                            if (completed.isNotEmpty()) {
+                            if (HomeSection.COMPLETED in shown && completed.isNotEmpty()) {
                                 item(key = "completed") {
                                     Section(
                                         title = stringResource(ATMR.strings.home_completed),
@@ -482,9 +494,9 @@ data object DiscoverTab : Tab {
                         }
 
                         // 9. MANHWA AI
-                        item(key = "ai") { AiPanel(onAsk = askAi) }
+                        if (HomeSection.AI in shown) item(key = "ai") { AiPanel(onAsk = askAi) }
 
-                        if (!state.needsSetup) {
+                        if (!state.needsSetup && HomeSection.RAILS in shown) {
                             // 10. One rail per source
                             state.visibleFeeds.forEach { feed ->
                                 item(key = "source-${feed.source.id}") {
@@ -515,7 +527,7 @@ data object DiscoverTab : Tab {
                         }
 
                         // 11. My lists
-                        if (state.categories.isNotEmpty()) {
+                        if (HomeSection.LISTS in shown && state.categories.isNotEmpty()) {
                             item(key = "lists") {
                                 Section(
                                     title = stringResource(ATMR.strings.home_my_lists),
