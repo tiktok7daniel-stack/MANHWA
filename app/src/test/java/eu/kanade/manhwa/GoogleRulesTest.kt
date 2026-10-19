@@ -64,5 +64,14 @@ class GoogleRulesTest {
         GoogleRules.cleanSource("THIS IS THE DUN-\nGEON  WE\nFOUND") shouldBe "THIS IS THE DUNGEON WE FOUND"
         GoogleRules.cleanSource("AN S-\nRANK") shouldBe "AN S- RANK"
     }
+
+    @Test
+    fun `the request asks only for the translation and too many requests is told apart`() {
+        GoogleRules.url("ar", "Run! Now.") shouldBe
+            "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ar&dt=t&q=Run%21+Now."
+        GoogleRules.isTooMany(GoogleRules.Busy(429, null)) shouldBe true
+        GoogleRules.isTooMany(GoogleRules.Busy(503, null)) shouldBe false
+        GoogleRules.isTooMany(IOException()) shouldBe false
+    }
 }
 

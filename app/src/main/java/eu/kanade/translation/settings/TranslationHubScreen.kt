@@ -174,6 +174,17 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
             phoneModel -> stringResource(ATMR.strings.hubm_via_phone)
             else -> noKeyLabel
         }
+        val googleRest by eu.kanade.translation.translator.GoogleStatus.restingUntil.collectAsState()
+        val offlineBubbles by eu.kanade.translation.translator.GoogleStatus.offlineBubbles.collectAsState()
+        val googleNote = when {
+            noKeyEngine != TextTranslators.GOOGLE || active.isNotEmpty() || phoneModel || fastMode -> null
+            googleRest > System.currentTimeMillis() -> stringResource(
+                ATMR.strings.hubm_google_resting,
+                java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(googleRest)),
+            )
+            offlineBubbles > 0 -> stringResource(ATMR.strings.hubm_google_offline_used, offlineBubbles)
+            else -> null
+        }
         val bottom = WindowInsets.navigationBars.asPaddingValues()
         val direction = LocalLayoutDirection.current
         val title = when (page) {
@@ -208,6 +219,7 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
                             item {
                                 NowCard(
                                     nowWith = nowWith,
+                                    note = googleNote,
                                     chain = stringResource(ATMR.strings.hubm_chain, noKeyLabel),
                                     stats = stats,
                                 )
@@ -381,6 +393,11 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
                         }
 
                         HubPage.NO_AI -> {
+                            if (googleNote != null) {
+                                item {
+                                    Text(googleNote, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color(0xFFFFB020))
+                                }
+                            }
                             item {
                                 HubSection(stringResource(ATMR.strings.hubm_noai_title), MaterialSymbols.Rounded.CloudOff) {
                                     HubChoiceRow(
@@ -698,7 +715,7 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
 
     /** Who translates a chapter now, the order the app tries them in, and the collection. */
     @Composable
-    private fun NowCard(nowWith: String, chain: String, stats: TranslationCollection.Stats?) {
+    private fun NowCard(nowWith: String, note: String?, chain: String, stats: TranslationCollection.Stats?) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -721,6 +738,10 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
                         color = ManhwaInk.text,
                     )
                 }
+            }
+            if (note != null) {
+                Spacer(Modifier.height(10.dp))
+                Text(note, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color(0xFFFFB020))
             }
             Spacer(Modifier.height(12.dp))
             Text(chain, style = MaterialTheme.typography.labelMedium, color = ManhwaInk.muted)
@@ -898,6 +919,7 @@ private val TEST_LINES = listOf(
 @Composable
 private fun EngineTestCard(to: String) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
     var running by remember { mutableStateOf<TextTranslators?>(null) }
     var result by remember { mutableStateOf<TestResult?>(null) }
     val target = TextTranslatorLanguage.entries.firstOrNull { it.name == to } ?: TextTranslatorLanguage.entries.first()
@@ -921,6 +943,20 @@ private fun EngineTestCard(to: String) {
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { start(TextTranslators.GOOGLE) },
             )
+            // Google Translate itself, in the browser or its app, with a line already typed: to see it answer
+            ManhwaKit.GhostButton(
+                stringResource(ATMR.strings.hubm_open_google),
+                modifier = Modifier.fillMaxWidth(),
+                icon = MaterialSymbols.Rounded.Translate,
+                onClick = {
+                    runCatching {
+                        uri.openUri(
+                            "https://translate.google.com/?sl=auto&tl=" + target.code + "&op=translate&text=" +
+                                java.net.URLEncoder.encode(TEST_LINES.first(), "utf-8"),
+                        )
+                    }
+                },
+            )
             ManhwaKit.GhostButton(
                 stringResource(if (running == TextTranslators.MLKIT) ATMR.strings.hubm_test_running else ATMR.strings.hubm_test_mlkit),
                 modifier = Modifier.fillMaxWidth(),
@@ -938,6 +974,9 @@ private fun EngineTestCard(to: String) {
                     fontWeight = FontWeight.Bold,
                     color = if (r.error == null) Color(0xFF3DDC97) else Color(0xFFFF6B6B),
                 )
+                if (r.busy) {
+                    Text(stringResource(ATMR.strings.hubm_test_busy), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text)
+                }
                 r.lines.forEach { (source, translated) ->
                     Column(
                         Modifier
@@ -954,7 +993,7 @@ private fun EngineTestCard(to: String) {
     }
 }
 
-private class TestResult(val lines: List<Pair<String, String>>, val millis: Long, val error: String?)
+private class TestResult(val lines: List<Pair<String, String>>, val millis: Long, val error: String?, val busy: Boolean = false)
 
 private suspend fun runTest(engine: TextTranslators, target: TextTranslatorLanguage): TestResult {
     val started = System.currentTimeMillis()
@@ -988,13 +1027,13 @@ private suspend fun runTest(engine: TextTranslators, target: TextTranslatorLangu
             }
             else -> {
                 val google = eu.kanade.translation.translator.GoogleTranslator(TextRecognizerLanguage.ENGLISH, target)
-                TEST_LINES.forEach { line -> done += line to google.translateText(line) }
+                TEST_LINES.forEach { line -> done += line to google.translateText(line, ignoreRest = true) }
             }
         }
         TestResult(done, System.currentTimeMillis() - started, null)
     } catch (e: kotlinx.coroutines.CancellationException) {
         throw e
     } catch (e: Exception) {
-        TestResult(done, System.currentTimeMillis() - started, e.message ?: e.javaClass.simpleName)
+        TestResult(done, System.currentTimeMillis() - started, e.message ?: e.javaClass.simpleName, busy = eu.kanade.translation.translator.GoogleRules.isTooMany(e))
     }
 }

@@ -5,7 +5,6 @@ import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.model.TranslationBlock
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
 import java.io.IOException
-import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
@@ -28,8 +27,6 @@ class GoogleTranslator(
     override val fromLang: TextRecognizerLanguage,
     override val toLang: TextTranslatorLanguage,
 ) : TextTranslator {
-    private val client1 = "gtx"
-    private val client2 = "webapp"
     val okHttpClient = sharedClient
 
     /** Thrown when Google did not answer for some bubbles even after waiting and asking again. */
@@ -40,22 +37,23 @@ class GoogleTranslator(
     var glossary: Map<String, String> = emptyMap()
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
-        // Each page's bubbles go together, a few requests a page with the page around them; four requests at a time
-        val gate = Semaphore(4)
+        // Each page's bubbles go together, a few requests a page with the page around them; two requests at a time
+        // (Google answers 429 "too many requests" to an app that asks faster)
+        val gate = Semaphore(2)
         val parts = pages.values.flatMap { page ->
             GoogleRules.batches(page.blocks.map { it.text }).map { range -> page.blocks.subList(range.first, range.last + 1).toList() }
         }
         val total = parts.sumOf { it.size }
-        var failed = 0
+        val left = mutableListOf<TranslationBlock>()
         var lastError: Throwable? = null
         coroutineScope {
             parts.map { part ->
                 async {
                     gate.withPermit {
-                        val error = translatePart(part)
-                        if (error != null) {
+                        val (missed, error) = translatePart(part)
+                        if (missed.isNotEmpty()) {
                             synchronized(this@GoogleTranslator) {
-                                failed += part.count { it.translation == it.text }
+                                left += missed
                                 lastError = error
                             }
                         }
@@ -63,12 +61,38 @@ class GoogleTranslator(
                 }
             }.awaitAll()
         }
+        if (left.isEmpty()) return
+        // Google refused or could not be reached: ML Kit on the phone translates what is left, so the chapter goes on
+        val offline = runCatching { offlineFallback(left) }
+            .onFailure { if (it is CancellationException) throw it }
+            .getOrDefault(false)
+        if (offline) {
+            GoogleStatus.usedOffline(left.size)
+            return
+        }
+        left.forEach { it.translation = it.text }
         // Never a chapter saved half in English without saying so: it can be tried again (the pages read are kept)
-        if (failed > 0) throw GoogleFailed(failed, total, lastError)
+        throw GoogleFailed(left.size, total, lastError)
     }
 
-    /** Translates [part] in one request (each bubble on its own line), else bubble by bubble; the last error, or null. */
-    private suspend fun translatePart(part: List<TranslationBlock>): Throwable? {
+    private var mlkit: MLKitTranslator? = null
+
+    /** ML Kit (on the phone) for [blocks]; true when every one came back translated. */
+    private suspend fun offlineFallback(blocks: List<TranslationBlock>): Boolean {
+        if (!TextTranslatorLanguage.mlkitSupportedLanguages().contains(toLang)) return false
+        val translator = mlkit ?: MLKitTranslator(fromLang, toLang).also { mlkit = it }
+        val work = blocks.map { it.copy(translation = "") }.toMutableList()
+        // Its model is downloaded once; a phone that cannot get it in time keeps the chapter as failed
+        kotlinx.coroutines.withTimeoutOrNull(OFFLINE_TIMEOUT_MS) {
+            translator.translate(mutableMapOf("google-fallback" to PageTranslation(work, 0f, 0f)))
+        } ?: return false
+        if (work.any { it.translation.isBlank() }) return false
+        blocks.forEachIndexed { i, block -> block.translation = finish(work[i].translation, block.text) }
+        return true
+    }
+
+    /** Translates [part] in one request (each bubble on its own line), else bubble by bubble; what was missed and why. */
+    private suspend fun translatePart(part: List<TranslationBlock>): Pair<List<TranslationBlock>, Throwable?> {
         val sent = part.map { send(it.text) }
         if (part.size > 1) {
             val joined = try {
@@ -77,28 +101,28 @@ class GoogleTranslator(
                 throw e
             } catch (e: Exception) {
                 // Google did not answer even after asking again: no use asking for every bubble
-                part.forEach { it.translation = it.text }
-                return e
+                return part to e
             }
             val lines = GoogleRules.split(joined, part.size)
             if (lines != null) {
                 part.forEachIndexed { i, block -> block.translation = finish(lines[i], block.text) }
-                return null
+                return emptyList<TranslationBlock>() to null
             }
         }
         // The lines did not come back one for one: each bubble on its own
         var error: Throwable? = null
+        val missed = mutableListOf<TranslationBlock>()
         part.forEachIndexed { i, block ->
-            block.translation = try {
-                finish(translateText(sent[i], prepared = true), block.text)
+            try {
+                block.translation = finish(translateText(sent[i], prepared = true), block.text)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 error = e
-                block.text
+                missed += block
             }
         }
-        return error
+        return missed to error
     }
 
     /** The bubble as it is sent: the OCR's broken lines joined, the work's names put in, capitals in sentence case. */
@@ -116,14 +140,18 @@ class GoogleTranslator(
      * fails (no network for a moment, a busy answer) is asked again a few times, waiting longer each time and as
      * long as Google says to wait; still nothing throws, rather than give the text back untranslated.
      */
-    suspend fun translateText(text: String, prepared: Boolean = false): String {
+    suspend fun translateText(text: String, prepared: Boolean = false, ignoreRest: Boolean = false): String {
         if (text.isBlank()) return text
+        // Google said "too many requests" a moment ago: it is left alone until its pause ends
+        if (!ignoreRest && GoogleStatus.resting()) throw GoogleRules.Busy(429, null)
         val sent = if (prepared) text else GoogleRules.prepare(GoogleRules.cleanSource(text))
         var last: Throwable? = null
         repeat(GoogleRules.ATTEMPTS) { attempt ->
             if (attempt > 0) delay(GoogleRules.waitMillis(attempt, last))
             try {
-                return request(toLang.code, sent)
+                val answer = request(toLang.code, sent)
+                GoogleStatus.answered()
+                return answer
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -131,13 +159,18 @@ class GoogleTranslator(
                 logcat(LogPriority.WARN) { "Google Translate try ${attempt + 1} failed: ${e.message}" }
                 // No network at all: asking again only makes the offline fallbacks wait
                 if (!GoogleRules.worthRetry(e)) throw e
+                // Too many requests twice: Google is given a pause, and the rest goes to the offline engine
+                if (GoogleRules.isTooMany(e) && attempt >= 1) {
+                    GoogleStatus.rest()
+                    throw e
+                }
             }
         }
         throw last ?: IOException("Google Translate did not answer")
     }
 
     private suspend fun request(lang: String, text: String): String {
-        val response = okHttpClient.newCall(Request.Builder().url(getTranslateUrl(lang, text)).build()).await()
+        val response = okHttpClient.newCall(Request.Builder().url(GoogleRules.url(lang, text)).build()).await()
         response.use {
             if (!it.isSuccessful) {
                 throw GoogleRules.Busy(it.code, it.header("Retry-After")?.trim()?.toLongOrNull())
@@ -146,80 +179,14 @@ class GoogleTranslator(
         }
     }
 
-    private fun getTranslateUrl(lang: String, text: String): String {
-        try {
-            val client = client1
-            val calculateToken = calculateToken(text)
-            val encode: String = URLEncoder.encode(text, "utf-8")
-            return "https://translate.google.com/translate_a/single?client=$client&sl=auto&tl=$lang&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&otf=1&ssel=0&tsel=0&kc=1&tk=$calculateToken&q=$encode"
-        } catch (unused: UnsupportedEncodingException) {
-            val client2 = client1
-            val calculateToken2 = calculateToken(text)
-            return "https://translate.google.com/translate_a/single?client=$client2&sl=auto&tl=$lang&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&otf=1&ssel=0&tsel=0&kc=1&tk=$calculateToken2&q=$text"
-        }
-    }
-
-    private fun calculateToken(str: String): String {
-        val list = mutableListOf<Int>()
-        var i = 0
-
-        while (i < str.length) {
-            val charCodeAt = str.codePointAt(i)
-            when {
-                charCodeAt < 128 -> list.add(charCodeAt)
-                charCodeAt < 2048 -> {
-                    list.add((charCodeAt shr 6) or 192)
-                    list.add((charCodeAt and 63) or 128)
-                }
-                charCodeAt in 55296..57343 && i + 1 < str.length -> {
-                    val nextChar = str.codePointAt(i + 1)
-                    if (nextChar in 56320..57343) {
-                        val codePoint = ((charCodeAt and 1023) shl 10) + (nextChar and 1023) + 65536
-                        list.add((codePoint shr 18) or 240)
-                        list.add(((codePoint shr 12) and 63) or 128)
-                        list.add(((codePoint shr 6) and 63) or 128)
-                        list.add((codePoint and 63) or 128)
-                        i++
-                    }
-                }
-                else -> {
-                    list.add((charCodeAt shr 12) or 224)
-                    list.add(((charCodeAt shr 6) and 63) or 128)
-                    list.add((charCodeAt and 63) or 128)
-                }
-            }
-            i++
-        }
-
-        var j: Long = 406644
-        for (num in list) {
-            j = RL(j + num.toLong(), "+-a^+6")
-        }
-        var rL = RL(j, "+-3^+b+-f") xor 3293161072L
-        if (rL < 0) {
-            rL = (rL and 2147483647L) + 2147483648L
-        }
-        val j2 = rL % 1000000L
-        return "$j2.${406644L xor j2}"
-    }
-
-    private fun RL(j: Long, str: String): Long {
-        var result = j
-        var i = 0
-        while (i < str.length - 2) {
-            val shift = if (str[i + 2] in 'a'..'z') str[i + 2].code - 'W'.code else str[i + 2].digitToInt()
-            val shiftValue = if (str[i + 1] == '+') result ushr shift else result shl shift
-            result = if (str[i] == '+') (result + shiftValue) and 4294967295L else result xor shiftValue
-            i += 3
-        }
-        return result
-    }
-
-
     override fun close() {
+        mlkit?.close()
+        mlkit = null
     }
 
     companion object {
+        private const val OFFLINE_TIMEOUT_MS = 5 * 60_000L
+
         /** One client for every bubble and every chapter: its connections are reused, so each request is quicker. */
         private val sharedClient: OkHttpClient by lazy {
             OkHttpClient.Builder()
@@ -238,6 +205,17 @@ object GoogleRules {
 
     /** Google answered with an error code (429 when asked too often), and how long it said to wait. */
     class Busy(val code: Int, val retryAfterSeconds: Long?) : IOException("Google Translate answered HTTP $code")
+
+    /** Google's public translation address (no key), asking only for the translation. */
+    fun url(lang: String, text: String): String =
+        "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" +
+            URLEncoder.encode(lang, "utf-8") + "&dt=t&q=" + URLEncoder.encode(text, "utf-8")
+
+    /** Google said "too many requests" (it pauses an app that asks too fast). */
+    fun isTooMany(error: Throwable): Boolean = (error as? Busy)?.code == 429
+
+    /** How long Google is left alone after it said "too many requests" twice. */
+    const val REST_MS = 10 * 60_000L
 
     /** Most text sent in one request (the bubbles of a page joined), and most bubbles. */
     private const val BATCH_CHARS = 1200
@@ -322,3 +300,29 @@ object GoogleRules {
     }
 }
 
+
+/**
+ * MANHWA: how Google Translate is doing, for the settings ("who translates now"): paused after "too many
+ * requests" (the offline engine translates meanwhile) and how many bubbles went to the offline engine.
+ */
+object GoogleStatus {
+    private val _restingUntil = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    val restingUntil: kotlinx.coroutines.flow.StateFlow<Long> = _restingUntil
+
+    private val _offlineBubbles = kotlinx.coroutines.flow.MutableStateFlow(0)
+    val offlineBubbles: kotlinx.coroutines.flow.StateFlow<Int> = _offlineBubbles
+
+    fun resting(now: Long = System.currentTimeMillis()): Boolean = now < _restingUntil.value
+
+    fun rest(now: Long = System.currentTimeMillis()) {
+        _restingUntil.value = now + GoogleRules.REST_MS
+    }
+
+    fun answered() {
+        if (_restingUntil.value != 0L) _restingUntil.value = 0L
+    }
+
+    fun usedOffline(bubbles: Int) {
+        _offlineBubbles.value += bubbles
+    }
+}
