@@ -1309,4 +1309,8 @@
     <string name="wn_offline_b">ML Kit now translates each bubble as one whole sentence (not line by line), in normal case instead of capitals, with the names of the work from its glossary, the language read from the bubble itself, and the Arabic cleaned and polished.</string>
     <string name="hubm_scroll_double_tap">Double tap: auto-scroll button</string>
     <string name="hubm_scroll_double_tap_info">A double tap on the page shows the auto-scroll button (play, pause and speed up to 15); another double tap hides it and stops the scrolling. Off: a double tap zooms as before.</string>
+    <string name="wn_arabiconly_t">Only Arabic in the bubbles</string>
+    <string name="wn_arabiconly_b">No English bits left inside a translation, and no original letters next to it: the whole inside of a bubble is cleaned, lines cut between two parts of a long page are read whole, lone letters are erased with their bubble, and big words in a bubble are translated. Live translation stays off when you turn it off.</string>
+    <string name="wn_scrollbtn_t">Auto-scroll button</string>
+    <string name="wn_scrollbtn_b">A double tap on the page shows the auto-scroll button, another hides it. Speed from 1 to 15.</string>
 </resources>
