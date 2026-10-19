@@ -669,7 +669,21 @@ class TranslationCollection(private val context: Context) {
             db.endTransaction()
         }
         cache.evictAll()
+        // One more round in the list of reviews (newest first)
+        val round = "${System.currentTimeMillis()},$corrected,$approved,$deleted"
+        rounds.edit().putString(ROUNDS_KEY, (listOf(round) + reviewRounds().map { it.raw }).take(MAX_ROUNDS).joinToString(";")).apply()
         return ReviewResult(corrected, approved, deleted)
+    }
+
+    /** One review imported: when, and what it changed. */
+    class ReviewRound(val at: Long, val corrected: Int, val approved: Int, val deleted: Int, val raw: String)
+
+    private val rounds by lazy { context.getSharedPreferences("manhwa_collection_review", Context.MODE_PRIVATE) }
+
+    /** MANHWA review: every review imported so far, newest first; the next one holds what came after the first. */
+    fun reviewRounds(): List<ReviewRound> = rounds.getString(ROUNDS_KEY, "").orEmpty().split(';').mapNotNull { raw ->
+        val parts = raw.split(',').mapNotNull { it.toLongOrNull() }
+        if (parts.size == 4) ReviewRound(parts[0], parts[1].toInt(), parts[2].toInt(), parts[3].toInt(), raw) else null
     }
 
     /**
@@ -713,6 +727,8 @@ class TranslationCollection(private val context: Context) {
 
     private companion object {
         const val DB_NAME = "translation_collection.db"
+        const val ROUNDS_KEY = "rounds"
+        const val MAX_ROUNDS = 30
         // 2: MANHWA review (reviewed, added)
         const val DB_VERSION = 2
         const val CACHE_LINES = 5_000

@@ -1179,4 +1179,5 @@
     <string name="col_review_exported">اتصدّر %1$d جملة</string>
     <string name="col_review_done">اتصحح %1$d، واتوافق على %2$d، واتمسح %3$d</string>
     <string name="col_review_not_file">الملف ده مش ملف مراجعة MANHWA</string>
+    <string name="col_review_round">الدفعة %1$d · %2$s: اتصحح %3$d، واتوافق على %4$d، واتمسح %5$d</string>
 </resources>

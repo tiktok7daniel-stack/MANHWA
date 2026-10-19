@@ -1238,4 +1238,5 @@
     <string name="col_review_exported">%1$d lines exported</string>
     <string name="col_review_done">%1$d corrected, %2$d approved, %3$d deleted</string>
     <string name="col_review_not_file">This file is not a MANHWA review file</string>
+    <string name="col_review_round">Round %1$d · %2$s: %3$d corrected, %4$d approved, %5$d deleted</string>
 </resources>

@@ -89,9 +89,11 @@ class TranslationCollectionScreen : Screen() {
 
         // MANHWA review: lines nobody has checked yet (count, oldest date)
         var unreviewed by remember { mutableStateOf(0L to 0L) }
+        var reviewRounds by remember { mutableStateOf(emptyList<TranslationCollection.ReviewRound>()) }
         LaunchedEffect(refresh) {
             stats = withContext(Dispatchers.IO) { collection.stats() }
             unreviewed = withContext(Dispatchers.IO) { collection.unreviewed() }
+            reviewRounds = withContext(Dispatchers.IO) { collection.reviewRounds() }
         }
         LaunchedEffect(query, kind, refresh) {
             entries = withContext(Dispatchers.IO) { collection.entries(query.trim(), kind) }
@@ -305,6 +307,21 @@ class TranslationCollectionScreen : Screen() {
                             OutlinedButton(onClick = { reviewImportLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) }) {
                                 Text(stringResource(ATMR.strings.col_review_import))
                             }
+                        }
+                        // The rounds so far, newest first: each one holds what the AI added after the one before
+                        reviewRounds.forEachIndexed { i, round ->
+                            Text(
+                                stringResource(
+                                    ATMR.strings.col_review_round,
+                                    reviewRounds.size - i,
+                                    java.text.DateFormat.getDateInstance().format(java.util.Date(round.at)),
+                                    round.corrected,
+                                    round.approved,
+                                    round.deleted,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }

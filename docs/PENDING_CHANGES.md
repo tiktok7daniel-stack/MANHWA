@@ -17,3 +17,5 @@
   اللي الـ AI ضافه بعدها (أو اللي الـ AI غيّر صياغته). الجملة اللي بتعتمد على مين بيتكلم (`sensitive`) بتفضل تلميح.
   قاعدة البيانات اتنقلت للنسخة 2 بعمودين جداد (`reviewed`, `added`) بقيم افتراضية، وتصحيحاتك القديمة اتعلّمت إنها
   متراجعة (`CollectionReview.kt`، `TranslationCollection.exportReview/importReview`، اختبار `CollectionReviewTest`).
+  - كل مراجعة بتتسجل كدفعة بتاريخها (الدفعة 1، 2، …) وتحت الكارت بيظهر اللي اتصحح واتوافق واتمسح في كل دفعة
+    (`TranslationCollection.reviewRounds`).
