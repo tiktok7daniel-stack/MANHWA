@@ -42,4 +42,10 @@ class StripCutTest {
         OcrFusion.addMin("IW") shouldBe OcrFusion.ADD_MIN_SHORT
         OcrFusion.addMin("WHERE ARE YOU") shouldBe OcrFusion.ADD_MIN
     }
+
+    @Test
+    fun `a line taller than the overlap is kept even when cut`() {
+        val big = block("BOOM" to LineBox(0f, 700f, 100f, 300f))
+        PageOcr.dropCutLines(big, cutTop = false, cutBottom = true, stripH = 1000f, maxLineH = 200f) shouldBe big
+    }
 }

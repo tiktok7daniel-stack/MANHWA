@@ -45,4 +45,11 @@ class OcrHealerTest {
         OcrHealer.heal("5orry about that") shouldBe "Sorry about that"
         OcrHealer.heal("this and/or that") shouldBe "this and/or that"
     }
+
+    @Test
+    fun `ordinals units and the word I are not mended`() {
+        OcrHealer.heal("the 5th chapter") shouldBe "the 5th chapter"
+        OcrHealer.heal("at 5pm sharp") shouldBe "at 5pm sharp"
+        OcrHealer.heal("between I/you and me") shouldBe "between I/you and me"
+    }
 }

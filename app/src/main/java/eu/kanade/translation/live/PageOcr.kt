@@ -48,7 +48,9 @@ object PageOcr {
             }
             // MANHWA: a line cut by the strip's edge is read from half its letters ("IW", "IFI"); the next strip
             // (they overlap by more than a line) reads it whole, so the cut reading is left out
-            val whole = part.mapNotNull { dropCutLines(it, cutTop = top > 0, cutBottom = top + sh < h, stripH = sh.toFloat()) }
+            val whole = part.mapNotNull {
+                dropCutLines(it, cutTop = top > 0, cutBottom = top + sh < h, stripH = sh.toFloat(), maxLineH = overlap - EDGE_PX)
+            }
             for (block in whole) {
                 val moved = block.shifted(top.toFloat())
                 val twin = found.indexOfFirst { overlapRatio(it, moved) > 0.3f }
@@ -70,10 +72,17 @@ object PageOcr {
      * line is cut. The text is rebuilt from the lines kept when each line of the text has its box; otherwise
      * the block stays as read (the larger reading of the two strips wins).
      */
-    internal fun dropCutLines(block: TranslationBlock, cutTop: Boolean, cutBottom: Boolean, stripH: Float): TranslationBlock? {
+    internal fun dropCutLines(
+        block: TranslationBlock,
+        cutTop: Boolean,
+        cutBottom: Boolean,
+        stripH: Float,
+        maxLineH: Float = Float.MAX_VALUE,
+    ): TranslationBlock? {
         if (!cutTop && !cutBottom) return block
         val lines = block.lineBoxes
-        val cut = lines.map { (cutBottom && it.y + it.h >= stripH - EDGE_PX) || (cutTop && it.y <= EDGE_PX) }
+        // Only a line shorter than the strips' overlap is surely read whole by the neighbour strip
+        val cut = lines.map { it.h < maxLineH && ((cutBottom && it.y + it.h >= stripH - EDGE_PX) || (cutTop && it.y <= EDGE_PX)) }
         if (cut.none { it }) return block
         if (cut.all { it }) return null
         val texts = block.text.split('\n')
