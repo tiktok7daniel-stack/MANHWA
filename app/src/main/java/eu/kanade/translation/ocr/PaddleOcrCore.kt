@@ -36,6 +36,9 @@ class PaddleOcrCore(detModel: File, recModel: File, private val dict: List<Strin
      * Every line of text in the [w]×[h] image [argb], top to bottom. Only the lines [wanted] are read (the
      * detector always looks at the whole image): lines another engine already read surely are skipped.
      */
+    /** MANHWA: vertical text exists only in Japanese and Chinese; a narrow English "I" is never turned. */
+    @Volatile var allowVertical: Boolean = true
+
     fun read(argb: IntArray, w: Int, h: Int, wanted: (PaddleMath.Box) -> Boolean = { true }): List<Line> {
         if (w < 8 || h < 8 || argb.size < w * h) return emptyList()
         val boxes = detect(argb, w, h).filter(wanted)
@@ -63,7 +66,7 @@ class PaddleOcrCore(detModel: File, recModel: File, private val dict: List<Strin
     /** Reads the line in [box]; null when nothing readable is there. */
     fun recognize(argb: IntArray, w: Int, h: Int, box: PaddleMath.Box): Line? {
         // Tall narrow boxes are vertical text (Japanese, Chinese): read turned a quarter
-        val vertical = box.h >= box.w * VERTICAL_RATIO && box.h > REC_H
+        val vertical = allowVertical && box.h >= box.w * VERTICAL_RATIO && box.h > REC_H
         val (rw, input) = if (vertical) {
             val rotated = PaddleMath.rotateCrop(argb, w, box)
             val cw = box.h

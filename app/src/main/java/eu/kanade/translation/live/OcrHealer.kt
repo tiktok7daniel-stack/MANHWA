@@ -20,6 +20,14 @@ object OcrHealer {
     private val zeroInWord = Regex("(?<=\\p{L})0(?=\\p{L})")
     private val oneInWord = Regex("(?<=\\p{L})[1|](?=\\p{L})")
     private val lonePipe = Regex("(?<![\\p{L}\\p{N}])\\|(?![\\p{L}\\p{N}])")
+
+    // MANHWA: an "i" read as a slash between a capital and the rest of the word ("S / tuation" to "Situation")
+    private val slashForI = Regex("(?<![\\p{L}])([A-Z])\\s?[/|]\\s?([a-z]{3,})")
+
+    // A 0 at the end or start of a lowercase word is an o ("yo0", "0kay"); a 5 before lowercase is an S ("5orry")
+    private val zeroEnd = Regex("(?<=\\p{Ll}{2})0(?!\\p{N})")
+    private val zeroStart = Regex("(?<![\\p{L}\\p{N}])0(?=\\p{Ll}{2})")
+    private val fiveStart = Regex("(?<![\\p{L}\\p{N}])5(?=\\p{Ll}{2,})")
     private val spacedDots = Regex("\\.\\s\\.\\s\\.")
     private val manyBangs = Regex("!{4,}")
     private val manyQuestions = Regex("\\?{4,}")
@@ -57,6 +65,10 @@ object OcrHealer {
             val before = out.getOrNull(match.range.first - 1)
             if (upper || before?.isUpperCase() == true) "I" else "l"
         }
+        out = slashForI.replace(out, "$1i$2")
+        out = zeroEnd.replace(out, "o")
+        out = zeroStart.replace(out, "o")
+        out = fiveStart.replace(out, "S")
         out = lonePipe.replace(out, "I")
         if (upper) out = Regex("(?<=\\s|^)l(?=\\s|$)").replace(out, "I")
         if (upper) out = leadingDigits.replace(out) { m -> lettersFor(m.value) }

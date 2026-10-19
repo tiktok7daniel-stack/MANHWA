@@ -36,4 +36,13 @@ class OcrHealerTest {
         OcrHealer.heal("he1p me") shouldBe "help me"
         OcrHealer.heal("WAIT!!!!!!") shouldBe "WAIT!!!"
     }
+
+    @Test
+    fun `misread letters inside lowercase words are mended`() {
+        OcrHealer.heal("Isn't it that S / tuation") shouldBe "Isn't it that Situation"
+        OcrHealer.heal("what are yo0 doing") shouldBe "what are yoo doing"
+        OcrHealer.heal("0kay then") shouldBe "okay then"
+        OcrHealer.heal("5orry about that") shouldBe "Sorry about that"
+        OcrHealer.heal("this and/or that") shouldBe "this and/or that"
+    }
 }

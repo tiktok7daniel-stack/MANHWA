@@ -39,13 +39,21 @@ object PaddleOcrEngine {
             return null
         }
         val app = context.applicationContext
-        return { bitmap, wanted -> read(app, bitmap, pack, wanted) }
+        val vertical = language == TextRecognizerLanguage.JAPANESE || language == TextRecognizerLanguage.CHINESE
+        return { bitmap, wanted -> read(app, bitmap, pack, wanted, vertical) }
     }
 
     /** Every line of text on [bitmap]; null when PaddleOCR could not read it (ML Kit carries on alone). */
     @Synchronized
-    fun read(context: Context, bitmap: Bitmap, pack: OcrModels.Pack, wanted: (PaddleMath.Box) -> Boolean = { true }): List<PaddleOcrCore.Line>? {
+    fun read(
+        context: Context,
+        bitmap: Bitmap,
+        pack: OcrModels.Pack,
+        wanted: (PaddleMath.Box) -> Boolean = { true },
+        vertical: Boolean = true,
+    ): List<PaddleOcrCore.Line>? {
         val engine = core(context, pack) ?: return null
+        engine.allowVertical = vertical
         return try {
             val w = bitmap.width
             val h = bitmap.height

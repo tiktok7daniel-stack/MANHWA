@@ -382,8 +382,9 @@ object ScanlationRenderer {
             val lineH = block.lineBoxes.map { it.h }.average().toFloat() * s
             val textBox = RectF(inners.first()).apply { inners.forEach { union(it) } }
             val extra = min(lineH * 0.8f, WHOLE_EXTRA * s)
-            val whole = clamp(RectF(bounds.left, bounds.top - extra, bounds.right, bounds.bottom + extra))
-            cleanArea(whole, RectF(textBox.left, textBox.top - extra, textBox.right, textBox.bottom + extra), boxWhenBusy = false, strictKeep = true)
+            // MANHWA: wider on the sides too, so a letter the OCR missed at a line's end is inside it
+            val whole = clamp(RectF(bounds.left - extra, bounds.top - extra, bounds.right + extra, bounds.bottom + extra))
+            cleanArea(whole, RectF(textBox.left - extra, textBox.top - extra, textBox.right + extra, textBox.bottom + extra), boxWhenBusy = false, strictKeep = true)
             // MANHWA: the whole inside of the speech bubble, so no letter the OCR missed at a line's edge (a lone
             // "I", the bottom of big letters) is left next to the translation; the outline is kept
             if (kind != BubbleKind.SFX) cleanBubble(textBox, lineH)
@@ -538,7 +539,8 @@ object ScanlationRenderer {
                 val target = modelAt[i]
                 // Feathered at the area's edge so no seam shows on gradients
                 val edge = min(min(x, y), min(w - 1 - x, h - 1 - y)).toFloat()
-                val f = (edge / FEATHER).coerceIn(0f, 1f)
+                // Letters are painted out fully even at the edge (the feather is for the background, not for ink)
+                val f = if (ink[i]) 1f else (edge / FEATHER).coerceIn(0f, 1f)
                 val value = if (f >= 1f) target else mix(px[i], target, f)
                 if (value != px[i]) {
                     px[i] = value

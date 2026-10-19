@@ -33,7 +33,7 @@ object PageOcr {
         val stripH = (w * STRIP_RATIO).toInt().coerceAtLeast(64)
         if (h <= stripH * 1.15f) {
             val blocks = readStrip(recognizer, bitmap, paddle, mode)
-            return bubbleFinder(bitmap).let { finder -> PageTranslation(markSfx(mergeLines(blocks, w.toFloat(), finder), finder), w.toFloat(), h.toFloat()) }
+            return bubbleFinder(bitmap).let { finder -> PageTranslation(markSfx(absorbSingles(mergeLines(blocks, w.toFloat(), finder)), finder), w.toFloat(), h.toFloat()) }
         }
         val overlap = (stripH * OVERLAP).toInt()
         val found = mutableListOf<TranslationBlock>()
@@ -46,18 +46,68 @@ object PageOcr {
             } finally {
                 if (strip !== bitmap) strip.recycle()
             }
-            for (block in part) {
+            // MANHWA: a line cut by the strip's edge is read from half its letters ("IW", "IFI"); the next strip
+            // (they overlap by more than a line) reads it whole, so the cut reading is left out
+            val whole = part.mapNotNull { dropCutLines(it, cutTop = top > 0, cutBottom = top + sh < h, stripH = sh.toFloat()) }
+            for (block in whole) {
                 val moved = block.shifted(top.toFloat())
                 val twin = found.indexOfFirst { overlapRatio(it, moved) > 0.3f }
+                // A bubble read twice keeps its larger reading, and the lines of both readings are erased
                 when {
                     twin < 0 -> found += moved
-                    moved.width * moved.height > found[twin].width * found[twin].height -> found[twin] = moved
+                    moved.width * moved.height > found[twin].width * found[twin].height -> found[twin] = absorb(moved, found[twin])
+                    else -> found[twin] = absorb(found[twin], moved)
                 }
             }
             if (top + sh >= h) break
             top += sh - overlap
         }
-        return bubbleFinder(bitmap).let { finder -> PageTranslation(markSfx(mergeLines(found, w.toFloat(), finder), finder), w.toFloat(), h.toFloat()) }
+        return bubbleFinder(bitmap).let { finder -> PageTranslation(markSfx(absorbSingles(mergeLines(found, w.toFloat(), finder)), finder), w.toFloat(), h.toFloat()) }
+    }
+
+    /**
+     * MANHWA: [block] (strip pixels) without its lines cut by the strip's top or bottom edge; null when every
+     * line is cut. The text is rebuilt from the lines kept when each line of the text has its box; otherwise
+     * the block stays as read (the larger reading of the two strips wins).
+     */
+    internal fun dropCutLines(block: TranslationBlock, cutTop: Boolean, cutBottom: Boolean, stripH: Float): TranslationBlock? {
+        if (!cutTop && !cutBottom) return block
+        val lines = block.lineBoxes
+        val cut = lines.map { (cutBottom && it.y + it.h >= stripH - EDGE_PX) || (cutTop && it.y <= EDGE_PX) }
+        if (cut.none { it }) return block
+        if (cut.all { it }) return null
+        val texts = block.text.split('\n')
+        if (texts.size != lines.size) return block
+        val keep = lines.indices.filter { !cut[it] }
+        val kept = keep.map { lines[it] }
+        val left = kept.minOf { it.x }
+        val top = kept.minOf { it.y }
+        return block.copy(
+            text = keep.joinToString("\n") { texts[it] },
+            x = left,
+            y = top,
+            width = kept.maxOf { it.x + it.w } - left,
+            height = kept.maxOf { it.y + it.h } - top,
+            lines = kept,
+        )
+    }
+
+    /**
+     * MANHWA: a block of one letter (a lone "I" or "A" the OCR read apart at a line's edge) is not text of its
+     * own: its box goes to the nearest block of the same size, so it is erased with it, or it is dropped.
+     */
+    private fun absorbSingles(blocks: MutableList<TranslationBlock>): MutableList<TranslationBlock> {
+        val singles = blocks.filter { b ->
+            val compact = b.text.filterNot { it.isWhitespace() }
+            compact.length <= 2 && compact.count { it.isLetterOrDigit() } == 1
+        }
+        if (singles.isEmpty()) return blocks
+        blocks.removeAll(singles)
+        for (single in singles) {
+            val host = blocks.filter { near(it, single) }.minByOrNull { distance(it, single) } ?: continue
+            blocks[blocks.indexOf(host)] = absorb(host, single)
+        }
+        return blocks
     }
 
     /**
@@ -85,7 +135,7 @@ object PageOcr {
     }
 
     fun toPageTranslation(blocks: List<Text.TextBlock>, width: Int, height: Int): PageTranslation =
-        PageTranslation(markSfx(mergeLines(toBlocks(blocks), width.toFloat())), width.toFloat(), height.toFloat())
+        PageTranslation(markSfx(absorbSingles(mergeLines(toBlocks(blocks), width.toFloat()))), width.toFloat(), height.toFloat())
 
     /**
      * MANHWA: marks sound effects drawn as art (huge letters, one short word, or a known onomatopoeia) with the
@@ -99,7 +149,10 @@ object PageOcr {
         val median = if (heights.size >= SFX_MIN_BLOCKS) heights[heights.size / 2] else 0f
         blocks.forEach {
             when {
-                looksLikeSfx(it, median) -> it.kind = SFX
+                // MANHWA: a big short word inside a speech bubble ("NO!", "STOP") is a shout, translated like any
+                // line; a known sound stays a sound wherever it is drawn
+                looksLikeSfx(it, median) -> it.kind =
+                    if (!looksLikeSfx(it, 0f) && bubbleOf?.invoke(it) != null) TextKindRules.SHOUT else SFX
                 // MANHWA art text: a skill, a spell or a sign drawn in huge letters, not a sound and not a bubble;
                 // big letters inside a speech bubble are a shout, erased and replaced like any line
                 looksLikeArt(it, median) -> it.kind = TextKindRules.bigLetters(inBubble = bubbleOf?.invoke(it) != null)
@@ -148,7 +201,7 @@ object PageOcr {
         if (paddle != null) {
             val dual = mode != eu.kanade.translation.ocr.PaddleOcrEngine.Mode.PADDLE
             // Light letters on dark panels are looked for here too (they used to be read in the ML Kit-only mode only)
-            val mlkit = if (dual) runCatching { readWithDark(recognizer, strip, 1f) }.getOrDefault(emptyList()) else emptyList()
+            val mlkit = if (dual) runCatching { readWithDark(recognizer, strip, scale) }.getOrDefault(emptyList()) else emptyList()
             val sure = mlkit.filter { it.ocrConfidence >= eu.kanade.translation.ocr.OcrFusion.TRUST && !eu.kanade.translation.ocr.OcrFusion.garbled(it.text) }
             val lines = runCatching { paddle(strip) { box -> sure.none { covers(it, box) } } }.getOrNull()
             if (lines != null) {
@@ -243,7 +296,7 @@ object PageOcr {
         )
 
     private fun read(recognizer: TextRecognizer, bitmap: Bitmap): List<Text.TextBlock> =
-        recognizer.recognize(InputImage.fromBitmap(bitmap, 0)).textBlocks.filter { it.boundingBox != null && it.text.length > 1 }
+        recognizer.recognize(InputImage.fromBitmap(bitmap, 0)).textBlocks.filter { b -> b.boundingBox != null && (b.text.length > 1 || b.text.any { it.isLetterOrDigit() }) }
 
     private fun toBlocks(blocks: List<Text.TextBlock>): List<TranslationBlock> = blocks.mapNotNull { block ->
         // MANHWA: the least sure line decides how sure the bubble is (a misread word spoils the whole line)
@@ -454,6 +507,9 @@ object PageOcr {
     }
 
     private const val STRIP_RATIO = 2.2f
+
+    /** A line this close (pixels) to a strip's cut edge was cut by it. */
+    private const val EDGE_PX = 2f
     private const val BUBBLE_MARGIN_MAX = 200
 
     /** Pages narrower than this are read enlarged by [UPSCALE] (their letters are small for the OCR). */
