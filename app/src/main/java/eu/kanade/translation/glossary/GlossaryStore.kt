@@ -43,7 +43,11 @@ class GlossaryStore(private val context: Context) {
         val kind: String = "",
         val gender: String = "",
         val note: String = "",
-    )
+        /** MANHWA collection review: checked in a review (the reader's own edits count as checked too). */
+        val reviewed: Boolean = false,
+    ) {
+        val checked: Boolean get() = edited || reviewed
+    }
 
     /** What happened in a chapter, in a sentence or three, kept to give the next chapters their context. */
     @Serializable
@@ -66,6 +70,38 @@ class GlossaryStore(private val context: Context) {
     private fun file(mangaId: Long) = File(File(context.filesDir, "glossary").apply { mkdirs() }, "$mangaId.json")
 
     fun flow(mangaId: Long): StateFlow<List<Entry>> = state(mangaId).asStateFlow()
+
+    /** MANHWA collection review: the names nobody has checked yet, by series (only series that have some). */
+    fun unreviewed(): Map<Long, List<Entry>> =
+        mangaIds().associateWith { id -> get(id).filterNot { it.checked } }.filterValues { it.isNotEmpty() }
+
+    /**
+     * MANHWA collection review: a series' names as corrected in a review. A new wording replaces the AI's (the pages
+     * shown and the collection's lines follow it), the same one is approved, an empty one deletes the name; each
+     * counts as checked. A name the reader corrected meanwhile keeps the reader's.
+     */
+    fun applyReview(mangaId: Long, terms: List<Entry>) {
+        if (terms.isEmpty()) return
+        val changed = mutableListOf<Edit>()
+        update(mangaId) { list ->
+            val byLower = terms.filter { it.source.isNotBlank() }.associateBy { it.source.trim().lowercase() }
+            list.mapNotNull { entry ->
+                val new = byLower[entry.source.lowercase()] ?: return@mapNotNull entry
+                if (entry.edited) return@mapNotNull entry
+                val translation = new.translation.trim()
+                if (translation.isEmpty()) return@mapNotNull null
+                if (translation != entry.translation) changed += Edit(mangaId, entry.source, entry.translation, translation)
+                entry.copy(
+                    translation = translation,
+                    reviewed = true,
+                    kind = new.kind.ifBlank { entry.kind },
+                    gender = new.gender.ifBlank { entry.gender },
+                    note = new.note.ifBlank { entry.note },
+                )
+            }
+        }
+        changed.forEach { _edits.tryEmit(it) }
+    }
 
     /** MANHWA: every series that has a glossary saved. */
     fun mangaIds(): List<Long> =
@@ -183,11 +219,12 @@ class GlossaryStore(private val context: Context) {
             val merged = incoming.map { new ->
                 val source = new.source.trim()
                 val translation = new.translation.trim()
-                val old = byLower[source.lowercase()] ?: return@map new.copy(source = source, translation = translation)
+                val old = byLower[source.lowercase()] ?: return@map new.copy(source = source, translation = translation, reviewed = true)
                 if (old.translation != translation) changed += Edit(mangaId, old.source, old.translation, translation)
                 old.copy(
                     translation = translation,
                     edited = old.edited || new.edited || old.translation != translation,
+                    reviewed = true,
                     kind = new.kind.ifBlank { old.kind },
                     gender = new.gender.ifBlank { old.gender },
                     note = new.note.ifBlank { old.note },

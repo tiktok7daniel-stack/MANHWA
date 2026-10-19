@@ -31,4 +31,11 @@ class CollectionReviewTest {
         CollectionReview.outcome(line.copy(translation = " جيت! "), "جيت!") shouldBe CollectionReview.Outcome.APPROVED
         CollectionReview.outcome(line.copy(translation = ""), "جيت!") shouldBe CollectionReview.Outcome.DELETED
     }
+
+    @Test
+    fun `a name left empty in a glossary stays in the file, to be deleted`() {
+        val glossary = CollectionReview.Glossary(7L, "Lookism", listOf(CollectionReview.Term("Daniel", ""), CollectionReview.Term("", "x")))
+        val text = CollectionReview.encode(emptyList(), listOf(glossary), from = 0L, to = 0L, now = 1L)
+        CollectionReview.decode(text)?.glossaries?.single()?.terms shouldBe listOf(CollectionReview.Term("Daniel", ""))
+    }
 }

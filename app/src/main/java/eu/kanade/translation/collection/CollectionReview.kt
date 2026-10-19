@@ -8,9 +8,9 @@ import kotlinx.serialization.json.Json
 /**
  * MANHWA collection review: the lines the AI saved that nobody has checked yet, in a JSON file the reader
  * corrects (or gives to an AI to correct) and imports back. Every line in the imported file counts as reviewed,
- * so the next export only holds what the AI added after it. The file also holds every series' names glossary, so
- * names are corrected in the same place: an imported glossary is that series' whole glossary from then on (and the
- * collection's lines with a changed name follow it). Pure, tested without a phone.
+ * so the next export only holds what the AI added after it. The series' names glossaries are part of it the same
+ * way: the names nobody checked yet go in the file by series, and each corrected name goes back to its series (the
+ * collection's lines with that name follow it). Pure, tested without a phone.
  */
 object CollectionReview {
 
@@ -20,8 +20,8 @@ object CollectionReview {
     const val RULES = "Correct \"translation\" only. Keep {n}, {n1}, {name} and the like exactly as they are " +
         "(they are filled with this line's own numbers and names). An empty translation deletes the line. " +
         "Set \"sensitive\" to true when the line depends on who speaks (he/she, polite/rude). Do not change \"k\". " +
-        "In \"glossaries\", correct each name's Arabic \"translation\"; a name removed from a list is removed from that " +
-        "series. Do not change \"mangaId\"."
+        "In \"glossaries\", correct each name's Arabic \"translation\" the same way (empty deletes the name). " +
+        "Do not change \"mangaId\" or \"source\"."
 
     @Serializable
     data class Line(
@@ -83,7 +83,8 @@ object CollectionReview {
     }.getOrNull()?.takeIf { it.format == FORMAT }?.let { file ->
         Parsed(
             lines = file.lines.filter { it.k.isNotBlank() && it.src.isNotBlank() && it.tgt.isNotBlank() },
-            glossaries = file.glossaries.map { g -> g.copy(terms = g.terms.filter { it.source.isNotBlank() && it.translation.isNotBlank() }) },
+            // An empty translation stays: it deletes the name
+            glossaries = file.glossaries.map { g -> g.copy(terms = g.terms.filter { it.source.isNotBlank() }) },
         )
     }
 

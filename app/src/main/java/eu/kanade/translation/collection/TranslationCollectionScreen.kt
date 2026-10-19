@@ -89,10 +89,15 @@ class TranslationCollectionScreen : Screen() {
 
         // MANHWA review: lines nobody has checked yet (count, oldest date)
         var unreviewed by remember { mutableStateOf(0L to 0L) }
+        // Names nobody checked yet: how many, in how many series
+        var unreviewedNames by remember { mutableStateOf(0 to 0) }
         var reviewRounds by remember { mutableStateOf(emptyList<TranslationCollection.ReviewRound>()) }
         LaunchedEffect(refresh) {
             stats = withContext(Dispatchers.IO) { collection.stats() }
             unreviewed = withContext(Dispatchers.IO) { collection.unreviewed() }
+            unreviewedNames = withContext(Dispatchers.IO) {
+                runCatching { context.appGraph.glossaryStore.unreviewed().let { m -> m.values.sumOf { it.size } to m.size } }.getOrDefault(0 to 0)
+            }
             reviewRounds = withContext(Dispatchers.IO) { collection.reviewRounds() }
         }
         LaunchedEffect(query, kind, refresh) {
@@ -110,11 +115,10 @@ class TranslationCollectionScreen : Screen() {
             if (uri == null) return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
                 val count = runCatching {
-                    // Every series' names glossary goes in the same file, to be corrected in one place
+                    // The names nobody checked yet, by series, go in the same file to be corrected in one place
                     val graph = context.appGraph
-                    val glossaries = graph.glossaryStore.mangaIds().mapNotNull { id ->
-                        val terms = graph.glossaryStore.get(id).map { CollectionReview.Term(it.source, it.translation, it.kind, it.gender, it.note) }
-                        if (terms.isEmpty()) return@mapNotNull null
+                    val glossaries = graph.glossaryStore.unreviewed().map { (id, entries) ->
+                        val terms = entries.map { CollectionReview.Term(it.source, it.translation, it.kind, it.gender, it.note) }
                         CollectionReview.Glossary(id, graph.getMangaById.await(id)?.title.orEmpty(), terms)
                     }
                     context.contentResolver.openOutputStream(uri)!!.use { collection.exportReview(it, glossaries) }
@@ -128,14 +132,13 @@ class TranslationCollectionScreen : Screen() {
             if (uri == null) return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
                 val result = runCatching { collection.importReview(context.contentResolver.openInputStream(uri)!!) }.getOrNull()
-                // Each series' corrected glossary becomes its glossary (lines with a changed name follow it)
+                // Each corrected name goes back to its series (lines with a changed name follow it)
                 result?.glossaries?.forEach { g ->
                     val store = context.appGraph.glossaryStore
                     runCatching {
-                        store.importPack(
+                        store.applyReview(
                             g.mangaId,
                             g.terms.map { eu.kanade.translation.glossary.GlossaryStore.Entry(it.source, it.translation, kind = it.kind, gender = it.gender, note = it.note) },
-                            replace = true,
                         )
                     }
                 }
@@ -319,9 +322,12 @@ class TranslationCollectionScreen : Screen() {
                             },
                             style = MaterialTheme.typography.bodyMedium,
                         )
+                        val (names, series) = unreviewedNames
+                        if (names > 0) Text(stringResource(ATMR.strings.col_review_names, names, series), style = MaterialTheme.typography.bodyMedium)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
-                                    onClick = { reviewExportLauncher.launch("manhwa_review_${java.time.LocalDate.now()}.json") },
+                                enabled = count > 0 || names > 0,
+                                onClick = { reviewExportLauncher.launch("manhwa_review_${java.time.LocalDate.now()}.json") },
                             ) { Text(stringResource(ATMR.strings.col_review_export)) }
                             OutlinedButton(onClick = { reviewImportLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) }) {
                                 Text(stringResource(ATMR.strings.col_review_import))
