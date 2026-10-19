@@ -246,6 +246,47 @@ private fun holoColors(primary: Color, alpha: Float): IntArray = intArrayOf(
     primary.copy(alpha = alpha).toArgb(),
 )
 
+/**
+ * The accent fill of the main buttons, active icons and selected chips, in the look's way:
+ * MANHWA Glass and Obsidian Royal the deep accent gradient (with the neon glow on Glass), Aurora Veil a sweep from
+ * the accent to its neighbour hue, Manhwa Ink a flat accent block inked and throwing a hard shadow, Monarch Holo
+ * the accent gradient with a holographic rim.
+ */
+fun Modifier.accentFill(shape: Shape, glow: Float = 0.25f): Modifier = composed {
+    val look = LocalManhwaLook.current
+    val primary = MaterialTheme.colorScheme.primary
+    when (look.style) {
+        ManhwaStyle.AURORA -> this
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(primary, primary.hueShift(45f))), shape)
+            .border(1.dp, Color.White.copy(alpha = 0.22f), shape)
+        ManhwaStyle.INK -> {
+            val shift = with(LocalDensity.current) { 3.dp.toPx() }
+            val line = if (look.light) LookTokens.InkBlack else LookTokens.InkNightLine
+            val shadow = if (look.light) LookTokens.InkBlack else Color.Black
+            this
+                .drawWithCache {
+                    val outline = shape.createOutline(size, layoutDirection, this)
+                    val dx = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) -shift else shift
+                    onDrawBehind { translate(left = dx, top = shift) { drawOutline(outline, shadow) } }
+                }
+                .clip(shape)
+                .background(primary, shape)
+                .border(1.5.dp, line, shape)
+        }
+        ManhwaStyle.HOLO -> this
+            .neonGlow(shape, primary, glow * 0.6f, 8.dp)
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(primary, lerp(primary.hueShift(-40f), Color.Black, 0.3f))), shape)
+            .border(1.dp, Brush.sweepGradient(listOf(Color.White.copy(alpha = 0.6f), primary.hueShift(60f), Color.White.copy(alpha = 0.2f), primary.hueShift(-60f), Color.White.copy(alpha = 0.6f))), shape)
+        else -> this
+            .neonGlow(shape, primary, glow, 10.dp)
+            .clip(shape)
+            .background(Brush.horizontalGradient(listOf(primary, lerp(primary, Color.Black, 0.45f))), shape)
+            .border(1.dp, Color.White.copy(alpha = 0.25f), shape)
+    }
+}
+
 // ------------------------------------------------------------------ backdrops
 
 /** The backdrop of the three looks, behind every glass screen. */
