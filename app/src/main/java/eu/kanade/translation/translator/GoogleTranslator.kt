@@ -81,13 +81,15 @@ class GoogleTranslator(
     private suspend fun offlineFallback(blocks: List<TranslationBlock>): Boolean {
         if (!TextTranslatorLanguage.mlkitSupportedLanguages().contains(toLang)) return false
         val translator = mlkit ?: MLKitTranslator(fromLang, toLang).also { mlkit = it }
+        translator.glossary = glossary
         val work = blocks.map { it.copy(translation = "") }.toMutableList()
         // Its model is downloaded once; a phone that cannot get it in time keeps the chapter as failed
         kotlinx.coroutines.withTimeoutOrNull(OFFLINE_TIMEOUT_MS) {
             translator.translate(mutableMapOf("google-fallback" to PageTranslation(work, 0f, 0f)))
         } ?: return false
         if (work.any { it.translation.isBlank() }) return false
-        blocks.forEachIndexed { i, block -> block.translation = finish(work[i].translation, block.text) }
+        // ML Kit already joined, named, cleaned and polished each bubble
+        blocks.forEachIndexed { i, block -> block.translation = work[i].translation }
         return true
     }
 

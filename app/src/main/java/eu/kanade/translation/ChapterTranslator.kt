@@ -619,6 +619,7 @@ class ChapterTranslator(
                 (textTranslator as? eu.kanade.translation.translator.FastTranslator)?.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
                 // MANHWA Google Translate with no key: the same names and codex go in before the lines are sent
                 (textTranslator as? eu.kanade.translation.translator.GoogleTranslator)?.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
+                (textTranslator as? eu.kanade.translation.translator.MLKitTranslator)?.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
                 // MANHWA on-device AI: the series glossary and the codex for the model on the phone too
                 (textTranslator as? eu.kanade.translation.local.LocalAiTranslator)?.apply {
                     glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(glossaryStore.asMap(translation.manga.id), codex)
