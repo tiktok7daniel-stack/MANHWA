@@ -37,6 +37,9 @@ class SourcePreferences(
     /** MANHWA: keeps +18 sources, extensions and series out of every list (on by default). */
     val hideAdult: Preference<Boolean> = preferenceStore.getBoolean("manhwa_hide_adult", true)
 
+    /** MANHWA: the reverse of [hideAdult]: only +18 sources and extensions show, every other one stays out. */
+    val onlyAdult: Preference<Boolean> = preferenceStore.getBoolean("manhwa_only_adult", false)
+
     /** MANHWA: fame scores the team's AI gave to sources the built-in index doesn't know, as JSON. */
     val sourceFameAi: Preference<String> = preferenceStore.getString("manhwa_source_fame_ai", "{}")
 
@@ -64,6 +67,9 @@ class SourcePreferences(
     val homeSourcesOrder: Preference<String> = preferenceStore.getString("manhwa_home_sources_order", "")
 
     val homeSources: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_home_sources", emptySet())
+
+    /** MANHWA: minutes between checks of the home sources for new chapters (on opening and in the background). */
+    val freshIntervalMin: Preference<Int> = preferenceStore.getInt("manhwa_fresh_interval_min", 30)
 
     val incognitoExtensions: Preference<Set<String>> = preferenceStore.getStringSet("incognito_extensions", emptySet())
 

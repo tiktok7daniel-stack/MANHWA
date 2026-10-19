@@ -87,8 +87,18 @@ class TranslationCollectionScreen : Screen() {
         var editing by remember { mutableStateOf<TranslationCollection.Entry?>(null) }
         var confirmClear by remember { mutableStateOf(false) }
 
+        // MANHWA review: lines nobody has checked yet (count, oldest date)
+        var unreviewed by remember { mutableStateOf(0L to 0L) }
+        // Names nobody checked yet: how many, in how many series
+        var unreviewedNames by remember { mutableStateOf(0 to 0) }
+        var reviewRounds by remember { mutableStateOf(emptyList<TranslationCollection.ReviewRound>()) }
         LaunchedEffect(refresh) {
             stats = withContext(Dispatchers.IO) { collection.stats() }
+            unreviewed = withContext(Dispatchers.IO) { collection.unreviewed() }
+            unreviewedNames = withContext(Dispatchers.IO) {
+                runCatching { context.appGraph.glossaryStore.unreviewed().let { m -> m.values.sumOf { it.size } to m.size } }.getOrDefault(0 to 0)
+            }
+            reviewRounds = withContext(Dispatchers.IO) { collection.reviewRounds() }
         }
         LaunchedEffect(query, kind, refresh) {
             entries = withContext(Dispatchers.IO) { collection.entries(query.trim(), kind) }
@@ -99,6 +109,54 @@ class TranslationCollectionScreen : Screen() {
             scope.launch(Dispatchers.IO) {
                 val ok = runCatching { context.contentResolver.openOutputStream(uri)!!.use(collection::exportTo) }.isSuccess
                 withContext(Dispatchers.Main) { context.toast(if (ok) ATMR.strings.col_exported else ATMR.strings.col_failed) }
+            }
+        }
+        val reviewExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch(Dispatchers.IO) {
+                val count = runCatching {
+                    // The names nobody checked yet, by series, go in the same file to be corrected in one place
+                    val graph = context.appGraph
+                    val glossaries = graph.glossaryStore.unreviewed().map { (id, entries) ->
+                        val terms = entries.map { CollectionReview.Term(it.source, it.translation, it.kind, it.gender, it.note) }
+                        CollectionReview.Glossary(id, graph.getMangaById.await(id)?.title.orEmpty(), terms)
+                    }
+                    context.contentResolver.openOutputStream(uri)!!.use { collection.exportReview(it, glossaries) }
+                }.getOrNull()
+                withContext(Dispatchers.Main) {
+                    if (count != null) context.toast(context.stringResource(ATMR.strings.col_review_exported, count)) else context.toast(ATMR.strings.col_failed)
+                }
+            }
+        }
+        val reviewImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch(Dispatchers.IO) {
+                val result = runCatching { collection.importReview(context.contentResolver.openInputStream(uri)!!) }.getOrNull()
+                // The most used corrections become lessons: the AI is shown them and turns them into rules
+                result?.lessons?.forEach { (source, wrong, right) ->
+                    lessons.add(
+                        eu.kanade.translation.learning.LessonStore.GLOBAL,
+                        eu.kanade.translation.learning.LessonStore.Lesson(source, wrong, right, eu.kanade.translation.learning.LessonStore.Origin.USER.name),
+                    )
+                }
+                // Each corrected name goes back to its series (lines with a changed name follow it; a changed name is a lesson too)
+                result?.glossaries?.forEach { g ->
+                    val store = context.appGraph.glossaryStore
+                    runCatching {
+                        store.applyReview(
+                            g.mangaId,
+                            g.terms.map { eu.kanade.translation.glossary.GlossaryStore.Entry(it.source, it.translation, kind = it.kind, gender = it.gender, note = it.note) },
+                        )
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    if (result != null) {
+                        context.toast(context.stringResource(ATMR.strings.col_review_done, result.corrected, result.approved, result.deleted, result.glossaries.size))
+                    } else {
+                        context.toast(ATMR.strings.col_review_not_file)
+                    }
+                    refresh++
+                }
             }
         }
         val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -252,6 +310,51 @@ class TranslationCollectionScreen : Screen() {
                             Text(stringResource(if (optimizing) ATMR.strings.db_optimizing else ATMR.strings.db_optimize_go))
                         }
                         optimized?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+                    }
+                }
+                // MANHWA review: export what the AI saved and nobody checked, correct it, import it back
+                item {
+                    Card {
+                        Text(stringResource(ATMR.strings.col_review_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        val (count, since) = unreviewed
+                        Text(
+                            if (count > 0) {
+                                stringResource(
+                                    ATMR.strings.col_review_body,
+                                    count.toInt(),
+                                    java.text.DateFormat.getDateInstance().format(java.util.Date(since)),
+                                )
+                            } else {
+                                stringResource(ATMR.strings.col_review_none)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        val (names, series) = unreviewedNames
+                        if (names > 0) Text(stringResource(ATMR.strings.col_review_names, names, series), style = MaterialTheme.typography.bodyMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                enabled = count > 0 || names > 0,
+                                onClick = { reviewExportLauncher.launch("manhwa_review_${java.time.LocalDate.now()}.json") },
+                            ) { Text(stringResource(ATMR.strings.col_review_export)) }
+                            OutlinedButton(onClick = { reviewImportLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) }) {
+                                Text(stringResource(ATMR.strings.col_review_import))
+                            }
+                        }
+                        // The rounds so far, newest first: each one holds what the AI added after the one before
+                        reviewRounds.forEachIndexed { i, round ->
+                            Text(
+                                stringResource(
+                                    ATMR.strings.col_review_round,
+                                    reviewRounds.size - i,
+                                    java.text.DateFormat.getDateInstance().format(java.util.Date(round.at)),
+                                    round.corrected,
+                                    round.approved,
+                                    round.deleted,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
                 // Backup, move to another phone, start over

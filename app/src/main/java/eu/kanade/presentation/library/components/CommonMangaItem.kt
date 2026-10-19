@@ -193,7 +193,7 @@ fun MangaComfortableGridItem(
     statusLabel: String? = null,
 ) {
     // MANHWA Obsidian Royal: an editorial card, the cover fills it and the title sits on a soft fade at its bottom
-    val editorial = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
+    val editorial = eu.kanade.presentation.components.LocalManhwaLook.current.isSolid
     GridItemSelectable(
         isSelected = isSelected,
         onClick = onClick,
@@ -234,7 +234,7 @@ fun MangaComfortableGridItem(
                                     statusLabel,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    color = Color.White,
+                                    color = eu.kanade.presentation.components.pillText,
                                     maxLines = 1,
                                     modifier = Modifier
                                         .padding(bottom = 4.dp)
@@ -395,8 +395,9 @@ private fun GridItemSelectable(
 ) {
     // MANHWA: each title sits on a glass card; a crimson rim marks the selection.
     // Obsidian Royal: the cover is the card (14 dp corners), and the card gives a little under the finger
-    val editorial = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
-    val shape = RoundedCornerShape(if (editorial) eu.kanade.presentation.components.ObsidianTokens.CARD_RADIUS.dp else 18.dp)
+    val look = eu.kanade.presentation.components.LocalManhwaLook.current
+    val editorial = look.isSolid
+    val shape = RoundedCornerShape(look.cardRadius.dp)
     Box(
         modifier = modifier
             .glass(shape, accent = isSelected, alpha = if (isSelected) 0.7f else 0.45f)

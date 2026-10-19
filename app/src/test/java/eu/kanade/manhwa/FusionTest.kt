@@ -26,6 +26,21 @@ class FusionRulesTest {
     }
 
     @Test
+    fun `a chapter missing in the middle is filled from the other source, then it goes on after the last one`() {
+        val ours = (1..141).map { it.toDouble() }.filter { it != 139.0 } + 140.5
+        val out = FusionRules.continuation(ours, (1..150).map { it.toDouble() to "en$it" })
+        out.map { it.second } shouldBe (150 downTo 142).map { "en$it" } + "en139"
+    }
+
+    @Test
+    fun `a chapter missing in the middle hands back to the work's own next chapter`() {
+        // 138 (ar), 139 (en, filled), 140 (ar): reading 139 stops there and goes back to the Arabic list
+        val fused = listOf(Triple(138.0, 1L, 138L), Triple(139.0, 2L, 1139L), Triple(140.0, 1L, 140L), Triple(141.0, 2L, 1141L))
+        FusionRules.runAround(fused, 2L, 1139L) shouldBe setOf(1139L)
+        FusionRules.after(139.0, fused.map { it.first to it.third }) shouldBe 140L
+    }
+
+    @Test
     fun `one chapter per number, extras without a number are left out`() {
         val theirs = listOf(30.0 to "a", 30.0 to "b", -1.0 to "extra", 31.0 to "c")
         FusionRules.continuation(listOf(25.0), theirs).map { it.second } shouldBe listOf("c", "a")

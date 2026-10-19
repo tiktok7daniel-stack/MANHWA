@@ -21,12 +21,12 @@ private fun PillBadge(text: String) {
         text = text,
         modifier = Modifier.obsidianPill(),
         color = androidx.compose.ui.graphics.Color.Transparent,
-        textColor = eu.kanade.presentation.components.ObsidianTokens.Ink,
+        textColor = eu.kanade.presentation.components.pillText,
     )
 }
 
 @Composable
-private fun obsidian() = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
+private fun obsidian() = eu.kanade.presentation.components.LocalManhwaLook.current.isSolid
 
 @Composable
 internal fun DownloadsBadge(count: Int) {

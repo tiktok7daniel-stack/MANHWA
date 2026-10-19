@@ -249,6 +249,10 @@ class AiTranslator(
     /** MANHWA orchestra: work goes on without a finished batch (the phone's models drafting or rereading). */
     var onAlive: (() -> Unit)? = null
 
+    /** MANHWA: a found term worth keeping (a name, not a whole line or a credit; Arabic for an Arabic target). */
+    private fun accepts(source: String, translation: String): Boolean =
+        eu.kanade.translation.glossary.TermFilter.accepts(source, translation, toLang == TextTranslatorLanguage.ARABIC)
+
     private fun collectTerms(output: JsonObject) {
         if (askSummary) {
             (output[SUMMARY_KEY] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }?.let { summaries += it.take(300) }
@@ -258,7 +262,7 @@ class AiTranslator(
             // A plain translation, or (rich terms) {"t": translation, "kind": ..., "gender": ...}
             val details = value as? JsonObject
             val translation = (details?.get("t") ?: value).let { (it as? JsonPrimitive)?.contentOrNull }?.trim().orEmpty()
-            if (source.isNotBlank() && translation.isNotBlank() && glossary.keys.none { it.equals(source, ignoreCase = true) }) {
+            if (accepts(source, translation) && glossary.keys.none { it.equals(source, ignoreCase = true) }) {
                 discoveredTerms[source.trim()] = translation
                 if (details != null) {
                     discoveredDetails[source.trim()] = TermInfo(
@@ -688,6 +692,8 @@ class AiTranslator(
             appendLine("items. For characters give their gender when the text makes it clear and, in a few words, how they speak.")
             appendLine("Reply as {\"terms\": [{\"s\": \"<as written>\", \"t\": \"<translation>\", \"kind\":")
             appendLine("\"character|skill|place|title|group|item\", \"gender\": \"male|female|\", \"note\": \"<how they speak, or empty>\"}]}.")
+            appendLine("\"t\" is written in ${toLang.label} letters. Only names and terms of one to four words: never a whole line,")
+            appendLine("a question, a cry, a site name or a credit, and never a label like \"Question\" instead of a translation.")
             appendLine("At most 25 terms. Chapter text:")
             append(chapterText.take(SCOUT_MAX_CHARS))
         }
@@ -697,7 +703,7 @@ class AiTranslator(
             fun str(key: String) = (o[key] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
             val source = str("s")
             val translation = str("t")
-            if (source.isBlank() || translation.isBlank()) null else ScoutTerm(source, translation, str("kind"), str("gender"), str("note").take(80))
+            if (!accepts(source, translation)) null else ScoutTerm(source, translation, str("kind"), str("gender"), str("note").take(80))
         }
     }
 

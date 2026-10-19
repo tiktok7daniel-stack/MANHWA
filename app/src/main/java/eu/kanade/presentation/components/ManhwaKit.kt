@@ -96,10 +96,7 @@ object ManhwaKit {
                 .size(size.dp)
                 .then(
                     if (active) {
-                        Modifier
-                            .neonGlow(CircleShape, colors.primary, 0.35f, 10.dp)
-                            .clip(CircleShape)
-                            .background(accentBrush())
+                        Modifier.accentFill(CircleShape, glow = 0.35f)
                     } else {
                         Modifier.glass(RoundedCornerShape((size / 3).dp), alpha = 0.45f)
                     },
@@ -126,10 +123,8 @@ object ManhwaKit {
         val colors = MaterialTheme.colorScheme
         Row(
             modifier = modifier
-                .neonGlow(RoundedCornerShape(16.dp), colors.primary, 0.25f, 10.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(accentBrush())
-                .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+                // Each look draws its own main button (the deep gradient, the inked block, the holographic rim)
+                .accentFill(RoundedCornerShape(if (LocalManhwaLook.current.style == ManhwaStyle.INK) 8.dp else 16.dp))
                 .pressClickable(onClick = onClick)
                 .padding(horizontal = 18.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.Center,
@@ -173,10 +168,7 @@ object ManhwaKit {
             modifier = Modifier
                 .then(
                     if (selected) {
-                        Modifier
-                            .neonGlow(shape, MaterialTheme.colorScheme.primary, 0.2f, 8.dp)
-                            .clip(shape)
-                            .background(accentBrush())
+                        Modifier.accentFill(shape, glow = 0.2f)
                     } else {
                         Modifier.glass(shape, alpha = 0.35f)
                     },
@@ -230,7 +222,14 @@ object ManhwaKit {
                     .width(4.dp)
                     .height(if (subtitle != null) 38.dp else 24.dp)
                     .neonGlow(RoundedCornerShape(2.dp), colors.primary, 0.3f, 6.dp)
-                    .background(Brush.verticalGradient(listOf(colors.primary, colors.primary.copy(alpha = 0.2f))), RoundedCornerShape(2.dp)),
+                    .then(
+                        // Manhwa Ink: a solid inked block, like the caption marker of a comic
+                        if (LocalManhwaLook.current.style == ManhwaStyle.INK) {
+                            Modifier.background(colors.primary).border(1.dp, ManhwaInk.text)
+                        } else {
+                            Modifier.background(Brush.verticalGradient(listOf(colors.primary, colors.primary.copy(alpha = 0.2f))), RoundedCornerShape(2.dp))
+                        },
+                    ),
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {

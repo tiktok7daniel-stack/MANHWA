@@ -127,12 +127,14 @@ android {
         getByName("benchmark").res.directories.add("src/debug/res")
     }
 
+    // MANHWA: CI builds only the phone's APK (-Pmanhwa.phoneOnly): no universal or other ABI APKs to package
+    val phoneOnly = providers.gradleProperty("manhwa.phoneOnly").isPresent
     splits {
         abi {
             isEnable = true
-            isUniversalApk = true
+            isUniversalApk = !phoneOnly
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            if (phoneOnly) include("arm64-v8a") else include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
     }
 

@@ -128,7 +128,8 @@ class FreshChaptersEngine(
         return isStale()
     }
 
-    fun isStale(): Boolean = System.currentTimeMillis() - _state.value.updatedAt > STALE_MS
+    /** Older than the reader's interval between checks (half an hour unless chosen otherwise). */
+    fun isStale(): Boolean = System.currentTimeMillis() - _state.value.updatedAt > sourcePreferences.freshIntervalMin.get().coerceAtLeast(1) * 60_000L
 
     /** Sources the feed follows: the reader's home sources, in their order. */
     suspend fun sources(): List<Source> {
@@ -272,9 +273,12 @@ class FreshChaptersEngine(
         private const val PARALLEL = 4
         private const val TIMEOUT_MS = 20_000L
         private const val MAX_ITEMS = 300
-        private const val STALE_MS = 2 * 60 * 1000L
         private const val DAY_ONLY_WINDOW_MS = 36 * 60 * 60 * 1000L
+        /** The shortest background period Android allows. */
         private const val WORK_INTERVAL_MIN = 15L
+
+        /** The intervals the reader can choose between, in minutes. */
+        val INTERVALS = listOf(15, 30, 60, 120, 360)
 
         /** A date with no time of day (midnight here or in UTC): the source only knows the day. */
         private fun isDayOnly(millis: Long): Boolean {
@@ -285,10 +289,11 @@ class FreshChaptersEngine(
         private const val KEEP_MS = 7 * 24 * 60 * 60 * 1000L
         private const val WORK_NAME = "manhwa_fresh_chapters"
 
-        /** Background check every 15 minutes (the shortest Android allows) while the phone is online. */
+        /** Background check at the reader's interval (15 minutes at least, the shortest Android allows) while online. */
         fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<FreshChaptersWorker>(WORK_INTERVAL_MIN, TimeUnit.MINUTES)
-                // Not on a low battery: the check every 15 minutes waits until the phone has charge again
+            val minutes = context.appGraph.sourcePreferences.freshIntervalMin.get().toLong().coerceAtLeast(WORK_INTERVAL_MIN)
+            val request = PeriodicWorkRequestBuilder<FreshChaptersWorker>(minutes, TimeUnit.MINUTES)
+                // Not on a low battery: the check waits until the phone has charge again
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).setRequiresBatteryNotLow(true).build())
                 .build()
             context.workManager.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)

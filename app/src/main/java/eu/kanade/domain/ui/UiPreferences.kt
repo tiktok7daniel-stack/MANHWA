@@ -38,6 +38,10 @@ class UiPreferences(
     /** Obsidian Royal in its light version (silk paper) instead of the dark one. */
     val manhwaStyleLight: Preference<Boolean> = preferenceStore.getBoolean("manhwa_style_light", false)
 
+    // MANHWA: one switch per home section (see HomeSection), keyed so a new section defaults on its own
+    fun homeSection(key: String, shownByDefault: Boolean): Preference<Boolean> =
+        preferenceStore.getBoolean("home_show_$key", shownByDefault)
+
     val relativeTime: Preference<Boolean> = preferenceStore.getBoolean("relative_time_v2", true)
 
     val dateFormat: Preference<String> = preferenceStore.getString("app_date_format", "")

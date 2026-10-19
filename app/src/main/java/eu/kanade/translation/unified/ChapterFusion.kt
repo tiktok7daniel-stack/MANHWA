@@ -45,7 +45,8 @@ import java.util.concurrent.ConcurrentHashMap
  * MANHWA smart chapter fusion: a work whose translation stopped on its source (an Arabic site stuck at chapter
  * 25) is joined with the same work on a source that kept going (an English one at chapter 100). Its chapters
  * stay first (they are ready to read), and the other source's chapters past them follow as one list; when this
- * source catches up, its own chapter takes that number's place by itself.
+ * source catches up, its own chapter takes that number's place by itself. A chapter missing in the middle of this
+ * work's list is filled from the other source at its place.
  *
  * Nothing is moved or deleted: the work keeps its source, library entry, categories and history; the other
  * source's copy is an ordinary entry only used for the chapters past this one's.
@@ -472,7 +473,10 @@ class ChapterFusion(
     /** The chapters a reader of [mangaId] (a continuation entry) goes through: its own in the fused list. */
     suspend fun readerChapterIds(mangaId: Long, chapterId: Long? = null): Set<Long>? = withContext(Dispatchers.IO) {
         val fusion = continuationOf(mangaId) ?: return@withContext null
-        val fused = continuation(fusion.baseMangaId, refresh = false).map { Triple(it.number, it.chapter.mangaId, it.chapter.id) }
+        // The work's own chapters are in the list too: a missing chapter filled from here ends its run at the next
+        // chapter of the work's own source, where the reader hands back
+        val fused = getChaptersByMangaId.await(fusion.baseMangaId).map { Triple(it.chapterNumber, it.mangaId, it.id) } +
+            continuation(fusion.baseMangaId, refresh = false).map { Triple(it.number, it.chapter.mangaId, it.chapter.id) }
         // A chapter kept from an earlier source in the middle ends this run: the reader hands over to it there
         FusionRules.runAround(fused, mangaId, chapterId)
     }
@@ -550,10 +554,13 @@ object FusionRules {
     /**
      * The other source's chapters past this work's last one (one per number), newest first: this work's own
      * chapters always win their number, so a chapter that comes out here later replaces the other one by itself.
+     * MANHWA: a chapter missing in the middle of this work's list ("Missing 1 chapter": 138 then 140) is filled
+     * from the other source too, at its place.
      */
     fun <T> continuation(ours: List<Double>, theirs: List<Pair<Double, T>>): List<Pair<Double, T>> {
         val oursMax = ours.filter { countable(it) }.maxOrNull() ?: -1.0
-        return theirs.filter { countable(it.first) && it.first > oursMax }
+        val gaps = eu.kanade.tachiyomi.ui.manga.ChapterGaps.missing(ours).map { it.toDouble() }.toSet()
+        return theirs.filter { countable(it.first) && (it.first > oursMax || it.first in gaps) }
             .groupBy { it.first }
             .map { (_, list) -> list.first() }
             .sortedByDescending { it.first }

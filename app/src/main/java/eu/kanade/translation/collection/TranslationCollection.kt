@@ -76,7 +76,9 @@ class TranslationCollection(private val context: Context) {
                     last_manga INTEGER NOT NULL DEFAULT 0,
                     sensitive INTEGER NOT NULL DEFAULT 0,
                     user INTEGER NOT NULL DEFAULT 0,
-                    last_used INTEGER NOT NULL DEFAULT 0
+                    last_used INTEGER NOT NULL DEFAULT 0,
+                    reviewed INTEGER NOT NULL DEFAULT 0,
+                    added INTEGER NOT NULL DEFAULT 0
                 )""",
             )
             db.execSQL("CREATE UNIQUE INDEX segments_key ON segments(src, tgt, key)")
@@ -84,7 +86,15 @@ class TranslationCollection(private val context: Context) {
             db.execSQL("CREATE TABLE stats (day TEXT PRIMARY KEY, lookups INTEGER NOT NULL DEFAULT 0, hits INTEGER NOT NULL DEFAULT 0)")
         }
 
-        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+            if (oldVersion < 2) {
+                // MANHWA review: which lines were checked (the reader's own corrections were) and when each came in
+                db.execSQL("ALTER TABLE segments ADD COLUMN reviewed INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE segments ADD COLUMN added INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE segments SET reviewed = 1 WHERE user = 1")
+                db.execSQL("UPDATE segments SET added = last_used")
+            }
+        }
     }
 
     private val db: SQLiteDatabase by lazy { helper.writableDatabase }
@@ -323,6 +333,8 @@ class TranslationCollection(private val context: Context) {
                     put("last_manga", mangaId)
                     put("user", if (source == Source.USER) 1 else 0)
                     put("last_used", now)
+                    put("reviewed", if (source == Source.USER) 1 else 0)
+                    put("added", now)
                 },
             )
             return
@@ -344,17 +356,23 @@ class TranslationCollection(private val context: Context) {
                 values.put("arabic", if (arabic) 1 else 0)
                 values.put("user", 1)
                 values.put("sensitive", 0)
+                values.put("reviewed", 1)
             }
             CollectionMerge.Action.KEEP -> Unit
             CollectionMerge.Action.REPLACE -> {
                 // A stronger hand (the editor over the team, a key over the phone) fixed the line: its version
                 values.put("translation", translation)
                 values.put("arabic", if (arabic) 1 else 0)
+                // A new wording the reader has not seen: it goes to the next review
+                values.put("reviewed", 0)
             }
             // The phone's other wording of a key's line changes nothing (and does not count as a use)
             CollectionMerge.Action.SKIP -> return
             // Two different translations for the same line: it depends on who speaks, so only a hint from now on
-            CollectionMerge.Action.SENSITIVE -> values.put("sensitive", 1)
+            CollectionMerge.Action.SENSITIVE -> {
+                values.put("sensitive", 1)
+                values.put("reviewed", 0)
+            }
         }
         db.update("segments", values, "id = ?", arrayOf(id.toString()))
         db.execSQL(
@@ -452,6 +470,8 @@ class TranslationCollection(private val context: Context) {
                 put("sensitive", 0)
                 put("confidence", Source.EDITOR.confidence)
                 put("uses", SURE_USES)
+                // The editor's new wording goes to the next review
+                put("reviewed", 0)
             },
             "id = ? AND user = 0",
             arrayOf(id.toString()),
@@ -468,6 +488,7 @@ class TranslationCollection(private val context: Context) {
                 put("user", 1)
                 put("sensitive", 0)
                 put("confidence", Source.USER.confidence)
+                put("reviewed", 1)
             },
             "id = ?",
             arrayOf(id.toString()),
@@ -546,6 +567,156 @@ class TranslationCollection(private val context: Context) {
     }
 
     /**
+     * MANHWA: the reviewed lines (the reader's own and corrected in a review) that share words with [lines], as
+     * prompt text for the AI; "" when none. Templates and learnt shapes are left out.
+     */
+    fun references(src: String, tgt: String, lines: List<String>, limit: Int = REFERENCES): String = runCatching {
+        val reviewed = db.query(
+            "segments",
+            arrayOf("original", "translation"),
+            "src = ? AND tgt = ? AND user = 1 AND key NOT LIKE 'shape:%' AND key NOT LIKE '%{n%' AND key NOT LIKE '%{name%'",
+            arrayOf(src, tgt),
+            null,
+            null,
+            "last_used DESC",
+            REFERENCE_ROWS.toString(),
+        ).use { c -> buildList { while (c.moveToNext()) add(c.getString(0) to c.getString(1)) } }
+        ReferencePicker.prompt(ReferencePicker.pick(lines, reviewed, limit))
+    }.getOrDefault("")
+
+    /** MANHWA review: how many lines nobody has checked yet, and the oldest one's date (0 when none). */
+    fun unreviewed(): Pair<Long, Long> = runCatching {
+        db.rawQuery("SELECT COUNT(*), IFNULL(MIN(added), 0) FROM segments WHERE user = 0 AND reviewed = 0", null).use { c ->
+            if (c.moveToFirst()) c.getLong(0) to c.getLong(1) else 0L to 0L
+        }
+    }.getOrDefault(0L to 0L)
+
+    /** MANHWA review: writes the lines nobody has checked yet, and every series' [glossaries], as a review file; returns how many lines. */
+    fun exportReview(target: java.io.OutputStream, glossaries: List<CollectionReview.Glossary>): Int {
+        val lines = mutableListOf<CollectionReview.Line>()
+        var from = Long.MAX_VALUE
+        var to = 0L
+        db.query(
+            "segments",
+            arrayOf("key", "src", "tgt", "original", "translation", "kind", "uses", "sensitive", "added"),
+            "user = 0 AND reviewed = 0",
+            null,
+            null,
+            null,
+            "added, id",
+        ).use { c ->
+            while (c.moveToNext()) {
+                lines += CollectionReview.Line(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5), c.getInt(6), c.getInt(7) == 1)
+                from = minOf(from, c.getLong(8))
+                to = maxOf(to, c.getLong(8))
+            }
+        }
+        target.write(CollectionReview.encode(lines, glossaries, if (lines.isEmpty()) 0 else from, to, System.currentTimeMillis()).toByteArray())
+        return lines.size
+    }
+
+    /** What a review file changed: lines corrected, approved as they were, and deleted; and the glossaries it holds. */
+    class ReviewResult(
+        val corrected: Int,
+        val approved: Int,
+        val deleted: Int,
+        val glossaries: List<CollectionReview.Glossary>,
+        /** The most used corrections (source, the AI's wording, the right one): lessons for the AI. */
+        val lessons: List<Triple<String, String, String>> = emptyList(),
+    )
+
+    /**
+     * MANHWA review: a corrected review file. Each line in it is reviewed: a new wording replaces the AI's and counts
+     * as the reader's own (sure from now on); the same wording is approved; an empty one deletes the line. A line
+     * the reader corrected on the phone meanwhile keeps the reader's. Null when the file is not a review file.
+     */
+    fun importReview(source: java.io.InputStream): ReviewResult? {
+        val parsed = CollectionReview.decode(source.use { it.readBytes().decodeToString() }) ?: return null
+        val lines = parsed.lines
+        var corrected = 0
+        var approved = 0
+        var deleted = 0
+        val fixes = mutableListOf<Pair<Int, Triple<String, String, String>>>()
+        db.beginTransaction()
+        try {
+            for (line in lines) {
+                val saved = db.query(
+                    "segments",
+                    arrayOf("id", "translation", "original", "uses"),
+                    "src = ? AND tgt = ? AND key = ? AND user = 0",
+                    arrayOf(line.src, line.tgt, line.k),
+                    null,
+                    null,
+                    null,
+                    "1",
+                ).use { c -> if (c.moveToFirst()) Triple(c.getLong(0), c.getString(1), c.getString(2) to c.getInt(3)) else null } ?: continue
+                val id = saved.first.toString()
+                when (CollectionReview.outcome(line, saved.second)) {
+                    CollectionReview.Outcome.DELETED -> {
+                        db.delete("segments", "id = ?", arrayOf(id))
+                        deleted++
+                    }
+                    CollectionReview.Outcome.APPROVED -> {
+                        db.update(
+                            "segments",
+                            ContentValues().apply {
+                                put("reviewed", 1)
+                                put("sensitive", if (line.sensitive) 1 else 0)
+                                // Checked and right: sure from now on, unless it depends on who speaks
+                                put("user", if (line.sensitive) 0 else 1)
+                                if (!line.sensitive) put("confidence", Source.USER.confidence)
+                            },
+                            "id = ?",
+                            arrayOf(id),
+                        )
+                        approved++
+                    }
+                    CollectionReview.Outcome.CORRECTED -> {
+                        val translation = line.translation.trim()
+                        db.update(
+                            "segments",
+                            ContentValues().apply {
+                                put("translation", translation)
+                                put("arabic", if (TextKey.arabicStyle(translation)) 1 else 0)
+                                put("reviewed", 1)
+                                put("sensitive", if (line.sensitive) 1 else 0)
+                                // Sure from now on, unless it depends on who speaks
+                                put("user", if (line.sensitive) 0 else 1)
+                                put("confidence", Source.USER.confidence)
+                            },
+                            "id = ?",
+                            arrayOf(id),
+                        )
+                        corrected++
+                        // Templates ({n}, {name}) teach nothing as examples; real lines do
+                        if ('{' !in translation) fixes += saved.third.second to Triple(saved.third.first, saved.second, translation)
+                    }
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        cache.evictAll()
+        // One more round in the list of reviews (newest first)
+        val round = "${System.currentTimeMillis()},$corrected,$approved,$deleted"
+        rounds.edit().putString(ROUNDS_KEY, (listOf(round) + reviewRounds().map { it.raw }).take(MAX_ROUNDS).joinToString(";")).apply()
+        val lessons = fixes.sortedByDescending { it.first }.take(REVIEW_LESSONS).map { it.second }
+        return ReviewResult(corrected, approved, deleted, parsed.glossaries, lessons)
+    }
+
+    /** One review imported: when, and what it changed. */
+    class ReviewRound(val at: Long, val corrected: Int, val approved: Int, val deleted: Int, val raw: String)
+
+    private val rounds by lazy { context.getSharedPreferences("manhwa_collection_review", Context.MODE_PRIVATE) }
+
+    /** MANHWA review: every review imported so far, newest first; the next one holds what came after the first. */
+    fun reviewRounds(): List<ReviewRound> = rounds.getString(ROUNDS_KEY, "").orEmpty().split(';').mapNotNull { raw ->
+        val parts = raw.split(',').mapNotNull { it.toLongOrNull() }
+        if (parts.size == 4) ReviewRound(parts[0], parts[1].toInt(), parts[2].toInt(), parts[3].toInt(), raw) else null
+    }
+
+    /**
      * Adds the lines of an exported collection to this one: new lines are added, lines already here keep
      * theirs, except where the imported one is the reader's correction. Returns how many lines were added.
      */
@@ -567,6 +738,9 @@ class TranslationCollection(private val context: Context) {
                     """UPDATE segments SET translation = (SELECT o.translation FROM other.segments o WHERE o.src = segments.src AND o.tgt = segments.tgt AND o.key = segments.key), user = 1
                        WHERE user = 0 AND EXISTS (SELECT 1 FROM other.segments o WHERE o.src = segments.src AND o.tgt = segments.tgt AND o.key = segments.key AND o.user = 1)""",
                 )
+                // The reader's own lines need no review
+                db.execSQL("UPDATE segments SET reviewed = 1 WHERE user = 1 AND reviewed = 0")
+                db.execSQL("UPDATE segments SET added = last_used WHERE added = 0")
                     db.setTransactionSuccessful()
                 } finally {
                     db.endTransaction()
@@ -583,7 +757,15 @@ class TranslationCollection(private val context: Context) {
 
     private companion object {
         const val DB_NAME = "translation_collection.db"
-        const val DB_VERSION = 1
+        const val ROUNDS_KEY = "rounds"
+        /** Corrections of a review kept as lessons for the AI (the most used lines). */
+        const val REVIEW_LESSONS = 40
+        /** Reviewed lines given to the AI with a chapter, and how many reviewed lines are searched. */
+        const val REFERENCES = 12
+        const val REFERENCE_ROWS = 30_000
+        const val MAX_ROUNDS = 30
+        // 2: MANHWA review (reviewed, added)
+        const val DB_VERSION = 2
         const val CACHE_LINES = 5_000
         const val MAX_LENGTH = 500
 

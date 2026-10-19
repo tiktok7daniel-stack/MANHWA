@@ -32,6 +32,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -51,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import eu.kanade.presentation.components.glass
-import eu.kanade.presentation.components.obsidianSurface
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
@@ -115,6 +115,9 @@ object HomeScreen : Screen() {
 
     @Suppress("ConstPropertyName")
     private const val TabNavigatorKey = "HomeTabs"
+
+    /** The dock's slots: four tabs and the AI orb, all the same width. */
+    private const val DOCK_SLOTS = 5
 
     private val TABS = listOf(
         DiscoverTab,
@@ -301,13 +304,17 @@ object HomeScreen : Screen() {
             // Obsidian Royal: a floating pill dock, solid, its top edge lit by a hairline
             Box(
                 Modifier.matchParentSize().then(
-                    if (look.isObsidian) {
-                        Modifier.obsidianSurface(RoundedCornerShape(50), accent = false, look = look)
+                    if (look.isSolid) {
+                        // Each solid look draws the pill dock in its own panel
+                        Modifier.glass(RoundedCornerShape(50), accent = false)
                     } else {
                         Modifier.glass(RoundedCornerShape(28.dp), accent = true, alpha = 0.85f)
                     },
                 ),
             )
+            // The solid looks mark the open tab with one pill that slides to the next tab with a spring
+            // (interruptible: tapping again mid-way turns it round from where it is)
+            if (look.isSolid) DockIndicator(look)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -337,7 +344,7 @@ object HomeScreen : Screen() {
                         Box(
                             modifier = Modifier
                                 .padding(top = 2.dp)
-                                .width(if (selected && !look.isObsidian) 22.dp else 0.dp)
+                                .width(if (selected && !look.isSolid) 22.dp else 0.dp)
                                 .height(3.dp)
                                 .clip(RoundedCornerShape(50))
                                 .background(Brush.horizontalGradient(listOf(colors.primary.copy(alpha = 0.4f), colors.primary, colors.primary.copy(alpha = 0.4f)))),
@@ -352,11 +359,9 @@ object HomeScreen : Screen() {
                                         modifier = Modifier
                                             .neonGlow(CircleShape, colors.primary, if (selected) 0.22f else 0f, 10.dp)
                                             .then(
-                                                if (look.isObsidian) {
-                                                    Modifier
-                                                        .clip(RoundedCornerShape(50))
-                                                        .background(if (selected) colors.primary.copy(alpha = 0.16f) else Color.Transparent)
-                                                        .padding(horizontal = 14.dp, vertical = 3.dp)
+                                                if (look.isSolid) {
+                                                    // The sliding pill behind marks the tab; the icon keeps its place
+                                                    Modifier.padding(horizontal = 14.dp, vertical = 3.dp)
                                                 } else {
                                                     Modifier
                                                 },
@@ -378,6 +383,50 @@ object HomeScreen : Screen() {
         }
     }
 
+    /**
+     * The pill under the open tab of the dock, sliding between tabs. The dock has five equal slots (two tabs, the AI
+     * orb, two tabs); the pill sits on the open tab's slot. Manhwa Ink draws it as an inked sticker.
+     */
+    @Composable
+    private fun BoxScope.DockIndicator(look: eu.kanade.presentation.components.ManhwaLook) {
+        val tabNavigator = LocalTabNavigator.current
+        val colors = MaterialTheme.colorScheme
+        val index = TABS.indexOfFirst { it::class == tabNavigator.current::class }
+        if (index < 0) return
+        val slot = if (index < 2) index else index + 1
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.matchParentSize().padding(horizontal = 4.dp)) {
+            val width = maxWidth / DOCK_SLOTS
+            val still = eu.kanade.presentation.components.LocalReduceMotion.current
+            val x by androidx.compose.animation.core.animateDpAsState(
+                targetValue = width * slot,
+                animationSpec = if (still) {
+                    androidx.compose.animation.core.snap()
+                } else {
+                    androidx.compose.animation.core.spring(dampingRatio = 0.78f, stiffness = 420f)
+                },
+                label = "dock",
+            )
+            val shape = RoundedCornerShape(if (look.style == eu.kanade.presentation.components.ManhwaStyle.INK) 8.dp else 50.dp)
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = x)
+                    .padding(horizontal = 4.dp)
+                    .width(width - 8.dp)
+                    .height(50.dp)
+                    .clip(shape)
+                    .background(colors.primary.copy(alpha = if (look.style == eu.kanade.presentation.components.ManhwaStyle.INK) 0.22f else 0.16f), shape)
+                    .then(
+                        if (look.style == eu.kanade.presentation.components.ManhwaStyle.INK) {
+                            Modifier.border(1.5.dp, look.text, shape)
+                        } else {
+                            Modifier.border(0.75.dp, colors.primary.copy(alpha = 0.35f), shape)
+                        },
+                    ),
+            )
+        }
+    }
+
     /** MANHWA AI orb in the middle of the bar, with a slow pulsing halo. */
     @Composable
     private fun RowScope.AiCenterButton(onClick: () -> Unit) {
@@ -389,7 +438,7 @@ object HomeScreen : Screen() {
             label = "halo",
         )
         // Same width as every tab, so the orb sits exactly in the middle of the bar
-        val calm = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
+        val calm = eu.kanade.presentation.components.LocalManhwaLook.current.isCalm
         Box(
             modifier = Modifier.weight(1f).fillMaxHeight(),
             contentAlignment = Alignment.Center,

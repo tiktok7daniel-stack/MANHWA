@@ -72,6 +72,7 @@ import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.rounded.TextFields
 import mihon.icons.materialsymbols.rounded.Speed
+import mihon.icons.materialsymbols.rounded.Schedule
 import mihon.icons.materialsymbols.rounded.Translate
 import mihon.icons.materialsymbols.rounded.Tune
 import mihon.icons.materialsymbols.rounded.Key
@@ -85,6 +86,7 @@ import mihon.icons.materialsymbols.rounded.SearchCheck
 import mihon.icons.materialsymbols.rounded.SkipNext
 import mihon.icons.materialsymbols.rounded.SwapCalls
 import mihon.icons.materialsymbols.rounded.Verified
+import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.rounded.Widgets
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -116,14 +118,28 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_obsidian_t, ATMR.strings.wn_obsidian_b),
-            Feature(MaterialSymbols.Rounded.Storage, ATMR.strings.wn_clone_t, ATMR.strings.wn_clone_b),
-            Feature(MaterialSymbols.Rounded.Search, ATMR.strings.wn_libsearch_t, ATMR.strings.wn_libsearch_b),
+            Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_homesec_t, ATMR.strings.wn_homesec_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 108
+            Feature(MaterialSymbols.Rounded.Visibility, ATMR.strings.hub_only_adult, ATMR.strings.hub_only_adult_sub),
+            // Build 107
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_looks_t, ATMR.strings.wn_looks_b),
+            // Build 106
+            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_review_t, ATMR.strings.wn_review_b),
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_refs_t, ATMR.strings.wn_refs_b),
+            // Build 105
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_glossfile_t, ATMR.strings.wn_glossfile_b),
+            Feature(MaterialSymbols.Rounded.CallMerge, ATMR.strings.wn_gapfill_t, ATMR.strings.wn_gapfill_b),
+            Feature(MaterialSymbols.Rounded.Schedule, ATMR.strings.wn_freshopen_t, ATMR.strings.wn_freshopen_b),
+            Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_custombackup_t, ATMR.strings.wn_custombackup_b),
+            // Build 102
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_obsidian_t, ATMR.strings.wn_obsidian_b),
+            Feature(MaterialSymbols.Rounded.Storage, ATMR.strings.wn_clone_t, ATMR.strings.wn_clone_b),
+            Feature(MaterialSymbols.Rounded.Search, ATMR.strings.wn_libsearch_t, ATMR.strings.wn_libsearch_b),
             // Build 100
             Feature(MaterialSymbols.Rounded.TextFields, ATMR.strings.wn_clean2_t, ATMR.strings.wn_clean2_b),
             Feature(MaterialSymbols.Rounded.Home, ATMR.strings.wn_calls_t, ATMR.strings.wn_calls_b),

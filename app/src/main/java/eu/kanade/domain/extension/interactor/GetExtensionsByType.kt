@@ -24,7 +24,7 @@ class GetExtensionsByType(
             extensionManager.loadedExtensionsFlow,
             extensionManager.notLoadedExtensionsFlow,
             extensionManager.availableExtensionsFlow,
-            preferences.hideAdult.changes(),
+            adultFilter.modeChanges(),
         ) { enabledLanguages, _loaded, _notLoaded, _available, _ ->
             val byName = compareBy<Extension, String>(String.CASE_INSENSITIVE_ORDER) { it.name }
 
