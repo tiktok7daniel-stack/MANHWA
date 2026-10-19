@@ -17,7 +17,7 @@ import java.util.Locale
 @Inject
 @SingleIn(AppScope::class)
 class UiPreferences(
-    preferenceStore: PreferenceStore,
+    private val preferenceStore: PreferenceStore,
 ) {
 
     val themeMode: Preference<ThemeMode> = preferenceStore.getEnum("pref_theme_mode_key", ThemeMode.DARK)
