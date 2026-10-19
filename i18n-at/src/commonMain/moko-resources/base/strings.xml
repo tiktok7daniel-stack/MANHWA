@@ -1240,4 +1240,8 @@
     <string name="col_review_not_file">This file is not a MANHWA review file</string>
     <string name="col_review_round">Round %1$d · %2$s: %3$d corrected, %4$d approved, %5$d deleted</string>
     <string name="col_review_names">And %1$d names in the glossaries of %2$d manhwa, not reviewed yet: they go in the same file and each goes back to its manhwa.</string>
+    <string name="wn_review_t">Review the collection and every glossary in one file</string>
+    <string name="wn_review_b">Translation collection › Review: export what the AI saved and nobody checked (lines and every manhwa\'s names), correct it (yourself or with an AI) and import it back. Corrections become yours, names go back to their manhwa, the most used fixes become lessons, and the next export only holds what came after. Each round is listed with its date.</string>
+    <string name="wn_refs_t">Corrections followed inside new sentences</string>
+    <string name="wn_refs_b">Reviewed lines that share words with a chapter go to the AI as references, so a corrected term keeps its wording wherever it shows up, not only when the same line comes back.</string>
 </resources>
