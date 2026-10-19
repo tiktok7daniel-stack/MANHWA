@@ -167,7 +167,10 @@ fun TranslationStyleSheet(onDismiss: () -> Unit) {
             }
             SwitchRow(stringResource(ATMR.strings.style_outline), outline) { prefs.translationOutline().set(it) }
             SwitchRow(stringResource(ATMR.strings.style_skip_sfx), skipSfx) { prefs.translationSkipSfx().set(it) }
-            SwitchRow(stringResource(ATMR.strings.pref_live_translation), live) { prefs.liveTranslation().set(it) }
+            SwitchRow(stringResource(ATMR.strings.pref_live_translation), live) {
+                prefs.liveTranslation().set(it)
+                prefs.liveTranslationUserOff().set(!it)
+            }
             SwitchRow(stringResource(ATMR.strings.pref_show_translations), show) { readerPrefs.showTranslations.set(it) }
         }
     }

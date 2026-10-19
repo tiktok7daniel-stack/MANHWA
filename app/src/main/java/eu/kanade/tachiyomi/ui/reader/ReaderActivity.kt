@@ -876,7 +876,10 @@ class ReaderActivity : BaseActivity() {
         // MANHWA fusion: a work's continuation from another source is translated by the app as it is read
         if (!fusionTranslationChecked) {
             fusionTranslationChecked = true
-            if (viewModel.isFusedContinuation() && !appGraph.translationPreferences.liveTranslation().get()) {
+            // Not when the reader turned live translation off himself: it stays off until he turns it on
+            if (viewModel.isFusedContinuation() && !appGraph.translationPreferences.liveTranslation().get() &&
+                !appGraph.translationPreferences.liveTranslationUserOff().get()
+            ) {
                 viewModel.liveTranslation.enableForSession()
             }
         }

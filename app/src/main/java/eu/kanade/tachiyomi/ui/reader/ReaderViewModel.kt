@@ -623,6 +623,8 @@ class ReaderViewModel(
         if (manga.isLocal()) return
         val next = state.value.viewerChapters?.nextChapter?.chapter ?: return
         if (pretranslatedChapterId == next.id) return
+        // MANHWA: live translation off or paused in this reader: nothing is downloaded or translated ahead
+        if (!liveTranslation.working()) return
         if (!eu.kanade.translation.ChapterPrefetchManager.shouldPrefetch(context, context.appGraph.teamStore, translationPreferences)) return
         // MANHWA: with only the phone model, the page being read goes first: the next chapter waits until the live
         // translation of this one is done (one model answers one call at a time)

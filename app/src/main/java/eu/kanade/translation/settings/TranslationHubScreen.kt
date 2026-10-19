@@ -529,7 +529,10 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
                                     title = stringResource(ATMR.strings.pref_live_translation),
                                     info = stringResource(ATMR.strings.info_live),
                                     checked = live,
-                                    onChange = { prefs.liveTranslation().set(it) },
+                                    onChange = {
+                                        prefs.liveTranslation().set(it)
+                                        prefs.liveTranslationUserOff().set(!it)
+                                    },
                                 )
                                 HubDivider()
                                 HubSwitchRow(

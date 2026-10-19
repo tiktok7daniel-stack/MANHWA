@@ -219,8 +219,12 @@ class LiveTranslator(
         }
 
         fun setEnabled(enabled: Boolean) {
-            if (!enabled) sessionOn = false
+            if (!enabled) {
+                sessionOn = false
+                forced = false
+            }
             preferences.liveTranslation().set(enabled)
+            preferences.liveTranslationUserOff().set(!enabled)
             paused = false
             synchronized(failed) { failed.clear() }
             lastError = null
@@ -278,7 +282,10 @@ class LiveTranslator(
             wake.trySend(Unit)
         }
 
-        /** Translates every chapter of this reader session (a fused continuation) without saving the setting. */
+        /** Whether this reader translates now: on (or asked for this chapter) and not paused. */
+        fun working(): Boolean = active() && !paused && !handedBack
+
+                /** Translates every chapter of this reader session (a fused continuation) without saving the setting. */
         fun enableForSession() {
             sessionOn = true
             paused = false
@@ -324,6 +331,7 @@ class LiveTranslator(
             resetEngine = true
             lastError = null
             preferences.liveTranslation().set(true)
+            preferences.liveTranslationUserOff().set(false)
             paused = false
             publish(error = null)
             wake.trySend(Unit)
