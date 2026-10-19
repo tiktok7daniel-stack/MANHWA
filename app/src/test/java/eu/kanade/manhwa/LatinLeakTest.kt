@@ -18,6 +18,7 @@ class LatinLeakTest {
     fun `ranks numbers and bubbles not in arabic stay`() {
         LatinLeak.strip("صياد من الرتبة S", "AN S-RANK HUNTER, S") shouldBe "صياد من الرتبة S"
         LatinLeak.strip("لديه 600 قطعة", "600") shouldBe "لديه 600 قطعة"
+        LatinLeak.strip("السعر 3.5 IW", "x") shouldBe "السعر 3.5"
         LatinLeak.strip("Hello", "Hello") shouldBe "Hello"
         LatinLeak.strip("مرحبا (بصوت عال)", "x") shouldBe "مرحبا (بصوت عال)"
     }

@@ -422,8 +422,8 @@ object ScanlationRenderer {
             if (bubble.width() > textBox.width() * BUBBLE_MAX_GROWTH + lineH * 4f) return
             if (bubble.height() > textBox.height() * BUBBLE_MAX_GROWTH + lineH * 4f) return
             if (keptBoxes.any { RectF.intersects(it, bubble) }) return
-            val inset = max(2f, min(bubble.width(), bubble.height()) * BUBBLE_INSET)
-            val area = RectF(bubble).apply { inset(inset, inset) }
+            val margin = max(2f, min(bubble.width(), bubble.height()) * BUBBLE_INSET)
+            val area = RectF(bubble).apply { inset(margin, margin) }
             if (area.width() < 4f || area.height() < 4f) return
             cleanArea(area, RectF(textBox), boxWhenBusy = false, strictKeep = false)
         }

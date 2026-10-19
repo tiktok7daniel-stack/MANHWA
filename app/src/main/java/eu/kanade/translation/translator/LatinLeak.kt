@@ -20,7 +20,7 @@ object LatinLeak {
         val sourceTokens = token.findAll(source).map { it.value.trimEnd('.', '\'', '’') }.toSet()
         val out = token.replace(translation) { m ->
             val t = m.value.trimEnd('.')
-            val kept = t.all { it.isDigit() } || (rank.matches(t) && t in sourceTokens)
+            val kept = t.none { it.isLetter() } || (rank.matches(t) && t in sourceTokens)
             if (kept) m.value else if (m.value.endsWith(".")) "." else ""
         }
         if (out == translation) return translation
