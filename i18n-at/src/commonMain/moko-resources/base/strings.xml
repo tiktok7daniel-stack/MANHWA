@@ -1299,10 +1299,10 @@
     <string name="hubm_test_fail">Did not work: %s</string>
     <string name="wn_menus_t">Translation settings in menus</string>
     <string name="wn_menus_b">Who translates (home server, API keys, phone models, without AI) and how, each in its own menu, with a card saying who translates now. Google Translate asks again when a request fails, translates bubbles in capitals better, and has a test button.</string>
-    <string name="hubm_test_busy">Google answered 429: too many requests from this phone or network for now. It is not a fault in the app: Google pauses free use that asks fast. The app leaves Google alone for 10 minutes and ML Kit (offline) translates meanwhile, then Google comes back by itself. Try Open Google Translate to see it answer in the browser.</string>
+    <string name="hubm_test_busy">Google answered 429: too many requests from this phone or network for now. It is not a fault in the app: Google pauses free use that asks fast. The app leaves Google alone for 5 minutes and ML Kit (offline) translates meanwhile, then Google comes back by itself. Try Open Google Translate to see it answer in the browser.</string>
     <string name="hubm_open_google">Open Google Translate</string>
     <string name="hubm_google_resting">Google Translate is paused until %s (too many requests); ML Kit (offline) translates meanwhile</string>
     <string name="hubm_google_offline_used">%d bubbles went to ML Kit (offline) when Google did not answer</string>
     <string name="wn_google2_t">Google Translate keeps going</string>
-    <string name="wn_google2_b">When Google says too many requests, the app gives it a 10 minute pause and ML Kit (offline) translates meanwhile, so no chapter fails. The settings say when Google is paused, and a button opens Google Translate to check it.</string>
+    <string name="wn_google2_b">When Google says too many requests, the app gives it a 5 minute pause and ML Kit (offline) translates meanwhile, so no chapter fails. The settings say when Google is paused, and a button opens Google Translate to check it.</string>
 </resources>

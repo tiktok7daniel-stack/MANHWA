@@ -159,8 +159,9 @@ class GoogleTranslator(
                 logcat(LogPriority.WARN) { "Google Translate try ${attempt + 1} failed: ${e.message}" }
                 // No network at all: asking again only makes the offline fallbacks wait
                 if (!GoogleRules.worthRetry(e)) throw e
-                // Too many requests twice: Google is given a pause, and the rest goes to the offline engine
-                if (GoogleRules.isTooMany(e) && attempt >= 1) {
+                // Too many requests: asking again only keeps Google refusing (the version before never asked again);
+                // Google is given a pause at once, and what is left goes to the offline engine
+                if (GoogleRules.isTooMany(e)) {
                     GoogleStatus.rest()
                     throw e
                 }
@@ -170,7 +171,7 @@ class GoogleTranslator(
     }
 
     private suspend fun request(lang: String, text: String): String {
-        val response = okHttpClient.newCall(Request.Builder().url(GoogleRules.url(lang, text)).build()).await()
+        val response = okHttpClient.newCall(Request.Builder().url(getTranslateUrl(lang, text)).build()).await()
         response.use {
             if (!it.isSuccessful) {
                 throw GoogleRules.Busy(it.code, it.header("Retry-After")?.trim()?.toLongOrNull())
@@ -178,6 +179,70 @@ class GoogleTranslator(
             return GoogleRules.parse(it.body.string()) ?: throw IOException("Google Translate sent an answer that is not a translation")
         }
     }
+
+    /** The same address and token as before the last update (the one that worked). */
+    private fun getTranslateUrl(lang: String, text: String): String {
+        val token = calculateToken(text)
+        val encoded = URLEncoder.encode(text, "utf-8")
+        return "https://translate.google.com/translate_a/single?client=gtx&sl=auto&tl=$lang&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&otf=1&ssel=0&tsel=0&kc=1&tk=$token&q=$encoded"
+    }
+
+    private fun calculateToken(str: String): String {
+        val list = mutableListOf<Int>()
+        var i = 0
+
+        while (i < str.length) {
+            val charCodeAt = str.codePointAt(i)
+            when {
+                charCodeAt < 128 -> list.add(charCodeAt)
+                charCodeAt < 2048 -> {
+                    list.add((charCodeAt shr 6) or 192)
+                    list.add((charCodeAt and 63) or 128)
+                }
+                charCodeAt in 55296..57343 && i + 1 < str.length -> {
+                    val nextChar = str.codePointAt(i + 1)
+                    if (nextChar in 56320..57343) {
+                        val codePoint = ((charCodeAt and 1023) shl 10) + (nextChar and 1023) + 65536
+                        list.add((codePoint shr 18) or 240)
+                        list.add(((codePoint shr 12) and 63) or 128)
+                        list.add(((codePoint shr 6) and 63) or 128)
+                        list.add((codePoint and 63) or 128)
+                        i++
+                    }
+                }
+                else -> {
+                    list.add((charCodeAt shr 12) or 224)
+                    list.add(((charCodeAt shr 6) and 63) or 128)
+                    list.add((charCodeAt and 63) or 128)
+                }
+            }
+            i++
+        }
+
+        var j: Long = 406644
+        for (num in list) {
+            j = RL(j + num.toLong(), "+-a^+6")
+        }
+        var rL = RL(j, "+-3^+b+-f") xor 3293161072L
+        if (rL < 0) {
+            rL = (rL and 2147483647L) + 2147483648L
+        }
+        val j2 = rL % 1000000L
+        return "$j2.${406644L xor j2}"
+    }
+
+    private fun RL(j: Long, str: String): Long {
+        var result = j
+        var i = 0
+        while (i < str.length - 2) {
+            val shift = if (str[i + 2] in 'a'..'z') str[i + 2].code - 'W'.code else str[i + 2].digitToInt()
+            val shiftValue = if (str[i + 1] == '+') result ushr shift else result shl shift
+            result = if (str[i] == '+') (result + shiftValue) and 4294967295L else result xor shiftValue
+            i += 3
+        }
+        return result
+    }
+
 
     override fun close() {
         mlkit?.close()
@@ -201,21 +266,16 @@ class GoogleTranslator(
 /** The pure rules of [GoogleTranslator] (tested without a phone). */
 object GoogleRules {
 
-    const val ATTEMPTS = 4
+    const val ATTEMPTS = 3
 
     /** Google answered with an error code (429 when asked too often), and how long it said to wait. */
     class Busy(val code: Int, val retryAfterSeconds: Long?) : IOException("Google Translate answered HTTP $code")
 
-    /** Google's public translation address (no key), asking only for the translation. */
-    fun url(lang: String, text: String): String =
-        "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" +
-            URLEncoder.encode(lang, "utf-8") + "&dt=t&q=" + URLEncoder.encode(text, "utf-8")
-
     /** Google said "too many requests" (it pauses an app that asks too fast). */
     fun isTooMany(error: Throwable): Boolean = (error as? Busy)?.code == 429
 
-    /** How long Google is left alone after it said "too many requests" twice. */
-    const val REST_MS = 10 * 60_000L
+    /** How long Google is left alone after it said "too many requests". */
+    const val REST_MS = 5 * 60_000L
 
     /** Most text sent in one request (the bubbles of a page joined), and most bubbles. */
     private const val BATCH_CHARS = 1200

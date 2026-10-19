@@ -66,9 +66,7 @@ class GoogleRulesTest {
     }
 
     @Test
-    fun `the request asks only for the translation and too many requests is told apart`() {
-        GoogleRules.url("ar", "Run! Now.") shouldBe
-            "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ar&dt=t&q=Run%21+Now."
+    fun `too many requests is told apart`() {
         GoogleRules.isTooMany(GoogleRules.Busy(429, null)) shouldBe true
         GoogleRules.isTooMany(GoogleRules.Busy(503, null)) shouldBe false
         GoogleRules.isTooMany(IOException()) shouldBe false
