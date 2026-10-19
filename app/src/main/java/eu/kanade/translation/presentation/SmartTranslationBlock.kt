@@ -65,7 +65,7 @@ fun SmartTranslationBlock(
                 val mid = ((low + high) / 2)
                 val textLayoutResult = subcompose(mid.sp) {
                     Text(
-                        text = block.translation,
+                        text = eu.kanade.translation.translator.LatinLeak.strip(block.translation, block.text),
                         fontSize = mid.sp,
                         fontFamily = fontFamily,
                         color = textColor,
@@ -92,7 +92,7 @@ fun SmartTranslationBlock(
             // Measure final layout
             val textPlaceable = subcompose(Unit) {
                 Text(
-                    text = block.translation,
+                    text = eu.kanade.translation.translator.LatinLeak.strip(block.translation, block.text),
                     fontSize = fontSize.value,
                     fontFamily = fontFamily,
                     color = textColor,

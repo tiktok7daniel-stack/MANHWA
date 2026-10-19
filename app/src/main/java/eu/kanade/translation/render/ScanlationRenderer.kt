@@ -189,6 +189,9 @@ object ScanlationRenderer {
     ) {
 
         private val canvas = Canvas(bitmap)
+
+        /** Letters that stay as drawn on this page (a line nothing translated, a sound effect left, art text). */
+        private var keptBoxes: List<RectF> = emptyList()
         private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
         /** A bubble after cleaning: where its lines were, the colour behind them, and whether it is plain. */
@@ -201,6 +204,17 @@ object ScanlationRenderer {
             block.text.any { it.isLetter() } && block.translation.trim().equals(block.text.trim(), ignoreCase = true)
 
         fun draw(page: PageTranslation) {
+            // MANHWA: what stays as drawn is never erased by a neighbour's bubble cleaning
+            keptBoxes = page.blocks.filter { block ->
+                if (block.lineBoxes.isEmpty() || block.text.none { it.isLetter() }) return@filter false
+                val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
+                (untranslated(block) && !eu.kanade.translation.translator.EnglishGuard.joined(block, page.blocks)) ||
+                    (kind == BubbleKind.SFX && style.skipSfx) ||
+                    (kind == BubbleKind.ART && !inPlainBubble(block))
+            }.map { block ->
+                RectF(block.lineBoxes.first().let { RectF(it.x * s, it.y * s, it.right * s, it.bottom * s) })
+                    .apply { block.lineBoxes.forEach { union(it.x * s, it.y * s, it.right * s, it.bottom * s) } }
+            }
             // 1. Cleaning, every bubble first, so free space is measured on the cleaned page
             val cleaned = page.blocks.mapNotNull { block ->
                 if (stop()) throw kotlinx.coroutines.CancellationException("Page scrolled away")
@@ -242,7 +256,7 @@ object ScanlationRenderer {
             separate(areas)
             val sets = cleaned.mapIndexed { i, c ->
                 val paint = paintFor(c)
-                Placement(c, areas[i], paint, fit(drawn(c.block.translation), paint, areas[i]))
+                Placement(c, areas[i], paint, fit(shown(c.block), paint, areas[i]))
             }
             // 3. Sizes evened out across the page, then drawn
             val fits = sets.map { it.fit }.filter { it > 0f }.sorted()
@@ -370,11 +384,48 @@ object ScanlationRenderer {
             val extra = min(lineH * 0.8f, WHOLE_EXTRA * s)
             val whole = clamp(RectF(bounds.left, bounds.top - extra, bounds.right, bounds.bottom + extra))
             cleanArea(whole, RectF(textBox.left, textBox.top - extra, textBox.right, textBox.bottom + extra), boxWhenBusy = false, strictKeep = true)
+            // MANHWA: the whole inside of the speech bubble, so no letter the OCR missed at a line's edge (a lone
+            // "I", the bottom of big letters) is left next to the translation; the outline is kept
+            if (kind != BubbleKind.SFX) cleanBubble(textBox, lineH)
             val plain = results.filterNotNull().filter { it.second }
             val bg = plain.groupingBy { it.first }.eachCount().maxByOrNull { it.value }?.key
                 ?: results.filterNotNull().firstOrNull()?.first
                 ?: Color.WHITE
             return Cleaned(block, kind, bounds, bg, plain.isNotEmpty())
+        }
+
+        /**
+         * MANHWA: finds the light bubble around [textBox] and cleans all of its inside: letters inside it that
+         * do not touch its outline are erased, the outline and the drawing around it are kept. Nothing is done
+         * when no closed light bubble is found, when it is far bigger than its text (a white page, not a bubble),
+         * or when letters that stay as drawn are inside it.
+         */
+        private fun cleanBubble(textBox: RectF, lineH: Float) {
+            if (lineH <= 0f || textBox.isEmpty) return
+            val reach = max(textBox.width(), textBox.height()) + lineH * BUBBLE_REACH_LINES
+            val region = clamp(RectF(textBox.left - reach, textBox.top - reach, textBox.right + reach, textBox.bottom + reach))
+            val l = region.left.roundToInt().coerceIn(0, bitmap.width - 1)
+            val t = region.top.roundToInt().coerceIn(0, bitmap.height - 1)
+            val w = region.right.roundToInt().coerceIn(0, bitmap.width) - l
+            val h = region.bottom.roundToInt().coerceIn(0, bitmap.height) - t
+            if (w < 8 || h < 8) return
+            val px = IntArray(w * h)
+            bitmap.getPixels(px, 0, w, l, t, w, h)
+            val found = eu.kanade.translation.ocr.BubbleFinder.bubbleOf(
+                px, w, h,
+                (textBox.left - l).roundToInt(), (textBox.top - t).roundToInt(),
+                textBox.width().roundToInt().coerceAtLeast(1), textBox.height().roundToInt().coerceAtLeast(1),
+                lineH.roundToInt().coerceAtLeast(6),
+            ) ?: return
+            val bubble = RectF((found.left + l).toFloat(), (found.top + t).toFloat(), (found.right + l).toFloat(), (found.bottom + t).toFloat())
+            // A speech bubble hugs its text; a light area much bigger is the page between panels
+            if (bubble.width() > textBox.width() * BUBBLE_MAX_GROWTH + lineH * 4f) return
+            if (bubble.height() > textBox.height() * BUBBLE_MAX_GROWTH + lineH * 4f) return
+            if (keptBoxes.any { RectF.intersects(it, bubble) }) return
+            val inset = max(2f, min(bubble.width(), bubble.height()) * BUBBLE_INSET)
+            val area = RectF(bubble).apply { inset(inset, inset) }
+            if (area.width() < 4f || area.height() < 4f) return
+            cleanArea(area, RectF(textBox), boxWhenBusy = false, strictKeep = false)
         }
 
         /**
@@ -698,7 +749,7 @@ object ScanlationRenderer {
         }
 
         private fun typeset(set: Placement, size: Float) {
-            val text = drawn(set.cleaned.block.translation)
+            val text = shown(set.cleaned.block)
             val paint = set.paint
             val area = set.area
             paint.textSize = size
@@ -968,8 +1019,19 @@ object ScanlationRenderer {
 
     /** The translation as it is drawn: the Arabic stretching mark (tatweel) never stretches a word in a bubble. */
     internal fun drawn(text: String): String = eu.kanade.translation.translator.TextSanitizer.dropTatweel(text)
+
+    /** MANHWA: what is drawn for [block]: only Arabic (Latin bits a misread source left in it are taken out). */
+    internal fun shown(block: TranslationBlock): String =
+        drawn(eu.kanade.translation.translator.LatinLeak.strip(block.translation, block.text))
+
     private const val SMOOTH_RESIDUAL = 20f
     private const val WHOLE_EXTRA = 24f
+
+    // MANHWA bubble cleaning: how far around the text a bubble is looked for (in line heights past the text's
+    // own size), how much bigger than its text a bubble may be, and the margin kept inside its outline
+    private const val BUBBLE_REACH_LINES = 4f
+    private const val BUBBLE_MAX_GROWTH = 4f
+    private const val BUBBLE_INSET = 0.04f
     private const val MAX_TEXT_OF_WIDTH = 0.085f
     private const val INK = 28
 

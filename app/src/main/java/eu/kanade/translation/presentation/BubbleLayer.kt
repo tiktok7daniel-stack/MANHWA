@@ -361,10 +361,10 @@ private class Typesetter(
             val others = cleaned.filterIndexed { i, _ -> i != index && i !in mine }
             val room = roomAround(base, others).intersect(pageRect)
             var area = edited(block, base)
-            var fit = fit(eu.kanade.translation.translator.TextSanitizer.dropTatweel(block.translation), style, area)
+            var fit = fit(eu.kanade.translation.translator.TextSanitizer.dropTatweel(eu.kanade.translation.translator.LatinLeak.strip(block.translation, block.text)), style, area)
             if (fit < minPx && room.width * room.height > base.width * base.height) {
                 val wider = edited(block, room)
-                val widerFit = fit(eu.kanade.translation.translator.TextSanitizer.dropTatweel(block.translation), style, wider)
+                val widerFit = fit(eu.kanade.translation.translator.TextSanitizer.dropTatweel(eu.kanade.translation.translator.LatinLeak.strip(block.translation, block.text)), style, wider)
                 if (widerFit > fit) {
                     area = wider
                     fit = widerFit
@@ -380,11 +380,11 @@ private class Typesetter(
             // Bubbles of a page look alike: big ones come down towards the median (never above their fit)
             var size = if (median > 0f) min(plan.fit, median * 1.35f) else plan.fit
             size *= sizeScale
-            if (sizeScale > 1f) size = min(size, fit(eu.kanade.translation.translator.TextSanitizer.dropTatweel(block.translation), plan.style, plan.room))
+            if (sizeScale > 1f) size = min(size, fit(eu.kanade.translation.translator.TextSanitizer.dropTatweel(eu.kanade.translation.translator.LatinLeak.strip(block.translation, block.text)), plan.style, plan.room))
             size *= block.userFont
             size = size.coerceAtLeast(4f)
             val area = if (size > plan.fit) plan.room else plan.area
-            val layout = balanced(eu.kanade.translation.translator.TextSanitizer.dropTatweel(block.translation), plan.style.copy(fontSize = size.sp), area)
+            val layout = balanced(eu.kanade.translation.translator.TextSanitizer.dropTatweel(eu.kanade.translation.translator.LatinLeak.strip(block.translation, block.text)), plan.style.copy(fontSize = size.sp), area)
             val bg = Color(block.bgColor.takeIf { it != 0 } ?: 0xFFFFFFFF.toInt()).copy(alpha = 1f)
             val fg = if (plan.kind == BubbleKind.ART) ART_TEXT else Color(block.textColor)
             val shout = dramatic && plan.kind == BubbleKind.SHOUT

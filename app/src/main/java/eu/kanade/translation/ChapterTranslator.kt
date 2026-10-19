@@ -741,6 +741,8 @@ class ChapterTranslator(
                 // MANHWA: whatever translated, no bubble stays in English (Google's Arabic for what is left)
                 if (translation.toLang == eu.kanade.translation.translator.TextTranslatorLanguage.ARABIC) {
                     eu.kanade.translation.translator.EnglishGuard.fix(pages, eu.kanade.translation.translator.GoogleTranslator(translation.fromLang, translation.toLang))
+                    // MANHWA: and no Latin bits inside an Arabic bubble (letters the OCR misread, passed through)
+                    eu.kanade.translation.translator.LatinLeak.stripAll(pages)
                 }
                 translation.advance(Translation.Stage.REVIEWING, 1, 3)
                 showProgress()

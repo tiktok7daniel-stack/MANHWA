@@ -757,6 +757,8 @@ class LiveTranslator(
                 // MANHWA: whatever translated, no bubble stays in English (Google's Arabic for what is left)
                 if (to == TextTranslatorLanguage.ARABIC) {
                     eu.kanade.translation.translator.EnglishGuard.fix(mapOf(KEY to work), GoogleTranslator(from, to))
+                    // MANHWA: and no Latin bits inside an Arabic bubble (letters the OCR misread, passed through)
+                    eu.kanade.translation.translator.LatinLeak.stripAll(mapOf(KEY to work))
                 }
             } finally {
                 engine.aiPart?.apply {
