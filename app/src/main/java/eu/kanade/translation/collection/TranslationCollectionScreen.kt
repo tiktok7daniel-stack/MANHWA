@@ -87,8 +87,11 @@ class TranslationCollectionScreen : Screen() {
         var editing by remember { mutableStateOf<TranslationCollection.Entry?>(null) }
         var confirmClear by remember { mutableStateOf(false) }
 
+        // MANHWA review: lines nobody has checked yet (count, oldest date)
+        var unreviewed by remember { mutableStateOf(0L to 0L) }
         LaunchedEffect(refresh) {
             stats = withContext(Dispatchers.IO) { collection.stats() }
+            unreviewed = withContext(Dispatchers.IO) { collection.unreviewed() }
         }
         LaunchedEffect(query, kind, refresh) {
             entries = withContext(Dispatchers.IO) { collection.entries(query.trim(), kind) }
@@ -99,6 +102,29 @@ class TranslationCollectionScreen : Screen() {
             scope.launch(Dispatchers.IO) {
                 val ok = runCatching { context.contentResolver.openOutputStream(uri)!!.use(collection::exportTo) }.isSuccess
                 withContext(Dispatchers.Main) { context.toast(if (ok) ATMR.strings.col_exported else ATMR.strings.col_failed) }
+            }
+        }
+        val reviewExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch(Dispatchers.IO) {
+                val count = runCatching { context.contentResolver.openOutputStream(uri)!!.use(collection::exportReview) }.getOrNull()
+                withContext(Dispatchers.Main) {
+                    if (count != null) context.toast(context.stringResource(ATMR.strings.col_review_exported, count)) else context.toast(ATMR.strings.col_failed)
+                }
+            }
+        }
+        val reviewImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch(Dispatchers.IO) {
+                val result = runCatching { collection.importReview(context.contentResolver.openInputStream(uri)!!) }.getOrNull()
+                withContext(Dispatchers.Main) {
+                    if (result != null) {
+                        context.toast(context.stringResource(ATMR.strings.col_review_done, result.corrected, result.approved, result.deleted))
+                    } else {
+                        context.toast(ATMR.strings.col_review_not_file)
+                    }
+                    refresh++
+                }
             }
         }
         val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -252,6 +278,34 @@ class TranslationCollectionScreen : Screen() {
                             Text(stringResource(if (optimizing) ATMR.strings.db_optimizing else ATMR.strings.db_optimize_go))
                         }
                         optimized?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+                    }
+                }
+                // MANHWA review: export what the AI saved and nobody checked, correct it, import it back
+                item {
+                    Card {
+                        Text(stringResource(ATMR.strings.col_review_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        val (count, since) = unreviewed
+                        Text(
+                            if (count > 0) {
+                                stringResource(
+                                    ATMR.strings.col_review_body,
+                                    count.toInt(),
+                                    java.text.DateFormat.getDateInstance().format(java.util.Date(since)),
+                                )
+                            } else {
+                                stringResource(ATMR.strings.col_review_none)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                enabled = count > 0,
+                                onClick = { reviewExportLauncher.launch("manhwa_review_${java.time.LocalDate.now()}.json") },
+                            ) { Text(stringResource(ATMR.strings.col_review_export)) }
+                            OutlinedButton(onClick = { reviewImportLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) }) {
+                                Text(stringResource(ATMR.strings.col_review_import))
+                            }
+                        }
                     }
                 }
                 // Backup, move to another phone, start over

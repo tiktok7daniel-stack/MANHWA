@@ -1230,4 +1230,12 @@
     <string name="custom_backup_started">Started: follow it in the notification and on the MANHWA Vault screen.</string>
     <string name="wn_custombackup_t">Custom backup: pick the manhwa</string>
     <string name="wn_custombackup_b">MANHWA Vault › Custom backup: choose which manhwa to carry with their translated chapters and pages, glossary, story and fusion. Your settings and keys stay out unless you turn them on. Restoring merges with what the other phone already has.</string>
+    <string name="col_review_title">Review the collection</string>
+    <string name="col_review_body">%1$d lines the AI saved are not reviewed yet (since %2$s). Export them, correct them (yourself or with an AI) and import the file back: corrections become yours and are used as they are, and the next export only holds what the AI adds after that.</string>
+    <string name="col_review_none">Every line is reviewed. What the AI adds from now on shows up here.</string>
+    <string name="col_review_export">Export for review</string>
+    <string name="col_review_import">Import reviewed</string>
+    <string name="col_review_exported">%1$d lines exported</string>
+    <string name="col_review_done">%1$d corrected, %2$d approved, %3$d deleted</string>
+    <string name="col_review_not_file">This file is not a MANHWA review file</string>
 </resources>
