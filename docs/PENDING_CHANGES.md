@@ -33,3 +33,5 @@
   كمراجع: "استخدم نفس الصياغة للكلمات دي في أي مكان". يعني "Shadow Monarch = ملك الظلال" بيتطبق حتى جوه جملة
   جديدة خالص. الكلمات العادية (the, you, what…) ما بتجيبش مراجع (`ReferencePicker.kt`،
   `TranslationCollection.references`، اختبار `ReferencePickerTest`).
+- **بيلد أسرع**: الـ CI بقى بيحفظ كاش Gradle كمان من فروع الشغل (`cache-read-only: false` في `build_branch.yml`)،
+  فالبيلد الجاي بيعيد استخدام الأجزاء اللي ما اتغيّرتش من اللي قبله بدل ما يبني كل حاجة من الأول.
