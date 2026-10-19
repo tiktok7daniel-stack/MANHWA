@@ -40,4 +40,12 @@ class GoogleRulesTest {
         GoogleRules.waitMillis(1, GoogleRules.Busy(429, 5)) shouldBe 5000L
         GoogleRules.waitMillis(1, GoogleRules.Busy(429, 600)) shouldBe 30000L
     }
+
+    @Test
+    fun `no network fails at once and a busy answer is asked again`() {
+        GoogleRules.worthRetry(java.net.UnknownHostException("translate.google.com")) shouldBe false
+        GoogleRules.worthRetry(java.net.ConnectException()) shouldBe false
+        GoogleRules.worthRetry(GoogleRules.Busy(429, null)) shouldBe true
+        GoogleRules.worthRetry(java.net.SocketTimeoutException()) shouldBe true
+    }
 }

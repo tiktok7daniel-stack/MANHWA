@@ -83,6 +83,8 @@ class GoogleTranslator(
             } catch (e: Exception) {
                 last = e
                 logcat(LogPriority.WARN) { "Google Translate try ${attempt + 1} failed: ${e.message}" }
+                // No network at all: asking again only makes the offline fallbacks wait
+                if (!GoogleRules.worthRetry(e)) throw e
             }
         }
         throw last ?: IOException("Google Translate did not answer")
@@ -190,6 +192,10 @@ object GoogleRules {
 
     /** Google answered with an error code (429 when asked too often), and how long it said to wait. */
     class Busy(val code: Int, val retryAfterSeconds: Long?) : IOException("Google Translate answered HTTP $code")
+
+    /** Whether asking again can help: not when there is no network at all (no address, no connection). */
+    fun worthRetry(error: Throwable): Boolean =
+        error !is java.net.UnknownHostException && error !is java.net.ConnectException && error !is java.net.NoRouteToHostException
 
     /** How long to wait before try [attempt] (1, 2, 3...): what Google asked for, else 1, 2, 4 seconds. */
     fun waitMillis(attempt: Int, error: Throwable?): Long {
