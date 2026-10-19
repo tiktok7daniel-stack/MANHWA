@@ -72,7 +72,10 @@ private fun BaseTachiyomiTheme(
     // Read while drawing (the glow), outside of composition
     SideEffect { ManhwaStyleState.style = style }
     CompositionLocalProvider(LocalManhwaLook provides look, LocalManhwaWantsLight provides light) {
-        MaterialExpressiveTheme(colorScheme = scheme, content = content)
+        // One clock for the looks that move (Aurora Veil, Monarch Holo), still for the others
+        eu.kanade.presentation.components.ProvideLookClock(moving = style == ManhwaStyle.AURORA || style == ManhwaStyle.HOLO) {
+            MaterialExpressiveTheme(colorScheme = scheme, content = content)
+        }
     }
 }
 

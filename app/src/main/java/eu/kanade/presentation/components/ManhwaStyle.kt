@@ -300,9 +300,12 @@ fun ManhwaStyledScreen(content: @Composable () -> Unit) {
     }
     val accent = MaterialTheme.colorScheme.primary
     val dark = MaterialTheme.colorScheme
-    val lightLook = remember(accent, look.style) { ManhwaLook.of(look.style, accent, light = true) }
     val scheme = remember(accent, dark, look.style) {
         if (look.style == ManhwaStyle.INK) inkLightScheme(accent, dark) else obsidianLightScheme(accent, dark)
+    }
+    // Manhwa Ink on paper uses the accent made readable, as its scheme does
+    val lightLook = remember(accent, look.style, scheme) {
+        ManhwaLook.of(look.style, if (look.style == ManhwaStyle.INK) scheme.primary else accent, light = true)
     }
     // Dark clock and icons over the paper while this screen shows; given back when it goes
     val view = androidx.compose.ui.platform.LocalView.current
@@ -395,17 +398,20 @@ fun Modifier.pressClickable(onClick: () -> Unit): Modifier = composed {
 @Composable
 private fun Modifier.pressFeel(look: ManhwaLook, interaction: MutableInteractionSource): Modifier {
     val pressed by interaction.collectIsPressedAsState()
+    val still = LocalReduceMotion.current
     val spec: androidx.compose.animation.core.AnimationSpec<Float> = when {
         pressed -> tween(110, easing = androidx.compose.animation.core.CubicBezierEasing(0.23f, 1f, 0.32f, 1f))
-        look.pressSpring -> androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 600f)
+        look.pressSpring && !still -> androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 600f)
         else -> tween(160)
     }
-    val value by animateFloatAsState(if (pressed) 1f else 0f, spec, label = "press")
+    val press by animateFloatAsState(if (pressed) 1f else 0f, spec, label = "press")
     return graphicsLayer {
+        // The spring may pass its rest a little; the card never grows past its size or tips forward
+        val value = press.coerceAtLeast(0f)
         val scale = 1f - (1f - look.pressScale) * value
         scaleX = scale
         scaleY = scale
-        if (look.pressTilt > 0f) {
+        if (look.pressTilt > 0f && !still) {
             rotationX = look.pressTilt * value
             cameraDistance = 12f * density
         }

@@ -3,13 +3,6 @@ package eu.kanade.presentation.components
 import android.graphics.Matrix
 import android.graphics.SweepGradient
 import android.provider.Settings
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.runtime.State
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -20,12 +13,16 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -60,7 +57,9 @@ import kotlin.math.sin
  *   grid below; panels with a holographic rim (turning around the highlighted ones), a spring with a slight tilt.
  *
  * Motion is decorative and seen often, so it is slow, never moves the content, runs in its own layer and is read
- * while drawing only (nothing recomposes); with the phone's animations turned off it stands still.
+ * while drawing only (nothing recomposes). One clock for the whole app ([ProvideLookClock]) ticks about 30 times a
+ * second, only for the looks that move, and stops with the screen; every backdrop and rim reads its phase from it,
+ * so screens keep the same phase when switching. With the phone's animations turned off it stands still.
  */
 
 /** The fixed values of the three looks. */
@@ -106,17 +105,38 @@ fun rememberReduceMotion(): Boolean {
     }
 }
 
-/** 0 to 1 over [millis], again and again (linear), or still at 0 when motion is reduced. Read while drawing. */
+/** The looks' clock (milliseconds), read while drawing only. */
+val LocalLookTime = staticCompositionLocalOf<State<Long>> { mutableLongStateOf(0L) }
+
+/** The phone's animations are off: no motion, no bounce. */
+val LocalReduceMotion = staticCompositionLocalOf { false }
+
+/**
+ * The one clock of the moving looks: ticks about 30 times a second while [moving] (Aurora Veil, Monarch Holo) and the
+ * screen is drawn, from the phone's uptime, so every backdrop and rim keeps its phase across screens.
+ */
 @Composable
-private fun rememberLoop(millis: Int, label: String): State<Float> {
-    if (rememberReduceMotion()) return remember { mutableStateOf(0f) }
-    return rememberInfiniteTransition(label = label).animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(millis, easing = LinearEasing), RepeatMode.Restart),
-        label = label,
-    )
+fun ProvideLookClock(moving: Boolean, content: @Composable () -> Unit) {
+    val reduce = rememberReduceMotion()
+    val time = remember { mutableLongStateOf(android.os.SystemClock.uptimeMillis()) }
+    if (moving && !reduce) {
+        LaunchedEffect(Unit) {
+            var last = 0L
+            while (true) {
+                withFrameMillis { frame ->
+                    if (frame - last >= TICK_MS) {
+                        last = frame
+                        time.longValue = android.os.SystemClock.uptimeMillis()
+                    }
+                }
+            }
+        }
+    }
+    CompositionLocalProvider(LocalLookTime provides time, LocalReduceMotion provides reduce, content = content)
 }
+
+/** Where a loop of [millis] stands at [time], 0 to 1. */
+private fun phase(time: Long, millis: Int): Float = (time % millis) / millis.toFloat()
 
 // ------------------------------------------------------------------ surfaces
 
@@ -163,11 +183,12 @@ fun Modifier.inkSurface(shape: Shape, accent: Boolean, look: ManhwaLook): Modifi
         look.light -> LookTokens.InkBlack
         else -> primary.copy(alpha = 0.55f)
     }
-    val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
     this
-        .drawBehind {
+        .drawWithCache {
             val outline = shape.createOutline(size, layoutDirection, this)
-            translate(left = if (rtl) -shift else shift, top = shift) { drawOutline(outline, shadow) }
+            // Toward the reading side: down and left in Arabic, down and right otherwise
+            val dx = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) -shift else shift
+            onDrawBehind { translate(left = dx, top = shift) { drawOutline(outline, shadow) } }
         }
         .clip(shape)
         .background(if (accent) look.surfaceRaised else look.surface, shape)
@@ -180,7 +201,7 @@ fun Modifier.inkSurface(shape: Shape, accent: Boolean, look: ManhwaLook): Modifi
  */
 fun Modifier.holoSurface(shape: Shape, accent: Boolean, look: ManhwaLook): Modifier = composed {
     val primary = MaterialTheme.colorScheme.primary
-    val turn = if (accent) rememberLoop(HOLO_RIM_MS, "holoRim") else null
+    val clock = LocalLookTime.current
     val fill = remember(primary, accent, look) {
         Pair(
             Brush.verticalGradient(
@@ -207,8 +228,9 @@ fun Modifier.holoSurface(shape: Shape, accent: Boolean, look: ManhwaLook): Modif
             val stroke = Stroke(width = width * 2f)
             onDrawWithContent {
                 drawContent()
-                turn?.let {
-                    matrix.setRotate(it.value * 360f, size.width / 2f, size.height / 2f)
+                // Only a highlighted panel turns its rim (one shared clock, no animation of its own)
+                if (accent) {
+                    matrix.setRotate(phase(clock.value, HOLO_RIM_MS) * 360f, size.width / 2f, size.height / 2f)
                     shader.setLocalMatrix(matrix)
                 }
                 drawOutline(outline, brush, style = stroke)
@@ -244,7 +266,7 @@ fun LookBackdrop(look: ManhwaLook, modifier: Modifier, content: @Composable BoxS
 /** Three soft lights of the accent's family drifting round the sky, once every 48 seconds. */
 @Composable
 private fun BoxScope.AuroraSky(primary: Color) {
-    val time = rememberLoop(AURORA_MS, "aurora")
+    val clock = LocalLookTime.current
     Spacer(
         Modifier
             .matchParentSize()
@@ -256,8 +278,13 @@ private fun BoxScope.AuroraSky(primary: Color) {
                     Triple(primary, 0.30f, 0f),
                     Triple(primary.hueShift(45f), 0.22f, 0.33f),
                     Triple(primary.hueShift(-55f), 0.20f, 0.66f),
-                ).map { (color, alpha, phase) ->
-                    Triple(listOf(color.copy(alpha = alpha), color.copy(alpha = alpha * 0.3f), Color.Transparent), phase, color)
+                ).map { (color, alpha, start) ->
+                    // Built once, centred at the origin; each frame only moves it
+                    Brush.radialGradient(
+                        listOf(color.copy(alpha = alpha), color.copy(alpha = alpha * 0.3f), Color.Transparent),
+                        center = Offset.Zero,
+                        radius = w * 0.85f,
+                    ) to start
                 }
                 val fade = Brush.verticalGradient(
                     0f to Color.Transparent,
@@ -265,14 +292,12 @@ private fun BoxScope.AuroraSky(primary: Color) {
                     1f to LookTokens.AuroraBackground.copy(alpha = 0.85f),
                 )
                 onDrawBehind {
-                    val t = time.value
-                    lights.forEachIndexed { i, (stops, phase, _) ->
-                        val a = 2.0 * PI * (t + phase)
-                        val center = Offset(
-                            w * (0.5f + 0.32f * cos(a).toFloat()),
-                            h * (0.22f + 0.12f * sin(a * (if (i % 2 == 0) 1 else -1)).toFloat() + i * 0.1f),
-                        )
-                        drawCircle(Brush.radialGradient(stops, center = center, radius = w * 0.85f), radius = w * 0.85f, center = center)
+                    val t = phase(clock.value, AURORA_MS)
+                    lights.forEachIndexed { i, (brush, start) ->
+                        val a = 2.0 * PI * (t + start)
+                        val x = w * (0.5f + 0.32f * cos(a).toFloat())
+                        val y = h * (0.22f + 0.12f * sin(a * (if (i % 2 == 0) 1 else -1)).toFloat() + i * 0.1f)
+                        translate(x, y) { drawCircle(brush, radius = w * 0.85f, center = Offset.Zero) }
                     }
                     drawRect(fade)
                 }
@@ -333,8 +358,7 @@ private fun BoxScope.InkPage(primary: Color, light: Boolean) {
 /** A holographic halo turning once a minute over the top, embers rising, and a faint grid at the bottom. */
 @Composable
 private fun BoxScope.HoloField(primary: Color) {
-    val turn = rememberLoop(HOLO_HALO_MS, "holoHalo")
-    val rise = rememberLoop(HOLO_EMBER_MS, "holoEmbers")
+    val clock = LocalLookTime.current
     Spacer(
         Modifier
             .matchParentSize()
@@ -365,7 +389,8 @@ private fun BoxScope.HoloField(primary: Color) {
                 val ember = primary.hueShift(20f)
                 val dot = 1.6.dp.toPx()
                 onDrawBehind {
-                    rotate(turn.value * 360f, haloCenter) { drawCircle(halo, radius = haloRadius, center = haloCenter) }
+                    val now = clock.value
+                    rotate(phase(now, HOLO_HALO_MS) * 360f, haloCenter) { drawCircle(halo, radius = haloRadius, center = haloCenter) }
                     drawRect(haloMask)
                     // The system grid: lines running to a vanishing point, and rows getting closer far away
                     val vanish = Offset(w / 2f, gridTop)
@@ -376,7 +401,7 @@ private fun BoxScope.HoloField(primary: Color) {
                         drawLine(gridColor, Offset(0f, y), Offset(w, y), gridStroke)
                         k += 1f
                     }
-                    val t = rise.value
+                    val t = phase(now, HOLO_EMBER_MS)
                     Embers.forEach { e ->
                         val y = ((e.y - t * e.speed) % 1f + 1f) % 1f
                         val x = e.x + 0.015f * sin(2.0 * PI * (t * 3 + e.y)).toFloat()
@@ -422,7 +447,7 @@ fun lookDarkScheme(base: ColorScheme, background: Color, surface: Color, raised:
 
 /** Manhwa Ink on paper: manga paper, cream panels, black ink, the accent deep enough to read. */
 fun inkLightScheme(accent: Color, dark: ColorScheme): ColorScheme {
-    val primary = if (accent.luminance() > 0.45f) lerp(accent, Color.Black, 0.35f) else accent
+    val primary = readableOnWhite(accent)
     return lightColorScheme(
         primary = primary,
         onPrimary = Color.White,
@@ -452,6 +477,15 @@ fun inkLightScheme(accent: Color, dark: ColorScheme): ColorScheme {
     )
 }
 
+/** [accent] darkened until white text on it reads well (4.5:1). */
+fun readableOnWhite(accent: Color): Color {
+    var color = accent
+    repeat(6) { if (color.luminance() > READABLE_LUMINANCE) color = lerp(color, Color.Black, 0.2f) }
+    return color
+}
+
+private const val READABLE_LUMINANCE = 0.18f
+private const val TICK_MS = 33L
 private const val AURORA_MS = 48_000
 private const val HOLO_HALO_MS = 60_000
 private const val HOLO_EMBER_MS = 36_000
