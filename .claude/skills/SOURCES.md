@@ -17,6 +17,12 @@ binaries. Each file was read before it was added.
 | android-clean-architecture | ECC | MIT | Module layers and data flow |
 | compose-multiplatform-patterns | ECC | MIT | Compose state, recomposition and performance |
 
+| emil-design-eng | github.com/emilkowalski/skills (`2d22863`) | MIT | UI polish and the small details (licence in its folder) |
+| animate, review-animations, improve-animations, find-animation-opportunities, animation-performance, animation-vocabulary | emilkowalski/skills | MIT | Motion: whether to animate, curves, durations, interruption, performance (written for the web; the principles carry to Compose) |
+| apple-design | emilkowalski/skills | MIT | Springs, gestures, sheets, depth and typography in the Apple style |
+| break-ui | emilkowalski/skills | MIT | Worst-case data (long names, Arabic text, empty states) to find UI that breaks |
+| mobile-native, animate-expo, ask-sonner, pick-ui-library, prototype, write-swift | emilkowalski/skills | MIT | Web, React Native, Swift; added as asked, of little use in a Kotlin app |
+
 ECC agents in `.claude/agents/` (MIT, same version): `kotlin-reviewer` (report-only review of Kotlin changes),
 `kotlin-build-resolver` (smallest fix for a failing build), `silent-failure-hunter` (swallowed errors and bad
 fallbacks). ECC's Kotlin rules are in `docs/ecc-kotlin-rules/` with its licence.
