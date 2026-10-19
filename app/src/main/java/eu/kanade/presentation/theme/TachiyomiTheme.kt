@@ -11,7 +11,7 @@ import eu.kanade.presentation.components.LocalManhwaWantsLight
 import eu.kanade.presentation.components.ManhwaLook
 import eu.kanade.presentation.components.ManhwaStyle
 import eu.kanade.presentation.components.ManhwaStyleState
-import eu.kanade.presentation.components.obsidianDarkScheme
+import eu.kanade.presentation.components.styleDarkScheme
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.theme.colorscheme.DanghwaColorScheme
@@ -37,7 +37,7 @@ fun TachiyomiTheme(
         appTheme = appTheme ?: uiPreferences.appTheme.get(),
         isAmoled = amoled ?: uiPreferences.themeDarkAmoled.get(),
         accent = accent,
-        style = if (styleName == ManhwaStyle.OBSIDIAN.name) ManhwaStyle.OBSIDIAN else ManhwaStyle.GLASS,
+        style = ManhwaStyle.of(styleName),
         light = light,
         content = content,
     )
@@ -64,10 +64,10 @@ private fun BaseTachiyomiTheme(
     val scheme = remember(accent, style) {
         DanghwaColorScheme.getColorScheme(isDark = true, isAmoled = true, overrideDarkSurfaceContainers = true)
             .let { if (accent != null) it.withAccent(Color(accent), true) else it }
-            .let { if (style == ManhwaStyle.OBSIDIAN) obsidianDarkScheme(it) else it }
+            .let { styleDarkScheme(it, style) }
     }
     val look = remember(scheme.primary, style) {
-        if (style == ManhwaStyle.OBSIDIAN) ManhwaLook.obsidian(scheme.primary, light = false) else ManhwaLook.glass(scheme.primary)
+        ManhwaLook.of(style, scheme.primary, light = false)
     }
     // Read while drawing (the glow), outside of composition
     SideEffect { ManhwaStyleState.style = style }

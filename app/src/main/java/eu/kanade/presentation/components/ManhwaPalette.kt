@@ -100,8 +100,9 @@ fun ManhwaGlassPalette(selected: Int, onPick: (Int) -> Unit, modifier: Modifier 
 }
 
 /**
- * MANHWA: the look of the whole app, as two preview cards (MANHWA Glass, Obsidian Royal); Obsidian Royal shows its
- * dark and light versions. The app changes at once, no restart.
+ * MANHWA: the look of the whole app, as preview cards: MANHWA Glass and Obsidian Royal side by side, then the three
+ * newer looks each with a live preview drawn by the look itself (its own backdrop and panels, moving as it does).
+ * The looks with a light version show it as a choice. The app changes at once, no restart.
  */
 @Composable
 fun ManhwaStylePicker(
@@ -114,6 +115,8 @@ fun ManhwaStylePicker(
     darkName: String,
     lightName: String,
     modifier: Modifier = Modifier,
+    /** Name and one line about each of the newer looks. */
+    newer: List<Triple<ManhwaStyle, String, String>> = emptyList(),
 ) {
     val accent = MaterialTheme.colorScheme.primary
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -171,7 +174,19 @@ fun ManhwaStylePicker(
                 }
             }
         }
-        if (style == ManhwaStyle.OBSIDIAN) {
+        newer.forEach { (look, name, about) ->
+            Spacer(Modifier.height(10.dp))
+            StyleCard(name = name, selected = style == look, onClick = { onStyle(look) }) {
+                LivePreview(look, light = style == look && light)
+            }
+            Text(
+                about,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+            )
+        }
+        if (style.hasLight) {
             Spacer(Modifier.height(10.dp))
             androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 androidx.compose.material3.FilterChip(
@@ -184,6 +199,40 @@ fun ManhwaStylePicker(
                     onClick = { onLight(true) },
                     label = { Text(lightName, fontWeight = FontWeight.Bold) },
                 )
+            }
+        }
+    }
+}
+
+/** A small screen in [style]: its backdrop with two of its panels on it (the second highlighted), moving live. */
+@Composable
+private fun LivePreview(style: ManhwaStyle, light: Boolean) {
+    val accent = MaterialTheme.colorScheme.primary
+    val look = androidx.compose.runtime.remember(style, accent, light) { ManhwaLook.of(style, accent, light) }
+    val shape = RoundedCornerShape(12.dp)
+    androidx.compose.runtime.CompositionLocalProvider(LocalManhwaLook provides look) {
+        Box(Modifier.fillMaxWidth().height(110.dp).clip(shape)) {
+            LookBackdrop(look, Modifier) {
+                androidx.compose.foundation.layout.Row(
+                    Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    val panel = RoundedCornerShape(look.cardRadius.coerceAtMost(14).dp)
+                    Box(Modifier.weight(1f).height(68.dp).glass(panel)) {
+                        Column(Modifier.padding(10.dp)) {
+                            Box(Modifier.fillMaxWidth(0.7f).height(7.dp).clip(RoundedCornerShape(50)).background(look.text.copy(alpha = 0.85f)))
+                            Spacer(Modifier.height(6.dp))
+                            Box(Modifier.fillMaxWidth(0.45f).height(5.dp).clip(RoundedCornerShape(50)).background(look.muted))
+                        }
+                    }
+                    Box(Modifier.weight(1f).height(68.dp).glass(panel, accent = true)) {
+                        Column(Modifier.padding(10.dp)) {
+                            Box(Modifier.fillMaxWidth(0.55f).height(7.dp).clip(RoundedCornerShape(50)).background(accent))
+                            Spacer(Modifier.height(6.dp))
+                            Box(Modifier.fillMaxWidth(0.8f).height(5.dp).clip(RoundedCornerShape(50)).background(look.muted))
+                        }
+                    }
+                }
             }
         }
     }

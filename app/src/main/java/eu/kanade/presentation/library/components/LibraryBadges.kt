@@ -26,7 +26,7 @@ private fun PillBadge(text: String) {
 }
 
 @Composable
-private fun obsidian() = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
+private fun obsidian() = eu.kanade.presentation.components.LocalManhwaLook.current.isSolid
 
 @Composable
 internal fun DownloadsBadge(count: Int) {

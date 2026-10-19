@@ -51,7 +51,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import eu.kanade.presentation.components.glass
-import eu.kanade.presentation.components.obsidianSurface
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
@@ -301,8 +300,9 @@ object HomeScreen : Screen() {
             // Obsidian Royal: a floating pill dock, solid, its top edge lit by a hairline
             Box(
                 Modifier.matchParentSize().then(
-                    if (look.isObsidian) {
-                        Modifier.obsidianSurface(RoundedCornerShape(50), accent = false, look = look)
+                    if (look.isSolid) {
+                        // Each solid look draws the pill dock in its own panel
+                        Modifier.glass(RoundedCornerShape(50), accent = false)
                     } else {
                         Modifier.glass(RoundedCornerShape(28.dp), accent = true, alpha = 0.85f)
                     },
@@ -337,7 +337,7 @@ object HomeScreen : Screen() {
                         Box(
                             modifier = Modifier
                                 .padding(top = 2.dp)
-                                .width(if (selected && !look.isObsidian) 22.dp else 0.dp)
+                                .width(if (selected && !look.isSolid) 22.dp else 0.dp)
                                 .height(3.dp)
                                 .clip(RoundedCornerShape(50))
                                 .background(Brush.horizontalGradient(listOf(colors.primary.copy(alpha = 0.4f), colors.primary, colors.primary.copy(alpha = 0.4f)))),
@@ -352,7 +352,7 @@ object HomeScreen : Screen() {
                                         modifier = Modifier
                                             .neonGlow(CircleShape, colors.primary, if (selected) 0.22f else 0f, 10.dp)
                                             .then(
-                                                if (look.isObsidian) {
+                                                if (look.isSolid) {
                                                     Modifier
                                                         .clip(RoundedCornerShape(50))
                                                         .background(if (selected) colors.primary.copy(alpha = 0.16f) else Color.Transparent)
@@ -389,7 +389,7 @@ object HomeScreen : Screen() {
             label = "halo",
         )
         // Same width as every tab, so the orb sits exactly in the middle of the bar
-        val calm = eu.kanade.presentation.components.LocalManhwaLook.current.isObsidian
+        val calm = eu.kanade.presentation.components.LocalManhwaLook.current.isCalm
         Box(
             modifier = Modifier.weight(1f).fillMaxHeight(),
             contentAlignment = Alignment.Center,

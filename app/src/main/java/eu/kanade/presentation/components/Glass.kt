@@ -31,8 +31,14 @@ import androidx.compose.ui.unit.dp
  */
 fun Modifier.glass(shape: Shape, accent: Boolean = false, alpha: Float = 0.55f): Modifier = composed {
     val look = LocalManhwaLook.current
-    // MANHWA Obsidian Royal: a solid lit surface instead of the glass
-    if (look.isObsidian) return@composed obsidianSurface(shape, accent, look)
+    // MANHWA Obsidian Royal: a solid lit surface instead of the glass; the other looks draw their own panels
+    when (look.style) {
+        ManhwaStyle.OBSIDIAN -> return@composed obsidianSurface(shape, accent, look)
+        ManhwaStyle.AURORA -> return@composed auroraSurface(shape, accent, look)
+        ManhwaStyle.INK -> return@composed inkSurface(shape, accent, look)
+        ManhwaStyle.HOLO -> return@composed holoSurface(shape, accent, look)
+        ManhwaStyle.GLASS -> Unit
+    }
     val colors = MaterialTheme.colorScheme
     // Built once per look, not on every recomposition of every card
     val brushes = remember(colors.primary, colors.surfaceContainerHighest, colors.surfaceContainer, accent, alpha) {
@@ -113,6 +119,11 @@ fun GlassBackdrop(modifier: Modifier = Modifier, content: @Composable BoxScope.(
     if (look.isObsidian) {
         // MANHWA Obsidian Royal: one deep, still colour (obsidian, or silk paper), nothing animated behind
         Box(modifier = modifier.fillMaxSize().background(look.background), content = content)
+        return
+    }
+    // Aurora Veil, Manhwa Ink, Monarch Holo: their own sky, page or field
+    if (look.isSolid) {
+        LookBackdrop(look, modifier, content)
         return
     }
     val primary = MaterialTheme.colorScheme.primary

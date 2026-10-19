@@ -39,8 +39,25 @@ import androidx.compose.ui.graphics.luminance
  * - [ManhwaStyle.OBSIDIAN]: Obsidian Royal: deep obsidian (or warm silk paper in its light version), solid
  *   surfaces lit by thin specular rims instead of blur and glow, editorial cards and a soft press. Light on the
  *   phone's GPU and battery. Both follow the accent the reader picked.
+ * - [ManhwaStyle.AURORA], [ManhwaStyle.INK], [ManhwaStyle.HOLO]: Aurora Veil, Manhwa Ink and Monarch Holo (see
+ *   ManhwaLooks.kt), each with its own surfaces, backdrop and touch.
  */
-enum class ManhwaStyle { GLASS, OBSIDIAN }
+enum class ManhwaStyle {
+    GLASS,
+    OBSIDIAN,
+    AURORA,
+    INK,
+    HOLO,
+    ;
+
+    /** Whether the look has a light version the reader can choose. */
+    val hasLight: Boolean get() = this == OBSIDIAN || this == INK
+
+    companion object {
+        /** The saved style, MANHWA Glass when unknown. */
+        fun of(name: String?): ManhwaStyle = entries.firstOrNull { it.name == name } ?: GLASS
+    }
+}
 
 @Immutable
 data class ManhwaLook(
@@ -65,8 +82,20 @@ data class ManhwaLook(
     val glow: Boolean,
     /** How small a card or button gets while pressed (1 = no change). */
     val pressScale: Float,
+    /** Corners of the library's cover cards (dp). */
+    val cardRadius: Int = 18,
+    /** The press springs back (a little bounce) instead of easing back. */
+    val pressSpring: Boolean = false,
+    /** Degrees a pressed card tips back, for depth (0 = flat). */
+    val pressTilt: Float = 0f,
 ) {
     val isObsidian: Boolean get() = style == ManhwaStyle.OBSIDIAN
+
+    /** Any look but MANHWA Glass: solid surfaces, editorial cards, the pill dock. */
+    val isSolid: Boolean get() = style != ManhwaStyle.GLASS
+
+    /** A still look: no breathing halo on the AI orb. */
+    val isCalm: Boolean get() = style == ManhwaStyle.OBSIDIAN || style == ManhwaStyle.INK
 
     companion object {
         /** MANHWA Glass: the values its building blocks always used. */
@@ -100,6 +129,7 @@ data class ManhwaLook(
                 rimAccentTop = accent.copy(alpha = 0.45f),
                 glow = false,
                 pressScale = 0.97f,
+                cardRadius = ObsidianTokens.CARD_RADIUS,
             )
         } else {
             ManhwaLook(
@@ -115,9 +145,82 @@ data class ManhwaLook(
                 rimAccentTop = accent.copy(alpha = 0.55f),
                 glow = false,
                 pressScale = 0.97f,
+                cardRadius = ObsidianTokens.CARD_RADIUS,
             )
         }
+
+        /** Aurora Veil: midnight panels tinted by the accent, round corners, a soft spring. */
+        fun aurora(accent: Color) = ManhwaLook(
+            style = ManhwaStyle.AURORA,
+            light = false,
+            background = LookTokens.AuroraBackground,
+            surface = lerp(LookTokens.AuroraSurface, accent, 0.05f),
+            surfaceRaised = lerp(LookTokens.AuroraSurface, accent, 0.12f),
+            text = LookTokens.AuroraInk,
+            muted = LookTokens.AuroraMuted,
+            rimTop = accent.copy(alpha = 0.45f),
+            rimBottom = accent.hueShift(50f).copy(alpha = 0.2f),
+            rimAccentTop = accent,
+            glow = false,
+            pressScale = 0.96f,
+            cardRadius = 22,
+            pressSpring = true,
+        )
+
+        /** Manhwa Ink on manga paper or on night ink: square-ish panels, a crisp press. */
+        fun ink(accent: Color, light: Boolean) = ManhwaLook(
+            style = ManhwaStyle.INK,
+            light = light,
+            background = if (light) LookTokens.InkPaper else LookTokens.InkNight,
+            surface = if (light) LookTokens.InkPaperSurface else LookTokens.InkNightSurface,
+            surfaceRaised = if (light) lerp(LookTokens.InkPaperSurface, accent, 0.06f) else lerp(LookTokens.InkNightSurface, accent, 0.1f),
+            text = if (light) LookTokens.InkBlack else LookTokens.InkNightLine,
+            muted = if (light) LookTokens.InkPaperMuted else LookTokens.InkNightMuted,
+            rimTop = if (light) LookTokens.InkBlack else LookTokens.InkNightLine,
+            rimBottom = if (light) LookTokens.InkBlack else LookTokens.InkNightLine,
+            rimAccentTop = accent,
+            glow = false,
+            pressScale = 0.97f,
+            cardRadius = 6,
+        )
+
+        /** Monarch Holo: deep panels with a holographic rim, a spring with a slight tilt. */
+        fun holo(accent: Color) = ManhwaLook(
+            style = ManhwaStyle.HOLO,
+            light = false,
+            background = LookTokens.HoloBackground,
+            surface = lerp(LookTokens.HoloSurface, accent, 0.05f),
+            surfaceRaised = lerp(LookTokens.HoloSurface, accent, 0.12f),
+            text = LookTokens.HoloInk,
+            muted = LookTokens.HoloMuted,
+            rimTop = accent.copy(alpha = 0.6f),
+            rimBottom = accent.hueShift(-60f).copy(alpha = 0.3f),
+            rimAccentTop = accent,
+            glow = true,
+            pressScale = 0.95f,
+            cardRadius = 16,
+            pressSpring = true,
+            pressTilt = 5f,
+        )
+
+        /** The look of [style] for [accent], in its light version when it has one and [light] is set. */
+        fun of(style: ManhwaStyle, accent: Color, light: Boolean = false): ManhwaLook = when (style) {
+            ManhwaStyle.GLASS -> glass(accent)
+            ManhwaStyle.OBSIDIAN -> obsidian(accent, light)
+            ManhwaStyle.AURORA -> aurora(accent)
+            ManhwaStyle.INK -> ink(accent, light)
+            ManhwaStyle.HOLO -> holo(accent)
+        }
     }
+}
+
+/** The dark colour scheme of [style] on the MANHWA [base] scheme. */
+fun styleDarkScheme(base: ColorScheme, style: ManhwaStyle): ColorScheme = when (style) {
+    ManhwaStyle.GLASS -> base
+    ManhwaStyle.OBSIDIAN -> obsidianDarkScheme(base)
+    ManhwaStyle.AURORA -> lookDarkScheme(base, LookTokens.AuroraBackground, LookTokens.AuroraSurface, LookTokens.AuroraSurface, LookTokens.AuroraInk, LookTokens.AuroraMuted)
+    ManhwaStyle.INK -> lookDarkScheme(base, LookTokens.InkNight, LookTokens.InkNightSurface, LookTokens.InkNightSurface, LookTokens.InkNightLine, LookTokens.InkNightMuted)
+    ManhwaStyle.HOLO -> lookDarkScheme(base, LookTokens.HoloBackground, LookTokens.HoloSurface, LookTokens.HoloSurface, LookTokens.HoloInk, LookTokens.HoloMuted)
 }
 
 /** The fixed values of Obsidian Royal. */
@@ -154,7 +257,7 @@ val LocalManhwaWantsLight = staticCompositionLocalOf { false }
 object ManhwaStyleState {
     var style by mutableStateOf(ManhwaStyle.GLASS)
 
-    val glow: Boolean get() = style == ManhwaStyle.GLASS
+    val glow: Boolean get() = style == ManhwaStyle.GLASS || style == ManhwaStyle.HOLO
 }
 
 /** The colours of the current look, read by the screens instead of fixed colours. */
@@ -191,14 +294,16 @@ object ManhwaInk {
 @Composable
 fun ManhwaStyledScreen(content: @Composable () -> Unit) {
     val look = LocalManhwaLook.current
-    if (!look.isObsidian || look.light || !LocalManhwaWantsLight.current) {
+    if (!look.style.hasLight || look.light || !LocalManhwaWantsLight.current) {
         content()
         return
     }
     val accent = MaterialTheme.colorScheme.primary
     val dark = MaterialTheme.colorScheme
-    val lightLook = remember(accent) { ManhwaLook.obsidian(accent, light = true) }
-    val scheme = remember(accent, dark) { obsidianLightScheme(accent, dark) }
+    val lightLook = remember(accent, look.style) { ManhwaLook.of(look.style, accent, light = true) }
+    val scheme = remember(accent, dark, look.style) {
+        if (look.style == ManhwaStyle.INK) inkLightScheme(accent, dark) else obsidianLightScheme(accent, dark)
+    }
     // Dark clock and icons over the paper while this screen shows; given back when it goes
     val view = androidx.compose.ui.platform.LocalView.current
     androidx.compose.runtime.DisposableEffect(view) {
@@ -277,31 +382,41 @@ fun obsidianLightScheme(accent: Color, dark: ColorScheme): ColorScheme {
  * the screen feels alive under the finger; a plain click otherwise.
  */
 fun Modifier.pressClickable(onClick: () -> Unit): Modifier = composed {
-    val scale = LocalManhwaLook.current.pressScale
-    if (scale >= 1f) return@composed clickable(onClick = onClick)
+    val look = LocalManhwaLook.current
+    if (look.pressScale >= 1f) return@composed clickable(onClick = onClick)
     val interaction = remember { MutableInteractionSource() }
+    pressFeel(look, interaction).clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), onClick = onClick)
+}
+
+/**
+ * The look's touch: the card gives under the finger (fast, ease-out) and comes back with a soft spring on the
+ * looks that spring, tipping back a few degrees on Monarch Holo. Scale and tilt only, drawn in the card's layer.
+ */
+@Composable
+private fun Modifier.pressFeel(look: ManhwaLook, interaction: MutableInteractionSource): Modifier {
     val pressed by interaction.collectIsPressedAsState()
-    val value by animateFloatAsState(if (pressed) scale else 1f, tween(110), label = "press")
-    graphicsLayer {
-        scaleX = value
-        scaleY = value
-    }.clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), onClick = onClick)
+    val spec: androidx.compose.animation.core.AnimationSpec<Float> = when {
+        pressed -> tween(110, easing = androidx.compose.animation.core.CubicBezierEasing(0.23f, 1f, 0.32f, 1f))
+        look.pressSpring -> androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 600f)
+        else -> tween(160)
+    }
+    val value by animateFloatAsState(if (pressed) 1f else 0f, spec, label = "press")
+    return graphicsLayer {
+        val scale = 1f - (1f - look.pressScale) * value
+        scaleX = scale
+        scaleY = scale
+        if (look.pressTilt > 0f) {
+            rotationX = look.pressTilt * value
+            cameraDistance = 12f * density
+        }
+    }
 }
 
 /** [pressClickable] with a long press too (cards of the library). */
 fun Modifier.pressCombinedClickable(onClick: () -> Unit, onLongClick: () -> Unit): Modifier = composed {
-    val scale = LocalManhwaLook.current.pressScale
+    val look = LocalManhwaLook.current
     val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val value by animateFloatAsState(if (pressed) scale else 1f, tween(110), label = "press")
-    val scaled = if (scale < 1f) {
-        graphicsLayer {
-            scaleX = value
-            scaleY = value
-        }
-    } else {
-        this
-    }
+    val scaled = if (look.pressScale < 1f) pressFeel(look, interaction) else this
     scaled.combinedClickable(
             interactionSource = interaction,
             indication = androidx.compose.material3.ripple(),

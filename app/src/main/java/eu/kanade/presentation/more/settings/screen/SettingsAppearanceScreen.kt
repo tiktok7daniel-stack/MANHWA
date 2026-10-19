@@ -70,7 +70,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )
                         ManhwaStylePicker(
-                            style = if (styleName == ManhwaStyle.OBSIDIAN.name) ManhwaStyle.OBSIDIAN else ManhwaStyle.GLASS,
+                            style = ManhwaStyle.of(styleName),
                             light = light,
                             onStyle = { uiPreferences.manhwaStyle.set(it.name) },
                             onLight = { uiPreferences.manhwaStyleLight.set(it) },
@@ -78,6 +78,11 @@ object SettingsAppearanceScreen : SearchableSettings {
                             obsidianName = stringResource(ATMR.strings.style_obsidian),
                             darkName = stringResource(ATMR.strings.style_dark),
                             lightName = stringResource(ATMR.strings.style_light),
+                            newer = listOf(
+                                Triple(ManhwaStyle.AURORA, stringResource(ATMR.strings.style_aurora), stringResource(ATMR.strings.style_aurora_sub)),
+                                Triple(ManhwaStyle.INK, stringResource(ATMR.strings.style_ink), stringResource(ATMR.strings.style_ink_sub)),
+                                Triple(ManhwaStyle.HOLO, stringResource(ATMR.strings.style_holo), stringResource(ATMR.strings.style_holo_sub)),
+                            ),
                         )
                     }
                 },

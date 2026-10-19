@@ -1244,4 +1244,12 @@
     <string name="wn_review_b">Translation collection › Review: export what the AI saved and nobody checked (lines and every manhwa\'s names), correct it (yourself or with an AI) and import it back. Corrections become yours, names go back to their manhwa, the most used fixes become lessons, and the next export only holds what came after. Each round is listed with its date.</string>
     <string name="wn_refs_t">Corrections followed inside new sentences</string>
     <string name="wn_refs_b">Reviewed lines that share words with a chapter go to the AI as references, so a corrected term keeps its wording wherever it shows up, not only when the same line comes back.</string>
+    <string name="style_aurora">Aurora Veil</string>
+    <string name="style_aurora_sub">A midnight sky where soft lights of your colour drift slowly; frosted panels with an iridescent rim and a gentle spring under the finger.</string>
+    <string name="style_ink">Manhwa Ink</string>
+    <string name="style_ink_sub">The page of a comic: halftone dots and speed lines, panels with a bold ink border and a hard shadow. On manga paper or night ink.</string>
+    <string name="style_holo">Monarch Holo</string>
+    <string name="style_holo_sub">The boldest: a holographic halo turning over the screen, rising embers and a system grid; holographic rims that turn around what is highlighted, and cards that tip back under the finger.</string>
+    <string name="wn_looks_t">Three new looks</string>
+    <string name="wn_looks_b">Settings › Appearance › Look: Aurora Veil, Manhwa Ink (paper or night) and Monarch Holo, each with its own backdrop, panels and touch, previewed live. Motion is slow and stops when the phone\'s animations are off.</string>
 </resources>
