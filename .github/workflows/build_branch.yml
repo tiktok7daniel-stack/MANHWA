@@ -48,7 +48,7 @@ jobs:
       - name: Build debug APK
         run: |
           set -o pipefail
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee build.log
+          ./gradlew assembleDebug -Pmanhwa.phoneOnly --stacktrace 2>&1 | tee build.log
 
       - name: Show errors in summary
         if: failure()
@@ -74,7 +74,7 @@ jobs:
       - name: Verify app name and package
         run: |
           AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | tail -1)
-          "$AAPT" dump badging app/build/outputs/apk/debug/app-universal-debug.apk \
+          "$AAPT" dump badging app/build/outputs/apk/debug/app-arm64-v8a-debug.apk \
             | grep -E "^package:|^application-label:|^application:" | tee badging.txt
           {
             echo "## MANHWA build ${{ github.run_number }}"
@@ -112,7 +112,7 @@ jobs:
       - name: Run unit tests
         run: |
           set -o pipefail
-          ./gradlew :app:testDebugUnitTest --stacktrace 2>&1 | tee test.log
+          ./gradlew :app:testDebugUnitTest -Pmanhwa.phoneOnly --stacktrace 2>&1 | tee test.log
 
       # MANHWA: the phone's APK published as a release of its own (a direct download link, kept, and outside the
       # artifact storage quota), once the build and the tests passed
