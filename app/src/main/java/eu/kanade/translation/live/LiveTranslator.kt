@@ -695,7 +695,11 @@ class LiveTranslator(
             }
             engine.aiPart?.apply {
                 glossaryNotes = id?.let(glossaryStore::notes).orEmpty()
-                lessons = id?.let(lessonStore::forPrompt).orEmpty()
+                lessons = listOf(
+                    id?.let(lessonStore::forPrompt).orEmpty(),
+                    // MANHWA: reviewed lines that share words with this page, followed even inside new sentences
+                    collection.references(from.name, eu.kanade.translation.style.StyleProfile.libraryTarget(preferences, to.name), result.blocks.map { it.text }),
+                ).filter { it.isNotBlank() }.joinToString("\n")
                 fitHints = true
                 // MANHWA: the story so far too, as for whole chapters
                 storySoFar = id?.let(glossaryStore::storySoFar).orEmpty()

@@ -579,7 +579,11 @@ class ChapterTranslator(
                     richTerms = !rocket
                     discoveredDetails.clear()
                     storySoFar = if (rocket) "" else glossaryStore.storySoFar(translation.manga.id) + brainContext(translation.manga.id, translation.manga.title, translation.chapter.chapterNumber)
-                    lessons = if (rocket) "" else lessonStore.forPrompt(translation.manga.id)
+                    lessons = listOf(
+                        if (rocket) "" else lessonStore.forPrompt(translation.manga.id),
+                        // MANHWA: reviewed lines that share words with this chapter, followed even inside new sentences
+                        collection.references(src, tgt, pages.values.flatMap { page -> page.blocks.map { it.text } }),
+                    ).filter { it.isNotBlank() }.joinToString("\n")
                     fitHints = !rocket
                     askSummary = !rocket
                     this.skipSfx = skipSfx

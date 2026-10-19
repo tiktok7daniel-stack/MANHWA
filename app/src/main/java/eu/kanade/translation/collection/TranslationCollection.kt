@@ -566,6 +566,24 @@ class TranslationCollection(private val context: Context) {
         context.getDatabasePath(DB_NAME).inputStream().use { it.copyTo(target) }
     }
 
+    /**
+     * MANHWA: the reviewed lines (the reader's own and corrected in a review) that share words with [lines], as
+     * prompt text for the AI; "" when none. Templates and learnt shapes are left out.
+     */
+    fun references(src: String, tgt: String, lines: List<String>, limit: Int = REFERENCES): String = runCatching {
+        val reviewed = db.query(
+            "segments",
+            arrayOf("original", "translation"),
+            "src = ? AND tgt = ? AND user = 1 AND key NOT LIKE 'shape:%' AND key NOT LIKE '%{n%' AND key NOT LIKE '%{name%'",
+            arrayOf(src, tgt),
+            null,
+            null,
+            "last_used DESC",
+            REFERENCE_ROWS.toString(),
+        ).use { c -> buildList { while (c.moveToNext()) add(c.getString(0) to c.getString(1)) } }
+        ReferencePicker.prompt(ReferencePicker.pick(lines, reviewed, limit))
+    }.getOrDefault("")
+
     /** MANHWA review: how many lines nobody has checked yet, and the oldest one's date (0 when none). */
     fun unreviewed(): Pair<Long, Long> = runCatching {
         db.rawQuery("SELECT COUNT(*), IFNULL(MIN(added), 0) FROM segments WHERE user = 0 AND reviewed = 0", null).use { c ->
@@ -742,6 +760,9 @@ class TranslationCollection(private val context: Context) {
         const val ROUNDS_KEY = "rounds"
         /** Corrections of a review kept as lessons for the AI (the most used lines). */
         const val REVIEW_LESSONS = 40
+        /** Reviewed lines given to the AI with a chapter, and how many reviewed lines are searched. */
+        const val REFERENCES = 12
+        const val REFERENCE_ROWS = 30_000
         const val MAX_ROUNDS = 30
         // 2: MANHWA review (reviewed, added)
         const val DB_VERSION = 2
