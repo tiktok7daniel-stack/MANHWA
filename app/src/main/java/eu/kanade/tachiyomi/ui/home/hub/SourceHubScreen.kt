@@ -81,6 +81,7 @@ import mihon.icons.materialsymbols.rounded.Shield
 import mihon.icons.materialsymbols.rounded.SortByAlpha
 import mihon.icons.materialsymbols.rounded.Speed
 import mihon.icons.materialsymbols.rounded.Verified
+import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.rounded.VisibilityOff
 import mihon.icons.materialsymbols.roundedfilled.Star
 import tachiyomi.i18n.at.ATMR
@@ -204,6 +205,8 @@ class SourceHubScreen : Screen() {
                         }
                     }
                     item(key = "adult") { AdultSwitch(state.hideAdult, viewModel::setHideAdult) }
+                    // MANHWA: the reverse, right under it: only +18 sources show
+                    item(key = "onlyAdult") { OnlyAdultSwitch(state.onlyAdult, viewModel::setOnlyAdult) }
                     if (!discover) {
                         item(key = "auto-update") {
                             UpdatesCard(
@@ -1240,6 +1243,27 @@ class SourceHubScreen : Screen() {
                 Text(stringResource(ATMR.strings.hub_hide_adult_sub), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.6f))
             }
             androidx.compose.material3.Switch(checked = hidden, onCheckedChange = onChange)
+        }
+    }
+
+    @Composable
+    private fun OnlyAdultSwitch(only: Boolean, onChange: (Boolean) -> Unit) {
+        val colors = MaterialTheme.colorScheme
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glass(RoundedCornerShape(20.dp), accent = only, alpha = 0.4f)
+                .clickable { onChange(!only) }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(MaterialSymbols.Rounded.Visibility, contentDescription = null, tint = colors.primary, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(ATMR.strings.hub_only_adult), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = ManhwaInk.text)
+                Text(stringResource(ATMR.strings.hub_only_adult_sub), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text.copy(alpha = 0.6f))
+            }
+            androidx.compose.material3.Switch(checked = only, onCheckedChange = onChange)
         }
     }
 

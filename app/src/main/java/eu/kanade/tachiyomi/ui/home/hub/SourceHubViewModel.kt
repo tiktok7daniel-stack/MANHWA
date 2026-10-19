@@ -92,6 +92,8 @@ class SourceHubViewModel(
         val order: List<String> = emptyList(),
         val sort: Int = SORT_FAME,
         val hideAdult: Boolean = true,
+        /** Only +18 sources show (the reverse of [hideAdult]). */
+        val onlyAdult: Boolean = false,
         /** Bumped when the AI scored new sources, so lists sort again. */
         val fameVersion: Int = 0,
         val learning: Boolean = false,
@@ -218,6 +220,9 @@ class SourceHubViewModel(
         sourcePreferences.hideAdult.changes()
             .onEach { hide -> _state.update { it.copy(hideAdult = hide) } }
             .launchIn(viewModelScope)
+        sourcePreferences.onlyAdult.changes()
+            .onEach { only -> _state.update { it.copy(onlyAdult = only) } }
+            .launchIn(viewModelScope)
         sourcePreferences.enabledLanguages.changes()
             .onEach { langs -> _state.update { it.copy(enabledLanguages = langs) } }
             .launchIn(viewModelScope)
@@ -239,7 +244,7 @@ class SourceHubViewModel(
         combine(
             extensionManager.availableExtensionsFlow,
             extensionManager.loadedExtensionsFlow,
-            sourcePreferences.hideAdult.changes(),
+            adultFilter.modeChanges(),
         ) { available, loaded, _ ->
             val installedPkgs = loaded.map { it.pkgName }.toSet()
             available.filter { it.pkgName !in installedPkgs && !adultFilter.hides(it) }
@@ -480,7 +485,17 @@ class SourceHubViewModel(
 
     fun setSort(sort: Int) = sourcePreferences.hubSort.set(sort)
 
-    fun setHideAdult(hide: Boolean) = sourcePreferences.hideAdult.set(hide)
+    fun setHideAdult(hide: Boolean) {
+        sourcePreferences.hideAdult.set(hide)
+        // The two modes cannot both be on
+        if (hide) sourcePreferences.onlyAdult.set(false)
+    }
+
+    /** Only +18 sources: the other sources, extensions and their series stay out (hiding +18 goes off). */
+    fun setOnlyAdult(only: Boolean) {
+        sourcePreferences.onlyAdult.set(only)
+        if (only) sourcePreferences.hideAdult.set(false)
+    }
 
     /** Lets the team's AI score the sources the built-in index doesn't know, once each. */
     private fun learnFame(names: List<String>) {

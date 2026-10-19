@@ -37,6 +37,9 @@ class SourcePreferences(
     /** MANHWA: keeps +18 sources, extensions and series out of every list (on by default). */
     val hideAdult: Preference<Boolean> = preferenceStore.getBoolean("manhwa_hide_adult", true)
 
+    /** MANHWA: the reverse of [hideAdult]: only +18 sources and extensions show, every other one stays out. */
+    val onlyAdult: Preference<Boolean> = preferenceStore.getBoolean("manhwa_only_adult", false)
+
     /** MANHWA: fame scores the team's AI gave to sources the built-in index doesn't know, as JSON. */
     val sourceFameAi: Preference<String> = preferenceStore.getString("manhwa_source_fame_ai", "{}")
 

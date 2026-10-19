@@ -1252,4 +1252,6 @@
     <string name="style_holo_sub">The boldest: a holographic halo turning over the screen, rising embers and a system grid; holographic rims that turn around what is highlighted, and cards that tip back under the finger.</string>
     <string name="wn_looks_t">Three new looks</string>
     <string name="wn_looks_b">Settings › Appearance › Look: Aurora Veil, Manhwa Ink (paper or night) and Monarch Holo, each with its own backdrop, panels and touch, previewed live. Motion is slow and stops when the phone\'s animations are off.</string>
+    <string name="hub_only_adult">Show +18 sources only</string>
+    <string name="hub_only_adult_sub">Every other source, extension and their series stay out of the whole app; only +18 ones show</string>
 </resources>
