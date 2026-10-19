@@ -67,6 +67,10 @@ class GlossaryStore(private val context: Context) {
 
     fun flow(mangaId: Long): StateFlow<List<Entry>> = state(mangaId).asStateFlow()
 
+    /** MANHWA: every series that has a glossary saved. */
+    fun mangaIds(): List<Long> =
+        File(context.filesDir, "glossary").listFiles().orEmpty().mapNotNull { it.name.removeSuffix(".json").takeIf { n -> it.name.endsWith(".json") }?.toLongOrNull() }
+
     fun get(mangaId: Long): List<Entry> = state(mangaId).value
 
     /**

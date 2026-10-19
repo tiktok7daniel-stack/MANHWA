@@ -109,7 +109,16 @@ class TranslationCollectionScreen : Screen() {
         val reviewExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
-                val count = runCatching { context.contentResolver.openOutputStream(uri)!!.use(collection::exportReview) }.getOrNull()
+                val count = runCatching {
+                    // Every series' names glossary goes in the same file, to be corrected in one place
+                    val graph = context.appGraph
+                    val glossaries = graph.glossaryStore.mangaIds().mapNotNull { id ->
+                        val terms = graph.glossaryStore.get(id).map { CollectionReview.Term(it.source, it.translation, it.kind, it.gender, it.note) }
+                        if (terms.isEmpty()) return@mapNotNull null
+                        CollectionReview.Glossary(id, graph.getMangaById.await(id)?.title.orEmpty(), terms)
+                    }
+                    context.contentResolver.openOutputStream(uri)!!.use { collection.exportReview(it, glossaries) }
+                }.getOrNull()
                 withContext(Dispatchers.Main) {
                     if (count != null) context.toast(context.stringResource(ATMR.strings.col_review_exported, count)) else context.toast(ATMR.strings.col_failed)
                 }
@@ -119,9 +128,20 @@ class TranslationCollectionScreen : Screen() {
             if (uri == null) return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
                 val result = runCatching { collection.importReview(context.contentResolver.openInputStream(uri)!!) }.getOrNull()
+                // Each series' corrected glossary becomes its glossary (lines with a changed name follow it)
+                result?.glossaries?.forEach { g ->
+                    val store = context.appGraph.glossaryStore
+                    runCatching {
+                        store.importPack(
+                            g.mangaId,
+                            g.terms.map { eu.kanade.translation.glossary.GlossaryStore.Entry(it.source, it.translation, kind = it.kind, gender = it.gender, note = it.note) },
+                            replace = true,
+                        )
+                    }
+                }
                 withContext(Dispatchers.Main) {
                     if (result != null) {
-                        context.toast(context.stringResource(ATMR.strings.col_review_done, result.corrected, result.approved, result.deleted))
+                        context.toast(context.stringResource(ATMR.strings.col_review_done, result.corrected, result.approved, result.deleted, result.glossaries.size))
                     } else {
                         context.toast(ATMR.strings.col_review_not_file)
                     }
@@ -301,8 +321,7 @@ class TranslationCollectionScreen : Screen() {
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
-                                enabled = count > 0,
-                                onClick = { reviewExportLauncher.launch("manhwa_review_${java.time.LocalDate.now()}.json") },
+                                    onClick = { reviewExportLauncher.launch("manhwa_review_${java.time.LocalDate.now()}.json") },
                             ) { Text(stringResource(ATMR.strings.col_review_export)) }
                             OutlinedButton(onClick = { reviewImportLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) }) {
                                 Text(stringResource(ATMR.strings.col_review_import))

@@ -573,8 +573,8 @@ class TranslationCollection(private val context: Context) {
         }
     }.getOrDefault(0L to 0L)
 
-    /** MANHWA review: writes the lines nobody has checked yet as a review file; returns how many. */
-    fun exportReview(target: java.io.OutputStream): Int {
+    /** MANHWA review: writes the lines nobody has checked yet, and every series' [glossaries], as a review file; returns how many lines. */
+    fun exportReview(target: java.io.OutputStream, glossaries: List<CollectionReview.Glossary>): Int {
         val lines = mutableListOf<CollectionReview.Line>()
         var from = Long.MAX_VALUE
         var to = 0L
@@ -593,12 +593,12 @@ class TranslationCollection(private val context: Context) {
                 to = maxOf(to, c.getLong(8))
             }
         }
-        target.write(CollectionReview.encode(lines, if (lines.isEmpty()) 0 else from, to, System.currentTimeMillis()).toByteArray())
+        target.write(CollectionReview.encode(lines, glossaries, if (lines.isEmpty()) 0 else from, to, System.currentTimeMillis()).toByteArray())
         return lines.size
     }
 
-    /** What a review file changed: lines corrected, approved as they were, and deleted. */
-    class ReviewResult(val corrected: Int, val approved: Int, val deleted: Int)
+    /** What a review file changed: lines corrected, approved as they were, and deleted; and the glossaries it holds. */
+    class ReviewResult(val corrected: Int, val approved: Int, val deleted: Int, val glossaries: List<CollectionReview.Glossary>)
 
     /**
      * MANHWA review: a corrected review file. Each line in it is reviewed: a new wording replaces the AI's and counts
@@ -606,7 +606,8 @@ class TranslationCollection(private val context: Context) {
      * the reader corrected on the phone meanwhile keeps the reader's. Null when the file is not a review file.
      */
     fun importReview(source: java.io.InputStream): ReviewResult? {
-        val lines = CollectionReview.decode(source.use { it.readBytes().decodeToString() }) ?: return null
+        val parsed = CollectionReview.decode(source.use { it.readBytes().decodeToString() }) ?: return null
+        val lines = parsed.lines
         var corrected = 0
         var approved = 0
         var deleted = 0
@@ -672,7 +673,7 @@ class TranslationCollection(private val context: Context) {
         // One more round in the list of reviews (newest first)
         val round = "${System.currentTimeMillis()},$corrected,$approved,$deleted"
         rounds.edit().putString(ROUNDS_KEY, (listOf(round) + reviewRounds().map { it.raw }).take(MAX_ROUNDS).joinToString(";")).apply()
-        return ReviewResult(corrected, approved, deleted)
+        return ReviewResult(corrected, approved, deleted, parsed.glossaries)
     }
 
     /** One review imported: when, and what it changed. */

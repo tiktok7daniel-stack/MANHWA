@@ -1172,12 +1172,12 @@
     <string name="wn_custombackup_t">نسخة مخصّصة: اختار المانهوات</string>
     <string name="wn_custombackup_b">MANHWA Vault › نسخة مخصّصة: اختار المانهوات اللي تنقلها بفصولها المترجمة وصفحاتها وقاموسها وقصتها ودمجها. إعداداتك ومفاتيحك مش بتتنقل إلا لو فتحتها. والاسترجاع بيندمج مع اللي على الموبايل التاني.</string>
     <string name="col_review_title">مراجعة الكوليكشن</string>
-    <string name="col_review_body">%1$d جملة الـ AI حفظها ولسه ما اتراجعتش (من %2$s). صدّرها، صحّحها (بنفسك أو مع AI)، ورجّع استورد الملف: التصحيحات بتبقى بتاعتك وبتتستخدم زي ما هي، والتصدير الجاي فيه بس الجديد اللي الـ AI ضافه بعدها.</string>
-    <string name="col_review_none">كل الجمل اتراجعت. الجديد اللي الـ AI يضيفه من دلوقتي هيظهر هنا.</string>
+    <string name="col_review_body">%1$d جملة الـ AI حفظها ولسه ما اتراجعتش (من %2$s). صدّرها هي وقاموس الأسماء بتاع كل مانهوا، صحّحها (بنفسك أو مع AI)، ورجّع استورد الملف: التصحيحات بتبقى بتاعتك وبتتستخدم زي ما هي، والتصدير الجاي فيه بس الجديد اللي الـ AI ضافه بعدها.</string>
+    <string name="col_review_none">كل الجمل اتراجعت. الجديد اللي الـ AI يضيفه من دلوقتي هيظهر هنا، والتصدير لسه فيه قواميس الأسماء كلها.</string>
     <string name="col_review_export">صدّر للمراجعة</string>
     <string name="col_review_import">استورد المراجَع</string>
     <string name="col_review_exported">اتصدّر %1$d جملة</string>
-    <string name="col_review_done">اتصحح %1$d، واتوافق على %2$d، واتمسح %3$d</string>
+    <string name="col_review_done">اتصحح %1$d، واتوافق على %2$d، واتمسح %3$d، واتحدّث قاموس %4$d مانهوا</string>
     <string name="col_review_not_file">الملف ده مش ملف مراجعة MANHWA</string>
     <string name="col_review_round">الدفعة %1$d · %2$s: اتصحح %3$d، واتوافق على %4$d، واتمسح %5$d</string>
 </resources>

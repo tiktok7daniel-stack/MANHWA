@@ -10,8 +10,10 @@ class CollectionReviewTest {
 
     @Test
     fun `a review file round trips and a foreign file is refused`() {
-        val text = CollectionReview.encode(listOf(line), from = 1L, to = 2L, now = 3L)
-        CollectionReview.decode(text) shouldBe listOf(line)
+        val glossary = CollectionReview.Glossary(7L, "Lookism", listOf(CollectionReview.Term("Daniel", "دانيال", kind = "character", gender = "male")))
+        val text = CollectionReview.encode(listOf(line), listOf(glossary), from = 1L, to = 2L, now = 3L)
+        CollectionReview.decode(text)?.lines shouldBe listOf(line)
+        CollectionReview.decode(text)?.glossaries shouldBe listOf(glossary)
         CollectionReview.decode("""{"format": "manhwa-glossary", "entries": []}""") shouldBe null
         CollectionReview.decode("not json") shouldBe null
     }
@@ -19,7 +21,8 @@ class CollectionReviewTest {
     @Test
     fun `a file touched by an editor still reads`() {
         val text = "﻿{\"format\": \"manhwa-collection-review\", \"lines\": [{\"k\": \"a\", \"src\": \"en\", \"tgt\": \"ar\", \"original\": \"A\", \"translation\": \"أ\"},],}"
-        CollectionReview.decode(text)?.size shouldBe 1
+        CollectionReview.decode(text)?.lines?.size shouldBe 1
+        CollectionReview.decode(text)?.glossaries shouldBe emptyList()
     }
 
     @Test
