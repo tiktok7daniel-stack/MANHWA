@@ -118,13 +118,14 @@ object WhatsNew {
     val latest: List<Feature>
         get() = listOf(
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_looks_t, ATMR.strings.wn_looks_b),
-            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_review_t, ATMR.strings.wn_review_b),
-            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_refs_t, ATMR.strings.wn_refs_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 106
+            Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_review_t, ATMR.strings.wn_review_b),
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_refs_t, ATMR.strings.wn_refs_b),
             // Build 105
             Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_glossfile_t, ATMR.strings.wn_glossfile_b),
             Feature(MaterialSymbols.Rounded.CallMerge, ATMR.strings.wn_gapfill_t, ATMR.strings.wn_gapfill_b),
