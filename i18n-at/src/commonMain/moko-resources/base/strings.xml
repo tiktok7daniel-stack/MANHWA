@@ -1175,7 +1175,7 @@
     <string name="full_backup_all_downloads">All downloaded chapters too</string>
     <string name="full_backup_all_downloads_info">Off: the downloaded pages of the works that have translations. On: every downloaded chapter (bigger).</string>
     <string name="full_backup_make">Make a full backup</string>
-    <string name="full_backup_restore">Restore a full backup</string>
+    <string name="full_backup_restore">Restore a backup (full or custom)</string>
     <string name="full_backup_progress">Working… %1$d%%</string>
     <string name="full_backup_done">Done: %1$d translated chapters, %2$d files. After a restore, close the app and open it again.</string>
     <string name="full_backup_not_backup">This file is not a MANHWA full backup.</string>
@@ -1212,4 +1212,22 @@
     <string name="wn_gapfill_b">A chapter missing in the middle of an Arabic work (Missing 1 chapter) is taken from the fused source at its place, then reading goes on after the last chapter as before.</string>
     <string name="wn_freshopen_t">New chapters: read or open the page</string>
     <string name="wn_freshopen_b">Tapping a new chapter asks whether to read it or open the manhwa page (the play button reads at once). The clock button on New chapters picks how often sources are checked: every 15 minutes to every 6 hours.</string>
+    <string name="custom_backup_open">Custom backup: pick the manhwa</string>
+    <string name="custom_backup_title">Custom backup</string>
+    <string name="custom_backup_count">%1$d chosen</string>
+    <string name="custom_backup_info">Pick the manhwa to carry: their translated chapters (with their pages) go in the file, so on another phone they open translated at once, with no translating again. Restore it with \"Restore a backup\" on the other phone; nothing there is removed.</string>
+    <string name="custom_backup_search">Search your library</string>
+    <string name="custom_backup_pick_translated">Pick all translated</string>
+    <string name="custom_backup_clear">Clear</string>
+    <string name="custom_backup_translated">%1$d translated chapters · %2$s</string>
+    <string name="custom_backup_none">No translated chapters · %1$s</string>
+    <string name="custom_backup_pages">Pages of the translated chapters (opens offline)</string>
+    <string name="custom_backup_extras">Glossary, story, lessons and bubble edits</string>
+    <string name="custom_backup_fusions">Fusions, with their continuation</string>
+    <string name="custom_backup_sources">Installed sources</string>
+    <string name="custom_backup_settings">My settings, keys and logins</string>
+    <string name="custom_backup_make">Make the backup (%1$d)</string>
+    <string name="custom_backup_started">Started: follow it in the notification and on the MANHWA Vault screen.</string>
+    <string name="wn_custombackup_t">Custom backup: pick the manhwa</string>
+    <string name="wn_custombackup_b">MANHWA Vault › Custom backup: choose which manhwa to carry with their translated chapters and pages, glossary, story and fusion. Your settings and keys stay out unless you turn them on. Restoring merges with what the other phone already has.</string>
 </resources>

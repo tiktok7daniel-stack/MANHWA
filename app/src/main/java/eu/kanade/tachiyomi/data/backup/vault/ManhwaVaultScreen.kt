@@ -185,6 +185,10 @@ class ManhwaVaultScreen : Screen() {
                                     val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(Date())
                                     fullBackupLauncher.launch("MANHWA-full-$day.${FullBackup.EXTENSION}")
                                 }
+                                // MANHWA: only the works the reader picks (to give a friend's phone translated manhwa)
+                                ManhwaKit.GhostButton(stringResource(ATMR.strings.custom_backup_open), Modifier.fillMaxWidth(), MaterialSymbols.Rounded.Storage) {
+                                    navigator.push(CustomBackupScreen())
+                                }
                                 ManhwaKit.GhostButton(stringResource(ATMR.strings.full_backup_restore), Modifier.fillMaxWidth(), MaterialSymbols.Rounded.Download) {
                                     fullRestoreLauncher.launch(arrayOf("*/*"))
                                 }

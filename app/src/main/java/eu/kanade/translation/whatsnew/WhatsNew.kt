@@ -120,6 +120,7 @@ object WhatsNew {
             Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_glossfile_t, ATMR.strings.wn_glossfile_b),
             Feature(MaterialSymbols.Rounded.CallMerge, ATMR.strings.wn_gapfill_t, ATMR.strings.wn_gapfill_b),
             Feature(MaterialSymbols.Rounded.Schedule, ATMR.strings.wn_freshopen_t, ATMR.strings.wn_freshopen_b),
+            Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_custombackup_t, ATMR.strings.wn_custombackup_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */

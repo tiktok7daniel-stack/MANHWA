@@ -1116,7 +1116,7 @@
     <string name="full_backup_all_downloads">كل الفصول المحمّلة كمان</string>
     <string name="full_backup_all_downloads_info">مقفول: الصفحات المحمّلة للأعمال اللي فيها ترجمة بس. مفتوح: كل فصل محمّل (الملف أكبر).</string>
     <string name="full_backup_make">اعمل نسخة كاملة</string>
-    <string name="full_backup_restore">رجّع نسخة كاملة</string>
+    <string name="full_backup_restore">رجّع نسخة (كاملة أو مخصّصة)</string>
     <string name="full_backup_progress">شغال… %1$d%%</string>
     <string name="full_backup_done">خلصت: %1$d فصل مترجم، و%2$d ملف. لو كنت بترجّع نسخة، اقفل التطبيق وافتحه تاني.</string>
     <string name="full_backup_not_backup">الملف ده مش نسخة كاملة من MANHWA.</string>
@@ -1153,4 +1153,22 @@
     <string name="wn_gapfill_b">لو في فصل ناقص في النص في المانهوا العربي (Missing 1 chapter)، بيتجاب من المصدر المدموج في مكانه، وبعدها القراءة بتكمّل بعد آخر فصل زي الأول.</string>
     <string name="wn_freshopen_t">الفصول الجديدة: اقرا أو افتح الصفحة</string>
     <string name="wn_freshopen_b">لما تدوس على فصل جديد بيسألك تقراه ولا تفتح صفحة المانهوا (زرار التشغيل بيقرا على طول). وزرار الساعة في الفصول الجديدة بيحدد كل قد إيه المصادر تتشيّك: من كل 15 دقيقة لكل 6 ساعات.</string>
+    <string name="custom_backup_open">نسخة مخصّصة: اختار المانهوات</string>
+    <string name="custom_backup_title">نسخة مخصّصة</string>
+    <string name="custom_backup_count">%1$d متختارة</string>
+    <string name="custom_backup_info">اختار المانهوات اللي عايز تنقلها: فصولها المترجمة بصفحاتها بتدخل في الملف، فعلى الموبايل التاني بتفتح مترجمة على طول من غير ما يترجم من جديد. رجّعه على الموبايل التاني من \"رجّع نسخة\"، ومش هيمسح أي حاجة عنده.</string>
+    <string name="custom_backup_search">دوّر في مكتبتك</string>
+    <string name="custom_backup_pick_translated">اختار كل المترجم</string>
+    <string name="custom_backup_clear">امسح الاختيار</string>
+    <string name="custom_backup_translated">%1$d فصل مترجم · %2$s</string>
+    <string name="custom_backup_none">مفيش فصول مترجمة · %1$s</string>
+    <string name="custom_backup_pages">صفحات الفصول المترجمة (بتفتح من غير نت)</string>
+    <string name="custom_backup_extras">القاموس والقصة والدروس وتعديلات الفقاعات</string>
+    <string name="custom_backup_fusions">الدمج ومعاه التكملة</string>
+    <string name="custom_backup_sources">المصادر المتسطّبة</string>
+    <string name="custom_backup_settings">إعداداتي ومفاتيحي وحساباتي</string>
+    <string name="custom_backup_make">اعمل النسخة (%1$d)</string>
+    <string name="custom_backup_started">بدأت: تابعها من الإشعار ومن شاشة MANHWA Vault.</string>
+    <string name="wn_custombackup_t">نسخة مخصّصة: اختار المانهوات</string>
+    <string name="wn_custombackup_b">MANHWA Vault › نسخة مخصّصة: اختار المانهوات اللي تنقلها بفصولها المترجمة وصفحاتها وقاموسها وقصتها ودمجها. إعداداتك ومفاتيحك مش بتتنقل إلا لو فتحتها. والاسترجاع بيندمج مع اللي على الموبايل التاني.</string>
 </resources>

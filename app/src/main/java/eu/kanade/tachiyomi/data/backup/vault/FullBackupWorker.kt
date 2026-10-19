@@ -57,6 +57,13 @@ class FullBackupWorker(private val context: Context, params: WorkerParameters) :
                     FullBackup.export(context, uri, FullBackup.Options(
                             allDownloads = inputData.getBoolean(KEY_ALL, false),
                             translatedPages = inputData.getBoolean(KEY_PAGES, false),
+                            only = inputData.getString(KEY_ONLY)?.let { path ->
+                                runCatching { java.io.File(path).readText().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet() }.getOrNull()
+                            },
+                            extras = inputData.getBoolean(KEY_EXTRAS, true),
+                            fusions = inputData.getBoolean(KEY_FUSIONS, true),
+                            settings = inputData.getBoolean(KEY_SETTINGS, true),
+                            sources = inputData.getBoolean(KEY_SOURCES, true),
                         ), onProgress)
                 }
             }
@@ -96,6 +103,11 @@ class FullBackupWorker(private val context: Context, params: WorkerParameters) :
         private const val KEY_RESTORE = "restore"
         private const val KEY_ALL = "all_downloads"
         private const val KEY_PAGES = "translated_pages"
+        private const val KEY_ONLY = "only"
+        private const val KEY_EXTRAS = "extras"
+        private const val KEY_FUSIONS = "fusions"
+        private const val KEY_SETTINGS = "settings"
+        private const val KEY_SOURCES = "sources"
         const val KEY_PERCENT = "percent"
         const val KEY_NAME = "name"
         const val KEY_FILES = "files"
@@ -106,6 +118,41 @@ class FullBackupWorker(private val context: Context, params: WorkerParameters) :
 
         fun backup(context: Context, uri: Uri, allDownloads: Boolean, translatedPages: Boolean) =
             start(context, uri, restore = false, allDownloads, translatedPages)
+
+        /**
+         * MANHWA custom backup: only the works [only] (with their translated chapters and pages), and what the
+         * reader ticked of the rest; the settings and keys stay home unless ticked.
+         */
+        fun backupCustom(
+            context: Context,
+            uri: Uri,
+            only: Set<Long>,
+            extras: Boolean,
+            fusions: Boolean,
+            settings: Boolean,
+            sources: Boolean,
+            translatedPages: Boolean,
+        ) {
+            val request = OneTimeWorkRequestBuilder<FullBackupWorker>()
+                .addTag(TAG)
+                .setInputData(
+                    workDataOf(
+                        KEY_URI to uri.toString(),
+                        KEY_RESTORE to false,
+                        KEY_ALL to false,
+                        KEY_PAGES to translatedPages,
+                        // The chosen works go through a small file: a long list would not fit in the work's data
+                        KEY_ONLY to java.io.File(context.cacheDir, "custom_backup_ids.txt")
+                            .apply { writeText(only.joinToString(",")) }.absolutePath,
+                        KEY_EXTRAS to extras,
+                        KEY_FUSIONS to fusions,
+                        KEY_SETTINGS to settings,
+                        KEY_SOURCES to sources,
+                    ),
+                )
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
+        }
 
         fun restore(context: Context, uri: Uri) = start(context, uri, restore = true, allDownloads = false, translatedPages = false)
 
