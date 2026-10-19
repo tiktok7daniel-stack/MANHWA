@@ -41,6 +41,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -349,6 +350,29 @@ class ReaderActivity : BaseActivity() {
             }
             if (showStyle) {
                 eu.kanade.translation.style.TranslationStyleSheet(onDismiss = { showStyle = false })
+            }
+            // MANHWA: the auto-scroll button on its own (a double tap on the page shows it or hides it); hidden,
+            // the scrolling it started stops too
+            val showScrollButton by scrollButton.collectAsState()
+            var scrollButtonSeen by remember { mutableStateOf(false) }
+            LaunchedEffect(showScrollButton) {
+                if (showScrollButton) {
+                    scrollButtonSeen = true
+                } else if (scrollButtonSeen) {
+                    scrolling = false
+                }
+            }
+            if (showScrollButton && !state.menuVisible) {
+                eu.kanade.translation.live.ScrollButton(
+                    playing = scrolling,
+                    onPlaying = { scrolling = it },
+                    speed = autoScrollSpeed,
+                    onSpeed = readerPreferences.autoScrollSpeed::set,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .navigationBarsPadding()
+                        .padding(start = 14.dp, bottom = 40.dp),
+                )
             }
             eu.kanade.translation.live.AutoScrollRunner(
                 playing = scrolling,
@@ -1026,6 +1050,17 @@ class ReaderActivity : BaseActivity() {
 
     /** MANHWA smart focus: when the "you were here" line was last shown. */
     private val focusFlash = MutableStateFlow(0L)
+
+    /** MANHWA: the auto-scroll button on its own, shown and hidden by a double tap on the page. */
+    private val scrollButton = MutableStateFlow(false)
+
+    /** A double tap on the page: shows or hides the auto-scroll button (true when it was used for that). */
+    fun onPageDoubleTap(): Boolean {
+        if (!readerPreferences.scrollButtonDoubleTap.get()) return false
+        scrollButton.value = !scrollButton.value
+        window.decorView.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+        return true
+    }
 
     private val smartFocus by lazy { SmartFocus(this) }
 

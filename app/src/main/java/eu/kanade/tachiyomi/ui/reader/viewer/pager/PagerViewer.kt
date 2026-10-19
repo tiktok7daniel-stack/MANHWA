@@ -119,6 +119,8 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
                 NavigationRegion.LEFT -> moveLeft()
             }
         }
+        // MANHWA: a double tap shows or hides the auto-scroll button
+        pager.doubleTapListener = { activity.onPageDoubleTap() }
         pager.longTapListener = f@{ event ->
             // MANHWA: a long press in the middle of the page shows or hides the translation
             if (!activity.viewModel.state.value.menuVisible && pager.width > 0 && pager.height > 0 &&

@@ -51,6 +51,9 @@ class ReaderPreferences(
     /** MANHWA: a long press in the middle of the page shows or hides the translation. */
     val translationLongPress: Preference<Boolean> = preferenceStore.getBoolean("manhwa_translation_long_press", true)
 
+    /** MANHWA: a double tap on the page shows or hides the auto-scroll button (instead of zooming). */
+    val scrollButtonDoubleTap: Preference<Boolean> = preferenceStore.getBoolean("manhwa_scroll_button_double_tap", true)
+
     val verticalNavigator: Preference<Set<ReadingMode>> = preferenceStore.getEnumSet(
         "pref_vertical_navigator",
         emptySet(),

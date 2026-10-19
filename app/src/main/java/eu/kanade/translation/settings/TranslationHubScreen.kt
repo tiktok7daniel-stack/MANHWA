@@ -153,6 +153,8 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
         val unified by prefs.translationUnifiedSources().collectPreference()
         val dramatic by prefs.translationDramaticStyle().collectPreference()
         val smartScroll by prefs.translationSmartScroll().collectPreference()
+        val readerPrefs = remember { context.appGraph.readerPreferences }
+        val scrollDoubleTap by readerPrefs.scrollButtonDoubleTap.collectPreference()
         val noKeyEngine = if (TextTranslators.entries.getOrNull(engineIndex) == TextTranslators.MLKIT) TextTranslators.MLKIT else TextTranslators.GOOGLE
         val noKeyLabel = stringResource(
             if (noKeyEngine == TextTranslators.MLKIT) ATMR.strings.pref_no_key_mlkit else ATMR.strings.pref_no_key_google,
@@ -557,6 +559,14 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
                                     info = stringResource(ATMR.strings.info_smart_scroll),
                                     checked = smartScroll,
                                     onChange = { prefs.translationSmartScroll().set(it) },
+                                )
+                                HubDivider()
+                                HubSwitchRow(
+                                    icon = MaterialSymbols.Rounded.TouchApp,
+                                    title = stringResource(ATMR.strings.hubm_scroll_double_tap),
+                                    info = stringResource(ATMR.strings.hubm_scroll_double_tap_info),
+                                    checked = scrollDoubleTap,
+                                    onChange = { readerPrefs.scrollButtonDoubleTap.set(it) },
                                 )
                                 HubDivider()
                                 HubSwitchRow(

@@ -27,6 +27,9 @@ open class Pager(
      */
     var longTapListener: ((MotionEvent) -> Boolean)? = null
 
+    /** MANHWA: double tap listener (the auto-scroll button). */
+    var doubleTapListener: ((MotionEvent) -> Unit)? = null
+
     /**
      * Gesture listener that implements tap and long tap events.
      */
@@ -34,6 +37,11 @@ open class Pager(
         override fun onSingleTapConfirmed(ev: MotionEvent): Boolean {
             tapListener?.invoke(ev)
             return true
+        }
+
+        override fun onDoubleTap(ev: MotionEvent): Boolean {
+            doubleTapListener?.invoke(ev)
+            return false
         }
 
         override fun onLongTapConfirmed(ev: MotionEvent) {

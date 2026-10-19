@@ -1,5 +1,6 @@
 package eu.kanade.translation.live
 
+import kotlin.math.roundToInt
 import eu.kanade.presentation.components.ManhwaInk
 
 import androidx.compose.animation.AnimatedVisibility
@@ -190,9 +191,9 @@ fun ReaderQuickHud(
                 Slider(
                     value = value,
                     onValueChange = { value = it },
-                    onValueChangeFinished = { onSpeed(value.toInt().coerceIn(1, 10)) },
-                    valueRange = 1f..10f,
-                    steps = 8,
+                    onValueChangeFinished = { onSpeed(value.roundToInt().coerceIn(1, MAX_SCROLL_SPEED)) },
+                    valueRange = 1f..MAX_SCROLL_SPEED.toFloat(),
+                    steps = MAX_SCROLL_SPEED - 2,
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
                         activeTrackColor = colors.primary,

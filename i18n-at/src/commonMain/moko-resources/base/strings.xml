@@ -1307,4 +1307,6 @@
     <string name="wn_google2_b">When Google says too many requests, the app gives it a 5 minute pause and ML Kit (offline) translates meanwhile, so no chapter fails. The settings say when Google is paused, and a button opens Google Translate to check it.</string>
     <string name="wn_offline_t">Stronger offline translation</string>
     <string name="wn_offline_b">ML Kit now translates each bubble as one whole sentence (not line by line), in normal case instead of capitals, with the names of the work from its glossary, the language read from the bubble itself, and the Arabic cleaned and polished.</string>
+    <string name="hubm_scroll_double_tap">Double tap: auto-scroll button</string>
+    <string name="hubm_scroll_double_tap_info">A double tap on the page shows the auto-scroll button (play, pause and speed up to 15); another double tap hides it and stops the scrolling. Off: a double tap zooms as before.</string>
 </resources>

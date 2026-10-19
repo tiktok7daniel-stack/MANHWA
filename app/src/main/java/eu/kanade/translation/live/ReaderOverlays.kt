@@ -70,6 +70,7 @@ import eu.kanade.presentation.components.glass
 import eu.kanade.presentation.components.neonGlow
 import eu.kanade.translation.glossary.GlossaryStore
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import kotlinx.coroutines.isActive
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
@@ -310,7 +311,7 @@ fun AutoScrollControl(
             }
         } else {
             while (isActive) {
-                delay((15 - speed).coerceAtLeast(2) * 1_000L)
+                delay((MAX_SCROLL_SPEED + 1 - speed).coerceAtLeast(1) * 1_000L)
                 onNextPage()
             }
         }
@@ -357,9 +358,9 @@ fun AutoScrollControl(
                         value = it
                         lastTouch++
                     },
-                    onValueChangeFinished = { onSpeed(value.toInt().coerceIn(1, 10)) },
-                    valueRange = 1f..10f,
-                    steps = 8,
+                    onValueChangeFinished = { onSpeed(value.roundToInt().coerceIn(1, MAX_SCROLL_SPEED)) },
+                    valueRange = 1f..MAX_SCROLL_SPEED.toFloat(),
+                    steps = MAX_SCROLL_SPEED - 2,
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
                         activeTrackColor = colors.primary,
@@ -545,3 +546,96 @@ private fun InlineField(value: String, hint: String, modifier: Modifier, onChang
         )
     }
 }
+
+/**
+ * MANHWA auto-scroll button on its own: shown and hidden by a double tap on the page. One tap plays or pauses,
+ * the speed (1 to [MAX_SCROLL_SPEED]) is set on the slider next to it, which folds away a few seconds after the
+ * last touch so the button never covers the art.
+ */
+@Composable
+fun ScrollButton(
+    playing: Boolean,
+    onPlaying: (Boolean) -> Unit,
+    speed: Int,
+    onSpeed: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    var expanded by remember { mutableStateOf(true) }
+    var lastTouch by remember { mutableIntStateOf(0) }
+    LaunchedEffect(expanded, lastTouch) {
+        if (expanded) {
+            delay(4_000)
+            expanded = false
+        }
+    }
+    Row(
+        modifier = modifier
+            .glass(RoundedCornerShape(50), accent = playing, alpha = if (expanded) 0.85f else 0.6f)
+            .padding(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .then(
+                    if (playing) {
+                        Modifier
+                            .neonGlow(CircleShape, colors.primary, 0.4f, 10.dp)
+                            .clip(CircleShape)
+                            .background(ManhwaKit.accentBrush())
+                    } else {
+                        Modifier.clip(CircleShape).background(ManhwaInk.text.copy(alpha = 0.1f))
+                    },
+                )
+                .clickable {
+                    onPlaying(!playing)
+                    expanded = true
+                    lastTouch++
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                if (playing) MaterialSymbols.RoundedFilled.Pause else MaterialSymbols.RoundedFilled.PlayArrow,
+                contentDescription = stringResource(ATMR.strings.autoscroll),
+                tint = ManhwaInk.text,
+            )
+        }
+        // The speed, always shown; a tap opens the slider
+        Text(
+            "${speed.coerceIn(1, MAX_SCROLL_SPEED)}x",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Black,
+            color = colors.primary,
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .clickable {
+                    expanded = !expanded
+                    lastTouch++
+                }
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        )
+        AnimatedVisibility(visible = expanded, enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
+            var value by remember(speed) { mutableFloatStateOf(speed.coerceIn(1, MAX_SCROLL_SPEED).toFloat()) }
+            Slider(
+                value = value,
+                onValueChange = {
+                    value = it
+                    lastTouch++
+                },
+                onValueChangeFinished = { onSpeed(value.roundToInt().coerceIn(1, MAX_SCROLL_SPEED)) },
+                valueRange = 1f..MAX_SCROLL_SPEED.toFloat(),
+                steps = MAX_SCROLL_SPEED - 2,
+                colors = SliderDefaults.colors(
+                    thumbColor = ManhwaInk.text,
+                    activeTrackColor = colors.primary,
+                    inactiveTrackColor = ManhwaInk.text.copy(alpha = 0.15f),
+                ),
+                modifier = Modifier.width(170.dp).padding(end = 8.dp),
+            )
+        }
+    }
+}
+
+/** The fastest auto-scroll speed the reader can pick. */
+const val MAX_SCROLL_SPEED = 15

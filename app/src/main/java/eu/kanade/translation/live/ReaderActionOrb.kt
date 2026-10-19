@@ -1,5 +1,6 @@
 package eu.kanade.translation.live
 
+import kotlin.math.roundToInt
 import eu.kanade.presentation.components.ManhwaInk
 
 import kotlinx.coroutines.launch
@@ -157,9 +158,9 @@ fun ReaderActionOrb(
                         Slider(
                             value = value,
                             onValueChange = { value = it },
-                            onValueChangeFinished = { onSpeed(value.toInt().coerceIn(1, 10)) },
-                            valueRange = 1f..10f,
-                            steps = 8,
+                            onValueChangeFinished = { onSpeed(value.roundToInt().coerceIn(1, MAX_SCROLL_SPEED)) },
+                            valueRange = 1f..MAX_SCROLL_SPEED.toFloat(),
+                            steps = MAX_SCROLL_SPEED - 2,
                             colors = SliderDefaults.colors(
                                 thumbColor = Color.White,
                                 activeTrackColor = colors.primary,
@@ -329,7 +330,7 @@ fun AutoScrollRunner(
         } else {
             while (isActive) {
                 // A page full of text stays longer before it turns
-                val base = (15 - speed).coerceAtLeast(2) * 1_000L
+                val base = (MAX_SCROLL_SPEED + 1 - speed).coerceAtLeast(1) * 1_000L
                 delay((base * (1f + textNow() / PAGE_CHARS)).toLong().coerceAtMost(base * 3))
                 onNextPage()
             }

@@ -150,6 +150,8 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                 NavigationRegion.PREV, NavigationRegion.LEFT -> scrollUp()
             }
         }
+        // MANHWA: a double tap shows or hides the auto-scroll button
+        recycler.doubleTapListener = { activity.onPageDoubleTap() }
         recycler.longTapListener = f@{ event ->
             // MANHWA: a long press in the middle of the page shows or hides the translation
             if (!activity.viewModel.state.value.menuVisible && recycler.width > 0 && recycler.height > 0 &&

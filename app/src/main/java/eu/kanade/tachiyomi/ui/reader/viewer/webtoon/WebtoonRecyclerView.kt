@@ -59,6 +59,9 @@ class WebtoonRecyclerView @JvmOverloads constructor(
 
     var doubleTapZoom = true
 
+    /** MANHWA: a double tap goes here first; true when it was used (the page is not zoomed then). */
+    var doubleTapListener: ((MotionEvent) -> Boolean)? = null
+
     var tapListener: ((MotionEvent) -> Unit)? = null
     var longTapListener: ((MotionEvent) -> Boolean)? = null
 
@@ -257,6 +260,7 @@ class WebtoonRecyclerView @JvmOverloads constructor(
         }
 
         fun onDoubleTapConfirmed(ev: MotionEvent) {
+            if (!isZooming && doubleTapListener?.invoke(ev) == true) return
             if (!isZooming && doubleTapZoom) {
                 if (scaleX != DEFAULT_RATE) {
                     zoom(currentScale, DEFAULT_RATE, x, 0f, y, 0f)
