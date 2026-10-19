@@ -86,7 +86,7 @@ class GlossaryStore(private val context: Context) {
         update(mangaId) { list ->
             val byLower = terms.filter { it.source.isNotBlank() }.associateBy { it.source.trim().lowercase() }
             list.mapNotNull { entry ->
-                val new = byLower[entry.source.lowercase()] ?: return@mapNotNull entry
+                val new = byLower[entry.source.trim().lowercase()] ?: return@mapNotNull entry
                 if (entry.edited) return@mapNotNull entry
                 val translation = new.translation.trim()
                 if (translation.isEmpty()) return@mapNotNull null
