@@ -769,7 +769,7 @@
     <string name="hud_speak">Read aloud</string>
     <string name="hud_speak_missing">The phone has no Arabic voice. Install one in the phone\'s text-to-speech settings.</string>
     <string name="glossary_exported">Glossary saved</string>
-    <string name="glossary_imported">%1$d terms imported (nothing you had was replaced)</string>
+    <string name="glossary_imported">%1$d terms imported; the file\'s translations now apply</string>
     <string name="glossary_import_failed">This file is not a MANHWA glossary</string>
     <string name="study_title">Study this page</string>
     <string name="study_empty">This page has no translated bubbles yet.</string>
@@ -1199,4 +1199,17 @@
     <string name="wn_clone_b">On another phone everything comes back as it was: the fusions of every work, glossaries, story and edits, and every translated chapter with its pages, even offline.</string>
     <string name="wn_libsearch_t">Search the whole library</string>
     <string name="wn_libsearch_b">A search in the library looks through every category at once.</string>
+    <string name="fresh_open_chapter">Read the new chapter</string>
+    <string name="fresh_open_manga">Open the manhwa page</string>
+    <string name="fresh_interval_title">Check for new chapters</string>
+    <string name="fresh_interval_help">How often the home sources are checked, when you open the app and in the background. Pull down to check now.</string>
+    <string name="fresh_interval_minutes">Every %1$d minutes</string>
+    <string name="fresh_interval_hours">Every %1$d hours</string>
+    <string name="fresh_interval_hour">Every hour</string>
+    <string name="wn_glossfile_t">A names glossary you correct yourself</string>
+    <string name="wn_glossfile_b">Export the glossary from the manhwa page, fix the names in any editor and import it back: your translations win and lines you deleted are gone. The AI no longer saves whole lines, site credits or English answers as names.</string>
+    <string name="wn_gapfill_t">Missing chapters filled by fusion</string>
+    <string name="wn_gapfill_b">A chapter missing in the middle of an Arabic work (Missing 1 chapter) is taken from the fused source at its place, then reading goes on after the last chapter as before.</string>
+    <string name="wn_freshopen_t">New chapters: read or open the page</string>
+    <string name="wn_freshopen_b">Tapping a new chapter asks whether to read it or open the manhwa page (the play button reads at once). The clock button on New chapters picks how often sources are checked: every 15 minutes to every 6 hours.</string>
 </resources>

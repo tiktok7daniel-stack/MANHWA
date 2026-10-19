@@ -274,7 +274,10 @@ private fun OfferBanner(ui: FusionUi, offer: ChapterFusion.Offer, modifier: Modi
 private fun FusedStrip(ui: FusionUi, fusion: ChapterFusion.Fusion, modifier: Modifier, onUnfuse: () -> Unit, onChange: () -> Unit) {
     val ours = range(ui.oursMin, ui.oursMax)
     val theirsTop = ui.continuation.maxOfOrNull { it.number }
-    val theirsLow = ui.continuation.minOfOrNull { it.number }
+    // A missing chapter filled from the continuation does not move where the continuation starts
+    val oursTop = ui.oursMax
+    val theirsLow = ui.continuation.filter { oursTop == null || it.number > oursTop }.minOfOrNull { it.number }
+        ?: ui.continuation.minOfOrNull { it.number }
     val theirs = range(theirsLow, theirsTop)
     Column(
         modifier

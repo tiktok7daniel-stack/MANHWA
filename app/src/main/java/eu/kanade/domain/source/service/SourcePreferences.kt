@@ -65,6 +65,9 @@ class SourcePreferences(
 
     val homeSources: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_home_sources", emptySet())
 
+    /** MANHWA: minutes between checks of the home sources for new chapters (on opening and in the background). */
+    val freshIntervalMin: Preference<Int> = preferenceStore.getInt("manhwa_fresh_interval_min", 30)
+
     val incognitoExtensions: Preference<Set<String>> = preferenceStore.getStringSet("incognito_extensions", emptySet())
 
     val pinnedSources: Preference<Set<String>> = preferenceStore.getStringSet("pinned_catalogues", emptySet())

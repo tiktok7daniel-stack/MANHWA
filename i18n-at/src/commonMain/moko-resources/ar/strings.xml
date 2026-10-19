@@ -710,7 +710,7 @@
     <string name="hud_speak">اقرا بصوت</string>
     <string name="hud_speak_missing">الموبايل مفيهوش صوت عربي. نزّل واحد من إعدادات تحويل النص لكلام.</string>
     <string name="glossary_exported">القاموس اتحفظ</string>
-    <string name="glossary_imported">اتضاف %1$d مصطلح (ومفيش حاجة عندك اتغيرت)</string>
+    <string name="glossary_imported">اتحمّل %1$d مصطلح، والترجمات اللي في الملف بقت هي المعتمدة</string>
     <string name="glossary_import_failed">الملف ده مش قاموس MANHWA</string>
     <string name="study_title">اتعلّم من الصفحة دي</string>
     <string name="study_empty">الصفحة دي لسه مفيهاش فقاعات مترجمة.</string>
@@ -1140,4 +1140,17 @@
     <string name="wn_clone_b">على أي جهاز تاني كل حاجة بترجع زي ما كانت: الدمج في كل مانهوا، والقواميس، والقصة، والتعديلات، وكل فصل مترجم بصفحاته حتى من غير نت.</string>
     <string name="wn_libsearch_t">البحث في المكتبة كلها</string>
     <string name="wn_libsearch_b">البحث في المكتبة بيدوّر في كل الفئات مرة واحدة.</string>
+    <string name="fresh_open_chapter">اقرا الفصل الجديد</string>
+    <string name="fresh_open_manga">افتح صفحة المانهوا</string>
+    <string name="fresh_interval_title">البحث عن فصول جديدة</string>
+    <string name="fresh_interval_help">كل قد إيه المصادر تتشيّك، لما تفتح التطبيق وفي الخلفية. اسحب لتحت عشان تشيّك دلوقتي.</string>
+    <string name="fresh_interval_minutes">كل %1$d دقيقة</string>
+    <string name="fresh_interval_hours">كل %1$d ساعات</string>
+    <string name="fresh_interval_hour">كل ساعة</string>
+    <string name="wn_glossfile_t">قاموس أسماء بتظبطه بنفسك</string>
+    <string name="wn_glossfile_b">صدّر القاموس من صفحة المانهوا، صلّح الأسماء في أي محرر، ورجّع استورده: ترجماتك هي اللي بتتعتمد، والسطور اللي مسحتها بتتشال. والذكاء الاصطناعي ما بقاش يحفظ جمل كاملة أو كريديت مواقع أو ردود إنجليزي على إنها أسماء.</string>
+    <string name="wn_gapfill_t">الدمج بيكمّل الفصول الناقصة</string>
+    <string name="wn_gapfill_b">لو في فصل ناقص في النص في المانهوا العربي (Missing 1 chapter)، بيتجاب من المصدر المدموج في مكانه، وبعدها القراءة بتكمّل بعد آخر فصل زي الأول.</string>
+    <string name="wn_freshopen_t">الفصول الجديدة: اقرا أو افتح الصفحة</string>
+    <string name="wn_freshopen_b">لما تدوس على فصل جديد بيسألك تقراه ولا تفتح صفحة المانهوا (زرار التشغيل بيقرا على طول). وزرار الساعة في الفصول الجديدة بيحدد كل قد إيه المصادر تتشيّك: من كل 15 دقيقة لكل 6 ساعات.</string>
 </resources>

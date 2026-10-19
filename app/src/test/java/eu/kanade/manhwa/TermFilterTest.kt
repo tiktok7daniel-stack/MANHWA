@@ -41,4 +41,21 @@ class TermFilterTest {
         eu.kanade.translation.glossary.GlossaryPack.decode(cleaned)?.replace shouldBe true
         eu.kanade.translation.glossary.GlossaryPack.decode("""{"format": "manhwa-glossary", "entries": []}""")?.replace shouldBe false
     }
+
+    @Test
+    fun `a glossary file touched by an editor still imports`() {
+        val pack = eu.kanade.translation.glossary.GlossaryPack
+        val bom = "\uFEFF{\"format\": \"manhwa-glossary\", \"entries\": [{\"source\": \"Doyul\", \"translation\": \"دو يول\"},],}"
+        pack.decode(bom)?.entries?.map { it.translation } shouldBe listOf("دو يول")
+        pack.decode("""[{"source": "Doyul", "translation": "دو يول"}]""")?.entries?.size shouldBe 1
+        pack.decode("""{"Doyul": "دو يول", "Dong-gu": "دونغ غو"}""")?.entries?.size shouldBe 2
+        pack.decode("""{"entries": [{"source": "Doyul", "translation": "دو يول"}]}""")?.entries?.size shouldBe 1
+    }
+
+    @Test
+    fun `an exported glossary is the whole glossary`() {
+        val entries = listOf(eu.kanade.translation.glossary.GlossaryStore.Entry("Doyul", "دو يول"))
+        val pack = eu.kanade.translation.glossary.GlossaryPack
+        pack.decode(pack.encode(entries, emptyList()))?.replace shouldBe true
+    }
 }

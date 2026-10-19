@@ -410,6 +410,7 @@ data object DiscoverTab : Tab {
                                     onSeeAll = { navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen()) },
                                     onOpenFresh = { viewModel.openFresh(it, openReader) { id -> navigator.push(MangaScreen(id, true)) } },
                                     onOpenUpdate = { update -> openReader(update.mangaId, update.chapterId) },
+                                    onOpenManga = { id -> navigator.push(MangaScreen(id, true)) },
                                 )
                             }
                         }
@@ -1778,8 +1779,14 @@ data object DiscoverTab : Tab {
         onSeeAll: () -> Unit,
         onOpenFresh: (eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersEngine.Item) -> Unit,
         onOpenUpdate: (tachiyomi.domain.updates.model.UpdatesWithRelations) -> Unit,
+        onOpenManga: (Long) -> Unit,
     ) {
         var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(if (state.fresh.isEmpty()) "lib" else "all") }
+        // MANHWA: tapping a card asks: read the chapter, or open the work's page (the play button reads at once)
+        var choice by remember { mutableStateOf<Triple<String, String, Pair<() -> Unit, () -> Unit>>?>(null) }
+        choice?.let { (title, chapter, actions) ->
+            eu.kanade.tachiyomi.ui.home.fresh.OpenChoiceDialog(title, chapter, onRead = actions.first, onManga = actions.second, onDismiss = { choice = null })
+        }
         val names = state.availableSources.associate { it.id to it.name }
         val sourceIds = state.fresh.map { it.sourceId }.distinct()
         Section(
@@ -1810,7 +1817,8 @@ data object DiscoverTab : Tab {
                             title = update.mangaTitle,
                             chapter = update.chapterName,
                             whenText = relative(update.dateFetch.toEpochMilliseconds()),
-                            onClick = { onOpenUpdate(update) },
+                            onClick = { choice = Triple(update.mangaTitle, update.chapterName, Pair({ onOpenUpdate(update) }, { onOpenManga(update.mangaId) })) },
+                            onPlay = { onOpenUpdate(update) },
                         )
                     }
                 } else {
@@ -1828,7 +1836,8 @@ data object DiscoverTab : Tab {
                             title = item.title,
                             chapter = item.chapterName,
                             whenText = relative(item.sortTime) + " • " + (names[item.sourceId] ?: ""),
-                            onClick = { onOpenFresh(item) },
+                            onClick = { choice = Triple(item.title, item.chapterName, Pair({ onOpenFresh(item) }, { onOpenManga(item.mangaId) })) },
+                            onPlay = { onOpenFresh(item) },
                         )
                     }
                 }
@@ -1837,7 +1846,7 @@ data object DiscoverTab : Tab {
     }
 
     @Composable
-    private fun ChapterRow(cover: Any, title: String, chapter: String, whenText: String, onClick: () -> Unit) {
+    private fun ChapterRow(cover: Any, title: String, chapter: String, whenText: String, onClick: () -> Unit, onPlay: () -> Unit) {
         val colors = MaterialTheme.colorScheme
         Row(
             modifier = Modifier
@@ -1889,7 +1898,9 @@ data object DiscoverTab : Tab {
                     .background(
                         Brush.linearGradient(listOf(colors.primary, lerp(colors.primary, Color.Black, 0.5f))),
                         CircleShape,
-                    ),
+                    )
+                    .clip(CircleShape)
+                    .clickable(onClick = onPlay),
                 contentAlignment = Alignment.Center,
             ) { Icon(MaterialSymbols.RoundedFilled.PlayArrow, contentDescription = null, tint = ManhwaInk.text) }
         }

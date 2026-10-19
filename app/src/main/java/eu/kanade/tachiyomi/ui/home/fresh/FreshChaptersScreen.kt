@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,6 +69,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.rounded.Schedule
 import mihon.icons.materialsymbols.rounded.Refresh
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.service.SourceManager
@@ -89,6 +92,23 @@ class FreshChaptersScreen : Screen() {
         val state by viewModel.state.collectAsState()
         var tab by rememberSaveable { mutableStateOf("all") }
         val openReader = { mangaId: Long, chapterId: Long -> context.startActivity(ReaderActivity.newIntent(context, mangaId, chapterId)) }
+        // MANHWA: how often new chapters are looked for
+        var pickInterval by remember { mutableStateOf(false) }
+        if (pickInterval) {
+            IntervalDialog(
+                current = context.appGraph.sourcePreferences.freshIntervalMin.get(),
+                onDone = { minutes ->
+                    context.appGraph.sourcePreferences.freshIntervalMin.set(minutes)
+                    FreshChaptersEngine.schedule(context)
+                },
+                onDismiss = { pickInterval = false },
+            )
+        }
+        // MANHWA: a tapped chapter asks: read it, or open the work's page
+        var choice by remember { mutableStateOf<Triple<String, String, Pair<() -> Unit, () -> Unit>>?>(null) }
+        choice?.let { (title, chapter, actions) ->
+            OpenChoiceDialog(title, chapter, onRead = actions.first, onManga = actions.second, onDismiss = { choice = null })
+        }
 
         GlassBackdrop {
             Column(modifier = Modifier.fillMaxSize()) {
@@ -97,6 +117,8 @@ class FreshChaptersScreen : Screen() {
                     subtitle = stringResource(ATMR.strings.fresh_subtitle),
                     onBack = navigator::pop,
                     actions = {
+                        ManhwaKit.IconOrb(MaterialSymbols.Rounded.Schedule) { pickInterval = true }
+                        Spacer(Modifier.width(8.dp))
                         if (state.running) {
                             CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                         } else {
@@ -136,7 +158,9 @@ class FreshChaptersScreen : Screen() {
                                 title = drop.title,
                                 chapter = drop.chapterName,
                                 detail = listOf(relative(drop.at), drop.sourceName).filter { it.isNotBlank() }.joinToString(" • "),
-                                onClick = { openReader(drop.mangaId, drop.chapterId) },
+                                onClick = {
+                                    choice = Triple(drop.title, drop.chapterName, Pair({ openReader(drop.mangaId, drop.chapterId) }, { navigator.push(MangaScreen(drop.mangaId, true)) }))
+                                },
                             )
                         }
                     } else if (tab == "lib") {
@@ -147,7 +171,9 @@ class FreshChaptersScreen : Screen() {
                                 title = update.mangaTitle,
                                 chapter = update.chapterName,
                                 detail = relative(update.dateFetch.toEpochMilliseconds()),
-                                onClick = { openReader(update.mangaId, update.chapterId) },
+                                onClick = {
+                                    choice = Triple(update.mangaTitle, update.chapterName, Pair({ openReader(update.mangaId, update.chapterId) }, { navigator.push(MangaScreen(update.mangaId, true)) }))
+                                },
                             )
                         }
                     } else {
@@ -161,7 +187,13 @@ class FreshChaptersScreen : Screen() {
                                 title = item.title,
                                 chapter = item.chapterName,
                                 detail = relative(item.sortTime) + " • " + (state.names[item.sourceId] ?: ""),
-                                onClick = { viewModel.open(item, openReader) { navigator.push(MangaScreen(it, true)) } },
+                                onClick = {
+                                    choice = Triple(
+                                        item.title,
+                                        item.chapterName,
+                                        Pair({ viewModel.open(item, openReader) { navigator.push(MangaScreen(it, true)) } }, { navigator.push(MangaScreen(item.mangaId, true)) }),
+                                    )
+                                },
                             )
                         }
                     }
@@ -169,6 +201,37 @@ class FreshChaptersScreen : Screen() {
                 }
             }
         }
+    }
+
+    @Composable
+    private fun IntervalDialog(current: Int, onDone: (Int) -> Unit, onDismiss: () -> Unit) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = Color(0xFF0E0B0F),
+            title = { Text(stringResource(ATMR.strings.fresh_interval_title), color = Color.White, fontWeight = FontWeight.Black) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(ATMR.strings.fresh_interval_help), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                    FreshChaptersEngine.INTERVALS.forEach { minutes ->
+                        val label = when {
+                            minutes == 60 -> stringResource(ATMR.strings.fresh_interval_hour)
+                            minutes > 60 -> stringResource(ATMR.strings.fresh_interval_hours, minutes / 60)
+                            else -> stringResource(ATMR.strings.fresh_interval_minutes, minutes)
+                        }
+                        val pick = {
+                            onDone(minutes)
+                            onDismiss()
+                        }
+                        if (minutes == current) {
+                            ManhwaKit.NeonButton(label, Modifier.fillMaxWidth(), onClick = pick)
+                        } else {
+                            ManhwaKit.GhostButton(label, Modifier.fillMaxWidth(), onClick = pick)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+        )
     }
 
     @Composable

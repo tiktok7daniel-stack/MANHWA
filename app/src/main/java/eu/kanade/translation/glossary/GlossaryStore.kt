@@ -57,7 +57,7 @@ class GlossaryStore(private val context: Context) {
     /** A term whose translation the reader changed: shown translations are updated right away. */
     data class Edit(val mangaId: Long, val source: String, val oldTranslation: String, val newTranslation: String)
 
-    private val _edits = MutableSharedFlow<Edit>(extraBufferCapacity = 16)
+    private val _edits = MutableSharedFlow<Edit>(extraBufferCapacity = 256)
     val edits: SharedFlow<Edit> = _edits.asSharedFlow()
 
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
@@ -166,19 +166,43 @@ class GlossaryStore(private val context: Context) {
     }.getOrNull().orEmpty()
 
     /**
-     * Terms from a backup: the ones not known here are added; known ones keep theirs, only filling what they lack.
-     * MANHWA [replace]: a cleaned glossary takes the place of the AI's terms; the reader's own edits stay.
+     * MANHWA: a glossary file the reader corrected: its translations win (they count as the reader's own edits and
+     * the pages already shown are updated), what the file does not say is kept. [replace] (an exported file is the
+     * whole glossary): terms no longer in the file are deleted.
      */
-    fun importEntries(mangaId: Long, entries: List<Entry>, replace: Boolean = false) {
-        if (entries.isEmpty()) return
-        if (replace) {
-            update(mangaId) { list ->
-                val mine = list.filter { it.edited }
-                val taken = mine.map { it.source.lowercase() }.toSet()
-                mine + entries.filter { it.source.isNotBlank() && it.source.lowercase() !in taken }.distinctBy { it.source.lowercase() }
+    fun importPack(mangaId: Long, entries: List<Entry>, replace: Boolean) {
+        val incoming = entries.filter { it.source.isNotBlank() && it.translation.isNotBlank() }.distinctBy { it.source.trim().lowercase() }
+        if (incoming.isEmpty()) return
+        val changed = mutableListOf<Edit>()
+        update(mangaId) { list ->
+            val byLower = list.associateBy { it.source.lowercase() }
+            val merged = incoming.map { new ->
+                val source = new.source.trim()
+                val translation = new.translation.trim()
+                val old = byLower[source.lowercase()] ?: return@map new.copy(source = source, translation = translation)
+                if (old.translation != translation) changed += Edit(mangaId, old.source, old.translation, translation)
+                old.copy(
+                    translation = translation,
+                    edited = old.edited || new.edited || old.translation != translation,
+                    kind = new.kind.ifBlank { old.kind },
+                    gender = new.gender.ifBlank { old.gender },
+                    note = new.note.ifBlank { old.note },
+                )
             }
-            return
+            if (replace) {
+                merged
+            } else {
+                val taken = merged.map { it.source.lowercase() }.toSet()
+                list.filter { it.source.lowercase() !in taken } + merged
+            }
         }
+        // The pages already shown pick up the corrected names
+        changed.forEach { _edits.tryEmit(it) }
+    }
+
+    /** Terms from a backup: the ones not known here are added; known ones keep theirs, only filling what they lack. */
+    fun importEntries(mangaId: Long, entries: List<Entry>) {
+        if (entries.isEmpty()) return
         update(mangaId) { list ->
             val known = list.associateBy { it.source.lowercase() }
             val filled = list.map { entry ->
