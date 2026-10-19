@@ -432,15 +432,49 @@ fun Modifier.pressCombinedClickable(onClick: () -> Unit, onLongClick: () -> Unit
 }
 
 /**
- * Obsidian Royal badge: a small pill, dark and opaque, edged with a 0.5 dp line of the accent (chapter counts,
- * status, ratings on the cards).
+ * The badge on the cards (chapter counts, status, ratings), in the look's own way:
+ * - Obsidian Royal: a small dark opaque pill edged with a 0.5 dp line of the accent;
+ * - Aurora Veil: a frosted midnight pill with a rim from the accent to its neighbour hue;
+ * - Manhwa Ink: a paper sticker with a bold ink border and square-ish corners, black ink on it;
+ * - Monarch Holo: a deep pill with a holographic rim.
+ * Its text colour is [pillText].
  */
 fun Modifier.obsidianPill(): Modifier = composed {
     val accent = MaterialTheme.colorScheme.primary
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
-    this
-        .clip(shape)
-        .background(ObsidianTokens.PillFill, shape)
-        .border(0.5.dp, accent.copy(alpha = 0.9f), shape)
-        .padding(horizontal = 4.dp, vertical = 1.dp)
+    val look = LocalManhwaLook.current
+    val pill = androidx.compose.foundation.shape.RoundedCornerShape(50)
+    when (look.style) {
+        ManhwaStyle.AURORA -> this
+            .clip(pill)
+            .background(LookTokens.AuroraSurface.copy(alpha = 0.9f), pill)
+            .border(0.75.dp, androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(accent, accent.hueShift(50f))), pill)
+            .padding(horizontal = 5.dp, vertical = 1.dp)
+        ManhwaStyle.INK -> {
+            val sticker = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+            this
+                .clip(sticker)
+                .background(LookTokens.InkPaperSurface, sticker)
+                .border(1.2.dp, LookTokens.InkBlack, sticker)
+                .padding(horizontal = 4.dp, vertical = 1.dp)
+        }
+        ManhwaStyle.HOLO -> this
+            .clip(pill)
+            .background(LookTokens.HoloSurface.copy(alpha = 0.92f), pill)
+            .border(
+                0.75.dp,
+                androidx.compose.ui.graphics.Brush.sweepGradient(listOf(accent, accent.hueShift(60f), Color.White, accent.hueShift(-60f), accent)),
+                pill,
+            )
+            .padding(horizontal = 5.dp, vertical = 1.dp)
+        else -> this
+            .clip(pill)
+            .background(ObsidianTokens.PillFill, pill)
+            .border(0.5.dp, accent.copy(alpha = 0.9f), pill)
+            .padding(horizontal = 4.dp, vertical = 1.dp)
+    }
 }
+
+/** The text colour on [obsidianPill]: black ink on Manhwa Ink's paper sticker, light on the dark pills. */
+val pillText: Color
+    @Composable @ReadOnlyComposable
+    get() = if (LocalManhwaLook.current.style == ManhwaStyle.INK) LookTokens.InkBlack else ObsidianTokens.Ink

@@ -234,7 +234,7 @@ fun MangaComfortableGridItem(
                                     statusLabel,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    color = Color.White,
+                                    color = eu.kanade.presentation.components.pillText,
                                     maxLines = 1,
                                     modifier = Modifier
                                         .padding(bottom = 4.dp)
