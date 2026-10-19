@@ -132,7 +132,14 @@ class TranslationCollectionScreen : Screen() {
             if (uri == null) return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
                 val result = runCatching { collection.importReview(context.contentResolver.openInputStream(uri)!!) }.getOrNull()
-                // Each corrected name goes back to its series (lines with a changed name follow it)
+                // The most used corrections become lessons: the AI is shown them and turns them into rules
+                result?.lessons?.forEach { (source, wrong, right) ->
+                    lessons.add(
+                        eu.kanade.translation.learning.LessonStore.GLOBAL,
+                        eu.kanade.translation.learning.LessonStore.Lesson(source, wrong, right, eu.kanade.translation.learning.LessonStore.Origin.USER.name),
+                    )
+                }
+                // Each corrected name goes back to its series (lines with a changed name follow it; a changed name is a lesson too)
                 result?.glossaries?.forEach { g ->
                     val store = context.appGraph.glossaryStore
                     runCatching {

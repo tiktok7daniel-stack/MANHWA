@@ -598,7 +598,14 @@ class TranslationCollection(private val context: Context) {
     }
 
     /** What a review file changed: lines corrected, approved as they were, and deleted; and the glossaries it holds. */
-    class ReviewResult(val corrected: Int, val approved: Int, val deleted: Int, val glossaries: List<CollectionReview.Glossary>)
+    class ReviewResult(
+        val corrected: Int,
+        val approved: Int,
+        val deleted: Int,
+        val glossaries: List<CollectionReview.Glossary>,
+        /** The most used corrections (source, the AI's wording, the right one): lessons for the AI. */
+        val lessons: List<Triple<String, String, String>> = emptyList(),
+    )
 
     /**
      * MANHWA review: a corrected review file. Each line in it is reviewed: a new wording replaces the AI's and counts
@@ -611,19 +618,20 @@ class TranslationCollection(private val context: Context) {
         var corrected = 0
         var approved = 0
         var deleted = 0
+        val fixes = mutableListOf<Pair<Int, Triple<String, String, String>>>()
         db.beginTransaction()
         try {
             for (line in lines) {
                 val saved = db.query(
                     "segments",
-                    arrayOf("id", "translation"),
+                    arrayOf("id", "translation", "original", "uses"),
                     "src = ? AND tgt = ? AND key = ? AND user = 0",
                     arrayOf(line.src, line.tgt, line.k),
                     null,
                     null,
                     null,
                     "1",
-                ).use { c -> if (c.moveToFirst()) c.getLong(0) to c.getString(1) else null } ?: continue
+                ).use { c -> if (c.moveToFirst()) Triple(c.getLong(0), c.getString(1), c.getString(2) to c.getInt(3)) else null } ?: continue
                 val id = saved.first.toString()
                 when (CollectionReview.outcome(line, saved.second)) {
                     CollectionReview.Outcome.DELETED -> {
@@ -662,6 +670,8 @@ class TranslationCollection(private val context: Context) {
                             arrayOf(id),
                         )
                         corrected++
+                        // Templates ({n}, {name}) teach nothing as examples; real lines do
+                        if ('{' !in translation) fixes += saved.third.second to Triple(saved.third.first, saved.second, translation)
                     }
                 }
             }
@@ -673,7 +683,8 @@ class TranslationCollection(private val context: Context) {
         // One more round in the list of reviews (newest first)
         val round = "${System.currentTimeMillis()},$corrected,$approved,$deleted"
         rounds.edit().putString(ROUNDS_KEY, (listOf(round) + reviewRounds().map { it.raw }).take(MAX_ROUNDS).joinToString(";")).apply()
-        return ReviewResult(corrected, approved, deleted, parsed.glossaries)
+        val lessons = fixes.sortedByDescending { it.first }.take(REVIEW_LESSONS).map { it.second }
+        return ReviewResult(corrected, approved, deleted, parsed.glossaries, lessons)
     }
 
     /** One review imported: when, and what it changed. */
@@ -729,6 +740,8 @@ class TranslationCollection(private val context: Context) {
     private companion object {
         const val DB_NAME = "translation_collection.db"
         const val ROUNDS_KEY = "rounds"
+        /** Corrections of a review kept as lessons for the AI (the most used lines). */
+        const val REVIEW_LESSONS = 40
         const val MAX_ROUNDS = 30
         // 2: MANHWA review (reviewed, added)
         const val DB_VERSION = 2
