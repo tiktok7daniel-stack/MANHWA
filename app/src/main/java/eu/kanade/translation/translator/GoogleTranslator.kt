@@ -1,19 +1,27 @@
 package eu.kanade.translation.translator
 
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.translation.model.PageTranslation
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONArray
-import tachiyomi.core.common.util.system.logcat
+import java.io.IOException
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import logcat.LogPriority
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import tachiyomi.core.common.util.system.logcat
 
 class GoogleTranslator(
     override val fromLang: TextRecognizerLanguage,
@@ -21,45 +29,73 @@ class GoogleTranslator(
 ) : TextTranslator {
     private val client1 = "gtx"
     private val client2 = "webapp"
-    val okHttpClient = OkHttpClient()
+    val okHttpClient = sharedClient
+
+    /** Thrown when Google did not answer for some bubbles even after waiting and asking again. */
+    class GoogleFailed(val failed: Int, val total: Int, cause: Throwable?) :
+        IOException("Google Translate did not answer for $failed of $total bubbles", cause)
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
         // A few bubbles at a time, so a page comes back in about a second
         val gate = Semaphore(4)
+        val blocks = pages.values.flatMap { it.blocks }
+        var failed = 0
+        var lastError: Throwable? = null
         coroutineScope {
-            pages.values.flatMap { it.blocks }.map { block ->
+            blocks.map { block ->
                 async {
                     gate.withPermit {
-                        block.translation = translateText(toLang.code, block.text.replace('\n', ' ')).ifBlank { block.text }
+                        try {
+                            block.translation = translateText(block.text.replace('\n', ' ')).ifBlank { block.text }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // The bubble keeps its text for now; the chapter is reported as failed below
+                            block.translation = block.text
+                            synchronized(this@GoogleTranslator) {
+                                failed++
+                                lastError = e
+                            }
+                        }
                     }
                 }
             }.awaitAll()
         }
+        // Never a chapter saved half in English without saying so: it can be tried again (the pages read are kept)
+        if (failed > 0) throw GoogleFailed(failed, blocks.size, lastError)
     }
 
-    /** Translates one text; used as the fast draft of the hybrid engine and as the last fallback. */
-    suspend fun translateText(text: String): String = translateText(toLang.code, text)
-
-    private suspend fun translateText(lang: String, text: String): String {
-        val access = getTranslateUrl(lang, text)
-        val build: Request = Request.Builder().url(access).build()
-        val newCall = okHttpClient.newCall(build)
-        val response = newCall.await()
-        val body = response.body
-        val string = body.string()
-        try {
-            // Long texts come back split into sentences: join all of them, not only the first
-            val segments = JSONArray(string).getJSONArray(0)
-            return buildString {
-                for (i in 0 until segments.length()) {
-                    val segment = segments.optJSONArray(i) ?: continue
-                    if (!segment.isNull(0)) append(segment.optString(0))
-                }
+    /**
+     * Translates one text; used as the fast draft of the hybrid engine and as the last fallback. A request that
+     * fails (no network for a moment, a busy answer) is asked again a few times, waiting longer each time and as
+     * long as Google says to wait; still nothing throws, rather than give the text back untranslated.
+     */
+    suspend fun translateText(text: String): String {
+        if (text.isBlank()) return text
+        val sent = GoogleRules.prepare(text)
+        var last: Throwable? = null
+        repeat(GoogleRules.ATTEMPTS) { attempt ->
+            if (attempt > 0) delay(GoogleRules.waitMillis(attempt, last))
+            try {
+                return request(toLang.code, sent)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                last = e
+                logcat(LogPriority.WARN) { "Google Translate try ${attempt + 1} failed: ${e.message}" }
             }
-        } catch (e: Exception) {
-            logcat { "Image Translation Error : $e" }
         }
-        return ""
+        throw last ?: IOException("Google Translate did not answer")
+    }
+
+    private suspend fun request(lang: String, text: String): String {
+        val response = okHttpClient.newCall(Request.Builder().url(getTranslateUrl(lang, text)).build()).await()
+        response.use {
+            if (!it.isSuccessful) {
+                throw GoogleRules.Busy(it.code, it.header("Retry-After")?.trim()?.toLongOrNull())
+            }
+            return GoogleRules.parse(it.body.string()) ?: throw IOException("Google Translate sent an answer that is not a translation")
+        }
     }
 
     private fun getTranslateUrl(lang: String, text: String): String {
@@ -135,4 +171,66 @@ class GoogleTranslator(
     override fun close() {
     }
 
+    companion object {
+        /** One client for every bubble and every chapter: its connections are reused, so each request is quicker. */
+        private val sharedClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .callTimeout(30, TimeUnit.SECONDS)
+                .build()
+        }
+    }
 }
+
+/** The pure rules of [GoogleTranslator] (tested without a phone). */
+object GoogleRules {
+
+    const val ATTEMPTS = 4
+
+    /** Google answered with an error code (429 when asked too often), and how long it said to wait. */
+    class Busy(val code: Int, val retryAfterSeconds: Long?) : IOException("Google Translate answered HTTP $code")
+
+    /** How long to wait before try [attempt] (1, 2, 3...): what Google asked for, else 1, 2, 4 seconds. */
+    fun waitMillis(attempt: Int, error: Throwable?): Long {
+        val asked = (error as? Busy)?.retryAfterSeconds
+        if (asked != null && asked > 0) return asked.coerceAtMost(30) * 1000
+        return 1000L shl (attempt - 1).coerceIn(0, 4)
+    }
+
+    /** The translation in Google's answer (every sentence joined), or null when the answer is not one. */
+    fun parse(body: String): String? = try {
+        val segments = Json.parseToJsonElement(body).jsonArray[0].jsonArray
+        buildString {
+            for (segment in segments) {
+                val first = (segment as? JsonArray)?.firstOrNull() as? JsonPrimitive ?: continue
+                if (first.isString) append(first.content)
+            }
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * The text as it is sent. Manhwa bubbles are lettered in capitals, and Google reads a word in capitals as a
+     * name or an acronym and leaves it as it is ("HUNTER", "RUN"): text mostly in capitals is sent in sentence
+     * case, with the first letter of every sentence and the word "I" in capitals.
+     */
+    fun prepare(text: String): String {
+        val letters = text.filter { it.isLetter() && it.code < 0x250 }
+        if (letters.length < 4) return text
+        val upper = letters.count { it.isUpperCase() }
+        if (upper * 10 < letters.length * 7) return text
+        val lower = text.lowercase()
+        val out = StringBuilder(lower.length)
+        var start = true
+        for (i in lower.indices) {
+            val c = lower[i]
+            out.append(if (start && c.isLetter()) c.uppercaseChar() else c)
+            if (c.isLetter() || c.isDigit()) start = false
+            if (c == '.' || c == '!' || c == '?') start = true
+        }
+        return Regex("(?<![\\p{L}'])i(?=$|[^\\p{L}])").replace(out.toString(), "I")
+    }
+}
+
