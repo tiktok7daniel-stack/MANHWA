@@ -48,4 +48,21 @@ class GoogleRulesTest {
         GoogleRules.worthRetry(GoogleRules.Busy(429, null)) shouldBe true
         GoogleRules.worthRetry(java.net.SocketTimeoutException()) shouldBe true
     }
+
+    @Test
+    fun `a page goes in few requests and comes back line by line`() {
+        GoogleRules.batches(listOf("a", "b", "c")) shouldBe listOf(0..2)
+        GoogleRules.batches(List(70) { "x".repeat(40) }).size shouldBe 3
+        GoogleRules.batches(emptyList()) shouldBe emptyList()
+        GoogleRules.split("واحد\nاتنين\nتلاتة", 3) shouldBe listOf("واحد", "اتنين", "تلاتة")
+        GoogleRules.split("واحد\n\nاتنين", 2) shouldBe listOf("واحد", "اتنين")
+        GoogleRules.split("واحد اتنين", 2) shouldBe null
+    }
+
+    @Test
+    fun `the OCR lines of a bubble are joined`() {
+        GoogleRules.cleanSource("THIS IS THE DUN-\nGEON  WE\nFOUND") shouldBe "THIS IS THE DUNGEON WE FOUND"
+        GoogleRules.cleanSource("AN S-\nRANK") shouldBe "AN S- RANK"
+    }
 }
+

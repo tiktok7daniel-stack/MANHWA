@@ -651,6 +651,15 @@ class LiveTranslator(
                 discoveredDetails.clear()
             }
             // MANHWA fast mode: the work's names and the codex go in before the lines are sent
+            // MANHWA Google Translate with no key: the work's names and the codex too
+            (engine as? eu.kanade.translation.translator.GoogleTranslator)?.let { google ->
+                val codex = if ((from == TextRecognizerLanguage.ENGLISH || from == TextRecognizerLanguage.KOREAN) && to == TextTranslatorLanguage.ARABIC) {
+                    eu.kanade.translation.collection.ManhwaCodex.termsIn(result.blocks.joinToString(" ") { it.text }, preferences.translationCodexPacks().get())
+                } else {
+                    emptyMap()
+                }
+                google.glossary = eu.kanade.translation.glossary.GlossaryEnforcer.seriesFirst(id?.let(glossaryStore::asMap).orEmpty(), codex)
+            }
             (engine as? eu.kanade.translation.translator.FastTranslator)?.let { fast ->
                 val codex = if ((from == TextRecognizerLanguage.ENGLISH || from == TextRecognizerLanguage.KOREAN) && to == TextTranslatorLanguage.ARABIC) {
                     eu.kanade.translation.collection.ManhwaCodex.termsIn(result.blocks.joinToString(" ") { it.text }, preferences.translationCodexPacks().get())

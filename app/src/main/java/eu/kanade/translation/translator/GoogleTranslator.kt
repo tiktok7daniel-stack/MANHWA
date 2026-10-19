@@ -2,6 +2,7 @@ package eu.kanade.translation.translator
 
 import eu.kanade.tachiyomi.network.await
 import eu.kanade.translation.model.PageTranslation
+import eu.kanade.translation.model.TranslationBlock
 import eu.kanade.translation.recognizer.TextRecognizerLanguage
 import java.io.IOException
 import java.io.UnsupportedEncodingException
@@ -35,26 +36,27 @@ class GoogleTranslator(
     class GoogleFailed(val failed: Int, val total: Int, cause: Throwable?) :
         IOException("Google Translate did not answer for $failed of $total bubbles", cause)
 
+    /** The work's names and terms (source to translation), put in before the text is sent. */
+    var glossary: Map<String, String> = emptyMap()
+
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
-        // A few bubbles at a time, so a page comes back in about a second
+        // Each page's bubbles go together, a few requests a page with the page around them; four requests at a time
         val gate = Semaphore(4)
-        val blocks = pages.values.flatMap { it.blocks }
+        val parts = pages.values.flatMap { page ->
+            GoogleRules.batches(page.blocks.map { it.text }).map { range -> page.blocks.subList(range.first, range.last + 1).toList() }
+        }
+        val total = parts.sumOf { it.size }
         var failed = 0
         var lastError: Throwable? = null
         coroutineScope {
-            blocks.map { block ->
+            parts.map { part ->
                 async {
                     gate.withPermit {
-                        try {
-                            block.translation = translateText(block.text.replace('\n', ' ')).ifBlank { block.text }
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            // The bubble keeps its text for now; the chapter is reported as failed below
-                            block.translation = block.text
+                        val error = translatePart(part)
+                        if (error != null) {
                             synchronized(this@GoogleTranslator) {
-                                failed++
-                                lastError = e
+                                failed += part.count { it.translation == it.text }
+                                lastError = error
                             }
                         }
                     }
@@ -62,7 +64,51 @@ class GoogleTranslator(
             }.awaitAll()
         }
         // Never a chapter saved half in English without saying so: it can be tried again (the pages read are kept)
-        if (failed > 0) throw GoogleFailed(failed, blocks.size, lastError)
+        if (failed > 0) throw GoogleFailed(failed, total, lastError)
+    }
+
+    /** Translates [part] in one request (each bubble on its own line), else bubble by bubble; the last error, or null. */
+    private suspend fun translatePart(part: List<TranslationBlock>): Throwable? {
+        val sent = part.map { send(it.text) }
+        if (part.size > 1) {
+            val joined = try {
+                translateText(sent.joinToString("\n"), prepared = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Google did not answer even after asking again: no use asking for every bubble
+                part.forEach { it.translation = it.text }
+                return e
+            }
+            val lines = GoogleRules.split(joined, part.size)
+            if (lines != null) {
+                part.forEachIndexed { i, block -> block.translation = finish(lines[i], block.text) }
+                return null
+            }
+        }
+        // The lines did not come back one for one: each bubble on its own
+        var error: Throwable? = null
+        part.forEachIndexed { i, block ->
+            block.translation = try {
+                finish(translateText(sent[i], prepared = true), block.text)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = e
+                block.text
+            }
+        }
+        return error
+    }
+
+    /** The bubble as it is sent: the OCR's broken lines joined, the work's names put in, capitals in sentence case. */
+    private fun send(text: String): String =
+        GoogleRules.prepare(FastTranslatorRules.protectTerms(GoogleRules.cleanSource(text), glossary))
+
+    private fun finish(translation: String, source: String): String {
+        if (translation.isBlank()) return source
+        val clean = TextSanitizer.clean(translation.trim(), source, toLang)
+        return if (toLang == TextTranslatorLanguage.ARABIC) ArabicPolisher.polish(clean) else clean
     }
 
     /**
@@ -70,9 +116,9 @@ class GoogleTranslator(
      * fails (no network for a moment, a busy answer) is asked again a few times, waiting longer each time and as
      * long as Google says to wait; still nothing throws, rather than give the text back untranslated.
      */
-    suspend fun translateText(text: String): String {
+    suspend fun translateText(text: String, prepared: Boolean = false): String {
         if (text.isBlank()) return text
-        val sent = GoogleRules.prepare(text)
+        val sent = if (prepared) text else GoogleRules.prepare(GoogleRules.cleanSource(text))
         var last: Throwable? = null
         repeat(GoogleRules.ATTEMPTS) { attempt ->
             if (attempt > 0) delay(GoogleRules.waitMillis(attempt, last))
@@ -192,6 +238,42 @@ object GoogleRules {
 
     /** Google answered with an error code (429 when asked too often), and how long it said to wait. */
     class Busy(val code: Int, val retryAfterSeconds: Long?) : IOException("Google Translate answered HTTP $code")
+
+    /** Most text sent in one request (the bubbles of a page joined), and most bubbles. */
+    private const val BATCH_CHARS = 1200
+    private const val BATCH_BUBBLES = 30
+
+    /** The bubbles of a page in groups sent together, in reading order (index ranges into [texts]). */
+    fun batches(texts: List<String>): List<IntRange> {
+        val out = mutableListOf<IntRange>()
+        var start = 0
+        var chars = 0
+        texts.forEachIndexed { i, t ->
+            val len = t.length + 1
+            if (i > start && (chars + len > BATCH_CHARS || i - start >= BATCH_BUBBLES)) {
+                out += start until i
+                start = i
+                chars = 0
+            }
+            chars += len
+        }
+        if (start < texts.size) out += start until texts.size
+        return out
+    }
+
+    /** The answer to a joined request back into [count] lines, or null when they did not come back one for one. */
+    fun split(joined: String, count: Int): List<String>? {
+        val lines = joined.split('\n').map { it.trim() }
+        if (lines.size == count) return lines
+        val filled = lines.filter { it.isNotEmpty() }
+        return filled.takeIf { it.size == count }
+    }
+
+    /** The OCR text of a bubble on one line: a word broken with a hyphen at the end of a line joined again. */
+    fun cleanSource(text: String): String =
+        text.replace(Regex("(?<=\\p{L}\\p{L}\\p{L})-\\s*\\n\\s*(?=\\p{L})"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
 
     /** Whether asking again can help: not when there is no network at all (no address, no connection). */
     fun worthRetry(error: Throwable): Boolean =
