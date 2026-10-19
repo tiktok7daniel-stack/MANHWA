@@ -86,6 +86,7 @@ import mihon.icons.materialsymbols.rounded.SearchCheck
 import mihon.icons.materialsymbols.rounded.SkipNext
 import mihon.icons.materialsymbols.rounded.SwapCalls
 import mihon.icons.materialsymbols.rounded.Verified
+import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.rounded.Widgets
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -117,12 +118,14 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_looks_t, ATMR.strings.wn_looks_b),
+            Feature(MaterialSymbols.Rounded.Visibility, ATMR.strings.hub_only_adult, ATMR.strings.hub_only_adult_sub),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 107
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_looks_t, ATMR.strings.wn_looks_b),
             // Build 106
             Feature(MaterialSymbols.Rounded.Verified, ATMR.strings.wn_review_t, ATMR.strings.wn_review_b),
             Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_refs_t, ATMR.strings.wn_refs_b),
