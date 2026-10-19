@@ -23,6 +23,7 @@ binaries. Each file was read before it was added.
 | break-ui | emilkowalski/skills | MIT | Worst-case data (long names, Arabic text, empty states) to find UI that breaks |
 | mobile-native, animate-expo, ask-sonner, pick-ui-library, prototype, write-swift | emilkowalski/skills | MIT | Web, React Native, Swift; added as asked, of little use in a Kotlin app |
 
+| planning-with-files | github.com/OthmanAdi/planning-with-files (`d363544`) | MIT | Plan long tasks in task_plan.md / findings.md / progress.md (hooks and scripts left out) |
 ECC agents in `.claude/agents/` (MIT, same version): `kotlin-reviewer` (report-only review of Kotlin changes),
 `kotlin-build-resolver` (smallest fix for a failing build), `silent-failure-hunter` (swallowed errors and bad
 fallbacks). ECC's Kotlin rules are in `docs/ecc-kotlin-rules/` with its licence.
