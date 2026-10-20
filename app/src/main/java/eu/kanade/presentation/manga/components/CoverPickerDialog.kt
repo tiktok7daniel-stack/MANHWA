@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,7 +47,7 @@ import eu.kanade.presentation.components.ManhwaInk
 import eu.kanade.presentation.components.ManhwaKit
 import eu.kanade.presentation.components.glass
 import eu.kanade.presentation.components.pressClickable
-import eu.kanade.tachiyomi.ui.manga.MangaCoverViewModel.CoverOption
+import eu.kanade.translation.covers.CoverOption
 import kotlinx.coroutines.delay
 import tachiyomi.domain.manga.model.MangaCover as CoverData
 import tachiyomi.i18n.MR
@@ -62,17 +63,19 @@ fun CoverPickerDialog(
     title: String,
     options: List<CoverOption>,
     searching: Boolean,
-    onSearch: (String) -> Unit,
+    onSearch: (query: String, all: Boolean) -> Unit,
     onPick: (CoverOption) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
     var query by remember { mutableStateOf(title) }
+    // The reader's own sources first; every installed one on demand
+    var all by remember { mutableStateOf(false) }
     var chosen by remember { mutableStateOf<CoverOption?>(null) }
     // Each picture's size once it has loaded (url to "width × height"), to tell the sharp ones
     val sizes = remember { mutableStateMapOf<String, Pair<Int, Int>>() }
-    LaunchedEffect(query) {
+    LaunchedEffect(query, all) {
         if (query != title) delay(SEARCH_DELAY_MS)
-        onSearch(query)
+        onSearch(query, all)
     }
     Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         GlassBackdrop(Modifier.fillMaxSize()) {
@@ -84,6 +87,13 @@ fun CoverPickerDialog(
                     onValueChange = { query = it },
                     modifier = Modifier.padding(horizontal = 14.dp),
                 )
+                Row(
+                    Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ManhwaKit.Chip(stringResource(ATMR.strings.cover_my_sources), selected = !all) { all = false }
+                    ManhwaKit.Chip(stringResource(ATMR.strings.cover_all_sources), selected = all) { all = true }
+                }
                 if (searching) {
                     LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp))
                 }

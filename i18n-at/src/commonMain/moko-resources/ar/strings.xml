@@ -1266,4 +1266,24 @@
     <string name="cover_pick_use">استخدمه</string>
     <string name="wn_coverpick_t">أغلفة من مصادر تانية</string>
     <string name="wn_coverpick_b">في غلاف أي مانهوا، زرار التعديل بيوريك أغلفتها من المصادر التانية ومعاها مقاسها، فتختار الأوضح وتحطه غلاف.</string>
+    <string name="cover_my_sources">مصادري</string>
+    <string name="cover_all_sources">كل المصادر</string>
+    <string name="covers_bulk_title">تغيير الأغلفة</string>
+    <string name="covers_bulk_progress">%1$s · %2$d من %3$d</string>
+    <string name="covers_bulk_info">كل مانهوا بتاخد أوضح غلاف لنفس العمل من مصادرك. «شوف»: تشوفهم الأول وتختار. «سريع»: بيتحطوا على طول.</string>
+    <string name="covers_bulk_look">شوف</string>
+    <string name="covers_bulk_fast">سريع</string>
+    <string name="covers_bulk_stop">وقّف</string>
+    <string name="covers_bulk_apply">حط الـ %1$d المختارين</string>
+    <string name="covers_st_waiting">مستني</string>
+    <string name="covers_st_looking">بيدوّر…</string>
+    <string name="covers_st_found">فيه غلاف أوضح</string>
+    <string name="covers_st_none">مالقاهاش في مصادرك</string>
+    <string name="covers_st_same">الغلاف الحالي هو الأوضح (دوس لو عايز تغيّره برضو)</string>
+    <string name="covers_st_applied">اتغيّر</string>
+    <string name="covers_st_failed">ماعرفش يغيّره</string>
+    <string name="covers_mode_on">اختار مصدر عشان تغيّر كل أغلفته</string>
+    <string name="covers_mode_off">رجعنا للنقل</string>
+    <string name="wn_bulkcovers_t">كل الأغلفة مرة واحدة</string>
+    <string name="wn_bulkcovers_b">من تصفح ← نقل ← زرار الصورة: اختار مصدر، وكل المانهوات اللي عليه هتاخد أوضح غلاف من مصادرك، بعد ما تشوفهم أو على طول. واختيار الغلاف بقى بيدوّر في مصادرك الأول.</string>
 </resources>

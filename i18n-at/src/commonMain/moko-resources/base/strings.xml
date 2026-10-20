@@ -1325,4 +1325,24 @@
     <string name="cover_pick_use">Use</string>
     <string name="wn_coverpick_t">Covers from other sources</string>
     <string name="wn_coverpick_b">In the cover of a series, the edit button now shows the covers the other sources have for it with their size, so the sharpest can be put as its cover.</string>
+    <string name="cover_my_sources">My sources</string>
+    <string name="cover_all_sources">All sources</string>
+    <string name="covers_bulk_title">Change covers</string>
+    <string name="covers_bulk_progress">%1$s · %2$d of %3$d</string>
+    <string name="covers_bulk_info">Each series gets the sharpest cover of the same work found on your sources. Look: see them first and pick. Fast: they are put straight away.</string>
+    <string name="covers_bulk_look">Look</string>
+    <string name="covers_bulk_fast">Fast</string>
+    <string name="covers_bulk_stop">Stop</string>
+    <string name="covers_bulk_apply">Put the %1$d picked</string>
+    <string name="covers_st_waiting">Waiting</string>
+    <string name="covers_st_looking">Looking…</string>
+    <string name="covers_st_found">A sharper cover</string>
+    <string name="covers_st_none">Not found on your sources</string>
+    <string name="covers_st_same">Already the sharpest (tap to put anyway)</string>
+    <string name="covers_st_applied">Changed</string>
+    <string name="covers_st_failed">Could not change</string>
+    <string name="covers_mode_on">Pick a source to change all its covers</string>
+    <string name="covers_mode_off">Back to migrating</string>
+    <string name="wn_bulkcovers_t">All the covers at once</string>
+    <string name="wn_bulkcovers_b">Browse, Migrate, the picture button: pick a source and every one of its series gets the sharpest cover found on your sources, after a look or straight away. The cover picker looks in your sources first.</string>
 </resources>

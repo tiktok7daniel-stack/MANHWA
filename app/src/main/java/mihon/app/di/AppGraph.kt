@@ -120,6 +120,7 @@ interface AppGraph : ViewModelGraph {
     val chapterFusion: eu.kanade.translation.unified.ChapterFusion
     val liveChapterProgress: eu.kanade.translation.live.LiveChapterProgress
     val updateChapter: tachiyomi.domain.chapter.interactor.UpdateChapter
+    val coverFinder: eu.kanade.translation.covers.CoverFinder
     val upsertHistory: tachiyomi.domain.history.interactor.UpsertHistory
 
     val crashLogUtil: CrashLogUtil
