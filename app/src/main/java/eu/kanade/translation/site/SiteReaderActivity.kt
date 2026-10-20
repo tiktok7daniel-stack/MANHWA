@@ -89,7 +89,7 @@ class SiteReaderActivity : BaseActivity() {
 
     // Which chapter is on screen, and the one the page was opened at (the frames under it follow it)
     private val current = mutableIntStateOf(-1)
-    private val progress = mutableIntStateOf(0)
+    private val pageLoad = mutableIntStateOf(0)
     @Volatile private var base = 0
 
     // The chapter last put in the history (the one on screen goes in once)
@@ -150,7 +150,7 @@ class SiteReaderActivity : BaseActivity() {
     @Composable
     private fun Bar(onBack: () -> Unit, onSiteLook: () -> Unit, onReload: () -> Unit) {
         val index = current.intValue
-        val loading = progress.intValue
+        val loading = pageLoad.intValue
         // The chapter's name shows for a moment each time a new one comes on screen
         var showTitle by remember { mutableStateOf(true) }
         LaunchedEffect(index) {
@@ -224,7 +224,7 @@ class SiteReaderActivity : BaseActivity() {
         addJavascriptInterface(Bridge(), BRIDGE)
         webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                progress.intValue = newProgress
+                pageLoad.intValue = newProgress
             }
         }
         webViewClient = object : WebViewClient() {
