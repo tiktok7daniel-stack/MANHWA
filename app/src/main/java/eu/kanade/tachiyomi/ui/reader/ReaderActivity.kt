@@ -23,6 +23,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import eu.kanade.translation.live.AutoScrollControl
@@ -129,6 +130,9 @@ class ReaderActivity : BaseActivity() {
     private val graph: AppGraph by lazy { metroGraph() }
 
     companion object {
+        /** How long the auto-scroll button stays after it was shown or last touched. */
+        private const val SCROLL_BUTTON_HIDE_MS = 2_000L
+
         fun newIntent(context: Context, mangaId: Long?, chapterId: Long?): Intent {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("manga", mangaId)
@@ -355,15 +359,15 @@ class ReaderActivity : BaseActivity() {
             if (showStyle) {
                 eu.kanade.translation.style.TranslationStyleSheet(onDismiss = { showStyle = false })
             }
-            // MANHWA: the auto-scroll button on its own (a double tap on the page shows it or hides it); hidden,
-            // the scrolling it started stops too
+            // MANHWA: the auto-scroll button on its own: a double tap on the page shows it or hides it, and it hides
+            // by itself a moment after it was last touched. The scrolling goes on with the button hidden; a double
+            // tap brings it back to stop it.
             val showScrollButton by scrollButton.collectAsState()
-            var scrollButtonSeen by remember { mutableStateOf(false) }
-            LaunchedEffect(showScrollButton) {
+            var scrollButtonTouch by remember { mutableIntStateOf(0) }
+            LaunchedEffect(showScrollButton, scrollButtonTouch) {
                 if (showScrollButton) {
-                    scrollButtonSeen = true
-                } else if (scrollButtonSeen) {
-                    scrolling = false
+                    kotlinx.coroutines.delay(SCROLL_BUTTON_HIDE_MS)
+                    scrollButton.value = false
                 }
             }
             if (showScrollButton && !state.menuVisible) {
@@ -372,6 +376,7 @@ class ReaderActivity : BaseActivity() {
                     onPlaying = { scrolling = it },
                     speed = autoScrollSpeed,
                     onSpeed = readerPreferences.autoScrollSpeed::set,
+                    onTouch = { scrollButtonTouch++ },
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .navigationBarsPadding()
@@ -1057,7 +1062,6 @@ class ReaderActivity : BaseActivity() {
 
     /** MANHWA: the auto-scroll button on its own, shown and hidden by a double tap on the page. */
     private val scrollButton = MutableStateFlow(false)
-
     /** A double tap on the page: shows or hides the auto-scroll button (true when it was used for that). */
     fun onPageDoubleTap(): Boolean {
         if (!readerPreferences.scrollButtonDoubleTap.get()) return false

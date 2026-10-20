@@ -559,10 +559,13 @@ fun ScrollButton(
     speed: Int,
     onSpeed: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    // Each touch of the button (its owner hides it a moment after the last one)
+    onTouch: () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     var expanded by remember { mutableStateOf(true) }
     var lastTouch by remember { mutableIntStateOf(0) }
+    LaunchedEffect(lastTouch) { if (lastTouch > 0) onTouch() }
     LaunchedEffect(expanded, lastTouch) {
         if (expanded) {
             delay(4_000)
