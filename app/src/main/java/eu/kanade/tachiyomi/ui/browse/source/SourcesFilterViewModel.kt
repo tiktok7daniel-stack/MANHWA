@@ -11,6 +11,7 @@ import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.source.interactor.GetLanguagesWithSources
 import eu.kanade.domain.source.interactor.ToggleLanguage
 import eu.kanade.domain.source.interactor.ToggleSource
+import eu.kanade.domain.source.service.AdultFilter
 import eu.kanade.domain.source.service.SourcePreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,15 +33,22 @@ class SourcesFilterViewModel(
     private val getLanguagesWithSources: GetLanguagesWithSources,
     private val toggleSource: ToggleSource,
     private val toggleLanguage: ToggleLanguage,
+    private val adultFilter: AdultFilter,
 ) : ViewModel() {
 
     val state: StateFlow<State> = combine(
         getLanguagesWithSources.subscribe(),
         preferences.enabledLanguages.changes(),
         preferences.disabledSources.changes(),
-    ) { languagesWithSources, enabledLanguages, disabledSources ->
+        adultFilter.rule(),
+    ) { languagesWithSources, enabledLanguages, disabledSources, keepsOut ->
+        // MANHWA: the +18 switches of the source hub hold here too: a source they keep out is not listed
+        val shown = languagesWithSources
+            .mapValues { (_, sources) -> sources.filterNot { keepsOut(it.id, it.name) } }
+            .filterValues { it.isNotEmpty() }
+            .toSortedMap(languagesWithSources.comparator())
         State.Success(
-            items = languagesWithSources,
+            items = shown,
             enabledLanguages = enabledLanguages,
             disabledSources = disabledSources,
         )

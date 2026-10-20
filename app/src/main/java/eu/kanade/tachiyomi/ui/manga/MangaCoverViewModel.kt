@@ -17,6 +17,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.manga.interactor.UpdateManga
+import eu.kanade.domain.source.service.AdultFilter
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
@@ -76,6 +77,7 @@ class MangaCoverViewModel(
     private val coverManager: LocalCoverManager,
     private val sourceManager: SourceManager,
     private val sourceHealth: SourceHealthManager,
+    private val adultFilter: AdultFilter,
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : ViewModel() {
 
@@ -198,7 +200,7 @@ class MangaCoverViewModel(
             _searching.value = true
             try {
                 val sources = sourceManager.getAll().filterIsInstance<CatalogueSource>()
-                    .filter { it.id != LocalSource.ID && it.id != manga.source && !sourceHealth.isHidden(it.id) }
+                    .filter { it.id != LocalSource.ID && it.id != manga.source && !sourceHealth.isHidden(it.id) && !adultFilter.hides(it.id, it.name) }
                 val gate = Semaphore(SEARCH_PARALLEL)
                 coroutineScope {
                     sources.forEach { source ->
