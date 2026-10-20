@@ -263,6 +263,10 @@ class ReaderActivity : BaseActivity() {
                     is ReaderViewModel.Event.SetCoverResult -> {
                         onSetAsCoverResult(event.result)
                     }
+                    is ReaderViewModel.Event.OpenSiteReader -> {
+                        startActivity(eu.kanade.translation.site.SiteReaderActivity.newIntent(this, event.mangaId, event.chapterId))
+                        finish()
+                    }
                 }
             }
             .launchIn(lifecycleScope)

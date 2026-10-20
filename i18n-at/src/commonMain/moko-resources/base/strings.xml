@@ -1313,4 +1313,8 @@
     <string name="wn_arabiconly_b">No English bits left inside a translation, and no original letters next to it: the whole inside of a bubble is cleaned, lines cut between two parts of a long page are read whole, lone letters are erased with their bubble, and big words in a bubble are translated. Live translation stays off when you turn it off.</string>
     <string name="wn_scrollbtn_t">Auto-scroll button</string>
     <string name="wn_scrollbtn_b">A double tap on the page shows the auto-scroll button, another hides it. Speed from 1 to 15.</string>
+    <string name="site_reader_failed">The chapter could not be opened.</string>
+    <string name="site_reader_next">Next: %1$s</string>
+    <string name="wn_sitereader_t">MangaTek as on its site</string>
+    <string name="wn_sitereader_b">MangaTek chapters open in the site\'s own reader inside the app, with its Arabic translation on the pages, and the next chapters follow under it. The globe button shows the site as it is.</string>
 </resources>

@@ -367,6 +367,11 @@ class ReaderViewModel(
             try {
                 val manga = getManga.await(mangaId) ?: error("Requested manga of id $mangaId not found")
                 val source = sourceManager.getOrStub(manga.source)
+                // MANHWA: MangaTek's chapters are read in the site's own reader, with its translation on them
+                if (eu.kanade.translation.site.SiteReader.handles(source)) {
+                    eventChannel.send(Event.OpenSiteReader(manga.id, chapterId.takeIf { it != -1L } ?: initialChapterId))
+                    return@withContext
+                }
                 incognitoMode = getIncognitoState.await(manga.source)
                 mutableState.update { it.copy(manga = manga, source = source) }
                 if (chapterId == -1L) chapterId = initialChapterId
@@ -1245,6 +1250,7 @@ class ReaderViewModel(
         data class SavedImage(val result: SaveImageResult) : Event
         data class ShareImage(val uri: Uri, val page: ReaderPage) : Event
         data class CopyImage(val uri: Uri) : Event
+        data class OpenSiteReader(val mangaId: Long, val chapterId: Long) : Event
     }
 }
 
