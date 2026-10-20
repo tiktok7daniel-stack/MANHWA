@@ -24,6 +24,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,9 +70,11 @@ class CoverFinder(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** The sources to look in for [manga]: the reader's own ones, or every installed one with [all]. */
-    suspend fun sourcesFor(manga: Manga, all: Boolean): List<CatalogueSource> {
+    suspend fun sourcesFor(manga: Manga, all: Boolean): List<CatalogueSource> = sourcesBesides(manga.source, all)
+
+    private suspend fun sourcesBesides(sourceId: Long, all: Boolean): List<CatalogueSource> {
         val installed = sourceManager.getAll().filterIsInstance<CatalogueSource>()
-            .filter { it.id != LocalSource.ID && it.id != manga.source && !sourceHealth.isHidden(it.id) && !adultFilter.hides(it.id, it.name) }
+            .filter { it.id != LocalSource.ID && it.id != sourceId && !sourceHealth.isHidden(it.id) && !adultFilter.hides(it.id, it.name) }
         if (all) return installed
         val mine = mySourceIds()
         return installed.filter { it.id in mine }.ifEmpty { installed }
@@ -199,16 +202,20 @@ class CoverFinder(
      * A cover is offered only when it is bigger than the one there now by [SHARPER] (or there is none to compare).
      */
     fun startBulk(sourceId: Long, auto: Boolean) {
-        bulkJob?.cancel()
+        // The previous run (a look or the covers being put) ends before this one starts
+        val old = bulkJob
         bulkJob = scope.launch {
+            old?.cancelAndJoin()
             val source = sourceManager.get(sourceId)
             val mangas = getFavorites.subscribe(sourceId).first()
             _bulk.value = Bulk(sourceId, source?.name ?: sourceId.toString(), mangas.map { Item(it) }, running = true, auto = auto)
+            // The same sources for every series of this one source
+            val sources = sourcesBesides(sourceId, all = false)
             val gate = Semaphore(BULK_PARALLEL)
             try {
                 coroutineScope {
                     mangas.forEach { manga ->
-                        launch { gate.withPermit { bulkOne(manga, auto) } }
+                        launch { gate.withPermit { bulkOne(manga, sources, auto) } }
                     }
                 }
             } finally {
@@ -217,10 +224,9 @@ class CoverFinder(
         }
     }
 
-    private suspend fun bulkOne(manga: Manga, auto: Boolean) {
+    private suspend fun bulkOne(manga: Manga, sources: List<CatalogueSource>, auto: Boolean) {
         set(manga.id) { it.copy(status = Status.LOOKING) }
         try {
-            val sources = sourcesFor(manga, all = false)
             val options = search(manga, manga.title, sources, onlySame = true)
             val measured = options.mapNotNull { option -> measure(option.sourceId, option.url)?.let { option to it } }
             val best = measured.maxByOrNull { (_, size) -> size.first.toLong() * size.second }
@@ -262,9 +268,16 @@ class CoverFinder(
     fun applySelected() {
         val ids = _bulk.value?.items?.filter { it.selected && it.status == Status.FOUND }?.map { it.manga.id }.orEmpty()
         if (ids.isEmpty()) return
-        scope.launch {
+        val old = bulkJob
+        bulkJob = scope.launch {
+            old?.cancelAndJoin()
+            _bulk.update { it?.copy(running = true) }
             val gate = Semaphore(BULK_PARALLEL)
-            coroutineScope { ids.forEach { id -> launch { gate.withPermit { applyOne(id) } } } }
+            try {
+                coroutineScope { ids.forEach { id -> launch { gate.withPermit { applyOne(id) } } } }
+            } finally {
+                _bulk.update { it?.copy(running = false) }
+            }
         }
     }
 

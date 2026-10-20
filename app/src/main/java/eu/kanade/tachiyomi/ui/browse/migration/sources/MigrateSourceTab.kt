@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.browse.migration.sources
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,8 @@ fun Screen.migrateSourceTab(): TabContent {
             AppBar.Action(
                 title = stringResource(ATMR.strings.covers_bulk_title),
                 icon = MaterialSymbols.Rounded.Image,
+                // Lit while a source picked here gets its covers changed
+                iconTint = if (coverMode) MaterialTheme.colorScheme.primary else null,
                 onClick = {
                     coverMode = !coverMode
                     context.toast(if (coverMode) ATMR.strings.covers_mode_on else ATMR.strings.covers_mode_off)
