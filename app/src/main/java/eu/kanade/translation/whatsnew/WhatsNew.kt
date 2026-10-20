@@ -119,6 +119,7 @@ object WhatsNew {
     val latest: List<Feature>
         get() = listOf(
             Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_bulkcovers_t, ATMR.strings.wn_bulkcovers_b),
+            Feature(MaterialSymbols.Rounded.Public, ATMR.strings.wn_sitetoggle_t, ATMR.strings.wn_sitetoggle_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */

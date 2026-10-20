@@ -21,6 +21,7 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.Image
+import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.SelectAll
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.at.ATMR
@@ -41,6 +42,9 @@ fun MangaToolbar(
     onClickEditNotes: () -> Unit,
     // MANHWA: the covers other sources have for this series
     onClickCovers: (() -> Unit)? = null,
+    // MANHWA: the source read in the site's own reader or in the app's (lit when in the site's)
+    onClickSiteReader: (() -> Unit)? = null,
+    siteReader: Boolean = false,
     // MANHWA: chapters of this work are waiting to download
     canCancelDownloads: Boolean = false,
 
@@ -109,6 +113,16 @@ fun MangaToolbar(
                                 title = stringResource(MR.strings.manga_download),
                                 icon = MaterialSymbols.Rounded.Download,
                                 onClick = { downloadExpanded = !downloadExpanded },
+                            ),
+                        )
+                    }
+                    if (onClickSiteReader != null) {
+                        add(
+                            AppBar.Action(
+                                title = stringResource(if (siteReader) ATMR.strings.site_reader_turn_off else ATMR.strings.site_reader_turn_on),
+                                icon = MaterialSymbols.Rounded.Public,
+                                iconTint = if (siteReader) MaterialTheme.colorScheme.primary else null,
+                                onClick = onClickSiteReader,
                             ),
                         )
                     }

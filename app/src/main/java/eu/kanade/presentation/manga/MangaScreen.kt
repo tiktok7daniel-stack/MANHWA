@@ -122,6 +122,9 @@ fun MangaScreen(
     onEditNotesClicked: () -> Unit,
     // MANHWA: the covers other sources have for this series
     onCoversClicked: (() -> Unit)? = null,
+    // MANHWA: this series' source read in the site's own reader (lit when on)
+    onSiteReaderClicked: (() -> Unit)? = null,
+    siteReader: Boolean = false,
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -176,6 +179,8 @@ fun MangaScreen(
             onMigrateClicked = onMigrateClicked,
             onEditNotesClicked = onEditNotesClicked,
             onCoversClicked = onCoversClicked,
+            onSiteReaderClicked = onSiteReaderClicked,
+            siteReader = siteReader,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -217,6 +222,8 @@ fun MangaScreen(
             onMigrateClicked = onMigrateClicked,
             onEditNotesClicked = onEditNotesClicked,
             onCoversClicked = onCoversClicked,
+            onSiteReaderClicked = onSiteReaderClicked,
+            siteReader = siteReader,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onMarkPreviousAsReadClicked = onMarkPreviousAsReadClicked,
@@ -269,6 +276,9 @@ private fun MangaScreenSmallImpl(
     onEditNotesClicked: () -> Unit,
     // MANHWA: the covers other sources have for this series
     onCoversClicked: (() -> Unit)? = null,
+    // MANHWA: this series' source read in the site's own reader (lit when on)
+    onSiteReaderClicked: (() -> Unit)? = null,
+    siteReader: Boolean = false,
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -329,6 +339,8 @@ private fun MangaScreenSmallImpl(
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,
                 onClickCovers = onCoversClicked,
+                onClickSiteReader = onSiteReaderClicked,
+                siteReader = siteReader,
                 canCancelDownloads = state.chapters.fastAny { it.downloadState == Download.State.QUEUE || it.downloadState == Download.State.DOWNLOADING },
                 actionModeCounter = state.selectedChapters.size,
                 onCancelActionMode = { onAllChapterSelected(false) },
@@ -534,6 +546,9 @@ fun MangaScreenLargeImpl(
     onEditNotesClicked: () -> Unit,
     // MANHWA: the covers other sources have for this series
     onCoversClicked: (() -> Unit)? = null,
+    // MANHWA: this series' source read in the site's own reader (lit when on)
+    onSiteReaderClicked: (() -> Unit)? = null,
+    siteReader: Boolean = false,
 
     // For bottom action menu
     onMultiBookmarkClicked: (List<Chapter>, bookmarked: Boolean) -> Unit,
@@ -587,6 +602,8 @@ fun MangaScreenLargeImpl(
                 onClickMigrate = onMigrateClicked,
                 onClickEditNotes = onEditNotesClicked,
                 onClickCovers = onCoversClicked,
+                onClickSiteReader = onSiteReaderClicked,
+                siteReader = siteReader,
                 canCancelDownloads = state.chapters.fastAny { it.downloadState == Download.State.QUEUE || it.downloadState == Download.State.DOWNLOADING },
                 onCancelActionMode = { onAllChapterSelected(false) },
                 actionModeCounter = state.selectedChapters.size,

@@ -21,6 +21,31 @@ object SiteReader {
         return handles(http.name, runCatching { http.baseUrl }.getOrNull())
     }
 
+    /**
+     * Whether [source]'s chapters open in the site's reader: the reader's own choice for that source ([on] or
+     * [off], source ids) first, else MangaTek only.
+     */
+    fun opensInSite(source: Source?, on: Set<String>, off: Set<String>): Boolean {
+        if (source !is HttpSource) return false
+        val id = source.id.toString()
+        return choose(id in on, id in off, handles(source))
+    }
+
+    /** The reader's choice wins over the default; turned off wins over turned on. */
+    fun choose(on: Boolean, off: Boolean, byDefault: Boolean): Boolean = when {
+        off -> false
+        on -> true
+        else -> byDefault
+    }
+
+    /** The sets after the reader switched [sourceId] to [site] (only what differs from the default is kept). */
+    fun switched(sourceId: Long, site: Boolean, byDefault: Boolean, on: Set<String>, off: Set<String>): Pair<Set<String>, Set<String>> {
+        val id = sourceId.toString()
+        val newOn = if (site && !byDefault) on + id else on - id
+        val newOff = if (!site && byDefault) off + id else off - id
+        return newOn to newOff
+    }
+
     /** A page the reader may open: the site itself (its Cloudflare check included), nothing else. */
     fun allowed(host: String?, baseUrl: String): Boolean {
         val site = baseUrl.substringAfter("://").substringBefore('/').removePrefix("www.").lowercase()

@@ -137,6 +137,7 @@ class ReaderViewModel(
     private val downloadCache: DownloadCache,
     private val translationPreferences: TranslationPreferences,
     private val chapterFusion: eu.kanade.translation.unified.ChapterFusion,
+    private val sourcePreferences: eu.kanade.domain.source.service.SourcePreferences,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -367,8 +368,13 @@ class ReaderViewModel(
             try {
                 val manga = getManga.await(mangaId) ?: error("Requested manga of id $mangaId not found")
                 val source = sourceManager.getOrStub(manga.source)
-                // MANHWA: MangaTek's chapters are read in the site's own reader, with its translation on them
-                if (eu.kanade.translation.site.SiteReader.handles(source)) {
+                // MANHWA: MangaTek's chapters (and any source the reader switched) are read in the site's own reader
+                val site = eu.kanade.translation.site.SiteReader.opensInSite(
+                    source,
+                    sourcePreferences.siteReaderOn.get(),
+                    sourcePreferences.siteReaderOff.get(),
+                )
+                if (site) {
                     eventChannel.send(Event.OpenSiteReader(manga.id, chapterId.takeIf { it != -1L } ?: initialChapterId))
                     return@withContext
                 }

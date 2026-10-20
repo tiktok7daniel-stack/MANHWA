@@ -1286,4 +1286,10 @@
     <string name="covers_mode_off">رجعنا للنقل</string>
     <string name="wn_bulkcovers_t">كل الأغلفة مرة واحدة</string>
     <string name="wn_bulkcovers_b">من تصفح ← نقل ← زرار الصورة: اختار مصدر، وكل المانهوات اللي عليه هتاخد أوضح غلاف من مصادرك، بعد ما تشوفهم أو على طول. واختيار الغلاف بقى بيدوّر في مصادرك الأول.</string>
+    <string name="site_reader_turn_on">اقرا بقارئ الموقع</string>
+    <string name="site_reader_turn_off">اقرا بقارئ التطبيق</string>
+    <string name="site_reader_now_on">المصدر ده بقى بيفتح بقارئ الموقع نفسه</string>
+    <string name="site_reader_now_off">المصدر ده بقى بيفتح بقارئ التطبيق</string>
+    <string name="wn_sitetoggle_t">أي مصدر زي MangaTek</string>
+    <string name="wn_sitetoggle_b">زرار الكرة في صفحة المانهوا بيحوّل مصدرها بين قارئ الموقع نفسه (زي الموقع بالظبط والفصول تحت بعض) وقارئ التطبيق. وزرار الصورة اللي جنبه بيوريك أغلفة المانهوا دي من مصادرك.</string>
 </resources>

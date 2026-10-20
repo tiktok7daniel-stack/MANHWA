@@ -56,13 +56,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
+import mihon.app.di.appGraph
 import mihon.feature.migration.config.MigrationConfigScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.source.local.isLocal
 
 class MangaScreen(
@@ -99,6 +102,11 @@ class MangaScreen(
         }
 
         val successState = state as MangaViewModel.State.Success
+        // MANHWA: whether this series' source opens in the site's own reader (MangaTek by default, or the reader's choice)
+        val sourcePrefs = remember { context.appGraph.sourcePreferences }
+        val siteOn by sourcePrefs.siteReaderOn.collectAsState()
+        val siteOff by sourcePrefs.siteReaderOff.collectAsState()
+        val siteReader = eu.kanade.translation.site.SiteReader.opensInSite(successState.source, siteOn, siteOff)
         val isHttpSource = remember { successState.source is HttpSource }
 
         LaunchedEffect(successState.manga, viewModel.source) {
@@ -209,6 +217,22 @@ class MangaScreen(
                     context.toast(MR.strings.notification_first_add_to_library)
                 }
             },
+            onSiteReaderClicked = {
+                val source = successState.source
+                val prefs = context.appGraph.sourcePreferences
+                val byDefault = eu.kanade.translation.site.SiteReader.handles(source)
+                val (on, off) = eu.kanade.translation.site.SiteReader.switched(
+                    source.id,
+                    site = !siteReader,
+                    byDefault = byDefault,
+                    on = prefs.siteReaderOn.get(),
+                    off = prefs.siteReaderOff.get(),
+                )
+                prefs.siteReaderOn.set(on)
+                prefs.siteReaderOff.set(off)
+                context.toast(if (!siteReader) ATMR.strings.site_reader_now_on else ATMR.strings.site_reader_now_off)
+            }.takeIf { isHttpSource },
+            siteReader = siteReader,
             onMultiBookmarkClicked = viewModel::bookmarkChapters,
             onMultiMarkAsReadClicked = viewModel::markChaptersRead,
             onMarkPreviousAsReadClicked = viewModel::markPreviousChapterRead,

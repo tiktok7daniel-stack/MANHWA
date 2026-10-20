@@ -75,6 +75,12 @@ class SourcePreferences(
 
     val pinnedSources: Preference<Set<String>> = preferenceStore.getStringSet("pinned_catalogues", emptySet())
 
+    /** MANHWA: sources whose chapters open in the site's own reader (on top of MangaTek, which does by default). */
+    val siteReaderOn: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_site_reader_on", emptySet())
+
+    /** MANHWA: sources read in the app's reader although they would open in the site's reader by default. */
+    val siteReaderOff: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_site_reader_off", emptySet())
+
     val lastUsedSource: Preference<Long> = preferenceStore.getLong(
         Preference.appStateKey("last_catalogue_source"),
         -1,

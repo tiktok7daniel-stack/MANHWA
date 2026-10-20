@@ -1345,4 +1345,10 @@
     <string name="covers_mode_off">Back to migrating</string>
     <string name="wn_bulkcovers_t">All the covers at once</string>
     <string name="wn_bulkcovers_b">Browse, Migrate, the picture button: pick a source and every one of its series gets the sharpest cover found on your sources, after a look or straight away. The cover picker looks in your sources first.</string>
+    <string name="site_reader_turn_on">Read in the site\'s reader</string>
+    <string name="site_reader_turn_off">Read in the app\'s reader</string>
+    <string name="site_reader_now_on">This source now opens in the site\'s own reader</string>
+    <string name="site_reader_now_off">This source now opens in the app\'s reader</string>
+    <string name="wn_sitetoggle_t">Any source like MangaTek</string>
+    <string name="wn_sitetoggle_b">The globe button on a series page switches its source between the site\'s own reader (as on the site, chapters one under the other) and the app\'s reader. The picture button next to it shows this series\' covers on your sources.</string>
 </resources>
