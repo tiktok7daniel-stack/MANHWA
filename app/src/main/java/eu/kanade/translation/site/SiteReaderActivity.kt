@@ -92,6 +92,9 @@ class SiteReaderActivity : BaseActivity() {
     private val progress = mutableIntStateOf(0)
     @Volatile private var base = 0
 
+    // The chapter last put in the history (the one on screen goes in once)
+    private var saved = -1
+
     // The app's look (only the pages); off shows the site as it is, should something of it be missing
     private val plain = mutableStateOf(true)
 
@@ -257,9 +260,12 @@ class SiteReaderActivity : BaseActivity() {
     private inner class Bridge {
         @JavascriptInterface
         fun now(index: Int) = runOnUiThread {
-            if (index in items.indices && index != current.intValue) {
+            if (index in items.indices) {
                 current.intValue = index
-                saveHistory(index)
+                if (index != saved) {
+                    saved = index
+                    saveHistory(index)
+                }
             }
         }
 
@@ -290,6 +296,7 @@ class SiteReaderActivity : BaseActivity() {
 
     override fun onDestroy() {
         webView?.apply {
+            (parent as? android.view.ViewGroup)?.removeView(this)
             removeJavascriptInterface(BRIDGE)
             stopLoading()
             destroy()
