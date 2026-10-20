@@ -1,10 +1,11 @@
 package eu.kanade.presentation.manga.components
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -36,6 +37,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.imageLoader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import eu.kanade.presentation.components.GlassBackdrop
 import eu.kanade.presentation.components.ManhwaInk
 import eu.kanade.presentation.components.ManhwaKit
@@ -126,6 +131,21 @@ fun CoverPickerDialog(
 
 @Composable
 private fun CoverCard(option: CoverOption, size: Pair<Int, Int>?, onLoaded: (Int, Int) -> Unit, onClick: () -> Unit) {
+    val context = LocalPlatformContext.current
+    var loadedKey by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(loadedKey) {
+        val key = loadedKey ?: return@LaunchedEffect
+        val real = withContext(Dispatchers.IO) {
+            runCatching {
+                context.imageLoader.diskCache?.openSnapshot(key)?.use { snapshot ->
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(snapshot.data.toString(), bounds)
+                    (bounds.outWidth to bounds.outHeight).takeIf { it.first > 0 && it.second > 0 }
+                }
+            }.getOrNull()
+        }
+        real?.let { onLoaded(it.first, it.second) }
+    }
     Column(
         Modifier
             .glass(RoundedCornerShape(16.dp), accent = option.match, alpha = 0.5f)
@@ -138,7 +158,8 @@ private fun CoverCard(option: CoverOption, size: Pair<Int, Int>?, onLoaded: (Int
             model = CoverData(mangaId = -1L, sourceId = option.sourceId, isMangaFavorite = false, url = option.url, lastModified = null),
             contentDescription = option.title,
             contentScale = ContentScale.Crop,
-            onSuccess = { state -> onLoaded(state.result.image.width, state.result.image.height) },
+            // The picture is shown small: its real size is read from the file the loader kept
+            onSuccess = { state -> state.result.diskCacheKey?.let { loadedKey = it } },
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
@@ -166,6 +187,5 @@ private fun CoverCard(option: CoverOption, size: Pair<Int, Int>?, onLoaded: (Int
         )
     }
 }
-
 
 private const val SEARCH_DELAY_MS = 700L

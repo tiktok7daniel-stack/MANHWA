@@ -33,7 +33,10 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.home.discover.SourceHealthManager
 import eu.kanade.translation.unified.UnifiedRules
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -187,9 +190,11 @@ class MangaCoverViewModel(
     fun findCovers(query: String) {
         val manga = state.value ?: return
         val q = query.trim().ifEmpty { manga.title }
-        search?.cancel()
-        _options.value = emptyList()
+        val old = search
         search = viewModelScope.launch(Dispatchers.IO) {
+            // The previous search is over before this one shows anything (its results and its end)
+            old?.cancelAndJoin()
+            _options.value = emptyList()
             _searching.value = true
             try {
                 val sources = sourceManager.getAll().filterIsInstance<CatalogueSource>()
@@ -199,7 +204,7 @@ class MangaCoverViewModel(
                     sources.forEach { source ->
                         launch {
                             gate.withPermit {
-                                val found = runCatching {
+                                val found = try {
                                     withTimeoutOrNull(SEARCH_TIMEOUT_MS) { source.getSearchManga(1, q, FilterList()) }
                                         ?.mangas.orEmpty()
                                         .filter { !it.thumbnail_url.isNullOrBlank() }
@@ -208,8 +213,16 @@ class MangaCoverViewModel(
                                             val match = UnifiedRules.sameWork(it.title, manga.title) || UnifiedRules.sameWork(it.title, q)
                                             CoverOption(source.id, source.name, it.title, it.thumbnail_url!!, match)
                                         }
-                                }.getOrDefault(emptyList())
-                                if (found.isNotEmpty()) _options.update { (it + found).sortedByDescending { o -> o.match } }
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    emptyList()
+                                }
+                                ensureActive()
+                                if (found.isNotEmpty()) {
+                                    // One card per picture: a source can give the same one twice (a placeholder)
+                                    _options.update { (it + found).distinctBy { o -> o.sourceId to o.url }.sortedByDescending { o -> o.match } }
+                                }
                             }
                         }
                     }
@@ -233,7 +246,7 @@ class MangaCoverViewModel(
                 notifyCoverUpdated(context)
                 withContext(Dispatchers.Main) { onDone() }
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is CancellationException) throw e
                 notifyFailedCoverUpdate(context, e)
                 // The picker is on top of the snackbar
                 withContext(Dispatchers.Main) { context.toast(MR.strings.notification_cover_update_failed) }
