@@ -95,6 +95,10 @@ class SiteReaderActivity : BaseActivity() {
     // The chapter last put in the history (the one on screen goes in once)
     private var saved = -1
 
+    // The page each chapter was left at in this visit (chapter id to page), saved a moment after the scrolling stops
+    private val pages = java.util.concurrent.ConcurrentHashMap<Long, Int>()
+    private var pageSave: kotlinx.coroutines.Job? = null
+
     // The app's look (only the pages); off shows the site as it is, should something of it be missing
     private val plain = mutableStateOf(true)
 
@@ -248,6 +252,35 @@ class SiteReaderActivity : BaseActivity() {
         }
     }
 
+    private fun savePage(index: Int, page: Int) {
+        val chapter = items.getOrNull(index)?.chapter ?: return
+        pages[chapter.id] = page
+        pageSave?.cancel()
+        pageSave = lifecycleScope.launch(Dispatchers.IO) {
+            delay(PAGE_SAVE_MS)
+            writePage(chapter.id, page)
+        }
+    }
+
+    private suspend fun writePage(chapterId: Long, page: Int) {
+        runCatching { appGraph.updateChapter.await(ChapterUpdate(chapterId) { lastPageRead = page }) }
+            .onFailure { logcat(LogPriority.ERROR, it) { "Site reader: page not saved" } }
+    }
+
+    override fun onStop() {
+        // Leaving: the page on screen is saved now, and the chapter goes to the top of the history
+        val chapter = items.getOrNull(current.intValue)?.chapter
+        val page = chapter?.let { pages[it.id] }
+        if (chapter != null) {
+            pageSave?.cancel()
+            lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+                if (page != null) writePage(chapter.id, page)
+                runCatching { appGraph.upsertHistory.await(HistoryUpdate(chapter.id, Clock.System.now(), 0L)) }
+            }
+        }
+        super.onStop()
+    }
+
     private fun saveHistory(index: Int) {
         val chapter = items.getOrNull(index)?.chapter ?: return
         lifecycleScope.launch(Dispatchers.IO) {
@@ -271,6 +304,16 @@ class SiteReaderActivity : BaseActivity() {
 
         @JavascriptInterface
         fun done(index: Int) = runOnUiThread { markRead(index) }
+
+        @JavascriptInterface
+        fun page(index: Int, page: Int, total: Int) = runOnUiThread { if (total > 0) savePage(index, page) }
+
+        /** Where to open [index] again: the page it was left at, unless it was read to its end. */
+        @JavascriptInterface
+        fun startPage(index: Int): Int {
+            val chapter = items.getOrNull(index)?.chapter ?: return 0
+            return pages[chapter.id] ?: if (chapter.read) 0 else chapter.lastPageRead
+        }
 
         @JavascriptInterface
         fun urlAfter(index: Int): String = items.getOrNull(index + 1)?.url.orEmpty()
@@ -310,6 +353,7 @@ class SiteReaderActivity : BaseActivity() {
         private const val CHAPTER_KEY = "chapter"
         private const val BRIDGE = "ManhwaSite"
         private const val TITLE_MS = 2500L
+        private const val PAGE_SAVE_MS = 800L
 
         fun newIntent(context: Context, mangaId: Long, chapterId: Long): Intent =
             Intent(context, SiteReaderActivity::class.java).apply {

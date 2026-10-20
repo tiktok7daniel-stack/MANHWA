@@ -1316,5 +1316,5 @@
     <string name="site_reader_failed">The chapter could not be opened.</string>
     <string name="site_reader_next">Next: %1$s</string>
     <string name="wn_sitereader_t">MangaTek as on its site</string>
-    <string name="wn_sitereader_b">MangaTek chapters open in the site\'s own reader inside the app, with its Arabic translation on the pages, and the next chapters follow under it. The globe button shows the site as it is.</string>
+    <string name="wn_sitereader_b">MangaTek chapters open in the site\'s own reader inside the app, with its Arabic translation on the pages, and the next chapters follow under it. The globe button shows the site as it is. The page you reach is saved, and the chapter opens there again.</string>
 </resources>

@@ -133,6 +133,23 @@ object SiteReader {
     setTimeout(function () { if (!ready && !framed()) refused(); }, 20000);
     host.appendChild(frame);
   }
+  // The chapter's pages are its big pictures, in order; the page read is the last one whose top passed mid-screen
+  function pages() {
+    var out = [], imgs = document.images, wide = window.innerWidth * 0.5;
+    for (var i = 0; i < imgs.length; i++) {
+      var r = imgs[i].getBoundingClientRect();
+      if (r.width >= wide && r.height >= 100) out.push(imgs[i]);
+    }
+    return out;
+  }
+  var lastPage = -1;
+  function readPage() {
+    var list = pages(), view = window.innerHeight, page = 0;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].getBoundingClientRect().top < view * 0.5) page = i; else break;
+    }
+    if (list.length && page !== lastPage) { lastPage = page; bridge.page(index, page, list.length); }
+  }
   function onScroll(e) {
     // At most every 200 ms, and once more after the scrolling stops (the end of a chapter is the last event)
     var now = Date.now();
@@ -147,6 +164,7 @@ object SiteReader {
     if (!gap && s.scrollHeight - s.scrollTop - view < view * 3) addNext(s);
     var end = gap ? gap.getBoundingClientRect().top : Infinity;
     tell();
+    readPage();
     var bottom = s.scrollHeight - s.scrollTop - view < 8;
     if (!finished && (end < view * 0.9 || bottom)) {
       finished = true;
@@ -155,7 +173,21 @@ object SiteReader {
     }
   }
   document.addEventListener('scroll', onScroll, { capture: true, passive: true });
-  if (depth === 0) tell();
+  if (depth === 0) {
+    tell();
+    // Back to the page the chapter was left at, while its pictures load, until the reader touches the page
+    var want = bridge.startPage(index), touched = false, tries = 0;
+    if (want > 0) {
+      var stop = function () { touched = true; };
+      window.addEventListener('touchstart', stop, { passive: true, once: true });
+      window.addEventListener('wheel', stop, { passive: true, once: true });
+      var timer = setInterval(function () {
+        if (touched || ++tries > 40) { clearInterval(timer); return; }
+        var list = pages();
+        if (list.length > want) list[want].scrollIntoView({ block: 'start' });
+      }, 500);
+    }
+  }
 })();
 """.trimIndent()
 

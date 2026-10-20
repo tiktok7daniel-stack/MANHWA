@@ -1257,5 +1257,5 @@
     <string name="site_reader_failed">الفصل ماتفتحش.</string>
     <string name="site_reader_next">اللي بعده: %1$s</string>
     <string name="wn_sitereader_t">MangaTek زي الموقع بالظبط</string>
-    <string name="wn_sitereader_b">فصول MangaTek بتفتح بقارئ الموقع نفسه جوه التطبيق، والترجمة العربي بتاعته على الصفحات، والفصول اللي بعدها بتكمل تحت بعض. زرار الكرة بيوريك الموقع بشكله الأصلي.</string>
+    <string name="wn_sitereader_b">فصول MangaTek بتفتح بقارئ الموقع نفسه جوه التطبيق، والترجمة العربي بتاعته على الصفحات، والفصول اللي بعدها بتكمل تحت بعض. زرار الكرة بيوريك الموقع بشكله الأصلي. والصفحة اللي وصلتلها بتتحفظ، والفصل بيفتح عندها تاني.</string>
 </resources>
