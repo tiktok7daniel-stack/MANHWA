@@ -231,6 +231,7 @@ class MangaScreen(
                 prefs.siteReaderOn.set(on)
                 prefs.siteReaderOff.set(off)
                 context.toast(if (!siteReader) ATMR.strings.site_reader_now_on else ATMR.strings.site_reader_now_off)
+                Unit
             }.takeIf { isHttpSource },
             siteReader = siteReader,
             onMultiBookmarkClicked = viewModel::bookmarkChapters,
