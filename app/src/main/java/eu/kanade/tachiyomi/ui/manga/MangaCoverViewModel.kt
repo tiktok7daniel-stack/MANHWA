@@ -24,7 +24,25 @@ import eu.kanade.tachiyomi.data.saver.Location
 import eu.kanade.tachiyomi.util.editCover
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.toShareIntent
+import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.ui.home.discover.SourceHealthManager
+import eu.kanade.translation.unified.UnifiedRules
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
+import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.source.local.LocalSource
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
@@ -41,6 +59,10 @@ import tachiyomi.i18n.MR
 import tachiyomi.source.local.image.LocalCoverManager
 import kotlin.time.Duration.Companion.seconds
 
+private const val SEARCH_PARALLEL = 4
+private const val SEARCH_TIMEOUT_MS = 15_000L
+private const val COVERS_PER_SOURCE = 3
+
 @AssistedInject
 class MangaCoverViewModel(
     @Assisted private val mangaId: Long,
@@ -49,6 +71,8 @@ class MangaCoverViewModel(
     private val coverCache: CoverCache,
     private val updateManga: UpdateManga,
     private val coverManager: LocalCoverManager,
+    private val sourceManager: SourceManager,
+    private val sourceHealth: SourceHealthManager,
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : ViewModel() {
 
@@ -142,6 +166,77 @@ class MangaCoverViewModel(
                 } catch (e: Exception) {
                     notifyFailedCoverUpdate(context, e)
                 }
+            }
+        }
+    }
+
+    /** MANHWA: a cover another source has for this series (picked in the cover picker). */
+    data class CoverOption(val sourceId: Long, val sourceName: String, val title: String, val url: String, val match: Boolean)
+
+    private val _options = MutableStateFlow<List<CoverOption>>(emptyList())
+    val options: StateFlow<List<CoverOption>> = _options.asStateFlow()
+    private val _searching = MutableStateFlow(false)
+    val searching: StateFlow<Boolean> = _searching.asStateFlow()
+    private var search: Job? = null
+
+    /**
+     * Looks for [query] on the installed sources (not the local folder, not this series' own source, not one hidden
+     * for not working), a few at a time, and lists the covers they give, the same work first. Each source shows
+     * its first [COVERS_PER_SOURCE] results, so a series named otherwise there can still be picked by its cover.
+     */
+    fun findCovers(query: String) {
+        val manga = state.value ?: return
+        val q = query.trim().ifEmpty { manga.title }
+        search?.cancel()
+        _options.value = emptyList()
+        search = viewModelScope.launch(Dispatchers.IO) {
+            _searching.value = true
+            try {
+                val sources = sourceManager.getAll().filterIsInstance<CatalogueSource>()
+                    .filter { it.id != LocalSource.ID && it.id != manga.source && !sourceHealth.isHidden(it.id) }
+                val gate = Semaphore(SEARCH_PARALLEL)
+                coroutineScope {
+                    sources.forEach { source ->
+                        launch {
+                            gate.withPermit {
+                                val found = runCatching {
+                                    withTimeoutOrNull(SEARCH_TIMEOUT_MS) { source.getSearchManga(1, q, FilterList()) }
+                                        ?.mangas.orEmpty()
+                                        .filter { !it.thumbnail_url.isNullOrBlank() }
+                                        .take(COVERS_PER_SOURCE)
+                                        .map {
+                                            val match = UnifiedRules.sameWork(it.title, manga.title) || UnifiedRules.sameWork(it.title, q)
+                                            CoverOption(source.id, source.name, it.title, it.thumbnail_url!!, match)
+                                        }
+                                }.getOrDefault(emptyList())
+                                if (found.isNotEmpty()) _options.update { (it + found).sortedByDescending { o -> o.match } }
+                            }
+                        }
+                    }
+                }
+            } finally {
+                _searching.value = false
+            }
+        }
+    }
+
+    /** Puts [option]'s picture as this series' cover (fetched with its source's headers, like the source's covers). */
+    fun useCover(context: Context, option: CoverOption, onDone: () -> Unit) {
+        val manga = state.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val source = sourceManager.get(option.sourceId) as? HttpSource ?: error("Source ${option.sourceId} not installed")
+                source.client.newCall(GET(option.url, source.headers)).await().use { response ->
+                    check(response.isSuccessful) { "HTTP ${response.code}" }
+                    checkNotNull(response.body).byteStream().use { manga.editCover(coverManager, it, updateManga, coverCache) }
+                }
+                notifyCoverUpdated(context)
+                withContext(Dispatchers.Main) { onDone() }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                notifyFailedCoverUpdate(context, e)
+                // The picker is on top of the snackbar
+                withContext(Dispatchers.Main) { context.toast(MR.strings.notification_cover_update_failed) }
             }
         }
     }

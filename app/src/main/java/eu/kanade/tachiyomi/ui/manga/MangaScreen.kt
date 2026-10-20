@@ -297,6 +297,20 @@ class MangaScreen(
                         if (it == null) return@rememberLauncherForActivityResult
                         vm.editCover(context, it)
                     }
+                    // MANHWA: the cover picker (covers of the same series on the other sources)
+                    var pickCover by remember { mutableStateOf(false) }
+                    if (pickCover) {
+                        val coverOptions by vm.options.collectAsStateWithLifecycle()
+                        val coverSearching by vm.searching.collectAsStateWithLifecycle()
+                        eu.kanade.presentation.manga.components.CoverPickerDialog(
+                            title = manga!!.title,
+                            options = coverOptions,
+                            searching = coverSearching,
+                            onSearch = vm::findCovers,
+                            onPick = { option -> vm.useCover(context, option) { pickCover = false } },
+                            onDismissRequest = { pickCover = false },
+                        )
+                    }
                     MangaCoverDialog(
                         manga = manga!!,
                         snackbarHostState = vm.snackbarHostState,
@@ -308,6 +322,7 @@ class MangaScreen(
                                 EditCoverAction.EDIT -> getContent.launch("image/*")
                                 EditCoverAction.DELETE -> vm.deleteCustomCover(context)
                                 EditCoverAction.ADD_TO_LIBRARY -> vm.addToLibraryWarning(context)
+                                EditCoverAction.FROM_SOURCE -> pickCover = true
                             }
                         },
                         onDismissRequest = onDismissRequest,

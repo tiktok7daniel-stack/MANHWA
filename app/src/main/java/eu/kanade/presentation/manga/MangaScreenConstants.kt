@@ -16,6 +16,9 @@ enum class EditCoverAction {
     EDIT,
     DELETE,
     ADD_TO_LIBRARY,
+
+    // MANHWA: a cover from another source
+    FROM_SOURCE,
 }
 
 enum class MangaScreenItem {

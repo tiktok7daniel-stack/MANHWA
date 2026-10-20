@@ -1258,4 +1258,12 @@
     <string name="site_reader_next">اللي بعده: %1$s</string>
     <string name="wn_sitereader_t">MangaTek زي الموقع بالظبط</string>
     <string name="wn_sitereader_b">فصول MangaTek بتفتح بقارئ الموقع نفسه جوه التطبيق، والترجمة العربي بتاعته على الصفحات، والفصول اللي بعدها بتكمل تحت بعض. زرار الكرة بيوريك الموقع بشكله الأصلي. والصفحة اللي وصلتلها بتتحفظ، والفصل بيفتح عندها تاني.</string>
+    <string name="cover_from_source">من مصدر تاني</string>
+    <string name="cover_pick_title">أغلفة من مصادر تانية</string>
+    <string name="cover_pick_hint">اسم تاني للمانهوا…</string>
+    <string name="cover_pick_empty">مالقيتش غلاف. جرّب اسم تاني للمانهوا.</string>
+    <string name="cover_pick_confirm">تستخدم الغلاف ده؟</string>
+    <string name="cover_pick_use">استخدمه</string>
+    <string name="wn_coverpick_t">أغلفة من مصادر تانية</string>
+    <string name="wn_coverpick_b">في غلاف أي مانهوا، زرار التعديل بيوريك أغلفتها من المصادر التانية ومعاها مقاسها، فتختار الأوضح وتحطه غلاف.</string>
 </resources>

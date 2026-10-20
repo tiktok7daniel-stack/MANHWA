@@ -42,6 +42,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.manga.EditCoverAction
+import tachiyomi.i18n.at.ATMR
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
@@ -115,8 +116,8 @@ fun MangaCoverDialog(
                                             !manga.favorite && !manga.isLocal() -> {
                                                 onEditClick(EditCoverAction.ADD_TO_LIBRARY)
                                             }
-                                            isCustomCover -> expanded = true
-                                            else -> onEditClick(EditCoverAction.EDIT)
+                                            // MANHWA: from the phone or from another source (and delete a custom one)
+                                            else -> expanded = true
                                         }
                                     },
                                 ) {
@@ -138,12 +139,21 @@ fun MangaCoverDialog(
                                         },
                                     )
                                     DropdownMenuItem(
-                                        text = { Text(text = stringResource(MR.strings.action_delete)) },
+                                        text = { Text(text = stringResource(ATMR.strings.cover_from_source)) },
                                         onClick = {
-                                            onEditClick(EditCoverAction.DELETE)
+                                            onEditClick(EditCoverAction.FROM_SOURCE)
                                             expanded = false
                                         },
                                     )
+                                    if (isCustomCover) {
+                                        DropdownMenuItem(
+                                            text = { Text(text = stringResource(MR.strings.action_delete)) },
+                                            onClick = {
+                                                onEditClick(EditCoverAction.DELETE)
+                                                expanded = false
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }

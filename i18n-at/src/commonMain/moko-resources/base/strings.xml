@@ -1317,4 +1317,12 @@
     <string name="site_reader_next">Next: %1$s</string>
     <string name="wn_sitereader_t">MangaTek as on its site</string>
     <string name="wn_sitereader_b">MangaTek chapters open in the site\'s own reader inside the app, with its Arabic translation on the pages, and the next chapters follow under it. The globe button shows the site as it is. The page you reach is saved, and the chapter opens there again.</string>
+    <string name="cover_from_source">From another source</string>
+    <string name="cover_pick_title">Covers on other sources</string>
+    <string name="cover_pick_hint">Another name of the series…</string>
+    <string name="cover_pick_empty">No cover found. Try another name of the series.</string>
+    <string name="cover_pick_confirm">Use this cover?</string>
+    <string name="cover_pick_use">Use</string>
+    <string name="wn_coverpick_t">Covers from other sources</string>
+    <string name="wn_coverpick_b">In the cover of a series, the edit button now shows the covers the other sources have for it with their size, so the sharpest can be put as its cover.</string>
 </resources>
