@@ -61,7 +61,9 @@ import mihon.feature.migration.dialog.MigrateMangaDialog
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.source.local.isLocal
 
 class MangaScreen(
     private val mangaId: Long,
@@ -199,6 +201,14 @@ class MangaScreen(
                 navigator.push(MigrationConfigScreen(successState.manga.id))
             }.takeIf { successState.manga.favorite },
             onEditNotesClicked = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
+            onCoversClicked = {
+                // A new cover is kept for a series of the library only
+                if (successState.manga.favorite || successState.manga.isLocal()) {
+                    viewModel.showCoverPicker()
+                } else {
+                    context.toast(MR.strings.notification_first_add_to_library)
+                }
+            },
             onMultiBookmarkClicked = viewModel::bookmarkChapters,
             onMultiMarkAsReadClicked = viewModel::markChaptersRead,
             onMarkPreviousAsReadClicked = viewModel::markPreviousChapterRead,
@@ -285,6 +295,25 @@ class MangaScreen(
                     enableSwipeDismiss = { it.lastItem is TrackInfoDialogHomeScreen },
                     onDismissRequest = onDismissRequest,
                 )
+            }
+            MangaViewModel.Dialog.PickCover -> {
+                val vm =
+                    assistedMetroViewModel<MangaCoverViewModel, MangaCoverViewModel.Factory> {
+                        create(mangaId = mangaId)
+                    }
+                val manga by vm.state.collectAsStateWithLifecycle()
+                val coverOptions by vm.options.collectAsStateWithLifecycle()
+                val coverSearching by vm.searching.collectAsStateWithLifecycle()
+                manga?.let { m ->
+                    eu.kanade.presentation.manga.components.CoverPickerDialog(
+                        title = m.title,
+                        options = coverOptions,
+                        searching = coverSearching,
+                        onSearch = vm::findCovers,
+                        onPick = { option -> vm.useCover(context, option, onDismissRequest) },
+                        onDismissRequest = onDismissRequest,
+                    )
+                }
             }
             MangaViewModel.Dialog.FullCover -> {
                 val vm =

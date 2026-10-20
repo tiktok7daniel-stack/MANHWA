@@ -20,8 +20,10 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
+import mihon.icons.materialsymbols.rounded.Image
 import mihon.icons.materialsymbols.rounded.SelectAll
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.active
 
@@ -37,6 +39,8 @@ fun MangaToolbar(
     onClickRefresh: () -> Unit,
     onClickMigrate: (() -> Unit)?,
     onClickEditNotes: () -> Unit,
+    // MANHWA: the covers other sources have for this series
+    onClickCovers: (() -> Unit)? = null,
     // MANHWA: chapters of this work are waiting to download
     canCancelDownloads: Boolean = false,
 
@@ -105,6 +109,15 @@ fun MangaToolbar(
                                 title = stringResource(MR.strings.manga_download),
                                 icon = MaterialSymbols.Rounded.Download,
                                 onClick = { downloadExpanded = !downloadExpanded },
+                            ),
+                        )
+                    }
+                    if (onClickCovers != null) {
+                        add(
+                            AppBar.Action(
+                                title = stringResource(ATMR.strings.cover_pick_title),
+                                icon = MaterialSymbols.Rounded.Image,
+                                onClick = onClickCovers,
                             ),
                         )
                     }

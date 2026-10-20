@@ -1394,6 +1394,9 @@ class MangaViewModel(
         data object SettingsSheet : Dialog
         data object TrackSheet : Dialog
         data object FullCover : Dialog
+
+        // MANHWA: the covers other sources have for this series
+        data object PickCover : Dialog
     }
 
     fun dismissDialog() {
@@ -1410,6 +1413,10 @@ class MangaViewModel(
 
     fun showTrackDialog() {
         dialog.value = Dialog.TrackSheet
+    }
+
+    fun showCoverPicker() {
+        dialog.value = Dialog.PickCover
     }
 
     fun showCoverDialog() {
