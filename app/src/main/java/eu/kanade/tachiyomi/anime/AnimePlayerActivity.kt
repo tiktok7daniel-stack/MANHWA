@@ -73,6 +73,7 @@ import mihon.icons.materialsymbols.rounded.Tune
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.core.common.i18n.stringResource as ctxString
 
 /**
  * MANHWA anime: the episode player (Media3). The controls of the player itself (play, seek, subtitles, speed)
@@ -227,7 +228,7 @@ class AnimePlayerActivity : BaseActivity() {
             }
             if (found.isEmpty()) {
                 loading = false
-                error = getString(android.R.string.unknownName)
+                error = ctxString(ATMR.strings.anime_no_videos)
                 toast(ATMR.strings.anime_no_videos)
                 return@launch
             }

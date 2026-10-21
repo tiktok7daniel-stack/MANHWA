@@ -76,6 +76,7 @@ import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import tachiyomi.i18n.at.ATMR
+import tachiyomi.core.common.i18n.stringResource as ctxString
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState as collectPref
 
@@ -400,7 +401,7 @@ class AnimeDetailsScreen(
         var failed by remember { mutableStateOf<String?>(null) }
 
         LaunchedEffect(Unit) {
-            val s = source ?: run { loading = false; failed = context.getString(android.R.string.unknownName); return@LaunchedEffect }
+            val s = source ?: run { loading = false; failed = context.ctxString(ATMR.strings.anime_no_sources); return@LaunchedEffect }
             try {
                 val base = SAnime.create().also { it.url = url; it.title = title; it.thumbnail_url = thumbnail }
                 val details = withContext(Dispatchers.IO) { runCatching { s.getAnimeDetails(base) }.getOrNull() }
@@ -468,7 +469,7 @@ class AnimeDetailsScreen(
                 if (loading) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
                 failed?.let { item { Text(it, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) } }
                 item { Text(stringResource(ATMR.strings.anime_episodes, episodes.size), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary) }
-                items(episodes.size, key = { episodes[it].url }) { i ->
+                items(episodes.size, key = { "${episodes[it].url}#$it" }) { i ->
                     val ep = episodes[i]
                     val p = progress["$key#${ep.url}"]
                     Row(

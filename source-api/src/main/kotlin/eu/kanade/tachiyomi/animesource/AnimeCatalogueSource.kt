@@ -62,9 +62,7 @@ interface AnimeCatalogueSource : AnimeSource {
         throw Exception("Stub!")
     }
 
-    override suspend fun getHosterList(episode: SEpisode): List<Hoster> = getHosterList(episode)
 
-    override suspend fun getVideoList(hoster: Hoster): List<Video> = getVideoList(hoster)
 
     @Deprecated(
         "Use the non-RxJava API instead",
