@@ -764,7 +764,7 @@ private fun TagsChip(
 }
 
 @Composable
-private fun RowScope.MangaActionButton(
+fun RowScope.MangaActionButton(
     title: String,
     icon: ImageVector,
     color: Color,

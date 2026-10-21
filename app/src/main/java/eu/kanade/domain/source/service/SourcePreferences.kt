@@ -77,6 +77,7 @@ class SourcePreferences(
 
     /** MANHWA anime: the anime extension repositories the reader added, and the anime sources turned off. */
     val animeRepos: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_anime_repos", emptySet())
+    val animePinnedSources: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_anime_pinned_sources", emptySet())
     val animeDisabledSources: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_anime_disabled_sources", emptySet())
 
     /** MANHWA: sources whose chapters open in the site's own reader (on top of MangaTek, which does by default). */

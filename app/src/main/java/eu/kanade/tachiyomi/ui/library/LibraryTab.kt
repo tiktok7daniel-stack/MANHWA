@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHost
@@ -240,7 +242,9 @@ data object LibraryTab : Tab {
             Row(
                 Modifier
                     .padding(top = outerPadding.calculateTopPadding())
+                    .fillMaxWidth()
                     .height(LIBRARY_SWITCH_HEIGHT)
+                    .background(androidx.compose.material3.MaterialTheme.colorScheme.background.copy(alpha = 0.92f))
                     .padding(horizontal = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,

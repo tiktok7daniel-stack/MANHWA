@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.anime
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -39,6 +43,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import eu.kanade.presentation.manga.components.ExpandableMangaDescription
+import eu.kanade.presentation.manga.components.MangaActionButton
+import eu.kanade.presentation.manga.components.MangaChapterListItem
+import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
+import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.translation.model.Translation
+import mihon.icons.materialsymbols.rounded.Public
+import tachiyomi.domain.library.service.LibraryPreferences
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -51,6 +68,8 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.AsyncImage
 import eu.kanade.domain.source.service.AdultFilter
+import eu.kanade.presentation.browse.components.BaseBrowseItem
+import eu.kanade.presentation.browse.components.GlowHeader
 import eu.kanade.presentation.components.GlassBackdrop
 import eu.kanade.presentation.components.ManhwaInk
 import eu.kanade.presentation.components.ManhwaKit
@@ -60,6 +79,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.animesource.AnimeCatalogueSource
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
+import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -71,10 +91,13 @@ import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Favorite
+import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.Visibility
+import mihon.icons.materialsymbols.roundedfilled.Keep
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.core.common.i18n.stringResource as ctxString
 import tachiyomi.presentation.core.i18n.stringResource
@@ -99,125 +122,156 @@ private fun rememberAnimeKeepsOut(): (AnimeCatalogueSource) -> Boolean {
 
 // ---------------------------------------------------------------- Sources and extensions
 
-/** The anime part of Browse: the anime sources, and the anime extensions with their repositories. */
+/** The anime sources, as the manga sources: pinned first, then by language (the languages turned on), Latest and pin. */
 @Composable
-fun AnimeSourcesContent(contentPadding: PaddingValues) {
+fun AnimeSourcesList(contentPadding: PaddingValues) {
     val context = LocalContext.current
     val navigator = LocalNavigator.currentOrThrow
     val graph = remember { context.appGraph }
     val manager = graph.animeExtensionManager
     val installed by manager.installed.collectAsState()
+    val languages by graph.sourcePreferences.enabledLanguages.collectPref()
+    val pinned by graph.sourcePreferences.animePinnedSources.collectPref()
+    val keepsOut = rememberAnimeKeepsOut()
+    val sources = remember(installed, languages, keepsOut) {
+        manager.sources().filterNot(keepsOut).filter { it.lang in languages || it.lang == "all" || it.lang == "other" }
+    }
+    val grouped = remember(sources, pinned) {
+        val pins = sources.filter { it.id.toString() in pinned }.sortedBy { it.name.lowercase() }
+        val rest = sources.groupBy { it.lang }.toSortedMap().mapValues { (_, list) -> list.sortedBy { it.name.lowercase() } }
+        buildList<Pair<String, List<AnimeCatalogueSource>>> {
+            if (pins.isNotEmpty()) add(PINNED to pins)
+            rest.forEach { (lang, list) -> add(lang to list) }
+        }
+    }
+    LazyColumn(contentPadding = PaddingValues(top = contentPadding.calculateTopPadding() + 4.dp, bottom = contentPadding.calculateBottomPadding() + 24.dp)) {
+        if (sources.isEmpty()) item { Box(Modifier.padding(16.dp)) { Hint(stringResource(ATMR.strings.anime_no_sources)) } }
+        grouped.forEach { (lang, list) ->
+            item(key = "h$lang") {
+                GlowHeader(if (lang == PINNED) stringResource(MR.strings.pinned_sources) else LocaleHelper.getSourceDisplayName(lang, context))
+            }
+            items(list, key = { "$lang${it.id}" }) { source ->
+                val isPinned = source.id.toString() in pinned
+                BaseBrowseItem(
+                    onClickItem = { navigator.push(AnimeBrowseScreen(source.id)) },
+                    icon = { ExtIcon(manager.extensionOf(source.id), 48) },
+                    content = {
+                        Column(Modifier.padding(horizontal = 16.dp).weight(1f)) {
+                            Text(source.name, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(LocaleHelper.getSourceDisplayName(source.lang, context), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
+                        }
+                    },
+                    action = {
+                        if (source.supportsLatest) {
+                            Pill(stringResource(MR.strings.latest)) { navigator.push(AnimeBrowseScreen(source.id, latest = true)) }
+                        }
+                        IconButton(onClick = {
+                            val pref = graph.sourcePreferences.animePinnedSources
+                            val id = source.id.toString()
+                            pref.set(if (id in pref.get()) pref.get() - id else pref.get() + id)
+                        }) {
+                            Icon(
+                                if (isPinned) MaterialSymbols.RoundedFilled.Keep else MaterialSymbols.Rounded.Keep,
+                                contentDescription = null,
+                                tint = if (isPinned) MaterialTheme.colorScheme.primary else ManhwaInk.muted,
+                            )
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** The anime extensions, as the manga extensions: the repositories on top, then updates, installed and by language. */
+@Composable
+fun AnimeExtensionsList(contentPadding: PaddingValues, searchQuery: String?) {
+    val context = LocalContext.current
+    val graph = remember { context.appGraph }
+    val manager = graph.animeExtensionManager
+    val installed by manager.installed.collectAsState()
     val available by manager.available.collectAsState()
     val loading by manager.loading.collectAsState()
-    val disabled by graph.sourcePreferences.animeDisabledSources.collectPref()
-    val keepsOut = rememberAnimeKeepsOut()
+    val languages by graph.sourcePreferences.enabledLanguages.collectPref()
+    val hide by graph.sourcePreferences.hideAdult.collectPref()
+    val only by graph.sourcePreferences.onlyAdult.collectPref()
+    val repos by graph.sourcePreferences.animeRepos.collectPref()
     val scope = rememberCoroutineScope()
-    var tab by remember { mutableIntStateOf(0) }
     var repoText by remember { mutableStateOf("") }
-    var query by remember { mutableStateOf("") }
     val busy = remember { mutableStateListOf<String>() }
+    val q = searchQuery.orEmpty().trim().lowercase()
+    fun shown(name: String, nsfw: Boolean) =
+        (q.isEmpty() || name.lowercase().contains(q)) && !AdultFilter.keepsOut(adult = nsfw || AdultFilter.isAdultName(name), hide = hide, only = only)
+    val updates = remember(installed, available) { manager.updates() }
+    val mine = installed.filter { shown(it.name, it.nsfw) }
+    val offered = available.filter { a -> installed.none { it.pkg == a.pkg } && shown(a.name, a.nsfw) && (a.lang in languages || a.lang == "all" || a.lang == "other") }
+        .groupBy { it.lang }.toSortedMap()
 
-    LazyColumn(
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = contentPadding.calculateTopPadding() + 8.dp, bottom = contentPadding.calculateBottomPadding() + 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ManhwaKit.Chip(stringResource(ATMR.strings.anime_sources), selected = tab == 0) { tab = 0 }
-                ManhwaKit.Chip(stringResource(ATMR.strings.anime_extensions), selected = tab == 1) { tab = 1 }
+    fun install(ext: AvailableAnimeExt) {
+        busy += ext.pkg
+        scope.launch {
+            if (!manager.install(ext)) context.toast(ATMR.strings.anime_install_failed)
+            busy -= ext.pkg
+        }
+    }
+
+    LazyColumn(contentPadding = PaddingValues(top = contentPadding.calculateTopPadding() + 4.dp, bottom = contentPadding.calculateBottomPadding() + 24.dp)) {
+        item(key = "repos") {
+            GlowHeader(stringResource(ATMR.strings.anime_repos)) {
+                IconButton(onClick = { scope.launch { manager.refreshAvailable(); manager.reload() } }) {
+                    Icon(MaterialSymbols.Rounded.Refresh, null, tint = MaterialTheme.colorScheme.primary)
+                }
             }
         }
-        if (tab == 0) {
-            val sources = manager.sources().filterNot(keepsOut)
-            if (sources.isEmpty()) {
-                item { Hint(stringResource(ATMR.strings.anime_no_sources)) }
-            }
-            items(sources, key = { it.id }) { source ->
-                val on = source.id.toString() !in disabled
-                Row(
-                    Modifier.fillMaxWidth().glass(RoundedCornerShape(18.dp), alpha = 0.5f)
-                        .pressClickable { if (on) navigator.push(AnimeBrowseScreen(source.id)) }
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ExtIcon(manager.extensionOf(source.id))
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(source.name, fontWeight = FontWeight.Bold, color = ManhwaInk.text)
-                        Text(source.lang.uppercase(), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.muted)
+        item(key = "repobox") {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().glass(RoundedCornerShape(18.dp), alpha = 0.5f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (repos.isEmpty()) Text(stringResource(ATMR.strings.anime_repos_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
+                repos.forEach { repo ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(repo, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        IconButton(onClick = { manager.removeRepo(repo) }) { Icon(MaterialSymbols.Rounded.Delete, null, tint = ManhwaInk.muted) }
                     }
-                    Switch(checked = on, onCheckedChange = { checked ->
-                        val id = source.id.toString()
-                        val set = graph.sourcePreferences.animeDisabledSources
-                        set.set(if (checked) set.get() - id else set.get() + id)
-                    })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ManhwaKit.SearchField(repoText, stringResource(ATMR.strings.anime_repo_hint), onValueChange = { repoText = it }, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.Add, active = true) {
+                        if (manager.addRepo(repoText)) repoText = "" else context.toast(ATMR.strings.anime_repo_bad)
+                    }
+                }
+                if (loading) Text(stringResource(ATMR.strings.anime_loading), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.muted)
+            }
+        }
+        val withUpdate = mine.filter { it.pkg in updates }
+        if (withUpdate.isNotEmpty()) {
+            item(key = "hu") { GlowHeader(stringResource(MR.strings.ext_updates_pending)) }
+            items(withUpdate, key = { "u" + it.pkg }) { ext ->
+                ExtItem({ ExtIcon(ext, 48) }, ext.name, ext.lang, ext.versionName, ext.nsfw, ext.pkg in busy) {
+                    Pill(stringResource(MR.strings.ext_update)) { updates[ext.pkg]?.let(::install) }
                 }
             }
-        } else {
-            item {
-                Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(18.dp), alpha = 0.5f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(ATMR.strings.anime_repos), fontWeight = FontWeight.Bold, color = ManhwaInk.text)
-                    Text(stringResource(ATMR.strings.anime_repos_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
-                    manager.repos().forEach { repo ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(repo, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            ManhwaKit.IconOrb(MaterialSymbols.Rounded.Delete, size = 34) { manager.removeRepo(repo) }
-                        }
-                    }
-                    ManhwaKit.SearchField(repoText, stringResource(ATMR.strings.anime_repo_hint), onValueChange = { repoText = it })
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ManhwaKit.NeonButton(stringResource(ATMR.strings.anime_repo_add), Modifier.weight(1f), MaterialSymbols.Rounded.Add) {
-                            if (manager.addRepo(repoText)) repoText = "" else context.toast(ATMR.strings.anime_repo_bad)
-                        }
-                        ManhwaKit.GhostButton(stringResource(ATMR.strings.anime_refresh), Modifier.weight(1f), MaterialSymbols.Rounded.Refresh) {
-                            scope.launch { manager.refreshAvailable(); manager.reload() }
-                        }
-                    }
-                    if (loading) Text(stringResource(ATMR.strings.anime_loading), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.muted)
-                }
-            }
-            item { ManhwaKit.SearchField(query, stringResource(ATMR.strings.anime_search_ext), onValueChange = { query = it }) }
-            val updates = manager.updates()
-            val q = query.trim().lowercase()
-            val mine = installed.filter { q.isEmpty() || it.name.lowercase().contains(q) }
-            if (mine.isNotEmpty()) item { Section(stringResource(ATMR.strings.anime_installed)) }
-            items(mine, key = { "i" + it.pkg }) { ext ->
-                ExtRow(
-                    icon = { ExtIcon(ext) },
-                    name = ext.name,
-                    sub = "${ext.lang.uppercase()} · ${ext.versionName}" + if (ext.nsfw) " · 18+" else "",
-                    busy = ext.pkg in busy,
-                ) {
-                    updates[ext.pkg]?.let { up ->
-                        ManhwaKit.IconOrb(MaterialSymbols.Rounded.Download, active = true, size = 34) {
-                            busy += ext.pkg
-                            scope.launch { if (!manager.install(up)) context.toast(ATMR.strings.anime_install_failed); busy -= ext.pkg }
-                        }
-                    }
+        }
+        val rest = mine.filter { it.pkg !in updates }
+        if (rest.isNotEmpty()) {
+            item(key = "hi") { GlowHeader(stringResource(MR.strings.ext_installed)) }
+            items(rest, key = { "i" + it.pkg }) { ext ->
+                ExtItem({ ExtIcon(ext, 48) }, ext.name, ext.lang, ext.versionName, ext.nsfw, ext.pkg in busy) {
                     if (!ext.shared) {
-                        ManhwaKit.IconOrb(MaterialSymbols.Rounded.Delete, size = 34) { scope.launch { manager.uninstall(ext.pkg) } }
+                        IconButton(onClick = { scope.launch { manager.uninstall(ext.pkg) } }) {
+                            Icon(MaterialSymbols.Rounded.Delete, null, tint = ManhwaInk.muted)
+                        }
                     }
                 }
             }
-            val hide = graph.sourcePreferences.hideAdult.get()
-            val only = graph.sourcePreferences.onlyAdult.get()
-            val offered = available.filter { a ->
-                installed.none { it.pkg == a.pkg } &&
-                    (q.isEmpty() || a.name.lowercase().contains(q)) &&
-                    !AdultFilter.keepsOut(adult = a.nsfw || AdultFilter.isAdultName(a.name), hide = hide, only = only)
-            }
-            if (offered.isNotEmpty()) item { Section(stringResource(ATMR.strings.anime_available)) }
-            items(offered, key = { "a" + it.pkg }) { ext ->
-                ExtRow(
-                    icon = { AsyncImage(ext.iconUrl, null, Modifier.size(42.dp).clip(RoundedCornerShape(12.dp))) },
-                    name = ext.name,
-                    sub = "${ext.lang.uppercase()} · ${ext.versionName}" + if (ext.nsfw) " · 18+" else "",
-                    busy = ext.pkg in busy,
+        }
+        offered.forEach { (lang, list) ->
+            item(key = "ha$lang") { GlowHeader(LocaleHelper.getSourceDisplayName(lang, context)) }
+            items(list, key = { "a" + it.pkg }) { ext ->
+                ExtItem(
+                    { AsyncImage(ext.iconUrl, null, Modifier.size(48.dp).clip(RoundedCornerShape(14.dp))) },
+                    ext.name, ext.lang, ext.versionName, ext.nsfw, ext.pkg in busy,
                 ) {
-                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.Download, size = 34) {
-                        busy += ext.pkg
-                        scope.launch { if (!manager.install(ext)) context.toast(ATMR.strings.anime_install_failed); busy -= ext.pkg }
-                    }
+                    Pill(stringResource(MR.strings.ext_install)) { install(ext) }
                 }
             }
         }
@@ -225,30 +279,84 @@ fun AnimeSourcesContent(contentPadding: PaddingValues) {
 }
 
 @Composable
-private fun ExtIcon(ext: AnimeExt?) {
+private fun ExtItem(
+    icon: @Composable () -> Unit,
+    name: String,
+    lang: String,
+    version: String,
+    nsfw: Boolean,
+    busy: Boolean,
+    action: @Composable () -> Unit,
+) {
+    val context = LocalContext.current
+    BaseBrowseItem(
+        icon = { icon() },
+        content = {
+            Column(Modifier.padding(horizontal = 16.dp).weight(1f)) {
+                Text(name, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOfNotNull(LocaleHelper.getSourceDisplayName(lang, context), version, "18+".takeIf { nsfw }).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ManhwaInk.muted,
+                )
+            }
+        },
+        action = { if (busy) CircularProgressIndicator(Modifier.size(24.dp)) else action() },
+    )
+}
+
+/** The accent pill the manga sources use for "Latest". */
+@Composable
+private fun Pill(text: String, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Black,
+        color = androidx.compose.ui.graphics.Color.White,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(shape)
+            .background(ManhwaKit.accentBrush())
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    )
+}
+
+private const val PINNED = "__pinned__"
+
+/** The manhwa / anime switch on top of a page (Sources, Extensions); [content] gets the padding below it. */
+@Composable
+fun MangaAnimeSwitch(anime: Boolean, onChange: (Boolean) -> Unit, padding: PaddingValues, content: @Composable (PaddingValues) -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        content(PaddingValues(top = padding.calculateTopPadding() + SWITCH_HEIGHT, bottom = padding.calculateBottomPadding()))
+        Row(
+            Modifier
+                .padding(top = padding.calculateTopPadding())
+                .fillMaxWidth()
+                .height(SWITCH_HEIGHT)
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.92f))
+                .padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ManhwaKit.Chip(stringResource(ATMR.strings.library_manhwa), selected = !anime) { onChange(false) }
+            ManhwaKit.Chip(stringResource(ATMR.strings.library_anime), selected = anime) { onChange(true) }
+        }
+    }
+}
+
+private val SWITCH_HEIGHT = 48.dp
+
+@Composable
+private fun ExtIcon(ext: AnimeExt?, size: Int = 42) {
     val bitmap = remember(ext?.pkg) { runCatching { ext?.icon?.toBitmap(96, 96)?.asImageBitmap() }.getOrNull() }
     if (bitmap != null) {
-        Image(bitmap, null, Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)))
+        Image(bitmap, null, Modifier.size(size.dp).clip(RoundedCornerShape(14.dp)))
     } else {
-        Box(Modifier.size(42.dp).glass(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(size.dp).glass(RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
             Icon(MaterialSymbols.RoundedFilled.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
         }
-    }
-}
-
-@Composable
-private fun ExtRow(icon: @Composable () -> Unit, name: String, sub: String, busy: Boolean, actions: @Composable () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().glass(RoundedCornerShape(18.dp), alpha = 0.5f).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        icon()
-        Column(Modifier.weight(1f)) {
-            Text(name, fontWeight = FontWeight.Bold, color = ManhwaInk.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(sub, style = MaterialTheme.typography.labelSmall, color = ManhwaInk.muted)
-        }
-        if (busy) CircularProgressIndicator(Modifier.size(24.dp)) else actions()
     }
 }
 
@@ -288,7 +396,7 @@ private fun AnimeCard(title: String, thumbnail: String?, badge: String? = null, 
 // ---------------------------------------------------------------- Browse a source
 
 /** One anime source: popular, latest and search, page after page. */
-class AnimeBrowseScreen(private val sourceId: Long) : Screen() {
+class AnimeBrowseScreen(private val sourceId: Long, private val latest: Boolean = false) : Screen() {
 
     @Composable
     override fun Content() {
@@ -297,7 +405,7 @@ class AnimeBrowseScreen(private val sourceId: Long) : Screen() {
         val source = remember { context.appGraph.animeExtensionManager.source(sourceId) }
         val scope = rememberCoroutineScope()
         val items = remember { mutableStateListOf<SAnime>() }
-        var mode by remember { mutableIntStateOf(0) }
+        var mode by remember { mutableIntStateOf(if (latest) 1 else 0) }
         var query by remember { mutableStateOf("") }
         var page by remember { mutableIntStateOf(1) }
         var hasNext by remember { mutableStateOf(false) }
@@ -431,66 +539,134 @@ class AnimeDetailsScreen(
 
         val key = AnimeStore.key(sourceId, url)
         val entry = library[key]
+        fun entryNow(): AnimeEntry? = entry ?: anime?.let { store.remember(sourceId, it) }
+        val cover = anime?.thumbnail_url ?: thumbnail
+        val fav = entry?.favorite == true
+        val next = episodes.indexOfFirst { progress["$key#${it.url}"]?.seen != true }.takeIf { it >= 0 }
+        val dateFormat = remember { java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM) }
         GlassBackdrop {
-            LazyColumn(contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { ManhwaKit.TopBar(title = anime?.title ?: title, subtitle = source?.name, onBack = navigator::pop) }
-                item {
-                    Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
+                // As the manga page: the blurred cover behind, the cover, the title, the author, status and source
+                item(key = "header") {
+                    Box {
                         AsyncImage(
-                            model = anime?.thumbnail_url ?: thumbnail,
+                            model = cover,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.width(120.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(16.dp)),
+                            modifier = Modifier
+                                .matchParentSize()
+                                .drawWithContent {
+                                    drawContent()
+                                    drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
+                                }
+                                .blur(4.dp)
+                                .alpha(0.25f),
                         )
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            anime?.genre?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = ManhwaInk.muted, maxLines = 3) }
-                            val fav = entry?.favorite == true
-                            ManhwaKit.NeonButton(
-                                stringResource(if (fav) ATMR.strings.anime_in_library else ATMR.strings.anime_add_library),
-                                Modifier.fillMaxWidth(),
-                                MaterialSymbols.Rounded.Favorite,
-                            ) {
-                                val e = entry ?: anime?.let { store.remember(sourceId, it) } ?: return@NeonButton
-                                store.setFavorite(e, !fav)
-                            }
-                            // Go on with the first episode not seen to the end
-                            val next = episodes.indexOfFirst { progress["$key#${it.url}"]?.seen != true }.takeIf { it >= 0 }
-                            if (next != null && source != null && entry != null) {
-                                ManhwaKit.GhostButton(stringResource(ATMR.strings.anime_continue), Modifier.fillMaxWidth(), MaterialSymbols.RoundedFilled.PlayArrow) {
-                                    play(context, source, entry, episodes, next)
+                        Column {
+                            ManhwaKit.TopBar(title = "", onBack = navigator::pop)
+                            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                AsyncImage(
+                                    model = cover,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.width(100.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp)),
+                                )
+                                Spacer(Modifier.width(16.dp))
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(anime?.title ?: title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = ManhwaInk.text)
+                                    anime?.author?.takeIf { it.isNotBlank() }?.let {
+                                        Text(it, style = MaterialTheme.typography.titleSmall, color = ManhwaInk.text.copy(alpha = 0.8f))
+                                    }
+                                    val status = when (anime?.status) {
+                                        SAnime.ONGOING -> stringResource(MR.strings.ongoing)
+                                        SAnime.COMPLETED -> stringResource(MR.strings.completed)
+                                        else -> stringResource(MR.strings.unknown)
+                                    }
+                                    Text(listOfNotNull(status, source?.name).joinToString(" • "), style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.text.copy(alpha = 0.8f))
                                 }
                             }
                         }
                     }
                 }
-                anime?.description?.takeIf { it.isNotBlank() }?.let { d ->
-                    item { Text(d, Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.text, maxLines = 8, overflow = TextOverflow.Ellipsis) }
-                }
-                if (loading) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-                failed?.let { item { Text(it, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) } }
-                item { Text(stringResource(ATMR.strings.anime_episodes, episodes.size), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary) }
-                items(episodes.size, key = { "${episodes[it].url}#$it" }) { i ->
-                    val ep = episodes[i]
-                    val p = progress["$key#${ep.url}"]
-                    Row(
-                        Modifier.padding(horizontal = 16.dp).fillMaxWidth().glass(RoundedCornerShape(16.dp), accent = p?.seen == false && (p.positionMs > 0), alpha = 0.45f)
-                            .pressClickable {
-                                val e = entry ?: anime?.let { store.remember(sourceId, it) } ?: return@pressClickable
-                                if (source != null) play(context, source, e, episodes, i)
-                            }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(ep.name, color = if (p?.seen == true) ManhwaInk.muted else ManhwaInk.text, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            val sub = listOfNotNull(ep.scanlator, p?.takeIf { !it.seen && it.positionMs > 0 }?.let { "${it.positionMs / 60000}:${"%02d".format((it.positionMs / 1000) % 60)}" })
-                            if (sub.isNotEmpty()) Text(sub.joinToString(" · "), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.muted)
+                // The same action buttons as the manga page
+                item(key = "actions") {
+                    Row(Modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp)) {
+                        MangaActionButton(
+                            title = stringResource(if (fav) MR.strings.in_library else MR.strings.add_to_library),
+                            icon = MaterialSymbols.Rounded.Favorite,
+                            color = if (fav) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            onClick = { entryNow()?.let { store.setFavorite(it, !fav) } },
+                        )
+                        if (next != null && source != null) {
+                            MangaActionButton(
+                                title = stringResource(ATMR.strings.anime_continue),
+                                icon = MaterialSymbols.RoundedFilled.PlayArrow,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                onClick = { entryNow()?.let { play(context, source, it, episodes, next) } },
+                            )
                         }
-                        ManhwaKit.IconOrb(MaterialSymbols.Rounded.Visibility, active = p?.seen == true, size = 32) {
-                            val e = entry ?: anime?.let { store.remember(sourceId, it) } ?: return@IconOrb
-                            store.setSeen(e.key, ep.url, ep.name, p?.seen != true)
+                        val http = source as? AnimeHttpSource
+                        if (http != null && anime != null) {
+                            MangaActionButton(
+                                title = stringResource(MR.strings.action_web_view),
+                                icon = MaterialSymbols.Rounded.Public,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                onClick = {
+                                    runCatching { http.getAnimeUrl(anime!!) }.getOrNull()?.let { webUrl ->
+                                        context.startActivity(eu.kanade.tachiyomi.ui.webview.WebViewActivity.newIntent(context, webUrl, null, anime?.title))
+                                    }
+                                },
+                            )
                         }
                     }
+                }
+                item(key = "description") {
+                    ExpandableMangaDescription(
+                        defaultExpandState = false,
+                        description = anime?.description,
+                        tagsProvider = { anime?.genre?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } },
+                        notes = "",
+                        onTagSearch = {},
+                        onCopyTagToClipboard = {},
+                        onEditNotes = {},
+                    )
+                }
+                if (loading) item(key = "loading") { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                failed?.let { item(key = "failed") { Text(it, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) } }
+                item(key = "count") {
+                    Text(
+                        stringResource(ATMR.strings.anime_episodes, episodes.size),
+                        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = ManhwaInk.text,
+                    )
+                }
+                // Newest first, as the chapters; each one as a chapter row (seen dimmed, where it was left)
+                items(episodes.size, key = { "${episodes[episodes.size - 1 - it].url}#$it" }) { j ->
+                    val i = episodes.size - 1 - j
+                    val ep = episodes[i]
+                    val p = progress["$key#${ep.url}"]
+                    MangaChapterListItem(
+                        title = ep.name,
+                        date = ep.date_upload.takeIf { it > 0 }?.let { dateFormat.format(java.util.Date(it)) },
+                        readProgress = p?.takeIf { !it.seen && it.positionMs > 0 }?.let { "${it.positionMs / 60000}:${"%02d".format((it.positionMs / 1000) % 60)}" },
+                        scanlator = ep.scanlator,
+                        read = p?.seen == true,
+                        bookmark = false,
+                        selected = false,
+                        downloadIndicatorEnabled = false,
+                        downloadStateProvider = { Download.State.NOT_DOWNLOADED },
+                        translationStateProvider = { Translation.State.NOT_TRANSLATED },
+                        downloadProgressProvider = { 0 },
+                        chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.Disabled,
+                        chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.Disabled,
+                        onLongClick = { entryNow()?.let { store.setSeen(it.key, ep.url, ep.name, p?.seen != true) } },
+                        onClick = { if (source != null) entryNow()?.let { play(context, source, it, episodes, i) } },
+                        onDownloadClick = null,
+                        onTranslationClick = null,
+                        onChapterSwipe = {},
+                    )
                 }
             }
         }

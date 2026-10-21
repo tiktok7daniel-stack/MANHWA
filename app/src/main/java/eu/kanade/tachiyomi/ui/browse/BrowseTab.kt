@@ -6,6 +6,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.Navigator
@@ -62,15 +63,26 @@ data object BrowseTab : Tab {
         val extensionsViewModel = metroViewModel<ExtensionsViewModel>()
         val extensionsSearchQuery by extensionsViewModel.searchQuery.collectAsStateWithLifecycle()
 
+        // MANHWA anime: Sources and Extensions each have a manhwa side and an anime side, switched on top
+        var anime by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        val sources = sourcesTab()
+        val extensions = extensionsTab(extensionsViewModel)
         val tabs = listOf(
-            sourcesTab(),
-            extensionsTab(extensionsViewModel),
-            migrateSourceTab(),
-            // MANHWA anime: the anime sources, extensions and repositories
-            eu.kanade.presentation.components.TabContent(
-                titleRes = tachiyomi.i18n.at.ATMR.strings.anime_tab,
-                content = { contentPadding, _ -> eu.kanade.tachiyomi.anime.AnimeSourcesContent(contentPadding) },
+            sources.copy(
+                content = { padding, snackbar ->
+                    eu.kanade.tachiyomi.anime.MangaAnimeSwitch(anime, { anime = it }, padding) { inner ->
+                        if (anime) eu.kanade.tachiyomi.anime.AnimeSourcesList(inner) else sources.content(inner, snackbar)
+                    }
+                },
             ),
+            extensions.copy(
+                content = { padding, snackbar ->
+                    eu.kanade.tachiyomi.anime.MangaAnimeSwitch(anime, { anime = it }, padding) { inner ->
+                        if (anime) eu.kanade.tachiyomi.anime.AnimeExtensionsList(inner, extensionsSearchQuery) else extensions.content(inner, snackbar)
+                    }
+                },
+            ),
+            migrateSourceTab(),
         )
 
         val state = rememberPagerState { tabs.size }

@@ -1382,5 +1382,5 @@
     <string name="library_manhwa">Manhwa</string>
     <string name="library_anime">Anime</string>
     <string name="wn_anime_t">Anime</string>
-    <string name="wn_anime_b">Browse has an Anime tab: add an Aniyomi extension repository, install extensions, browse and watch with the player (quality, subtitles, speed, skip the opening, next episode, resume). The library has Manhwa and Anime sides; the +18 switches hold for anime too.</string>
+    <string name="wn_anime_b">In Browse, Sources and Extensions have a Manhwa / Anime switch on top: the anime sources by language with Latest and pins, the anime extensions with their repositories on top. An anime page looks like a manga page (library, continue, WebView, episodes), and the player has quality, subtitles, speed, the opening skip, the next episode and resume. The library has Manhwa and Anime sides; the +18 switches hold for anime too.</string>
 </resources>
