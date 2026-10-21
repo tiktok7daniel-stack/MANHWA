@@ -254,6 +254,9 @@ class CloudflareInterceptor(
             }
         }
 
+        // MANHWA: a passed check is kept on disk at once (the cookie store writes it only now and then)
+        if (cloudflareBypassed) executor.execute { android.webkit.CookieManager.getInstance().flush() }
+
         // Throw exception if we failed to bypass Cloudflare
         if (!cloudflareBypassed) {
             // A clearance from a failed challenge would only be rejected again

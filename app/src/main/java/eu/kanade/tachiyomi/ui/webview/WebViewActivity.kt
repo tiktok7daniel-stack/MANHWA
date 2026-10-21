@@ -103,6 +103,12 @@ class WebViewActivity : BaseActivity() {
         assistUrl?.let { outContent.webUri = it.toUri() }
     }
 
+    override fun onPause() {
+        // MANHWA: the site's check passed here is written to disk now, so it is not asked again after a restart
+        android.webkit.CookieManager.getInstance().flush()
+        super.onPause()
+    }
+
     override fun finish() {
         super.finish()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

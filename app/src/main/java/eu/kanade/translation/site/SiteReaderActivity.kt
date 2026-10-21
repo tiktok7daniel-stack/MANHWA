@@ -267,6 +267,12 @@ class SiteReaderActivity : BaseActivity() {
             .onFailure { logcat(LogPriority.ERROR, it) { "Site reader: page not saved" } }
     }
 
+    override fun onPause() {
+        // The site's check passed in this reader is written to disk now
+        CookieManager.getInstance().flush()
+        super.onPause()
+    }
+
     override fun onStop() {
         // Leaving: the page on screen is saved now, and the chapter goes to the top of the history
         val chapter = items.getOrNull(current.intValue)?.chapter
