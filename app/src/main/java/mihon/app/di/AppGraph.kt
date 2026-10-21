@@ -122,6 +122,7 @@ interface AppGraph : ViewModelGraph {
     val updateChapter: tachiyomi.domain.chapter.interactor.UpdateChapter
     val coverFinder: eu.kanade.translation.covers.CoverFinder
     val syncChaptersWithSource: eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
+    val networkToLocalManga: tachiyomi.domain.manga.interactor.NetworkToLocalManga
     val animeExtensionManager: eu.kanade.tachiyomi.anime.AnimeExtensionManager
     val animeStore: eu.kanade.tachiyomi.anime.AnimeStore
     val upsertHistory: tachiyomi.domain.history.interactor.UpsertHistory

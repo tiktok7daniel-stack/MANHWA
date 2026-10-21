@@ -55,6 +55,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.Verified
+import mihon.icons.materialsymbols.rounded.WorkspacePremium
 import mihon.icons.materialsymbols.roundedfilled.Favorite
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import tachiyomi.core.common.Constants
@@ -190,6 +191,22 @@ data class BrowseSourceScreen(
                                 },
                             )
                         }
+                        // MANHWA: the best series of this source (AniList score and popularity), the library's left out
+                        FilterChip(
+                            selected = false,
+                            onClick = { navigator.push(SourceBestScreen(sourceId, source.name)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = MaterialSymbols.Rounded.WorkspacePremium,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(FilterChipDefaults.IconSize),
+                                )
+                            },
+                            label = {
+                                Text(text = stringResource(tachiyomi.i18n.at.ATMR.strings.source_best_chip))
+                            },
+                        )
                         // MANHWA: the series of the library from this source with chapters not read yet
                         FilterChip(
                             selected = false,

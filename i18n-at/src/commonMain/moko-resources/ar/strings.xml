@@ -1329,4 +1329,9 @@
     <string name="source_favorites_empty">مفيش جديد: كل المانهوات اللي في مكتبتك من المصدر ده مقروءة. زرار التحديث بيسأل المصدر عن الفصول الجديدة.</string>
     <string name="source_favorites_unread">%1$d مش مقروء</string>
     <string name="source_favorites_read">اقرا</string>
+    <string name="source_best_chip">الأفضل</string>
+    <string name="source_best_title">الأفضل في المصدر ده</string>
+    <string name="source_best_loading">بقرا الصفحات المشهورة وتقييماتها…</string>
+    <string name="source_best_empty">مفيش جديد: كل المانهوات المشهورة هنا موجودة في مكتبتك.</string>
+    <string name="source_best_fans">%1$s متابع</string>
 </resources>

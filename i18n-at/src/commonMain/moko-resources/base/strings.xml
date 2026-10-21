@@ -1388,4 +1388,9 @@
     <string name="source_favorites_empty">Nothing new: every series of your library from this source is read. The refresh button asks the source for new chapters.</string>
     <string name="source_favorites_unread">%1$d not read</string>
     <string name="source_favorites_read">Read</string>
+    <string name="source_best_chip">Best</string>
+    <string name="source_best_title">The best on this source</string>
+    <string name="source_best_loading">Reading the popular pages and their ratings…</string>
+    <string name="source_best_empty">Nothing new: every popular series here is already in your library.</string>
+    <string name="source_best_fans">%1$s fans</string>
 </resources>
