@@ -52,6 +52,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.Verified
 import mihon.icons.materialsymbols.roundedfilled.Favorite
@@ -189,6 +190,22 @@ data class BrowseSourceScreen(
                                 },
                             )
                         }
+                        // MANHWA: the series of the library from this source with chapters not read yet
+                        FilterChip(
+                            selected = false,
+                            onClick = { navigator.push(SourceFavoritesScreen(sourceId, source.name)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = MaterialSymbols.Rounded.CollectionsBookmark,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(FilterChipDefaults.IconSize),
+                                )
+                            },
+                            label = {
+                                Text(text = stringResource(tachiyomi.i18n.at.ATMR.strings.source_favorites_chip))
+                            },
+                        )
                         if (state.filters.isNotEmpty()) {
                             FilterChip(
                                 selected = state.listing is Listing.Search,

@@ -1324,4 +1324,9 @@
     <string name="library_anime">أنمي</string>
     <string name="wn_anime_t">الأنمي</string>
     <string name="wn_anime_b">في تصفح، المصادر والإضافات فوقيهم اختيار مانهوا / أنمي: مصادر الأنمي بالترتيب حسب اللغة ومعاها الأحدث والتثبيت، وإضافات الأنمي والمستودعات بتاعتها فوق. صفحة الأنمي شكلها زي صفحة المانهوا (المكتبة، وكمّل، وWebView، والحلقات)، والمشغّل فيه الجودة والترجمة والسرعة وتخطي المقدمة والحلقة اللي بعدها والكمالة من مطرح ما وقفت. والمكتبة فيها مانهوا وأنمي، ومفاتيح +18 بتمشي على الأنمي كمان.</string>
+    <string name="source_favorites_chip">مفضلاتي</string>
+    <string name="source_favorites_title">الجديد في مفضلاتي</string>
+    <string name="source_favorites_empty">مفيش جديد: كل المانهوات اللي في مكتبتك من المصدر ده مقروءة. زرار التحديث بيسأل المصدر عن الفصول الجديدة.</string>
+    <string name="source_favorites_unread">%1$d مش مقروء</string>
+    <string name="source_favorites_read">اقرا</string>
 </resources>
