@@ -193,6 +193,11 @@
             android:exported="false" />
 
         <activity
+            android:name="eu.kanade.tachiyomi.anime.AnimePlayerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:exported="false" />
+
+        <activity
             android:name="eu.kanade.translation.site.SiteReaderActivity"
             android:configChanges="uiMode|orientation|screenSize"
             android:exported="false" />

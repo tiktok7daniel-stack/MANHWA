@@ -30,3 +30,6 @@
 -keep,allowoptimization class eu.kanade.tachiyomi.network.interceptor.RateLimitInterceptorKt { public protected *; }
 -keep,allowoptimization class eu.kanade.tachiyomi.network.interceptor.SpecificHostRateLimitInterceptorKt { public protected *; }
 -keep,allowoptimization class eu.kanade.tachiyomi.util.JsoupExtensionsKt { public protected *; }
+
+# MANHWA anime: Aniyomi's anime source API, used by anime extensions
+-keep class eu.kanade.tachiyomi.animesource.** { public protected *; }

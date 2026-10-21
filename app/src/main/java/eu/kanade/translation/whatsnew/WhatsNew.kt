@@ -118,13 +118,15 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_bulkcovers_t, ATMR.strings.wn_bulkcovers_b),
-            Feature(MaterialSymbols.Rounded.Public, ATMR.strings.wn_sitetoggle_t, ATMR.strings.wn_sitetoggle_b),
+            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_anime_t, ATMR.strings.wn_anime_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 126
+            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_bulkcovers_t, ATMR.strings.wn_bulkcovers_b),
+            Feature(MaterialSymbols.Rounded.Public, ATMR.strings.wn_sitetoggle_t, ATMR.strings.wn_sitetoggle_b),
             // Build 123
             Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_coverpick_t, ATMR.strings.wn_coverpick_b),
             // Build 122

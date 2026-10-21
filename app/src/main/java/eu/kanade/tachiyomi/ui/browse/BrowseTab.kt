@@ -66,6 +66,11 @@ data object BrowseTab : Tab {
             sourcesTab(),
             extensionsTab(extensionsViewModel),
             migrateSourceTab(),
+            // MANHWA anime: the anime sources, extensions and repositories
+            eu.kanade.presentation.components.TabContent(
+                titleRes = tachiyomi.i18n.at.ATMR.strings.anime_tab,
+                content = { contentPadding, _ -> eu.kanade.tachiyomi.anime.AnimeSourcesContent(contentPadding) },
+            ),
         )
 
         val state = rememberPagerState { tabs.size }

@@ -215,6 +215,13 @@ dependencies {
     implementation(projects.i18n)
     implementation(projects.i18nAt)
 
+    // MANHWA anime: the video player
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.exoplayer.dash)
+    implementation(libs.media3.datasource.okhttp)
+    implementation(libs.media3.ui)
+
     // TachiyomiAT translation
     implementation(libs.mlkit.text.recognition)
     implementation(libs.mlkit.text.recognition.chinese)

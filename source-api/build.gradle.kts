@@ -20,6 +20,8 @@ dependencies {
     implementation(libs.injekt)
     implementation(libs.rxJava)
     implementation(libs.jsoup)
+    // MANHWA anime: Aniyomi's anime source API (extensions run a small local server for some videos)
+    api(libs.nanohttpd)
 
     implementation(libs.androidx.preference)
 

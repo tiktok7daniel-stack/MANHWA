@@ -5,19 +5,30 @@ import androidx.activity.compose.ReportDrawnWhen
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -106,6 +117,7 @@ data object LibraryTab : Tab {
             started
         }
 
+        var showAnime by rememberSaveable { mutableStateOf(false) }
         Scaffold(
             topBar = { scrollBehavior ->
                 val title = state.getToolbarTitle(
@@ -158,8 +170,16 @@ data object LibraryTab : Tab {
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        ) { contentPadding ->
-            when {
+        ) { outerPadding ->
+          // MANHWA anime: the library has two sides, manhwa and anime, switched by the chips under the bar
+          Box(Modifier.fillMaxSize()) {
+            val contentPadding = PaddingValues(
+                top = outerPadding.calculateTopPadding() + LIBRARY_SWITCH_HEIGHT,
+                bottom = outerPadding.calculateBottomPadding(),
+            )
+            if (showAnime) {
+                eu.kanade.tachiyomi.anime.AnimeLibraryContent(contentPadding, navigator)
+            } else when {
                 state.isLoading -> {
                     LoadingScreen(Modifier.padding(contentPadding))
                 }
@@ -217,6 +237,18 @@ data object LibraryTab : Tab {
                     )
                 }
             }
+            Row(
+                Modifier
+                    .padding(top = outerPadding.calculateTopPadding())
+                    .height(LIBRARY_SWITCH_HEIGHT)
+                    .padding(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                eu.kanade.presentation.components.ManhwaKit.Chip(stringResource(tachiyomi.i18n.at.ATMR.strings.library_manhwa), selected = !showAnime) { showAnime = false }
+                eu.kanade.presentation.components.ManhwaKit.Chip(stringResource(tachiyomi.i18n.at.ATMR.strings.library_anime), selected = showAnime) { showAnime = true }
+            }
+          }
         }
 
         val onDismissRequest = viewModel::closeDialog
@@ -288,3 +320,6 @@ data object LibraryTab : Tab {
     private val requestSettingsSheetEvent = Channel<Unit>()
     private suspend fun requestOpenSettingsSheet() = requestSettingsSheetEvent.send(Unit)
 }
+
+/** MANHWA anime: the height of the manhwa / anime switch under the library bar. */
+private val LIBRARY_SWITCH_HEIGHT = 48.dp
