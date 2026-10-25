@@ -264,6 +264,7 @@ fun Modifier.accentFill(shape: Shape, glow: Float = 0.25f): Modifier = composed 
     val look = LocalManhwaLook.current
     val primary = MaterialTheme.colorScheme.primary
     when (look.style) {
+        ManhwaStyle.DOCK, ManhwaStyle.TACTILE, ManhwaStyle.HUNTER -> this.proAccentFill(look.style, primary, shape, glow)
         // Slate: one flat blue, nothing around it
         ManhwaStyle.SLATE -> this
             .clip(shape)
@@ -310,6 +311,9 @@ fun LookBackdrop(look: ManhwaLook, modifier: Modifier, content: @Composable BoxS
             ManhwaStyle.AURORA -> AuroraSky(primary)
             ManhwaStyle.INK -> InkPage(primary, look.light)
             ManhwaStyle.HOLO -> HoloField(primary)
+            ManhwaStyle.DOCK -> AuroraSky(primary)
+            ManhwaStyle.TACTILE -> TactileLight(primary)
+            ManhwaStyle.HUNTER -> HunterGrid(primary)
             else -> Unit
         }
         content()

@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.home
 
 import eu.kanade.presentation.components.ManhwaInk
 
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.layout.fillMaxHeight
 
 import eu.kanade.presentation.components.neonGlow
@@ -192,6 +193,17 @@ object HomeScreen : Screen() {
                         },
                         content = tabContent,
                     )
+                } else if (eu.kanade.presentation.components.LocalManhwaLook.current.style == eu.kanade.presentation.components.ManhwaStyle.DOCK) {
+                    // MANHWA Floating Glass: the navigation is a glass capsule floating at the side of the page
+                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                        Box(Modifier.fillMaxSize()) { tabContent() }
+                        AnimatedVisibility(
+                            visible = showBar,
+                            enter = fadeIn() + androidx.compose.animation.slideInHorizontally { it },
+                            exit = fadeOut() + androidx.compose.animation.slideOutHorizontally { it },
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                        ) { SideCapsule() }
+                    }
                 } else {
                     // MANHWA: floating glass navigation bar
                     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -384,6 +396,87 @@ object HomeScreen : Screen() {
     }
 
     /**
+     * MANHWA Floating Glass: the tabs and the AI orb in a vertical glass capsule at the side, with a glowing round
+     * light that slides (with a spring) behind the open tab.
+     */
+    @Composable
+    private fun SideCapsule() {
+        val tabNavigator = LocalTabNavigator.current
+        val navigator = LocalNavigator.currentOrThrow
+        val scope = rememberCoroutineScope()
+        val colors = MaterialTheme.colorScheme
+        val itemHeight = 56.dp
+        val index = TABS.indexOfFirst { it::class == tabNavigator.current::class }
+        val slot = if (index < 2) index else index + 1
+        val still = eu.kanade.presentation.components.LocalReduceMotion.current
+        val y by androidx.compose.animation.core.animateDpAsState(
+            targetValue = itemHeight * slot.coerceAtLeast(0),
+            animationSpec = if (still) {
+                androidx.compose.animation.core.snap()
+            } else {
+                androidx.compose.animation.core.spring(dampingRatio = 0.72f, stiffness = 380f)
+            },
+            label = "capsule",
+        )
+        Box(
+            Modifier
+                .navigationBarsPadding()
+                .padding(end = 10.dp)
+                .width(64.dp),
+        ) {
+            Box(Modifier.matchParentSize().glass(RoundedCornerShape(50), accent = false))
+            if (index >= 0) {
+                Box(
+                    Modifier
+                        .padding(vertical = 10.dp)
+                        .offset(y = y)
+                        .align(Alignment.TopCenter)
+                        .size(48.dp)
+                        .neonGlow(CircleShape, colors.primary, 0.3f, 10.dp)
+                        .clip(CircleShape)
+                        .background(Brush.radialGradient(listOf(colors.primary.copy(alpha = 0.55f), colors.primary.copy(alpha = 0.15f))), CircleShape)
+                        .border(1.dp, colors.primary.copy(alpha = 0.8f), CircleShape),
+                )
+            }
+            Column(Modifier.padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                TABS.forEachIndexed { i, tab ->
+                    if (i == 2) {
+                        Box(Modifier.size(64.dp, itemHeight), contentAlignment = Alignment.Center) {
+                            Box(
+                                Modifier
+                                    .size(40.dp)
+                                    .neonGlow(CircleShape, colors.primary, 0.3f, 8.dp)
+                                    .clip(CircleShape)
+                                    .background(Brush.linearGradient(listOf(colors.primary, Color(0xFF9B5CFF))), CircleShape)
+                                    .clickable { navigator.push(AiChatScreen()) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(MaterialSymbols.Rounded.AutoAwesome, contentDescription = "MANHWA AI", tint = ManhwaInk.text, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                    val selected = tabNavigator.current::class == tab::class
+                    val badge = tabBadge(tab)
+                    val tint by animateColorAsState(if (selected) Color.White else colors.onSurfaceVariant.copy(alpha = 0.85f), label = "side")
+                    Box(
+                        Modifier
+                            .size(64.dp, itemHeight)
+                            .clip(CircleShape)
+                            .clickable {
+                                if (!selected) tabNavigator.current = tab else scope.launch { tab.onReselect(navigator) }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        BadgedBox(badge = { badge?.invoke() }) {
+                            Icon(painter = tab.options.icon!!, contentDescription = tab.options.title, tint = tint)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * The pill under the open tab of the dock, sliding between tabs. The dock has five equal slots (two tabs, the AI
      * orb, two tabs); the pill sits on the open tab's slot. Manhwa Ink draws it as an inked sticker.
      */
@@ -406,7 +499,13 @@ object HomeScreen : Screen() {
                 },
                 label = "dock",
             )
-            val shape = RoundedCornerShape(if (look.style == eu.kanade.presentation.components.ManhwaStyle.INK) 8.dp else 50.dp)
+            val hunter = look.style == eu.kanade.presentation.components.ManhwaStyle.HUNTER
+            // Hunter System: a cut segment lit from its top edge
+            val shape = if (hunter) {
+                androidx.compose.foundation.shape.CutCornerShape(6.dp)
+            } else {
+                RoundedCornerShape(if (look.style == eu.kanade.presentation.components.ManhwaStyle.INK) 8.dp else 50.dp)
+            }
             Box(
                 Modifier
                     .align(Alignment.CenterStart)
@@ -419,6 +518,15 @@ object HomeScreen : Screen() {
                     .then(
                         if (look.style == eu.kanade.presentation.components.ManhwaStyle.INK) {
                             Modifier.border(1.5.dp, look.text, shape)
+                        } else if (hunter) {
+                            Modifier
+                                .border(1.dp, eu.kanade.presentation.components.ProTokens.HunterCyan.copy(alpha = 0.7f), shape)
+                                .drawBehind {
+                                    drawRect(
+                                        eu.kanade.presentation.components.ProTokens.HunterCyan,
+                                        size = androidx.compose.ui.geometry.Size(size.width, 2.dp.toPx()),
+                                    )
+                                }
                         } else {
                             Modifier.border(0.75.dp, colors.primary.copy(alpha = 0.35f), shape)
                         },

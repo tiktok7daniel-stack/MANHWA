@@ -120,6 +120,9 @@ object WhatsNew {
     val latest: List<Feature>
         get() = listOf(
             Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.style_slate, ATMR.strings.style_slate_sub),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.style_dock, ATMR.strings.style_dock_sub),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.style_tactile, ATMR.strings.style_tactile_sub),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.style_hunter, ATMR.strings.style_hunter_sub),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */

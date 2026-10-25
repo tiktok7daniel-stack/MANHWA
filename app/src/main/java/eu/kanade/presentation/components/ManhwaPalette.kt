@@ -212,7 +212,7 @@ private fun LivePreview(style: ManhwaStyle, light: Boolean) {
     val shape = RoundedCornerShape(12.dp)
     androidx.compose.runtime.CompositionLocalProvider(LocalManhwaLook provides look) {
         // Its own clock, so the preview moves even while another look is chosen
-        ProvideLookClock(moving = style == ManhwaStyle.AURORA || style == ManhwaStyle.HOLO) {
+        ProvideLookClock(moving = style == ManhwaStyle.AURORA || style == ManhwaStyle.HOLO || style == ManhwaStyle.DOCK || style == ManhwaStyle.HUNTER) {
         Box(Modifier.fillMaxWidth().height(110.dp).clip(shape)) {
             LookBackdrop(look, Modifier) {
                 androidx.compose.foundation.layout.Row(

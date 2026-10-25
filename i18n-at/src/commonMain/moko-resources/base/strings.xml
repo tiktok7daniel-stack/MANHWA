@@ -1395,4 +1395,10 @@
     <string name="source_best_fans">%1$s fans</string>
     <string name="style_slate">Slate</string>
     <string name="style_slate_sub">Calm and clean: a dark slate background, flat cards with a thin edge, rounded corners and one clear blue for buttons and selection. No glow, no moving backdrop; light on the battery.</string>
+    <string name="style_dock">Floating Glass</string>
+    <string name="style_dock_sub">Frosted glass with a thin iridescent rim over drifting aurora light, and the navigation as a glass capsule floating at the side, with a light that slides to the open tab. Cards float under the finger.</string>
+    <string name="style_tactile">Neo Tactile 3D</string>
+    <string name="style_tactile_sub">Everything raised like real buttons: two soft shadows, light from the top left, an electric cyan ring around what is active, and a press that sinks in.</string>
+    <string name="style_hunter">Hunter System</string>
+    <string name="style_hunter_sub">The system window of hunter manhwa: chamfered corners everywhere, glowing corner brackets, blue to cyan buttons, a grid and a scan line behind, and a segmented dock lit from the top.</string>
 </resources>

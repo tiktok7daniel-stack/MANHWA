@@ -85,6 +85,9 @@ object SettingsAppearanceScreen : SearchableSettings {
                                 Triple(ManhwaStyle.INK, stringResource(ATMR.strings.style_ink), stringResource(ATMR.strings.style_ink_sub)),
                                 Triple(ManhwaStyle.HOLO, stringResource(ATMR.strings.style_holo), stringResource(ATMR.strings.style_holo_sub)),
                                 Triple(ManhwaStyle.SLATE, stringResource(ATMR.strings.style_slate), stringResource(ATMR.strings.style_slate_sub)),
+                                Triple(ManhwaStyle.DOCK, stringResource(ATMR.strings.style_dock), stringResource(ATMR.strings.style_dock_sub)),
+                                Triple(ManhwaStyle.TACTILE, stringResource(ATMR.strings.style_tactile), stringResource(ATMR.strings.style_tactile_sub)),
+                                Triple(ManhwaStyle.HUNTER, stringResource(ATMR.strings.style_hunter), stringResource(ATMR.strings.style_hunter_sub)),
                             ),
                         )
                     }

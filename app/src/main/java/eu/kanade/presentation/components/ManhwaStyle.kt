@@ -51,6 +51,11 @@ enum class ManhwaStyle {
 
     // MANHWA Slate: flat slate panels and one clear blue, a calm reading-app look
     SLATE,
+
+    // The pro looks (ManhwaLooksPro.kt): Floating Glass with the side capsule, Neo Tactile 3D, Hunter System
+    DOCK,
+    TACTILE,
+    HUNTER,
     ;
 
     /** Whether the look has a light version the reader can choose. */
@@ -98,7 +103,7 @@ data class ManhwaLook(
     val isSolid: Boolean get() = style != ManhwaStyle.GLASS
 
     /** A still look: no breathing halo on the AI orb. */
-    val isCalm: Boolean get() = style == ManhwaStyle.OBSIDIAN || style == ManhwaStyle.INK || style == ManhwaStyle.SLATE
+    val isCalm: Boolean get() = style == ManhwaStyle.OBSIDIAN || style == ManhwaStyle.INK || style == ManhwaStyle.SLATE || style == ManhwaStyle.TACTILE
 
     companion object {
         /** MANHWA Glass: the values its building blocks always used. */
@@ -223,6 +228,60 @@ data class ManhwaLook(
             cardRadius = 16,
         )
 
+        /** Floating Glass: frosted panels with an iridescent rim, a spring with a float. */
+        fun dock(accent: Color) = ManhwaLook(
+            style = ManhwaStyle.DOCK,
+            light = false,
+            background = ProTokens.DockBackground,
+            surface = lerp(ProTokens.DockSurface, accent, 0.06f),
+            surfaceRaised = lerp(ProTokens.DockSurface, accent, 0.14f),
+            text = ProTokens.DockInk,
+            muted = ProTokens.DockMuted,
+            rimTop = accent.copy(alpha = 0.45f),
+            rimBottom = accent.hueShift(60f).copy(alpha = 0.2f),
+            rimAccentTop = accent,
+            glow = true,
+            pressScale = 0.95f,
+            cardRadius = 24,
+            pressSpring = true,
+            pressTilt = 3f,
+        )
+
+        /** Neo Tactile 3D: extruded panels, a deep press. */
+        fun tactile(accent: Color) = ManhwaLook(
+            style = ManhwaStyle.TACTILE,
+            light = false,
+            background = ProTokens.TactileBackground,
+            surface = ProTokens.TactileSurface,
+            surfaceRaised = ProTokens.TactileRaised,
+            text = ProTokens.TactileInk,
+            muted = ProTokens.TactileMuted,
+            rimTop = Color.White.copy(alpha = 0.07f),
+            rimBottom = Color.Black.copy(alpha = 0.25f),
+            rimAccentTop = accent,
+            glow = true,
+            pressScale = 0.94f,
+            cardRadius = 20,
+            pressSpring = true,
+        )
+
+        /** Hunter System: chamfered system windows, a fast crisp press. */
+        fun hunter(accent: Color) = ManhwaLook(
+            style = ManhwaStyle.HUNTER,
+            light = false,
+            background = ProTokens.HunterBackground,
+            surface = ProTokens.HunterSurface,
+            surfaceRaised = ProTokens.HunterRaised,
+            text = ProTokens.HunterInk,
+            muted = ProTokens.HunterMuted,
+            rimTop = ProTokens.HunterCyan.copy(alpha = 0.5f),
+            rimBottom = accent.copy(alpha = 0.25f),
+            rimAccentTop = ProTokens.HunterCyan,
+            glow = true,
+            pressScale = 0.97f,
+            cardRadius = 6,
+        )
+
         /** The look of [style] for [accent], in its light version when it has one and [light] is set. */
         fun of(style: ManhwaStyle, accent: Color, light: Boolean = false): ManhwaLook = when (style) {
             ManhwaStyle.GLASS -> glass(accent)
@@ -231,6 +290,9 @@ data class ManhwaLook(
             ManhwaStyle.INK -> ink(accent, light)
             ManhwaStyle.HOLO -> holo(accent)
             ManhwaStyle.SLATE -> slate(accent)
+            ManhwaStyle.DOCK -> dock(accent)
+            ManhwaStyle.TACTILE -> tactile(accent)
+            ManhwaStyle.HUNTER -> hunter(accent)
         }
     }
 }
@@ -243,6 +305,9 @@ fun styleDarkScheme(base: ColorScheme, style: ManhwaStyle): ColorScheme = when (
     ManhwaStyle.INK -> lookDarkScheme(base, LookTokens.InkNight, LookTokens.InkNightSurface, LookTokens.InkNightSurface, LookTokens.InkNightLine, LookTokens.InkNightMuted)
     ManhwaStyle.HOLO -> lookDarkScheme(base, LookTokens.HoloBackground, LookTokens.HoloSurface, LookTokens.HoloSurface, LookTokens.HoloInk, LookTokens.HoloMuted)
     ManhwaStyle.SLATE -> slateDarkScheme(base)
+    ManhwaStyle.DOCK -> proDarkScheme(base, ProTokens.DockAccent, ProTokens.DockBackground, ProTokens.DockSurface, ProTokens.DockSurface, ProTokens.DockInk, ProTokens.DockMuted)
+    ManhwaStyle.TACTILE -> proDarkScheme(base, ProTokens.TactileCyan, ProTokens.TactileBackground, ProTokens.TactileSurface, ProTokens.TactileRaised, ProTokens.TactileInk, ProTokens.TactileMuted)
+    ManhwaStyle.HUNTER -> proDarkScheme(base, ProTokens.HunterBlue, ProTokens.HunterBackground, ProTokens.HunterSurface, ProTokens.HunterRaised, ProTokens.HunterInk, ProTokens.HunterMuted)
 }
 
 /** Slate's scheme: its own blue (not the side menu's accent) on neutral slate surfaces, untinted. */
@@ -308,7 +373,7 @@ val LocalManhwaWantsLight = staticCompositionLocalOf { false }
 object ManhwaStyleState {
     var style by mutableStateOf(ManhwaStyle.GLASS)
 
-    val glow: Boolean get() = style == ManhwaStyle.GLASS || style == ManhwaStyle.HOLO
+    val glow: Boolean get() = style == ManhwaStyle.GLASS || style == ManhwaStyle.HOLO || style == ManhwaStyle.DOCK || style == ManhwaStyle.TACTILE || style == ManhwaStyle.HUNTER
 }
 
 /** The colours of the current look, read by the screens instead of fixed colours. */
@@ -517,9 +582,14 @@ fun Modifier.obsidianPill(): Modifier = composed {
                 pill,
             )
             .padding(horizontal = 5.dp, vertical = 1.dp)
-        ManhwaStyle.SLATE -> this
+        ManhwaStyle.SLATE, ManhwaStyle.TACTILE -> this
             .clip(pill)
             .background(accent, pill)
+            .padding(horizontal = 5.dp, vertical = 1.dp)
+        ManhwaStyle.HUNTER -> this
+            .clip(ProTokens.HunterCutSmall)
+            .background(ProTokens.HunterSurface, ProTokens.HunterCutSmall)
+            .border(0.75.dp, ProTokens.HunterCyan, ProTokens.HunterCutSmall)
             .padding(horizontal = 5.dp, vertical = 1.dp)
         else -> this
             .clip(pill)

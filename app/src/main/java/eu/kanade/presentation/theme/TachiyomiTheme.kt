@@ -73,7 +73,7 @@ private fun BaseTachiyomiTheme(
     SideEffect { ManhwaStyleState.style = style }
     CompositionLocalProvider(LocalManhwaLook provides look, LocalManhwaWantsLight provides light) {
         // One clock for the looks that move (Aurora Veil, Monarch Holo), still for the others
-        eu.kanade.presentation.components.ProvideLookClock(moving = style == ManhwaStyle.AURORA || style == ManhwaStyle.HOLO) {
+        eu.kanade.presentation.components.ProvideLookClock(moving = style == ManhwaStyle.AURORA || style == ManhwaStyle.HOLO || style == ManhwaStyle.DOCK || style == ManhwaStyle.HUNTER) {
             MaterialExpressiveTheme(colorScheme = scheme, content = content)
         }
     }
