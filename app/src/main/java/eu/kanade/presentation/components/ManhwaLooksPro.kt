@@ -17,12 +17,12 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
@@ -137,24 +137,18 @@ fun Modifier.tactileSurface(shape: Shape, accent: Boolean, look: ManhwaLook): Mo
     this
         .drawWithCache {
             val outline = shape.createOutline(size, layoutDirection, this)
-            val light = Paint().also {
-                it.asFrameworkPaint().apply {
-                    isAntiAlias = true
-                    color = Color.White.copy(alpha = 0.06f).toArgb()
-                    maskFilter = android.graphics.BlurMaskFilter(blur, android.graphics.BlurMaskFilter.Blur.NORMAL)
-                }
+            val path = androidx.compose.ui.graphics.Path().apply { addOutline(outline) }.asAndroidPath()
+            fun soft(color: Color) = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = color.toArgb()
+                maskFilter = android.graphics.BlurMaskFilter(blur, android.graphics.BlurMaskFilter.Blur.NORMAL)
             }
-            val dark = Paint().also {
-                it.asFrameworkPaint().apply {
-                    isAntiAlias = true
-                    color = Color.Black.copy(alpha = 0.55f).toArgb()
-                    maskFilter = android.graphics.BlurMaskFilter(blur, android.graphics.BlurMaskFilter.Blur.NORMAL)
-                }
-            }
+            val light = soft(Color.White.copy(alpha = 0.06f))
+            val dark = soft(Color.Black.copy(alpha = 0.55f))
             onDrawBehind {
                 drawIntoCanvas { canvas ->
-                    translate(-offset, -offset) { canvas.drawOutline(outline, light) }
-                    translate(offset, offset) { canvas.drawOutline(outline, dark) }
+                    val native = canvas.nativeCanvas
+                    native.save(); native.translate(-offset, -offset); native.drawPath(path, light); native.restore()
+                    native.save(); native.translate(offset, offset); native.drawPath(path, dark); native.restore()
                 }
             }
         }
