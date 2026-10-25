@@ -48,6 +48,9 @@ enum class ManhwaStyle {
     AURORA,
     INK,
     HOLO,
+
+    // MANHWA Slate: flat slate panels and one clear blue, a calm reading-app look
+    SLATE,
     ;
 
     /** Whether the look has a light version the reader can choose. */
@@ -95,7 +98,7 @@ data class ManhwaLook(
     val isSolid: Boolean get() = style != ManhwaStyle.GLASS
 
     /** A still look: no breathing halo on the AI orb. */
-    val isCalm: Boolean get() = style == ManhwaStyle.OBSIDIAN || style == ManhwaStyle.INK
+    val isCalm: Boolean get() = style == ManhwaStyle.OBSIDIAN || style == ManhwaStyle.INK || style == ManhwaStyle.SLATE
 
     companion object {
         /** MANHWA Glass: the values its building blocks always used. */
@@ -203,6 +206,23 @@ data class ManhwaLook(
             pressTilt = 5f,
         )
 
+        /** Slate: flat slate cards with a hairline edge, no glow, one blue; the press only dims a little. */
+        fun slate(accent: Color) = ManhwaLook(
+            style = ManhwaStyle.SLATE,
+            light = false,
+            background = LookTokens.SlateBackground,
+            surface = LookTokens.SlateSurface,
+            surfaceRaised = LookTokens.SlateRaised,
+            text = LookTokens.SlateInk,
+            muted = LookTokens.SlateMuted,
+            rimTop = Color.White.copy(alpha = 0.07f),
+            rimBottom = Color.White.copy(alpha = 0.04f),
+            rimAccentTop = accent,
+            glow = false,
+            pressScale = 0.98f,
+            cardRadius = 16,
+        )
+
         /** The look of [style] for [accent], in its light version when it has one and [light] is set. */
         fun of(style: ManhwaStyle, accent: Color, light: Boolean = false): ManhwaLook = when (style) {
             ManhwaStyle.GLASS -> glass(accent)
@@ -210,6 +230,7 @@ data class ManhwaLook(
             ManhwaStyle.AURORA -> aurora(accent)
             ManhwaStyle.INK -> ink(accent, light)
             ManhwaStyle.HOLO -> holo(accent)
+            ManhwaStyle.SLATE -> slate(accent)
         }
     }
 }
@@ -221,6 +242,36 @@ fun styleDarkScheme(base: ColorScheme, style: ManhwaStyle): ColorScheme = when (
     ManhwaStyle.AURORA -> lookDarkScheme(base, LookTokens.AuroraBackground, LookTokens.AuroraSurface, LookTokens.AuroraSurface, LookTokens.AuroraInk, LookTokens.AuroraMuted)
     ManhwaStyle.INK -> lookDarkScheme(base, LookTokens.InkNight, LookTokens.InkNightSurface, LookTokens.InkNightSurface, LookTokens.InkNightLine, LookTokens.InkNightMuted)
     ManhwaStyle.HOLO -> lookDarkScheme(base, LookTokens.HoloBackground, LookTokens.HoloSurface, LookTokens.HoloSurface, LookTokens.HoloInk, LookTokens.HoloMuted)
+    ManhwaStyle.SLATE -> slateDarkScheme(base)
+}
+
+/** Slate's scheme: its own blue (not the side menu's accent) on neutral slate surfaces, untinted. */
+fun slateDarkScheme(base: ColorScheme): ColorScheme {
+    val blue = LookTokens.SlateBlue
+    return base.copy(
+        primary = blue,
+        onPrimary = Color.White,
+        primaryContainer = lerp(blue, Color.Black, 0.55f),
+        onPrimaryContainer = lerp(blue, Color.White, 0.8f),
+        secondary = lerp(blue, Color.White, 0.2f),
+        onSecondary = Color.White,
+        secondaryContainer = lerp(blue, LookTokens.SlateBackground, 0.75f),
+        onSecondaryContainer = lerp(blue, Color.White, 0.85f),
+        tertiary = lerp(blue, Color.White, 0.3f),
+        background = LookTokens.SlateBackground,
+        onBackground = LookTokens.SlateInk,
+        surface = LookTokens.SlateBackground,
+        onSurface = LookTokens.SlateInk,
+        surfaceVariant = LookTokens.SlateSurface,
+        onSurfaceVariant = LookTokens.SlateMuted,
+        surfaceContainerLowest = LookTokens.SlateBackground,
+        surfaceContainerLow = lerp(LookTokens.SlateBackground, LookTokens.SlateSurface, 0.5f),
+        surfaceContainer = LookTokens.SlateSurface,
+        surfaceContainerHigh = LookTokens.SlateRaised,
+        surfaceContainerHighest = lerp(LookTokens.SlateRaised, Color.White, 0.04f),
+        outline = LookTokens.SlateMuted.copy(alpha = 0.5f),
+        outlineVariant = Color.White.copy(alpha = 0.07f),
+    )
 }
 
 /** The fixed values of Obsidian Royal. */
@@ -465,6 +516,10 @@ fun Modifier.obsidianPill(): Modifier = composed {
                 androidx.compose.ui.graphics.Brush.sweepGradient(listOf(accent, accent.hueShift(60f), Color.White, accent.hueShift(-60f), accent)),
                 pill,
             )
+            .padding(horizontal = 5.dp, vertical = 1.dp)
+        ManhwaStyle.SLATE -> this
+            .clip(pill)
+            .background(accent, pill)
             .padding(horizontal = 5.dp, vertical = 1.dp)
         else -> this
             .clip(pill)

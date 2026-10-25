@@ -77,6 +77,7 @@ import mihon.icons.materialsymbols.rounded.Translate
 import mihon.icons.materialsymbols.rounded.Tune
 import mihon.icons.materialsymbols.rounded.Key
 import mihon.icons.materialsymbols.rounded.NewReleases
+import mihon.icons.materialsymbols.rounded.Palette
 import mihon.icons.materialsymbols.rounded.Psychology
 import mihon.icons.materialsymbols.rounded.PictureInPictureAlt
 import mihon.icons.materialsymbols.rounded.Public
@@ -118,12 +119,14 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_anime_t, ATMR.strings.wn_anime_b),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.style_slate, ATMR.strings.style_slate_sub),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 129
+            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_anime_t, ATMR.strings.wn_anime_b),
             // Build 126
             Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_bulkcovers_t, ATMR.strings.wn_bulkcovers_b),
             Feature(MaterialSymbols.Rounded.Public, ATMR.strings.wn_sitetoggle_t, ATMR.strings.wn_sitetoggle_b),

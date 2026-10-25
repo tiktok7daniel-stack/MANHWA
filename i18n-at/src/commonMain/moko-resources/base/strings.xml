@@ -1393,4 +1393,6 @@
     <string name="source_best_loading">Reading the popular pages and their ratings…</string>
     <string name="source_best_empty">Nothing new: every popular series here is already in your library.</string>
     <string name="source_best_fans">%1$s fans</string>
+    <string name="style_slate">Slate</string>
+    <string name="style_slate_sub">Calm and clean: a dark slate background, flat cards with a thin edge, rounded corners and one clear blue for buttons and selection. No glow, no moving backdrop; light on the battery.</string>
 </resources>

@@ -64,6 +64,14 @@ import kotlin.math.sin
 
 /** The fixed values of the three looks. */
 object LookTokens {
+    // Slate
+    val SlateBackground = Color(0xFF111718)
+    val SlateSurface = Color(0xFF1C2427)
+    val SlateRaised = Color(0xFF252E31)
+    val SlateInk = Color(0xFFF1F4F5)
+    val SlateMuted = Color(0xFF8B979B)
+    val SlateBlue = Color(0xFF3D7BF6)
+
     // Aurora Veil
     val AuroraBackground = Color(0xFF05060D)
     val AuroraSurface = Color(0xFF121627)
@@ -256,6 +264,10 @@ fun Modifier.accentFill(shape: Shape, glow: Float = 0.25f): Modifier = composed 
     val look = LocalManhwaLook.current
     val primary = MaterialTheme.colorScheme.primary
     when (look.style) {
+        // Slate: one flat blue, nothing around it
+        ManhwaStyle.SLATE -> this
+            .clip(shape)
+            .background(primary, shape)
         ManhwaStyle.AURORA -> this
             .clip(shape)
             .background(Brush.linearGradient(listOf(primary, primary.hueShift(45f))), shape)
@@ -532,3 +544,12 @@ private const val HOLO_HALO_MS = 60_000
 private const val HOLO_EMBER_MS = 36_000
 private const val HOLO_RIM_MS = 7_000
 private const val SPEED_LINES = 14
+
+/** Slate surface: a flat slate card with a hairline edge (blue when highlighted), no glow and no gradient. */
+fun Modifier.slateSurface(shape: Shape, accent: Boolean, look: ManhwaLook): Modifier = composed {
+    val primary = MaterialTheme.colorScheme.primary
+    this
+        .clip(shape)
+        .background(if (accent) lerp(look.surface, primary, 0.12f) else look.surface, shape)
+        .border(1.dp, if (accent) primary.copy(alpha = 0.7f) else look.rimTop, shape)
+}

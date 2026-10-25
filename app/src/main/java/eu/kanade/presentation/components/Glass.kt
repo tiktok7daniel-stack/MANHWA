@@ -37,6 +37,7 @@ fun Modifier.glass(shape: Shape, accent: Boolean = false, alpha: Float = 0.55f):
         ManhwaStyle.AURORA -> return@composed auroraSurface(shape, accent, look)
         ManhwaStyle.INK -> return@composed inkSurface(shape, accent, look)
         ManhwaStyle.HOLO -> return@composed holoSurface(shape, accent, look)
+        ManhwaStyle.SLATE -> return@composed slateSurface(shape, accent, look)
         ManhwaStyle.GLASS -> Unit
     }
     val colors = MaterialTheme.colorScheme

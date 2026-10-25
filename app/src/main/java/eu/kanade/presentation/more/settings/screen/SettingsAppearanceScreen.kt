@@ -84,6 +84,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                                 Triple(ManhwaStyle.AURORA, stringResource(ATMR.strings.style_aurora), stringResource(ATMR.strings.style_aurora_sub)),
                                 Triple(ManhwaStyle.INK, stringResource(ATMR.strings.style_ink), stringResource(ATMR.strings.style_ink_sub)),
                                 Triple(ManhwaStyle.HOLO, stringResource(ATMR.strings.style_holo), stringResource(ATMR.strings.style_holo_sub)),
+                                Triple(ManhwaStyle.SLATE, stringResource(ATMR.strings.style_slate), stringResource(ATMR.strings.style_slate_sub)),
                             ),
                         )
                     }
