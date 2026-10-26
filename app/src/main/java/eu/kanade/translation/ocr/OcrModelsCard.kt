@@ -53,7 +53,13 @@ fun OcrModelsCard(modifier: Modifier = Modifier) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            stringResource(if (pack == OcrModels.Pack.MAIN) ATMR.strings.ocr_pack_main else ATMR.strings.ocr_pack_korean),
+                            stringResource(
+                                when (pack) {
+                                    OcrModels.Pack.MAIN -> ATMR.strings.ocr_pack_main
+                                    OcrModels.Pack.KOREAN -> ATMR.strings.ocr_pack_korean
+                                    OcrModels.Pack.ARABIC -> ATMR.strings.ocr_pack_arabic
+                                },
+                            ),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,

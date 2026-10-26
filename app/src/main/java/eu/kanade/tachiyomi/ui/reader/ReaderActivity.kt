@@ -985,10 +985,29 @@ class ReaderActivity : BaseActivity() {
      * Called from the viewer whenever a [page] is marked as active. It updates the values of the
      * bottom menu and delegates the change to the presenter.
      */
-    /** MANHWA read aloud: the page's translated bubbles, then the next page by itself. */
+    /**
+     * MANHWA read aloud: the page's bubbles (its translation, or the Arabic read from the picture), in the voice
+     * picked for the novels, then the next page by itself.
+     */
     private val speakerLazy = lazy {
-        eu.kanade.translation.speech.BubbleSpeaker(this).apply {
+        eu.kanade.translation.speech.PageVoice(this).apply {
             onPageDone = { runOnUiThread { speakNextPage() } }
+            sourceLanguage = { viewModel.state.value.source?.lang }
+            onProblem = { problem ->
+                runOnUiThread {
+                    toast(
+                        stringResource(
+                            when (problem) {
+                                eu.kanade.translation.speech.PageVoice.Problem.NO_ENGINE -> tachiyomi.i18n.at.ATMR.strings.hud_speak_missing
+                                eu.kanade.translation.speech.PageVoice.Problem.NO_VOICE -> tachiyomi.i18n.at.ATMR.strings.speak_need_voice
+                                eu.kanade.translation.speech.PageVoice.Problem.OCR_MODELS -> tachiyomi.i18n.at.ATMR.strings.speak_ocr_downloading
+                                eu.kanade.translation.speech.PageVoice.Problem.OCR_FAILED -> tachiyomi.i18n.at.ATMR.strings.speak_ocr_failed
+                                eu.kanade.translation.speech.PageVoice.Problem.NOT_TRANSLATED -> tachiyomi.i18n.at.ATMR.strings.speak_not_translated
+                            },
+                        ),
+                    )
+                }
+            }
         }
     }
     private val speaker by speakerLazy
@@ -1003,14 +1022,14 @@ class ReaderActivity : BaseActivity() {
             speaker.stop()
             return
         }
-        speaker.speak(currentReaderPage()?.translation)
-        lifecycleScope.launch {
-            kotlinx.coroutines.delay(1_500)
-            if (speaker.speaking.value && !speaker.available()) {
-                speaker.stop()
-                toast(stringResource(tachiyomi.i18n.at.ATMR.strings.hud_speak_missing))
-            }
-        }
+        val page = currentReaderPage()
+        speaker.speak(page)
+        speaker.prefetch(nextReaderPage(page))
+    }
+
+    private fun nextReaderPage(page: ReaderPage?): ReaderPage? {
+        val pages = viewModel.state.value.viewerChapters?.currChapter?.pages ?: return null
+        return page?.let { pages.getOrNull(pages.indexOf(it) + 1) }
     }
 
     private fun speakNextPage() {
@@ -1019,7 +1038,8 @@ class ReaderActivity : BaseActivity() {
         val pages = state.viewerChapters?.currChapter?.pages ?: return speaker.stop()
         val next = pages.getOrNull(state.currentPage) ?: return speaker.stop()
         state.viewer?.moveToPage(next)
-        speaker.speak(next.translation)
+        speaker.speak(next)
+        speaker.prefetch(nextReaderPage(next))
     }
 
     /** A doubtful line corrected from the quality sheet: saved in the translation library as the reader's own. */

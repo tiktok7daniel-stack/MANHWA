@@ -36,6 +36,9 @@ object OcrModels {
 
         /** PP-OCRv5 Korean recognizer (the detector comes from [MAIN]). */
         KOREAN("ppocrv5_korean", 14),
+
+        /** PP-OCRv5 Arabic recognizer (the detector comes from [MAIN]): reads Arabic pages aloud. */
+        ARABIC("ppocrv5_arabic", 8),
     }
 
     sealed interface Status {
@@ -91,6 +94,10 @@ object OcrModels {
             Source("Hugging Face", mapOf(REC to Remote("$HF/languages/korean/rec.onnx"), DICT to Remote("$HF/languages/korean/dict.txt"))),
             Source("HF mirror", mapOf(REC to Remote("$HF_MIRROR/languages/korean/rec.onnx"), DICT to Remote("$PADDLE_RAW/ppocrv5_korean_dict.txt"))),
         )
+        Pack.ARABIC -> listOf(
+            Source("Hugging Face", mapOf(REC to Remote("$HF/languages/arabic/rec.onnx"), DICT to Remote("$HF/languages/arabic/dict.txt"))),
+            Source("HF mirror", mapOf(REC to Remote("$HF_MIRROR/languages/arabic/rec.onnx"), DICT to Remote("$PADDLE_RAW/ppocrv5_arabic_dict.txt"))),
+        )
     }
 
     fun dir(context: Context, pack: Pack): File = File(context.filesDir, "ocr/${pack.id}").apply { mkdirs() }
@@ -111,14 +118,14 @@ object OcrModels {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /** Downloads [pack] in the background (Korean brings the main pack first). Does nothing while one runs. */
+    /** Downloads [pack] in the background (Korean and Arabic bring the main pack first). Does nothing while one runs. */
     fun download(context: Context, pack: Pack) {
         val app = context.applicationContext
         val now = _status.value[pack]
         if (now is Status.Downloading) return
         _status.update { it + (pack to Status.Downloading(0)) }
         scope.launch {
-            if (pack == Pack.KOREAN && !ready(app, Pack.MAIN)) fetch(app, Pack.MAIN)
+            if (pack != Pack.MAIN && !ready(app, Pack.MAIN)) fetch(app, Pack.MAIN)
             fetch(app, pack)
         }
     }

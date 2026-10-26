@@ -960,6 +960,11 @@
     <string name="ocr_models_info">Downloaded once into the app and checked after the download. Wi-Fi downloads them by itself.</string>
     <string name="ocr_pack_main">English, Chinese, Japanese</string>
     <string name="ocr_pack_korean">Korean</string>
+    <string name="speak_need_voice">Download a voice first: open a novel, Listening, Voices, Piper, and download one for the language (Kareem for Arabic).</string>
+    <string name="speak_ocr_downloading">Downloading the Arabic reading model (about 8 MB) to read this page aloud…</string>
+    <string name="speak_ocr_failed">This page could not be read aloud.</string>
+    <string name="speak_not_translated">Translate this chapter first: only Arabic pages and translated pages are read aloud.</string>
+    <string name="ocr_pack_arabic">Arabic (read aloud)</string>
     <string name="ocr_pack_ready">On the phone, reading with ML Kit</string>
     <string name="ocr_pack_downloading">Downloading… %1$d%%</string>
     <string name="ocr_pack_failed">Download failed: %1$s</string>

@@ -901,6 +901,11 @@
     <string name="ocr_models_info">بتتحمّل مرة واحدة جوه التطبيق وبتتفحص بعد التحميل. على الواي فاي بتتحمّل لوحدها.</string>
     <string name="ocr_pack_main">إنجليزي وصيني وياباني</string>
     <string name="ocr_pack_korean">كوري</string>
+    <string name="speak_need_voice">نزّل صوت الأول: افتح رواية ← الاستماع ← الأصوات ← Piper، ونزّل صوت للغة (Kareem للعربي).</string>
+    <string name="speak_ocr_downloading">بنزّل نموذج قراءة العربي (حوالي 8 ميجا) عشان أقرا الصفحة دي بصوت…</string>
+    <string name="speak_ocr_failed">مقدرتش أقرا الصفحة دي بصوت.</string>
+    <string name="speak_not_translated">ترجم الفصل ده الأول: القراءة بصوت بتقرا الصفحات العربي أو المترجمة بس.</string>
+    <string name="ocr_pack_arabic">عربي (القراءة بصوت)</string>
     <string name="ocr_pack_ready">على الموبايل، وبيقرا مع ML Kit</string>
     <string name="ocr_pack_downloading">بيتحمّل… %1$d%%</string>
     <string name="ocr_pack_failed">التحميل فشل: %1$s</string>
