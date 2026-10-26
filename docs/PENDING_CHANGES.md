@@ -27,6 +27,7 @@
 - **محرك Piper جوه التطبيق:**
   - **المحرك:** مكتبة sherpa-onnx إصدار 1.12.14 (رخصة Apache-2.0). خطوة في `build_branch.yml` بتنزّل `sherpa-onnx-v1.12.14-android.tar.bz2` من الـ release الرسمي، وبتحط ملفات `arm64-v8a/*.so` في `jniLibs`.
   - **لو التنزيل فشل في البيلد:** البيلد بيكمّل عادي، والتطبيق بيقول "البيلد ده مفيهوش محرك Piper". اتأكد إن كلمة `PIPER_LIBS_ADDED` موجودة في اللوج.
+  - **ONNX Runtime:** الـ libonnxruntime.so بتاع sherpa بيتشال، وsherpa بيستخدم ONNX Runtime 1.22 اللي في التطبيق أصلاً. sherpa مبني على الـ C API بتاع 1.17، و1.22 لسه بيدعمه.
   - **ملف الربط:** `com/k2fsa/sherpa/onnx/Tts.kt` متاخد زي ما هو من نفس الإصدار، لأن ربطه بالمكتبة لازم يطابقها بالظبط.
   - **الأصوات (`novel/PiperVoices.kt`):**
     - بتتنزّل من `releases/download/tts-models/vits-piper-<id>.tar.bz2`، وبتتفك بـ commons-compress 1.28.0 جوه `filesDir/piper`.

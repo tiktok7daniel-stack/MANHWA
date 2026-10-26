@@ -1490,4 +1490,10 @@
     <string name="novel_piper_personal">للاستخدام الشخصي</string>
     <string name="novel_piper_delete">امسح</string>
     <string name="novel_piper_get">نزّل</string>
+    <string name="wn_listen_t">اسمع الروايات</string>
+    <string name="wn_listen_b">زرار السماعة بيقرالك الفصل: راوي، وصوت راجل أو ست حسب مين بيتكلم، والصفحة بتمشي معاه، وبيكمّل على الفصل اللي بعده.</string>
+    <string name="wn_piper_t">أصوات مفتوحة المصدر جوه التطبيق</string>
+    <string name="wn_piper_b">أصوات Piper (عربي وإنجليزي) بتنزّلها مرة واحدة وبتتكلم على الموبايل من غير نت: الأصوات ← المحرك ← Piper.</string>
+    <string name="wn_novelpin_t">ثبّت مصادر الروايات</string>
+    <string name="wn_novelpin_b">الدبوس اللي جنب مصدر الرواية بيخليه فوق دايماً.</string>
 </resources>

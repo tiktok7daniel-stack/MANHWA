@@ -1549,4 +1549,10 @@
     <string name="novel_piper_personal">Personal use</string>
     <string name="novel_piper_delete">Delete</string>
     <string name="novel_piper_get">Download</string>
+    <string name="wn_listen_t">Listen to novels</string>
+    <string name="wn_listen_b">The speaker button reads the chapter aloud: a narrator, and a man\'s or a woman\'s voice for who speaks; the page follows, and it goes on to the next chapter.</string>
+    <string name="wn_piper_t">Open-source voices in the app</string>
+    <string name="wn_piper_b">Piper voices (Arabic and English) downloaded once and spoken on the phone with no internet: Voices, engine, Piper.</string>
+    <string name="wn_novelpin_t">Pin your novel sources</string>
+    <string name="wn_novelpin_b">The pin next to a novel source keeps it on top.</string>
 </resources>

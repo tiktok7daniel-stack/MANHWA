@@ -747,13 +747,13 @@ private fun VoiceSettings(
         // The engine: the phone's default, or another installed one (the open-source SherpaTTS runs Piper voices)
         item(key = "engine") {
             val engines = remember(speak.ready) { speaker.engines() }
+            val all = listOf(
+                "" to stringResource(ATMR.strings.novel_voice_engine_default),
+                NovelSpeaker.PIPER to stringResource(ATMR.strings.novel_voice_engine_piper),
+            ) + engines
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(ATMR.strings.novel_voice_engine), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val all = listOf(
-                        "" to stringResource(ATMR.strings.novel_voice_engine_default),
-                        NovelSpeaker.PIPER to stringResource(ATMR.strings.novel_voice_engine_piper),
-                    ) + engines
                     items(all) { (pkg, label) ->
                         ManhwaKit.Chip(label, selected = settings.ttsEngine == pkg) { onChange { s -> s.copy(ttsEngine = pkg, voiceNarrator = "", voiceMale = "", voiceFemale = "") } }
                     }

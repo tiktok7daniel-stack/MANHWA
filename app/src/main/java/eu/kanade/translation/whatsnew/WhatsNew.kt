@@ -60,6 +60,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.BuildConfig
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.AutoStories
 import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.Autorenew
@@ -120,14 +121,18 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.AutoStories, ATMR.strings.wn_novels_t, ATMR.strings.wn_novels_b),
-            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.system_ink, ATMR.strings.system_ink_sub),
-            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_logos_t, ATMR.strings.wn_logos_b),
+            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_listen_t, ATMR.strings.wn_listen_b),
+            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_piper_t, ATMR.strings.wn_piper_b),
+            Feature(MaterialSymbols.Rounded.Keep, ATMR.strings.wn_novelpin_t, ATMR.strings.wn_novelpin_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 138
+            Feature(MaterialSymbols.Rounded.AutoStories, ATMR.strings.wn_novels_t, ATMR.strings.wn_novels_b),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.system_ink, ATMR.strings.system_ink_sub),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_logos_t, ATMR.strings.wn_logos_b),
             // Build 136
             Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.system_nova, ATMR.strings.system_nova_sub),
             // Build 135
