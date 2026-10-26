@@ -100,8 +100,15 @@ class NovelSpeaker(context: Context, private val engine: String = "") {
     fun voices(language: String): List<VoiceOption> {
         if (piper) {
             val installed = PiperVoices.installed.value
-            return PiperVoices.all().filter { it.language == language && it.id in installed }
+            val piperVoices = PiperVoices.all().filter { it.language == language && it.id in installed }
                 .map { VoiceOption(it.id, it.label, natural = true, female = it.female) }
+            // The reader's own voices (from VoxGate) speak through a Piper voice of the language, so one must be there
+            val own = if (piperVoices.isNotEmpty() && VoxClones.ready.value) {
+                VoxClones.clones.value.map { VoiceOption(VoxClones.PREFIX + it.id, it.name, natural = true) }
+            } else {
+                emptyList()
+            }
+            return own + piperVoices
         }
         return systemVoices(language).map { v ->
             VoiceOption(v.name, v.name, natural = v.name.contains("network", ignoreCase = true) || v.isNetworkConnectionRequired)

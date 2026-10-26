@@ -93,6 +93,7 @@ object PiperVoices {
     private fun dir(context: Context, id: String) = File(root(context), id)
 
     fun refresh(context: Context) {
+        VoxClones.refresh(context)
         _own.value = root(context).listFiles().orEmpty()
             .filter { it.isDirectory && it.name.startsWith(OWN) && model(context, it.name) != null }
             .sortedBy { it.name }
@@ -272,10 +273,13 @@ object PiperVoices {
     fun releaseAll() {
         engines.values.forEach { runCatching { it.release() } }
         engines.clear()
+        VoxClones.release()
     }
 
     /** [text] said in voice [id] at [speed], as samples and their rate; null when the voice cannot speak. */
     fun generate(context: Context, id: String, text: String, speed: Float): com.k2fsa.sherpa.onnx.GeneratedAudio? {
+        // The reader's own voices (made in VoxGate) are a Piper voice with its timbre changed
+        if (id.startsWith(VoxClones.PREFIX)) return VoxClones.generate(context, id, text, speed)
         val tts = engine(context, id) ?: return null
         return runCatching { tts.generate(text = text, sid = 0, speed = speed) }
             .onFailure { logcat(LogPriority.ERROR, it) { "Piper voice $id did not speak" } }

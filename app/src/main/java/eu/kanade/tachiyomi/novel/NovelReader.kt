@@ -733,7 +733,9 @@ private fun VoiceSettings(
     val context = LocalContext.current
     val speak by speaker.state.collectAsState()
     val piperInstalled by PiperVoices.installed.collectAsState()
-    val voices = remember(speak.ready, language, piperInstalled) { speaker.voices(language) }
+    val ownVoices by VoxClones.clones.collectAsState()
+    val ownReady by VoxClones.ready.collectAsState()
+    val voices = remember(speak.ready, language, piperInstalled, ownVoices, ownReady) { speaker.voices(language) }
     val sample = stringResource(if (language == "ar") ATMR.strings.novel_voice_sample_ar else ATMR.strings.novel_voice_sample_en)
     androidx.compose.foundation.lazy.LazyColumn(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -777,6 +779,7 @@ private fun VoiceSettings(
         // Piper's voices, downloaded once each (Arabic and English, men and women)
         if (settings.ttsEngine == NovelSpeaker.PIPER) {
             item(key = "piper") { PiperDownloads(language) }
+            item(key = "vox") { VoxVoicesCard() }
         }
         if (voices.isEmpty() && settings.ttsEngine != NovelSpeaker.PIPER) {
             item {
@@ -935,6 +938,66 @@ private fun PiperDownloads(language: String) {
                         }.padding(8.dp),
                     )
                 }
+            }
+        }
+    }
+}
+
+/** The reader's own voices, made in VoxGate: the OpenVoice models, the import of a voice file, and the voices imported. */
+@Composable
+private fun VoxVoicesCard() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val network = remember { context.appGraph.networkHelper }
+    val clones by VoxClones.clones.collectAsState()
+    val ready by VoxClones.ready.collectAsState()
+    val progress by VoxClones.progress.collectAsState()
+    val modelsFailed = stringResource(ATMR.strings.novel_piper_failed)
+    val importFailed = stringResource(ATMR.strings.novel_vox_import_failed)
+    val importer = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                if (VoxClones.import(context, uri) == null) {
+                    android.widget.Toast.makeText(context, importFailed, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { VoxClones.refresh(context) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(ATMR.strings.novel_vox_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(stringResource(ATMR.strings.novel_vox_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!ready) {
+            val p = progress
+            if (p != null) {
+                LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth())
+            } else {
+                ManhwaKit.GhostButton(stringResource(ATMR.strings.novel_vox_models)) {
+                    scope.launch {
+                        if (!VoxClones.downloadModels(context, network)) {
+                            android.widget.Toast.makeText(context, modelsFailed, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        }
+        ManhwaKit.GhostButton(stringResource(ATMR.strings.novel_vox_import)) {
+            importer.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+        }
+        clones.forEach { clone ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(clone.name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(
+                    stringResource(ATMR.strings.novel_piper_delete),
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).clickable { VoxClones.delete(context, clone.id) }.padding(8.dp),
+                )
             }
         }
     }

@@ -1494,6 +1494,11 @@
     <string name="novel_piper_import">استورد ملف صوت</string>
     <string name="novel_piper_import_hint">ملف zip من برنامجك اللي بيعمل صوتك: فيه نموذج .onnx وملف tokens.txt، واختياري espeak-ng-data وvoice.json (الاسم، اللغة، راجل أو ست). بيتكلم على موبايلك زي باقي الأصوات.</string>
     <string name="novel_piper_import_failed">الملف ده مش صوت التطبيق يقدر ينطقه (لازم فيه نموذج .onnx وملف tokens.txt).</string>
+    <string name="novel_vox_title">أصواتي (من VoxGate)</string>
+    <string name="novel_vox_hint">صدّر الصوت من VoxGate (ملف .voxvoice.zip) واستورده هنا، والروايات تتقرأ بصوتك، عربي أو إنجليزي. محتاج نماذج الصوت اللي تحت، وصوت Piper واحد على الأقل للغة (فوق) يكون منزّل. الصوت صوتك، والكلام والإيقاع من صوت Piper.</string>
+    <string name="novel_vox_models">نزّل نماذج الصوت (OpenVoice)</string>
+    <string name="novel_vox_import">استورد ملف صوت من VoxGate</string>
+    <string name="novel_vox_import_failed">الملف ده مش صوت من VoxGate (لازم فيه ref.wav جوه ملف .voxvoice.zip).</string>
     <string name="wn_listen_t">اسمع الروايات</string>
     <string name="wn_listen_b">زرار السماعة بيقرالك الفصل: راوي، وصوت راجل أو ست حسب مين بيتكلم، والصفحة بتمشي معاه، وبيكمّل على الفصل اللي بعده.</string>
     <string name="wn_piper_t">أصوات مفتوحة المصدر جوه التطبيق</string>
