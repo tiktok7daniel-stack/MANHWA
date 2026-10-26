@@ -60,6 +60,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -118,6 +119,7 @@ import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.rounded.Widgets
 import mihon.icons.materialsymbols.rounded.FormatListNumbered
 import tachiyomi.domain.manga.model.MangaCover as CoverData
+import tachiyomi.i18n.MR
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState as collectPref
@@ -284,7 +286,15 @@ private fun rememberNovaSource(sources: List<CatalogueSource>): CatalogueSource?
 
 /** Opens a series of [source] (it is added to the database as browsing does) in its page. */
 private suspend fun openSeries(context: android.content.Context, navigator: Navigator, sourceId: Long, manga: SManga) {
-    val local = withContext(Dispatchers.IO) { context.appGraph.networkToLocalManga(manga.toDomainManga(sourceId)) }
+    // A failure here is told, not thrown: it runs in a screen's scope, where it would close the app
+    val local = try {
+        withContext(Dispatchers.IO) { context.appGraph.networkToLocalManga(manga.toDomainManga(sourceId)) }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.widget.Toast.makeText(context, e.message ?: e.javaClass.simpleName, android.widget.Toast.LENGTH_SHORT).show()
+        return
+    }
     navigator.push(MangaScreen(local.id, true))
 }
 
@@ -328,12 +338,29 @@ private fun NovaHome() {
                 Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // The app's own logo, on a deep slate-to-blue tile
                 Box(
-                    Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(NovaColors.Blue),
+                    Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(13.dp))
+                        .background(Brush.linearGradient(listOf(Color(0xFF0B1220), NovaColors.Blue))),
                     contentAlignment = Alignment.Center,
-                ) { Text("M", color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp) }
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(eu.kanade.tachiyomi.R.drawable.manhwa_logo),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().padding(2.dp),
+                    )
+                }
                 Spacer(Modifier.width(12.dp))
-                Text("MANHWA", color = NovaColors.Ink, fontWeight = FontWeight.Bold, fontSize = 22.sp, modifier = Modifier.weight(1f))
+                Text(
+                    "MANHWA",
+                    color = NovaColors.Ink,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 22.sp,
+                    letterSpacing = 2.sp,
+                    modifier = Modifier.weight(1f),
+                )
                 IconButton(onClick = { navigator.push(GlobalSearchScreen()) }) { Icon(MaterialSymbols.Rounded.Search, null, tint = NovaColors.Ink) }
                 IconButton(onClick = { navigator.push(FreshChaptersScreen()) }) { Icon(MaterialSymbols.Rounded.Notifications, null, tint = NovaColors.Ink) }
                 IconButton(onClick = { grid = !grid }) {
@@ -690,16 +717,38 @@ private fun NovaRanking(source: CatalogueSource, compactBadges: Boolean) {
     val context = LocalContext.current
     val navigator = LocalNavigator.currentOrThrow
     val scope = rememberCoroutineScope()
-    val list by produceState(rankings[source.id], source.id) {
+    var attempt by remember { mutableIntStateOf(0) }
+    var failed by remember(source.id) { mutableStateOf<String?>(null) }
+    // Only a finished ranking is kept; one cut short (the tab left) or failed is asked again next time
+    val list by produceState(rankings[source.id], source.id, attempt) {
         if (value == null) {
-            value = runCatching {
-                withContext(Dispatchers.IO) { SourceBestScreen(source.id, source.name).rank(context.appGraph) }
-            }.getOrDefault(emptyList()).also { rankings[source.id] = it }
+            try {
+                value = withContext(Dispatchers.IO) { SourceBestScreen(source.id, source.name).rank(context.appGraph) }
+                    .also { rankings[source.id] = it }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failed = e.message ?: e.javaClass.simpleName
+            }
         }
     }
     val items = list
-    if (items == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = NovaColors.Blue) }
+    if (items.isNullOrEmpty()) {
+        Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+            when {
+                failed != null -> Text(
+                    failed!!,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.clickable {
+                        failed = null
+                        attempt++
+                    },
+                )
+                items == null -> CircularProgressIndicator(color = NovaColors.Blue)
+                else -> Text(stringResource(MR.strings.no_results_found), color = NovaColors.Muted)
+            }
+        }
         return
     }
     LazyVerticalGrid(
