@@ -132,13 +132,20 @@ object HomeScreen : Screen() {
     override fun Content() {
         // MANHWA: this screen follows the chosen style (and its light version)
         // MANHWA: the second system is a whole app of its own (its home, tabs and bar)
-        if (eu.kanade.tachiyomi.ui.nova.rememberAppSystem() == eu.kanade.tachiyomi.ui.nova.AppSystem.NOVA) {
-            // Nova answers the same requests as the original home: open a tab, search the library, hide the bar
+        val system = eu.kanade.tachiyomi.ui.nova.rememberAppSystem()
+        if (system != eu.kanade.tachiyomi.ui.nova.AppSystem.CLASSIC) {
+            // Nova and Inkverse answer the same requests as the original home: open a tab, search the library, hide the bar
             val navigator = LocalNavigator.currentOrThrow
             var showBar by remember { mutableStateOf(true) }
             LaunchedEffect(Unit) { showBottomNavEvent.receiveAsFlow().collectLatest { showBar = it } }
-            eu.kanade.tachiyomi.ui.nova.NovaShell(showBar = showBar) { tabNavigator ->
-                TabEvents(tabNavigator, navigator, home = eu.kanade.tachiyomi.ui.nova.NovaHomeTab)
+            if (system == eu.kanade.tachiyomi.ui.nova.AppSystem.INK) {
+                eu.kanade.tachiyomi.ui.ink.InkShell(showBar = showBar) { tabNavigator ->
+                    TabEvents(tabNavigator, navigator, home = eu.kanade.tachiyomi.ui.ink.InkHomeTab)
+                }
+            } else {
+                eu.kanade.tachiyomi.ui.nova.NovaShell(showBar = showBar) { tabNavigator ->
+                    TabEvents(tabNavigator, navigator, home = eu.kanade.tachiyomi.ui.nova.NovaHomeTab)
+                }
             }
             return
         }

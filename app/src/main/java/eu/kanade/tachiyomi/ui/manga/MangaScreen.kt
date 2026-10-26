@@ -122,7 +122,7 @@ class MangaScreen(
         }
 
         // MANHWA: the second system has its own series page (the dialogs below still come from here)
-        if (eu.kanade.tachiyomi.ui.nova.rememberAppSystem() == eu.kanade.tachiyomi.ui.nova.AppSystem.NOVA) {
+        if (eu.kanade.tachiyomi.ui.nova.rememberAppSystem() != eu.kanade.tachiyomi.ui.nova.AppSystem.CLASSIC) {
             eu.kanade.tachiyomi.ui.nova.NovaMangaDetails(
                 state = successState,
                 onBack = navigator::pop,

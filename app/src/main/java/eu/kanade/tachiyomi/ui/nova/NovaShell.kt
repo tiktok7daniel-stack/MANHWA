@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.nova
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -131,20 +132,70 @@ import tachiyomi.presentation.core.util.collectAsState as collectPref
  * the menu opens all of it.
  */
 object NovaColors {
-    val Background = LookTokens.SlateBackground
-    val Surface = LookTokens.SlateSurface
-    val Raised = LookTokens.SlateRaised
-    val Ink = LookTokens.SlateInk
-    val Muted = LookTokens.SlateMuted
-    val Blue = LookTokens.SlateBlue
+    /** The palette of the system that is on: Nova's slate and blue, or Inkverse's ink and violet. */
+    internal var palette by mutableStateOf(NovaPalette.SLATE)
+
+    val Background get() = palette.background
+    val Surface get() = palette.surface
+    val Raised get() = palette.raised
+    val Ink get() = palette.ink
+    val Muted get() = palette.muted
+    val Blue get() = palette.accent
 }
 
-/** Nova's colours and look for everything under it (the app's own tabs inside it included). */
+/** The colours a shell built on Nova's screens draws with. */
+enum class NovaPalette(
+    val background: Color,
+    val surface: Color,
+    val raised: Color,
+    val ink: Color,
+    val muted: Color,
+    val accent: Color,
+) {
+    SLATE(LookTokens.SlateBackground, LookTokens.SlateSurface, LookTokens.SlateRaised, LookTokens.SlateInk, LookTokens.SlateMuted, LookTokens.SlateBlue),
+    INK(Color(0xFF0B0B10), Color(0xFF13131A), Color(0xFF1B1B24), Color(0xFFF4F4F8), Color(0xFFA9A9B8), Color(0xFF7C5CFF)),
+}
+
+/** Nova's colours and look for everything under it (the app's own tabs inside it included); Inkverse's when it is on. */
 @Composable
 fun NovaTheme(content: @Composable () -> Unit) {
+    val palette = if (rememberAppSystem() == AppSystem.INK) NovaPalette.INK else NovaPalette.SLATE
+    // The screens read the palette as they draw; it follows the system picked
+    androidx.compose.runtime.SideEffect { NovaColors.palette = palette }
     val base = MaterialTheme.colorScheme
-    val scheme: ColorScheme = remember(base) { slateDarkScheme(base) }
-    val look = remember { ManhwaLook.slate(NovaColors.Blue) }
+    val scheme: ColorScheme = remember(base, palette) {
+        if (palette == NovaPalette.SLATE) {
+            slateDarkScheme(base)
+        } else {
+            slateDarkScheme(base).copy(
+                primary = palette.accent,
+                primaryContainer = androidx.compose.ui.graphics.lerp(palette.accent, Color.Black, 0.55f),
+                onPrimaryContainer = androidx.compose.ui.graphics.lerp(palette.accent, Color.White, 0.8f),
+                secondary = Color(0xFFFF4D8D),
+                tertiary = Color(0xFF22D3A6),
+                background = palette.background,
+                onBackground = palette.ink,
+                surface = palette.background,
+                onSurface = palette.ink,
+                surfaceVariant = palette.surface,
+                onSurfaceVariant = palette.muted,
+                surfaceContainerLowest = palette.background,
+                surfaceContainerLow = palette.surface,
+                surfaceContainer = palette.surface,
+                surfaceContainerHigh = palette.raised,
+                surfaceContainerHighest = Color(0xFF24242F),
+            )
+        }
+    }
+    val look = remember(palette) {
+        ManhwaLook.slate(palette.accent).copy(
+            background = palette.background,
+            surface = palette.surface,
+            surfaceRaised = palette.raised,
+            text = palette.ink,
+            muted = palette.muted,
+        )
+    }
     CompositionLocalProvider(LocalManhwaLook provides look) {
         MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, content = content)
     }
@@ -263,7 +314,7 @@ private fun NovaBottomBar() {
 
 /** The sources Nova can show: the installed catalogues of the languages turned on, the +18 switches holding. */
 @Composable
-private fun rememberNovaSources(): List<CatalogueSource> {
+internal fun rememberNovaSources(): List<CatalogueSource> {
     val context = LocalContext.current
     val graph = remember { context.appGraph }
     val languages by graph.sourcePreferences.enabledLanguages.collectPref()
@@ -281,7 +332,7 @@ private fun rememberNovaSources(): List<CatalogueSource> {
 
 /** The source picked for Nova's home: the saved one, else the first home source, else the first one. */
 @Composable
-private fun rememberNovaSource(sources: List<CatalogueSource>): CatalogueSource? {
+internal fun rememberNovaSource(sources: List<CatalogueSource>): CatalogueSource? {
     val context = LocalContext.current
     val graph = remember { context.appGraph }
     val saved by graph.uiPreferences.novaSourceId.collectPref()
@@ -292,7 +343,7 @@ private fun rememberNovaSource(sources: List<CatalogueSource>): CatalogueSource?
 }
 
 /** Opens a series of [source] (it is added to the database as browsing does) in its page. */
-private suspend fun openSeries(context: android.content.Context, navigator: Navigator, sourceId: Long, manga: SManga) {
+internal suspend fun openSeries(context: android.content.Context, navigator: Navigator, sourceId: Long, manga: SManga) {
     // A failure here is told, not thrown: it runs in a screen's scope, where it would close the app
     val local = try {
         withContext(Dispatchers.IO) { context.appGraph.networkToLocalManga(manga.toDomainManga(sourceId)) }
@@ -640,7 +691,7 @@ fun NovaCover(sourceId: Long, manga: SManga, badge: String? = null, modifier: Mo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NovaSourceSheet(
+internal fun NovaSourceSheet(
     sources: List<CatalogueSource>,
     selected: Long?,
     onPick: (CatalogueSource) -> Unit,

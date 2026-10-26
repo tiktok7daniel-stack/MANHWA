@@ -28,6 +28,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 enum class AppSystem(val title: StringResource, val about: StringResource) {
     CLASSIC(ATMR.strings.system_classic, ATMR.strings.system_classic_sub),
     NOVA(ATMR.strings.system_nova, ATMR.strings.system_nova_sub),
+    INK(ATMR.strings.system_ink, ATMR.strings.system_ink_sub),
     ;
 
     companion object {
@@ -107,7 +108,8 @@ fun AppSystemPicker() {
 private fun SystemPreview(system: AppSystem) {
     val (bg, card, accent) = when (system) {
         AppSystem.CLASSIC -> Triple(androidx.compose.ui.graphics.Color(0xFF050507), androidx.compose.ui.graphics.Color(0xFF17171F), androidx.compose.ui.graphics.Color(0xFFFF3B4E))
-        AppSystem.NOVA -> Triple(NovaColors.Background, NovaColors.Surface, NovaColors.Blue)
+        AppSystem.NOVA -> Triple(NovaPalette.SLATE.background, NovaPalette.SLATE.surface, NovaPalette.SLATE.accent)
+        AppSystem.INK -> Triple(NovaPalette.INK.background, NovaPalette.INK.raised, NovaPalette.INK.accent)
     }
     androidx.compose.foundation.layout.Column(
         androidx.compose.ui.Modifier
@@ -120,7 +122,7 @@ private fun SystemPreview(system: AppSystem) {
         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxWidth().height(6.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(3.dp)).background(accent.copy(alpha = 0.8f)))
         repeat(2) {
             androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
-                repeat(if (system == AppSystem.NOVA) 3 else 2) {
+                repeat(if (system == AppSystem.CLASSIC) 2 else 3) {
                     androidx.compose.foundation.layout.Box(
                         androidx.compose.ui.Modifier.weight(1f).height(28.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp)).background(card),
                     )

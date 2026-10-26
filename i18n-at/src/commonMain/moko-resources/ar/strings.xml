@@ -1438,4 +1438,24 @@
     <string name="novel_theme_sepia">سيبيا</string>
     <string name="novel_translate">ترجم</string>
     <string name="novel_translating">بيترجم…</string>
+    <string name="system_ink">إنكفيرس</string>
+    <string name="system_ink_sub">صالة سينما على حبر غامق: عرض أول بيتقلّب لوحده، واللي بتقراه، وأفضل 10، وحلقات النهارده، للمانهوا والروايات والأنمي، وشريط زجاج عايم، وصفحات الأعمال بالبنفسجي. كل الميزات موجودة.</string>
+    <string name="ink_continue">كمّل القراية</string>
+    <string name="ink_continue_watching">كمّل المشاهدة</string>
+    <string name="ink_top10">أفضل 10 في المصدر ده</string>
+    <string name="ink_new_today">حلقات جديدة</string>
+    <string name="ink_read_now">اقرا دلوقتي</string>
+    <string name="ink_more_here">المزيد هنا</string>
+    <string name="ink_chapter_n">فصل %1$s</string>
+    <string name="ink_resume">كمّل</string>
+    <string name="ink_novels_title">حكاياتك، بالكلام</string>
+    <string name="ink_novels_sub">روايات عربي وأجنبي، بتتترجم فصل فصل، ومظبوطة على طريقة قرايتك.</string>
+    <string name="ink_anime_title">حكاياتك، بتتحرك</string>
+    <string name="ink_anime_sub">مصادر الأنمي بتاعتك، واللي بتتفرج عليه، وقايمتك.</string>
+    <string name="ink_sources">المصادر</string>
+    <string name="ink_no_anime_sources">لسه مفيش مصدر أنمي. سطّب واحد من تصفح ← الإضافات ← أنمي.</string>
+    <string name="wn_novels_t">روايات، ومعاها الترجمة</string>
+    <string name="wn_novels_b">جنب المانهوا والأنمي بقى فيه روايات: مصادر بصيغة IReader (عربي وأجنبي)، وصفحة للرواية، وقارئ هادي تظبطه على مزاجك، والفصل بيتترجم بضغطة.</string>
+    <string name="wn_logos_t">5 أيقونات و5 دخولات</string>
+    <string name="wn_logos_b">اختار أيقونة التطبيق والدخول من الإعدادات ← المظهر، وظبط سرعته أو اقفله.</string>
 </resources>

@@ -1497,4 +1497,24 @@
     <string name="novel_theme_sepia">Sepia</string>
     <string name="novel_translate">Translate</string>
     <string name="novel_translating">Translating…</string>
+    <string name="system_ink">Inkverse</string>
+    <string name="system_ink_sub">A cinema lobby on deep ink: a spotlight that turns by itself, what you are reading, a top ten, today\'s new episodes, for manhwa, novels and anime; a floating glass bar; series pages in violet. Every feature stays.</string>
+    <string name="ink_continue">Continue reading</string>
+    <string name="ink_continue_watching">Continue watching</string>
+    <string name="ink_top10">Top 10 on this source</string>
+    <string name="ink_new_today">New episodes</string>
+    <string name="ink_read_now">Read now</string>
+    <string name="ink_more_here">More here</string>
+    <string name="ink_chapter_n">Chapter %1$s</string>
+    <string name="ink_resume">Resume</string>
+    <string name="ink_novels_title">Your stories, in words</string>
+    <string name="ink_novels_sub">Arabic and foreign novels, translated chapter by chapter, set the way you read.</string>
+    <string name="ink_anime_title">Your stories, in motion</string>
+    <string name="ink_anime_sub">Your anime sources, what you are watching and your list.</string>
+    <string name="ink_sources">Sources</string>
+    <string name="ink_no_anime_sources">No anime source yet. Install one from Browse, Extensions, Anime.</string>
+    <string name="wn_novels_t">Novels, with translation</string>
+    <string name="wn_novels_b">A third side next to manhwa and anime: novel sources in IReader\'s format (Arabic and foreign), a novel page, a calm reader you set yourself, and a chapter translated with one tap.</string>
+    <string name="wn_logos_t">Five app icons and five openings</string>
+    <string name="wn_logos_b">Pick the home-screen icon and the opening in Settings, Appearance; set its speed or turn it off.</string>
 </resources>
