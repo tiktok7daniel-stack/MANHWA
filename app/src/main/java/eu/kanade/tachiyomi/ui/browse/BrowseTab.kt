@@ -64,21 +64,30 @@ data object BrowseTab : Tab {
         val extensionsSearchQuery by extensionsViewModel.searchQuery.collectAsStateWithLifecycle()
 
         // MANHWA anime: Sources and Extensions each have a manhwa side and an anime side, switched on top
-        var anime by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        // MANHWA: and novels, the third side
+        var kind by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(eu.kanade.tachiyomi.novel.KIND_MANGA) }
         val sources = sourcesTab()
         val extensions = extensionsTab(extensionsViewModel)
         val tabs = listOf(
             sources.copy(
                 content = { padding, snackbar ->
-                    eu.kanade.tachiyomi.anime.MangaAnimeSwitch(anime, { anime = it }, padding) { inner ->
-                        if (anime) eu.kanade.tachiyomi.anime.AnimeSourcesList(inner) else sources.content(inner, snackbar)
+                    eu.kanade.tachiyomi.novel.MediaSwitch(kind, { kind = it }, padding) { inner ->
+                        when (kind) {
+                            eu.kanade.tachiyomi.novel.KIND_ANIME -> eu.kanade.tachiyomi.anime.AnimeSourcesList(inner)
+                            eu.kanade.tachiyomi.novel.KIND_NOVEL -> eu.kanade.tachiyomi.novel.NovelSourcesList(inner)
+                            else -> sources.content(inner, snackbar)
+                        }
                     }
                 },
             ),
             extensions.copy(
                 content = { padding, snackbar ->
-                    eu.kanade.tachiyomi.anime.MangaAnimeSwitch(anime, { anime = it }, padding) { inner ->
-                        if (anime) eu.kanade.tachiyomi.anime.AnimeExtensionsList(inner, extensionsSearchQuery) else extensions.content(inner, snackbar)
+                    eu.kanade.tachiyomi.novel.MediaSwitch(kind, { kind = it }, padding) { inner ->
+                        when (kind) {
+                            eu.kanade.tachiyomi.novel.KIND_ANIME -> eu.kanade.tachiyomi.anime.AnimeExtensionsList(inner, extensionsSearchQuery)
+                            eu.kanade.tachiyomi.novel.KIND_NOVEL -> eu.kanade.tachiyomi.novel.NovelExtensionsList(inner, extensionsSearchQuery)
+                            else -> extensions.content(inner, snackbar)
+                        }
                     }
                 },
             ),

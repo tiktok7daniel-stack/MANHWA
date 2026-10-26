@@ -17,6 +17,14 @@
 -keep,allowoptimization class app.cash.quickjs.** { public protected *; }
 -keep,allowoptimization class uy.kohesive.injekt.** { public protected *; }
 -keep,allowoptimization class com.squareup.zstd.** { public protected *; }
+# MANHWA novels: what IReader novel extensions call into
+-keep class ireader.core.** { *; }
+-keep,allowoptimization class io.ktor.** { public protected *; }
+-keep,allowoptimization class com.fleeksoft.ksoup.** { public protected *; }
+-keep,allowoptimization class co.touchlab.kermit.** { public protected *; }
+-keep,allowoptimization class kotlinx.datetime.** { public protected *; }
+-dontwarn io.ktor.**
+-dontwarn org.slf4j.**
 
 -keepclassmembers class * implements java.io.Serializable {
     java.lang.Object writeReplace();

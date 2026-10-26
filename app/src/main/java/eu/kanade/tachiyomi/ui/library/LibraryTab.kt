@@ -119,7 +119,8 @@ data object LibraryTab : Tab {
             started
         }
 
-        var showAnime by rememberSaveable { mutableStateOf(false) }
+        // MANHWA: which side of the library is shown (manhwa, novels or anime)
+        var libKind by rememberSaveable { mutableStateOf(eu.kanade.tachiyomi.novel.KIND_MANGA) }
         Scaffold(
             topBar = { scrollBehavior ->
                 val title = state.getToolbarTitle(
@@ -179,8 +180,10 @@ data object LibraryTab : Tab {
                 top = outerPadding.calculateTopPadding() + LIBRARY_SWITCH_HEIGHT,
                 bottom = outerPadding.calculateBottomPadding(),
             )
-            if (showAnime) {
+            if (libKind == eu.kanade.tachiyomi.novel.KIND_ANIME) {
                 eu.kanade.tachiyomi.anime.AnimeLibraryContent(contentPadding, navigator)
+            } else if (libKind == eu.kanade.tachiyomi.novel.KIND_NOVEL) {
+                eu.kanade.tachiyomi.novel.NovelLibraryContent(contentPadding, navigator)
             } else when {
                 state.isLoading -> {
                     LoadingScreen(Modifier.padding(contentPadding))
@@ -249,8 +252,9 @@ data object LibraryTab : Tab {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                eu.kanade.presentation.components.ManhwaKit.Chip(stringResource(tachiyomi.i18n.at.ATMR.strings.library_manhwa), selected = !showAnime) { showAnime = false }
-                eu.kanade.presentation.components.ManhwaKit.Chip(stringResource(tachiyomi.i18n.at.ATMR.strings.library_anime), selected = showAnime) { showAnime = true }
+                eu.kanade.presentation.components.ManhwaKit.Chip(stringResource(tachiyomi.i18n.at.ATMR.strings.library_manhwa), selected = libKind == eu.kanade.tachiyomi.novel.KIND_MANGA) { libKind = eu.kanade.tachiyomi.novel.KIND_MANGA }
+                eu.kanade.presentation.components.ManhwaKit.Chip(stringResource(tachiyomi.i18n.at.ATMR.strings.novel_kind), selected = libKind == eu.kanade.tachiyomi.novel.KIND_NOVEL) { libKind = eu.kanade.tachiyomi.novel.KIND_NOVEL }
+                eu.kanade.presentation.components.ManhwaKit.Chip(stringResource(tachiyomi.i18n.at.ATMR.strings.library_anime), selected = libKind == eu.kanade.tachiyomi.novel.KIND_ANIME) { libKind = eu.kanade.tachiyomi.novel.KIND_ANIME }
             }
           }
         }

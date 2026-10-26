@@ -125,6 +125,8 @@ interface AppGraph : ViewModelGraph {
     val networkToLocalManga: tachiyomi.domain.manga.interactor.NetworkToLocalManga
     val animeExtensionManager: eu.kanade.tachiyomi.anime.AnimeExtensionManager
     val animeStore: eu.kanade.tachiyomi.anime.AnimeStore
+    val novelExtensionManager: eu.kanade.tachiyomi.novel.NovelExtensionManager
+    val novelStore: eu.kanade.tachiyomi.novel.NovelStore
     val upsertHistory: tachiyomi.domain.history.interactor.UpsertHistory
 
     val crashLogUtil: CrashLogUtil
