@@ -882,7 +882,7 @@ private fun PiperDownloads(language: String) {
             }
         }
     }
-    LaunchedEffect(Unit) { PiperVoices.refresh(context) }
+    LaunchedEffect(Unit) { withContext(kotlinx.coroutines.Dispatchers.IO) { PiperVoices.refresh(context) } }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(ATMR.strings.novel_piper_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         if (!PiperVoices.available) {
@@ -923,7 +923,7 @@ private fun PiperDownloads(language: String) {
                         stringResource(ATMR.strings.novel_piper_delete),
                         color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).clickable { PiperVoices.delete(context, voice.id) }.padding(8.dp),
+                        modifier = Modifier.clip(RoundedCornerShape(50)).clickable { scope.launch(kotlinx.coroutines.Dispatchers.IO) { PiperVoices.delete(context, voice.id) } }.padding(8.dp),
                     )
                     else -> Text(
                         stringResource(ATMR.strings.novel_piper_get),
@@ -965,7 +965,7 @@ private fun VoxVoicesCard() {
             }
         }
     }
-    LaunchedEffect(Unit) { VoxClones.refresh(context) }
+    LaunchedEffect(Unit) { withContext(kotlinx.coroutines.Dispatchers.IO) { VoxClones.refresh(context) } }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(ATMR.strings.novel_vox_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Text(stringResource(ATMR.strings.novel_vox_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -996,7 +996,7 @@ private fun VoxVoicesCard() {
                     stringResource(ATMR.strings.novel_piper_delete),
                     color = MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).clickable { VoxClones.delete(context, clone.id) }.padding(8.dp),
+                    modifier = Modifier.clip(RoundedCornerShape(50)).clickable { scope.launch(kotlinx.coroutines.Dispatchers.IO) { VoxClones.delete(context, clone.id) } }.padding(8.dp),
                 )
             }
         }

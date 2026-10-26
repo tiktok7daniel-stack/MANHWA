@@ -75,6 +75,9 @@ object PiperVoices {
     /** The folder-name prefix of the reader's own voices (imported from a file), so they never clash with the catalog. */
     private const val OWN = "my_"
 
+    /** The most an imported voice may unpack to. */
+    private const val MAX_IMPORT = 400L * 1024 * 1024
+
     /** The reader's own voices, imported from a file (see [importVoice]). */
     private val _own = MutableStateFlow<List<PiperVoice>>(emptyList())
     val own: StateFlow<List<PiperVoice>> = _own.asStateFlow()
@@ -122,6 +125,7 @@ object PiperVoices {
             staging.mkdirs()
             val base = staging.canonicalPath + File.separator
             val input = context.contentResolver.openInputStream(uri) ?: return@withContext null
+            var written = 0L
             ZipInputStream(input.buffered()).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
@@ -132,7 +136,17 @@ object PiperVoices {
                         out.mkdirs()
                     } else {
                         out.parentFile?.mkdirs()
-                        out.outputStream().use { zip.copyTo(it) }
+                        // A voice is a few hundred MB at most; a file that unpacks to more is not one
+                        out.outputStream().use { o ->
+                            val buf = ByteArray(64 * 1024)
+                            while (true) {
+                                val n = zip.read(buf)
+                                if (n < 0) break
+                                written += n
+                                if (written > MAX_IMPORT) return@withContext null
+                                o.write(buf, 0, n)
+                            }
+                        }
                     }
                 }
             }
@@ -149,7 +163,9 @@ object PiperVoices {
             val name = runCatching { JSONObject(File(inner, "voice.json").readText()).optString("name") }.getOrNull().orEmpty()
                 .ifBlank { uri.lastPathSegment.orEmpty().substringAfterLast('/').substringBeforeLast('.') }
                 .ifBlank { "voice" }
-            val id = OWN + name.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_').ifEmpty { "voice" }
+            // A short stamp keeps two voices with the same (or a non-Latin) name apart
+            val id = OWN + name.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_').ifEmpty { "voice" } + "_" +
+                System.currentTimeMillis().toString(36)
             val target = dir(context, id)
             release(id)
             target.deleteRecursively()

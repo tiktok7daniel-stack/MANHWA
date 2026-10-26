@@ -127,15 +127,15 @@ object VoxClones {
                         val entry = zip.nextEntry ?: break
                         if (entry.isDirectory) continue
                         when (entry.name.substringAfterLast('/').lowercase()) {
-                            "ref.wav" -> ref = zip.readBytes()
-                            "emb.bin" -> emb = zip.readBytes()
-                            "meta.txt" -> meta = zip.readBytes().toString(Charsets.UTF_8)
+                            "ref.wav" -> ref = readCapped(zip, MAX_WAV) ?: return@withContext null
+                            "emb.bin" -> emb = readCapped(zip, OpenVoice.EMB * 4)
+                            "meta.txt" -> meta = readCapped(zip, MAX_META)?.toString(Charsets.UTF_8)
                         }
                     }
                 }
             }
             val wav = ref
-            if (wav == null || wav.size <= 44 || wav.size > MAX_WAV) return@withContext null
+            if (wav == null || wav.size <= 44) return@withContext null
             val id = "v${System.currentTimeMillis()}"
             val dir = File(voicesDir(context), id).also { it.mkdirs() }
             File(dir, "ref.wav").writeBytes(wav)
@@ -148,6 +148,19 @@ object VoxClones {
             logcat(LogPriority.ERROR, e) { "Voice file not imported" }
             null
         }
+    }
+
+    /** The rest of the current zip entry, or null when it is longer than [max] bytes (nothing bigger is ever held). */
+    private fun readCapped(input: java.io.InputStream, max: Int): ByteArray? {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(16 * 1024)
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            if (out.size() + n > max) return null
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
     }
 
     fun delete(context: Context, id: String) {
@@ -199,15 +212,18 @@ object VoxClones {
         if (!folder.isDirectory || !OpenVoice.filesPresent(modelsDir(context))) return null
         val base = baseVoice(text) ?: return null
         return runCatching {
-            val ov = converter(context)
-            val emb = embeddingOf(folder, ov)
             val parts = ArrayList<FloatArray>()
             // A sentence at a time: the converter works on the whole clip at once, so short pieces keep memory and waiting small
             for (sentence in text.split(Regex("(?<=[.!?؟۔…\\n])\\s+")).filter { it.isNotBlank() }) {
+                // Piper speaks outside this object's lock (its own lock is taken there, and releaseAll takes both in that order)
                 val said = PiperVoices.generate(context, base, sentence, speed) ?: continue
                 val source = Resampler.resample(said.samples, said.sampleRate, OpenVoice.SR)
                 if (source.size < MIN_SAMPLES) continue
-                parts += ov.convert(source, emb, TAU)
+                // The converter is used under the same lock release() takes, so it is never closed while it works
+                parts += synchronized(this) {
+                    val ov = converter(context)
+                    ov.convert(source, embeddingOf(folder, ov), TAU)
+                }
             }
             if (parts.isEmpty()) return null
             val all = FloatArray(parts.sumOf { it.size })
@@ -236,4 +252,5 @@ object VoxClones {
 
     private const val MAX_WAV = 20 * 1024 * 1024
     private const val MIN_SAMPLES = 2048
+    private const val MAX_META = 64 * 1024
 }

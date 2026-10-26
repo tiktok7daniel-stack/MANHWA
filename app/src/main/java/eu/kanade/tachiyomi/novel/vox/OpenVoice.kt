@@ -24,9 +24,20 @@ class OpenVoice(dir: File) {
     private val converter: OrtSession
 
     init {
-        val opts = OrtSession.SessionOptions().apply { setIntraOpNumThreads(4) }
-        extractor = env.createSession(File(dir, "tone_extract.onnx").absolutePath, opts)
-        converter = env.createSession(File(dir, "tone_color.onnx").absolutePath, opts)
+        val opts = OrtSession.SessionOptions()
+        try {
+            opts.setIntraOpNumThreads(4)
+            extractor = env.createSession(File(dir, "tone_extract.onnx").absolutePath, opts)
+            // MANHWA: the first session is closed when the second one cannot be made, so it does not leak
+            converter = try {
+                env.createSession(File(dir, "tone_color.onnx").absolutePath, opts)
+            } catch (e: Exception) {
+                extractor.close()
+                throw e
+            }
+        } finally {
+            opts.close()
+        }
     }
 
     /** 256-float speaker (timbre) embedding of [audio], which must be mono 22.05 kHz in -1..1. */
