@@ -155,20 +155,25 @@ private val NOVA_TABS: List<Tab> get() = listOf(NovaHomeTab, HistoryTab, NovaTop
 @Composable
 fun NovaShell() {
     NovaTheme {
+        // The tab navigator only holds tabs; screens opened from inside a tab go on the app's navigator, as in the
+        // original home (pushing one on the tab navigator crashes it)
+        val navigator = LocalNavigator.currentOrThrow
         TabNavigator(tab = NovaHomeTab, key = "NovaTabs") { tabNavigator ->
-            Column(Modifier.fillMaxSize().background(NovaColors.Background)) {
-                Box(Modifier.weight(1f)) {
-                    AnimatedContent(
-                        targetState = tabNavigator.current,
-                        transitionSpec = { fadeIn() togetherWith fadeOut() },
-                        label = "novaTab",
-                    ) { tab ->
-                        tabNavigator.saveableState(key = "novaTab", tab) { tab.Content() }
+            androidx.compose.runtime.CompositionLocalProvider(LocalNavigator provides navigator) {
+                Column(Modifier.fillMaxSize().background(NovaColors.Background)) {
+                    Box(Modifier.weight(1f)) {
+                        AnimatedContent(
+                            targetState = tabNavigator.current,
+                            transitionSpec = { fadeIn() togetherWith fadeOut() },
+                            label = "novaTab",
+                        ) { tab ->
+                            tabNavigator.saveableState(key = "novaTab", tab) { tab.Content() }
+                        }
                     }
+                    NovaBottomBar()
                 }
-                NovaBottomBar()
+                BackHandler(enabled = tabNavigator.current != NovaHomeTab) { tabNavigator.current = NovaHomeTab }
             }
-            BackHandler(enabled = tabNavigator.current != NovaHomeTab) { tabNavigator.current = NovaHomeTab }
         }
     }
 }
