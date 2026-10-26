@@ -5,13 +5,11 @@
 > "اعمل بيلد نهائي"، وساعتها يتشغّل workflow `build_branch.yml` يدوي (workflow_dispatch) على الفرع، ولو نجح
 > يتدمج في main ويتبعت لينك arm64، ومعاه ملخص بكل اللي في القائمة دي، وبعدها القائمة تتمسح.
 >
-> آخر بيلد نهائي: **البناء 142** (commit `2df08bf26`، 26 أكتوبر)، والـ APK: https://github.com/tiktok7daniel-stack/MANHWA/releases/download/build-142/MANHWA-build-142-arm64.apk. فيه الروايات بصوتك: استيراد ملف `.voxvoice.zip` من VoxGate، واستيراد نموذج Piper من zip، وزرار "افتح VoxGate". البناء 140 كان فيه الاستماع للروايات وأصوات Piper.
+> آخر بيلد نهائي: **البناء 143** (commit `7dacf77df`، 26 أكتوبر)، والـ APK: https://github.com/tiktok7daniel-stack/MANHWA/releases/download/build-143/MANHWA-build-143-arm64.apk. فيه إصلاح محرك Piper (sherpa-onnx بـ ONNX Runtime جواه، فبيتحمّل على الموبايل)، فأصوات Piper وأصواتك من VoxGate بقت تقدر تشتغل. البناء 142 كان فيه استيراد صوت VoxGate.
 
 ## مستني البناء النهائي
 
-- **إصلاح "This build has no Piper engine" (أصوات Piper وأصواتي من VoxGate ما كانتش بتشتغل خالص):**
-  - **السبب:** مكتبة sherpa-onnx اللي بتتحط في البناء كانت النسخة اللي بتطلب ONNX Runtime منفصل بإصدار 1.17 (`VERS_1.17.1`). من البناء 140 اتشالت نسختها، والتطبيق فيه ONNX Runtime 1.22 بس، فالمكتبة ما كانتش بتتحمّل على الموبايل (`System.loadLibrary` بيفشل). البناء كان بينجح عادي لأن الخطأ بيحصل وقت التشغيل.
-  - **الحل:** `build_branch.yml` بقى بيحط نسخة sherpa-onnx 1.12.14 اللي ONNX Runtime مربوط جواها (`android-static-link-onnxruntime`)، ودي مش محتاجة `libonnxruntime.so` خالص. وفيه فحص بيوقف الخطوة لو المكتبة طلبته.
+(مفيش حاجة لسه.)
 
 ## الجاي للأنمي
 
