@@ -113,11 +113,16 @@ class NovelStore(
         _novels.value = next.novels
         _progress.value = next.progress
         _settings.value = next.settings
-        runCatching {
-            root.mkdirs()
-            file.writeTextAtomic(json.encodeToString(NovelData.serializer(), next))
-        }.onFailure { logcat(LogPriority.ERROR, it) { "Novel data not saved" } }
+        // Written off the main thread, one write after the other, so reading never waits on the disk
+        writer.execute {
+            runCatching {
+                root.mkdirs()
+                file.writeTextAtomic(json.encodeToString(NovelData.serializer(), next))
+            }.onFailure { logcat(LogPriority.ERROR, it) { "Novel data not saved" } }
+        }
     }
+
+    private val writer = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     fun entry(sourceId: Long, url: String): NovelEntry? = _novels.value[key(sourceId, url)]
 
