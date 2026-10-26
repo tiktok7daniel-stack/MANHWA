@@ -60,7 +60,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -153,9 +152,12 @@ fun NovaTheme(content: @Composable () -> Unit) {
 
 private val NOVA_TABS: List<Tab> get() = listOf(NovaHomeTab, HistoryTab, NovaTopTab, LibraryTab, MoreTab)
 
-/** The whole Nova app: its tabs and its bottom bar. */
+/**
+ * The whole Nova app: its tabs and its bottom bar. The bar steps aside while [showBar] is off (the library choosing
+ * series), and [events] is handed the tabs so requests from outside the app (notifications, shortcuts) reach them.
+ */
 @Composable
-fun NovaShell() {
+fun NovaShell(showBar: Boolean = true, events: @Composable (TabNavigator) -> Unit = {}) {
     NovaTheme {
         // The tab navigator only holds tabs; screens opened from inside a tab go on the app's navigator, as in the
         // original home (pushing one on the tab navigator crashes it)
@@ -172,8 +174,13 @@ fun NovaShell() {
                             tabNavigator.saveableState(key = "novaTab", tab) { tab.Content() }
                         }
                     }
-                    NovaBottomBar()
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showBar,
+                        enter = androidx.compose.animation.expandVertically() + fadeIn(),
+                        exit = androidx.compose.animation.shrinkVertically() + fadeOut(),
+                    ) { NovaBottomBar() }
                 }
+                events(tabNavigator)
                 BackHandler(enabled = tabNavigator.current != NovaHomeTab) { tabNavigator.current = NovaHomeTab }
             }
         }
@@ -338,20 +345,9 @@ private fun NovaHome() {
                 Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // The app's own logo, on a deep slate-to-blue tile
-                Box(
-                    Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(13.dp))
-                        .background(Brush.linearGradient(listOf(Color(0xFF0B1220), NovaColors.Blue))),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(eu.kanade.tachiyomi.R.drawable.manhwa_logo),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize().padding(2.dp),
-                    )
-                }
+                // The logo the reader picked, as its home-screen icon looks
+                val logoName by graph.uiPreferences.logoStyle.collectPref()
+                eu.kanade.tachiyomi.ui.main.brand.LogoTile(eu.kanade.tachiyomi.ui.main.brand.AppLogo.of(logoName), 44.dp)
                 Spacer(Modifier.width(12.dp))
                 Text(
                     "MANHWA",
@@ -404,7 +400,10 @@ private fun NovaHome() {
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(MaterialSymbols.Rounded.Storage, null, tint = NovaColors.Blue, modifier = Modifier.size(20.dp))
+                eu.kanade.presentation.browse.components.SourceIcon(
+                    source = tachiyomi.domain.source.model.Source(source.id, source.lang, source.name, source.supportsLatest, isStub = false),
+                    modifier = Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)),
+                )
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(ATMR.strings.nova_server, source.name), color = NovaColors.Ink, fontWeight = FontWeight.Bold, maxLines = 1)
                 Spacer(Modifier.width(6.dp))
@@ -490,6 +489,11 @@ private fun NovaFeed(source: CatalogueSource, latest: Boolean, grid: Boolean, on
     }
     LaunchedEffect(key) { if (feed.items.isEmpty()) more() }
     val padding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 96.dp)
+    // The first page on its way: grey shapes of the covers to come, breathing, instead of an empty screen
+    if (feed.items.isEmpty() && feed.loading) {
+        NovaSkeleton(grid, padding)
+        return
+    }
     if (grid) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -538,6 +542,43 @@ private fun NovaFeed(source: CatalogueSource, latest: Boolean, grid: Boolean, on
                 }
             }
             item { FeedFooter(feed) { more() } }
+        }
+    }
+}
+
+@Composable
+private fun NovaSkeleton(grid: Boolean, padding: PaddingValues) {
+    val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "novaSkeleton").animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.75f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(800),
+            androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "novaSkeletonPulse",
+    )
+    val shade = NovaColors.Raised
+    if (grid) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            contentPadding = padding,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            userScrollEnabled = false,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            items(12) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.fillMaxWidth().aspectRatio(0.72f).clip(RoundedCornerShape(16.dp)).graphicsLayer { alpha = pulse }.background(shade))
+                    Box(Modifier.fillMaxWidth(0.7f).height(10.dp).align(Alignment.CenterHorizontally).clip(RoundedCornerShape(5.dp)).graphicsLayer { alpha = pulse }.background(shade))
+                }
+            }
+        }
+    } else {
+        LazyColumn(contentPadding = padding, verticalArrangement = Arrangement.spacedBy(12.dp), userScrollEnabled = false, modifier = Modifier.fillMaxSize()) {
+            items(6) {
+                Box(Modifier.fillMaxWidth().height(124.dp).clip(RoundedCornerShape(18.dp)).graphicsLayer { alpha = pulse }.background(shade))
+            }
         }
     }
 }
@@ -659,11 +700,16 @@ private fun NovaSourceSheet(
                             .padding(vertical = 10.dp, horizontal = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        // The source's own extension icon, as Browse shows it
                         Box(
-                            Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(NovaColors.Raised),
+                            Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(NovaColors.Raised)
+                                .border(1.dp, if (on) NovaColors.Blue else Color.White.copy(alpha = 0.06f), RoundedCornerShape(14.dp)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(source.name.take(2).uppercase(), color = NovaColors.Blue, fontWeight = FontWeight.Black)
+                            eu.kanade.presentation.browse.components.SourceIcon(
+                                source = tachiyomi.domain.source.model.Source(source.id, source.lang, source.name, source.supportsLatest, isStub = false),
+                                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)),
+                            )
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {

@@ -53,6 +53,15 @@ object SettingsAppearanceScreen : SearchableSettings {
                     },
                 ),
             ),
+            // MANHWA: the home-screen icon and the opening
+            Preference.PreferenceGroup(
+                title = stringResource(ATMR.strings.logo_title),
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.CustomPreference(title = stringResource(ATMR.strings.logo_title)) {
+                        eu.kanade.tachiyomi.ui.main.brand.LogoSettings()
+                    },
+                ),
+            ),
             getThemeGroup(uiPreferences = uiPreferences),
             getHomeGroup(uiPreferences = uiPreferences),
             getDisplayGroup(uiPreferences = uiPreferences),

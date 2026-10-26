@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MANHWA launcher icon "neon": the logo inside the adaptive icon's safe zone -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/manhwa_logo_neon"
+    android:insetLeft="24dp"
+    android:insetRight="24dp"
+    android:insetTop="39.5dp"
+    android:insetBottom="39.5dp" />

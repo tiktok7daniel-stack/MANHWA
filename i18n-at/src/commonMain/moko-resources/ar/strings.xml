@@ -1377,4 +1377,21 @@
     <string name="nova_search_chapter">ابحث برقم الفصل…</string>
     <string name="nova_newest_first">الأحدث</string>
     <string name="nova_oldest_first">الأقدم</string>
+    <string name="logo_title">أيقونة التطبيق والدخول</string>
+    <string name="logo_classic">قرمزي</string>
+    <string name="logo_nova">نوفا</string>
+    <string name="logo_gold">ذهبي</string>
+    <string name="logo_neon">نيون</string>
+    <string name="logo_paper">ورقي</string>
+    <string name="logo_changed">الأيقونة اتغيرت، وهتظهر على الشاشة الرئيسية بعد ثواني. لو اختفت، ضيفها تاني من قائمة التطبيقات.</string>
+    <string name="intro_title">الدخول</string>
+    <string name="intro_auto">بتاع اللوجو</string>
+    <string name="intro_rift">الشق</string>
+    <string name="intro_bloom">التوهج</string>
+    <string name="intro_glitch">التشويش</string>
+    <string name="intro_orbit">المدار</string>
+    <string name="intro_rise">الصعود</string>
+    <string name="intro_enabled">شغّل الدخول لما التطبيق يفتح</string>
+    <string name="intro_speed">سرعة الدخول: %1$sx</string>
+    <string name="intro_preview">شغّله دلوقتي</string>
 </resources>

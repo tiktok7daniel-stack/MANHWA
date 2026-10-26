@@ -44,6 +44,12 @@ class UiPreferences(
     /** The source Nova's home shows (its "server"), -1 until the reader picks one. */
     val novaSourceId: Preference<Long> = preferenceStore.getLong("manhwa_nova_source", -1L)
 
+    // MANHWA: the home-screen icon, the opening that plays on a cold start, and how it plays
+    val logoStyle: Preference<String> = preferenceStore.getString("manhwa_logo_style", "CLASSIC")
+    val introStyle: Preference<String> = preferenceStore.getString("manhwa_intro_style", "AUTO")
+    val introEnabled: Preference<Boolean> = preferenceStore.getBoolean("manhwa_intro_enabled", true)
+    val introSpeed: Preference<Float> = preferenceStore.getFloat("manhwa_intro_speed", 1f)
+
     /** Obsidian Royal in its light version (silk paper) instead of the dark one. */
     val manhwaStyleLight: Preference<Boolean> = preferenceStore.getBoolean("manhwa_style_light", false)
 

@@ -1436,4 +1436,21 @@
     <string name="nova_search_chapter">Search by chapter number…</string>
     <string name="nova_newest_first">Newest</string>
     <string name="nova_oldest_first">Oldest</string>
+    <string name="logo_title">App icon and opening</string>
+    <string name="logo_classic">Crimson</string>
+    <string name="logo_nova">Nova</string>
+    <string name="logo_gold">Gold</string>
+    <string name="logo_neon">Neon</string>
+    <string name="logo_paper">Paper</string>
+    <string name="logo_changed">Icon changed. The home screen shows it in a few seconds; if it vanishes, add it again from the app drawer.</string>
+    <string name="intro_title">Opening</string>
+    <string name="intro_auto">The logo's own</string>
+    <string name="intro_rift">Rift</string>
+    <string name="intro_bloom">Bloom</string>
+    <string name="intro_glitch">Glitch</string>
+    <string name="intro_orbit">Orbit</string>
+    <string name="intro_rise">Rise</string>
+    <string name="intro_enabled">Play the opening when the app starts</string>
+    <string name="intro_speed">Opening speed: %1$sx</string>
+    <string name="intro_preview">Play it now</string>
 </resources>

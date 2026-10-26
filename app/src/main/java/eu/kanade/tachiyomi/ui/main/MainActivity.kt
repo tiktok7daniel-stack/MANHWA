@@ -222,7 +222,9 @@ class MainActivity : BaseActivity() {
             val context = LocalContext.current
 
             var incognito by remember { mutableStateOf(false) }
-            var showIntro by rememberSaveable { mutableStateOf(isLaunch) }
+            val ui = remember { context.appGraph.uiPreferences }
+            // MANHWA: the opening plays on a cold start unless the reader turned it off
+            var showIntro by rememberSaveable { mutableStateOf(isLaunch && ui.introEnabled.get()) }
             val downloadOnly by preferences.downloadedOnly.collectAsState()
             val indexing by downloadCache.isInitializing.collectAsState()
 
@@ -318,7 +320,13 @@ class MainActivity : BaseActivity() {
                             // The opening replaces the wait: let the system splash go at once
                             LaunchedEffect(Unit) { ready = true }
                             val started by splashGone.collectAsState()
-                            ManhwaIntro(started = started, onFinished = { showIntro = false })
+                            eu.kanade.tachiyomi.ui.main.brand.LogoIntro(
+                                style = eu.kanade.tachiyomi.ui.main.brand.IntroStyle.of(ui.introStyle.get()),
+                                logo = eu.kanade.tachiyomi.ui.main.brand.AppLogo.of(ui.logoStyle.get()),
+                                speed = ui.introSpeed.get(),
+                                started = started,
+                                onFinished = { showIntro = false },
+                            )
                         }
                     }
                 }

@@ -133,7 +133,13 @@ object HomeScreen : Screen() {
         // MANHWA: this screen follows the chosen style (and its light version)
         // MANHWA: the second system is a whole app of its own (its home, tabs and bar)
         if (eu.kanade.tachiyomi.ui.nova.rememberAppSystem() == eu.kanade.tachiyomi.ui.nova.AppSystem.NOVA) {
-            eu.kanade.tachiyomi.ui.nova.NovaShell()
+            // Nova answers the same requests as the original home: open a tab, search the library, hide the bar
+            val navigator = LocalNavigator.currentOrThrow
+            var showBar by remember { mutableStateOf(true) }
+            LaunchedEffect(Unit) { showBottomNavEvent.receiveAsFlow().collectLatest { showBar = it } }
+            eu.kanade.tachiyomi.ui.nova.NovaShell(showBar = showBar) { tabNavigator ->
+                TabEvents(tabNavigator, navigator, home = eu.kanade.tachiyomi.ui.nova.NovaHomeTab)
+            }
             return
         }
         eu.kanade.presentation.components.ManhwaStyledScreen { HomeContent() }
@@ -226,41 +232,50 @@ object HomeScreen : Screen() {
                 }
             }
 
-            val goToLibraryTab = { tabNavigator.current = LibraryTab }
-
             BackHandler(enabled = tabNavigator.current != DiscoverTab, onBack = { tabNavigator.current = DiscoverTab })
 
-            LaunchedEffect(Unit) {
-                launch {
-                    librarySearchEvent.receiveAsFlow().collectLatest {
-                        goToLibraryTab()
-                        LibraryTab.search(it)
-                    }
-                }
-                launch {
-                    openTabEvent.receiveAsFlow().collectLatest {
-                        tabNavigator.current = when (it) {
-                            is Tab.Library -> LibraryTab
-                            Tab.Updates -> DiscoverTab
-                            Tab.History -> HistoryTab
-                            is Tab.Browse -> {
-                                if (it.toExtensions) {
-                                    BrowseTab.showExtension()
-                                }
-                                BrowseTab
-                            }
-                            is Tab.More -> MoreTab
-                        }
+            TabEvents(tabNavigator, navigator, home = DiscoverTab)
+        }
+    }
 
-                        if (it is Tab.Library && it.mangaIdToOpen != null) {
-                            navigator.push(MangaScreen(it.mangaIdToOpen))
+    /** The requests from outside a home (a notification, a shortcut, the library's search) acted on in [tabNavigator]. */
+    @Composable
+    private fun TabEvents(
+        tabNavigator: TabNavigator,
+        navigator: cafe.adriel.voyager.navigator.Navigator,
+        home: cafe.adriel.voyager.navigator.tab.Tab,
+    ) {
+        val goToLibraryTab = { tabNavigator.current = LibraryTab }
+        LaunchedEffect(Unit) {
+            launch {
+                librarySearchEvent.receiveAsFlow().collectLatest {
+                    goToLibraryTab()
+                    LibraryTab.search(it)
+                }
+            }
+            launch {
+                openTabEvent.receiveAsFlow().collectLatest {
+                    tabNavigator.current = when (it) {
+                        is Tab.Library -> LibraryTab
+                        Tab.Updates -> home
+                        Tab.History -> HistoryTab
+                        is Tab.Browse -> {
+                            if (it.toExtensions) {
+                                BrowseTab.showExtension()
+                            }
+                            BrowseTab
                         }
-                        if (it == Tab.Updates) {
-                            navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen())
-                        }
-                        if (it is Tab.More && it.toDownloads) {
-                            navigator.push(DownloadQueueScreen)
-                        }
+                        is Tab.More -> MoreTab
+                    }
+
+                    if (it is Tab.Library && it.mangaIdToOpen != null) {
+                        navigator.push(MangaScreen(it.mangaIdToOpen))
+                    }
+                    if (it == Tab.Updates) {
+                        navigator.push(eu.kanade.tachiyomi.ui.home.fresh.FreshChaptersScreen())
+                    }
+                    if (it is Tab.More && it.toDownloads) {
+                        navigator.push(DownloadQueueScreen)
                     }
                 }
             }
