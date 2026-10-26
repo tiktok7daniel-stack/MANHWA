@@ -1539,6 +1539,7 @@
     <string name="novel_voice_engine_default">Phone default</string>
     <string name="novel_voice_engine_hint">Open-source voices: install SherpaTTS (free, from F-Droid), pick its voices there (Piper: Arabic and many English ones), then choose it here. It works offline once a voice is downloaded.</string>
     <string name="novel_voice_get_sherpa">Get SherpaTTS (open source)</string>
+    <string name="novel_voice_open_voxgate">Open VoxGate (your cloned voices)</string>
     <string name="novel_voice_engine_piper">Piper (in the app)</string>
     <string name="novel_piper_failed">The voice could not be downloaded.</string>
     <string name="novel_piper_title">Piper voices</string>

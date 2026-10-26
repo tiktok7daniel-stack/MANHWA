@@ -759,6 +759,11 @@ private fun VoiceSettings(
                     }
                 }
                 Text(stringResource(ATMR.strings.novel_voice_engine_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // VoxGate (the reader's own voice-cloning app): its saved voices show up here as voices of its engine
+                val voxGate = remember { context.packageManager.getLaunchIntentForPackage("com.voxgate.app") }
+                if (voxGate != null) ManhwaKit.GhostButton(stringResource(ATMR.strings.novel_voice_open_voxgate)) {
+                    runCatching { context.startActivity(voxGate.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                }
                 if (settings.ttsEngine != NovelSpeaker.PIPER) ManhwaKit.GhostButton(stringResource(ATMR.strings.novel_voice_get_sherpa)) {
                     runCatching {
                         context.startActivity(

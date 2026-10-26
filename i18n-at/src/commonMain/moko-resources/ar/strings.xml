@@ -1480,6 +1480,7 @@
     <string name="novel_voice_engine_default">الافتراضي بتاع الموبايل</string>
     <string name="novel_voice_engine_hint">أصوات مفتوحة المصدر: سطّب SherpaTTS (مجاني من F-Droid)، ونزّل منه الأصوات اللي تعجبك (أصوات Piper: عربي وإنجليزي كتير)، وبعدين اختاره من هنا. بعد ما الصوت يتنزّل بيشتغل من غير نت.</string>
     <string name="novel_voice_get_sherpa">نزّل SherpaTTS (مفتوح المصدر)</string>
+    <string name="novel_voice_open_voxgate">افتح VoxGate (أصواتك المستنسخة)</string>
     <string name="novel_voice_engine_piper">Piper (جوه التطبيق)</string>
     <string name="novel_piper_failed">الصوت ماتنزّلش.</string>
     <string name="novel_piper_title">أصوات Piper</string>
