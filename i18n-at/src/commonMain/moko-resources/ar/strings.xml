@@ -708,6 +708,7 @@
     <string name="quality_save">احفظ التصحيح</string>
     <string name="hud_quality">الجودة</string>
     <string name="hud_speak">اقرا بصوت</string>
+    <string name="hud_speak_follow">اقرا معايا</string>
     <string name="hud_speak_missing">الموبايل مفيهوش صوت عربي. نزّل واحد من إعدادات تحويل النص لكلام.</string>
     <string name="glossary_exported">القاموس اتحفظ</string>
     <string name="glossary_imported">اتحمّل %1$d مصطلح، والترجمات اللي في الملف بقت هي المعتمدة</string>

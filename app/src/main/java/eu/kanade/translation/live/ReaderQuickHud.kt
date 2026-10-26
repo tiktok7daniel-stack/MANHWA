@@ -63,6 +63,7 @@ import mihon.icons.materialsymbols.rounded.VisibilityOff
 import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import mihon.icons.materialsymbols.rounded.RecordVoiceOver
+import mihon.icons.materialsymbols.rounded.Headphones
 import mihon.icons.materialsymbols.rounded.PictureInPictureAlt
 import mihon.icons.materialsymbols.rounded.School
 import mihon.icons.materialsymbols.rounded.Verified
@@ -99,6 +100,9 @@ fun ReaderQuickHud(
     onQuality: () -> Unit = {},
     speaking: Boolean = false,
     onSpeak: () -> Unit = {},
+    /** MANHWA: the bubbles read aloud by themselves as the reader moves through the chapter. */
+    speakFollow: Boolean = false,
+    onSpeakFollow: (Boolean) -> Unit = {},
     onStudy: () -> Unit = {},
     /** MANHWA: the reader in its small window over other apps (null when the phone can't). */
     onPip: (() -> Unit)? = null,
@@ -152,6 +156,7 @@ fun ReaderQuickHud(
                     fast,
                 ) { fastPref.set(!fast) }
                 HudButton(MaterialSymbols.Rounded.RecordVoiceOver, stringResource(ATMR.strings.hud_speak), speaking) { onSpeak() }
+                HudButton(MaterialSymbols.Rounded.Headphones, stringResource(ATMR.strings.hud_speak_follow), speakFollow) { onSpeakFollow(!speakFollow) }
                 HudButton(MaterialSymbols.Rounded.School, stringResource(ATMR.strings.hud_study), false) {
                     onDismiss()
                     onStudy()

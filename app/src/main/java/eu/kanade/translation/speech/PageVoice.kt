@@ -116,6 +116,18 @@ class PageVoice(context: Context) {
 
     enum class Problem { NO_ENGINE, NO_VOICE, OCR_MODELS, OCR_FAILED, NOT_TRANSLATED }
 
+    private var lastProblem: Problem? = null
+    private var lastProblemAt = 0L
+
+    /** Tells the reader once: the same problem on page after page (reading along) is not repeated for a minute. */
+    private fun report(problem: Problem) {
+        val now = System.currentTimeMillis()
+        if (problem == lastProblem && now - lastProblemAt < PROBLEM_QUIET_MS) return
+        lastProblem = problem
+        lastProblemAt = now
+        onProblem?.invoke(problem)
+    }
+
     private var speaker: NovelSpeaker? = null
     private var speakerEngine: String? = null
     private var job: Job? = null
@@ -152,14 +164,14 @@ class PageVoice(context: Context) {
             val voice = speakerFor(s.ttsEngine)
             val state = withTimeoutOrNull(ENGINE_WAIT_MS) { voice.state.first { it.ready || it.failed } }
             if (state == null || !state.ready) {
-                onProblem?.invoke(Problem.NO_ENGINE)
+                report(Problem.NO_ENGINE)
                 return@launch stop()
             }
             val language = if (bubbles.any { PageSpeechRules.isArabic(it) }) "ar" else "en"
             val voices = voice.voices(language)
             // Piper says nothing without a voice of the language on the phone: better to say so than skip every page
             if (s.ttsEngine == NovelSpeaker.PIPER && voices.isEmpty()) {
-                onProblem?.invoke(Problem.NO_VOICE)
+                report(Problem.NO_VOICE)
                 return@launch stop()
             }
             val narrator = s.voiceNarrator.takeIf { id -> voices.any { it.id == id } }
@@ -190,24 +202,24 @@ class PageVoice(context: Context) {
         // No translation: the picture is read in Arabic, when the work is in Arabic (another script would read as noise)
         val lang = sourceLanguage()
         if (lang != null && lang != "ar" && lang !in ANY_LANGUAGE) {
-            if (!quiet) onProblem?.invoke(Problem.NOT_TRANSLATED)
+            if (!quiet) report(Problem.NOT_TRANSLATED)
             return null
         }
         if (!OcrModels.ready(app, OcrModels.Pack.ARABIC)) {
             if (quiet) return null
-            onProblem?.invoke(Problem.OCR_MODELS)
+            report(Problem.OCR_MODELS)
             OcrModels.download(app, OcrModels.Pack.ARABIC)
             withTimeoutOrNull(OCR_DOWNLOAD_WAIT_MS) {
                 OcrModels.status.first { it[OcrModels.Pack.ARABIC] is OcrModels.Status.Ready || it[OcrModels.Pack.ARABIC] is OcrModels.Status.Failed }
             }
             if (!OcrModels.ready(app, OcrModels.Pack.ARABIC)) {
-                onProblem?.invoke(Problem.OCR_FAILED)
+                report(Problem.OCR_FAILED)
                 return null
             }
         }
         val lines = withContext(Dispatchers.Default) { HeavyWork.reader { readPicture(page) } }
         if (lines == null) {
-            if (!quiet) onProblem?.invoke(Problem.OCR_FAILED)
+            if (!quiet) report(Problem.OCR_FAILED)
             return null
         }
         return PageSpeechRules.bubbles(lines).also { cache[key] = it }
@@ -268,6 +280,7 @@ class PageVoice(context: Context) {
         const val OCR_DOWNLOAD_WAIT_MS = 180_000L
         const val BAND_RATIO = 1.5f
         const val OVERLAP = 160
+        const val PROBLEM_QUIET_MS = 60_000L
         val ANY_LANGUAGE = setOf("", "all", "other", "multi")
     }
 }

@@ -767,6 +767,7 @@
     <string name="quality_save">Save correction</string>
     <string name="hud_quality">Quality</string>
     <string name="hud_speak">Read aloud</string>
+    <string name="hud_speak_follow">Read along</string>
     <string name="hud_speak_missing">The phone has no Arabic voice. Install one in the phone\'s text-to-speech settings.</string>
     <string name="glossary_exported">Glossary saved</string>
     <string name="glossary_imported">%1$d terms imported; the file\'s translations now apply</string>

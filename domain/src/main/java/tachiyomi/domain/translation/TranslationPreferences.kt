@@ -109,6 +109,9 @@ class TranslationPreferences(
     /** MANHWA fast translation (like Google Lens): OCR straight to machine translation, no AI. Off by default. */
     fun translationFastMode() = preferenceStore.getBoolean("manhwa_translation_fast_mode", false)
 
+    /** MANHWA: reads the bubbles of every page aloud by itself while the reader reads the chapter (off by default). */
+    fun readerSpeakFollow() = preferenceStore.getBoolean("manhwa_reader_speak_follow", false)
+
     /** The engine fast translation tries first (FastTranslatorRules.Engine ordinal; 0 = automatic). */
     fun translationFastEngine() = preferenceStore.getInt("manhwa_translation_fast_engine", 0)
 
