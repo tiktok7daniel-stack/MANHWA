@@ -1444,7 +1444,7 @@
     <string name="logo_paper">Paper</string>
     <string name="logo_changed">Icon changed. The home screen shows it in a few seconds; if it vanishes, add it again from the app drawer.</string>
     <string name="intro_title">Opening</string>
-    <string name="intro_auto">The logo's own</string>
+    <string name="intro_auto">The logo\'s own</string>
     <string name="intro_rift">Rift</string>
     <string name="intro_bloom">Bloom</string>
     <string name="intro_glitch">Glitch</string>
