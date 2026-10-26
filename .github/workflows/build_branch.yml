@@ -45,6 +45,20 @@ jobs:
             echo "keyPassword=manhwadev"
           } > keystore.properties
 
+      # MANHWA novels: the Piper voice engine (sherpa-onnx, Apache-2.0) for the phone's ABI, from its official release.
+      # Without it the app still builds; listening with Piper then says it is not in this build.
+      - name: Add the Piper engine (sherpa-onnx)
+        continue-on-error: true
+        run: |
+          set -e
+          V=1.12.14
+          curl -fsSL -o sherpa.tar.bz2 "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$V/sherpa-onnx-v$V-android.tar.bz2"
+          mkdir -p sherpa && tar xjf sherpa.tar.bz2 -C sherpa
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp sherpa/jniLibs/arm64-v8a/*.so app/src/main/jniLibs/arm64-v8a/
+          ls -lh app/src/main/jniLibs/arm64-v8a
+          echo "PIPER_LIBS_ADDED"
+
       - name: Build debug APK
         run: |
           set -o pipefail

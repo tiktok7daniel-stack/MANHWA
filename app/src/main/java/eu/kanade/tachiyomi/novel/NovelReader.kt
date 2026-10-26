@@ -250,7 +250,7 @@ class NovelReaderScreen(
                     language = language,
                     rate = settings.ttsRate,
                     pitch = settings.ttsPitch,
-                    voiceFor = { role -> pickVoice(voices, settings, role) },
+                    voiceFor = { role -> pickVoice(voices, settings, role)?.id },
                     onFinished = {
                         scope.launch {
                             val next = chapters.getOrNull(chapters.indexOfFirst { it.key == current } + 1)
@@ -653,14 +653,20 @@ private fun same(a: String, b: String): Boolean {
  * The voice of [role]: the one the reader picked, or else one chosen so the narrator, the men and the women each
  * sound different when the phone has enough voices.
  */
-internal fun pickVoice(voices: List<android.speech.tts.Voice>, settings: NovelReaderSettings, role: Role): android.speech.tts.Voice? {
+internal fun pickVoice(voices: List<VoiceOption>, settings: NovelReaderSettings, role: Role): VoiceOption? {
     if (voices.isEmpty()) return null
     val picked = when (role) {
         Role.NARRATOR -> settings.voiceNarrator
         Role.MALE -> settings.voiceMale
         Role.FEMALE -> settings.voiceFemale
     }
-    voices.firstOrNull { it.name == picked }?.let { return it }
+    voices.firstOrNull { it.id == picked }?.let { return it }
+    // Voices that say who they sound like (Piper's) go to the matching role
+    when (role) {
+        Role.MALE -> voices.drop(1).firstOrNull { it.female == false }?.let { return it }
+        Role.FEMALE -> voices.firstOrNull { it.female == true }?.let { return it }
+        Role.NARRATOR -> Unit
+    }
     val slot = when (role) {
         Role.NARRATOR -> 0
         Role.MALE -> 1
@@ -726,7 +732,8 @@ private fun VoiceSettings(
 ) {
     val context = LocalContext.current
     val speak by speaker.state.collectAsState()
-    val voices = remember(speak.ready, language) { speaker.voices(language) }
+    val piperInstalled by PiperVoices.installed.collectAsState()
+    val voices = remember(speak.ready, language, piperInstalled) { speaker.voices(language) }
     val sample = stringResource(if (language == "ar") ATMR.strings.novel_voice_sample_ar else ATMR.strings.novel_voice_sample_en)
     androidx.compose.foundation.lazy.LazyColumn(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -743,12 +750,16 @@ private fun VoiceSettings(
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(ATMR.strings.novel_voice_engine), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(listOf("" to stringResource(ATMR.strings.novel_voice_engine_default)) + engines) { (pkg, label) ->
+                    val all = listOf(
+                        "" to stringResource(ATMR.strings.novel_voice_engine_default),
+                        NovelSpeaker.PIPER to stringResource(ATMR.strings.novel_voice_engine_piper),
+                    ) + engines
+                    items(all) { (pkg, label) ->
                         ManhwaKit.Chip(label, selected = settings.ttsEngine == pkg) { onChange { s -> s.copy(ttsEngine = pkg, voiceNarrator = "", voiceMale = "", voiceFemale = "") } }
                     }
                 }
                 Text(stringResource(ATMR.strings.novel_voice_engine_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ManhwaKit.GhostButton(stringResource(ATMR.strings.novel_voice_get_sherpa)) {
+                if (settings.ttsEngine != NovelSpeaker.PIPER) ManhwaKit.GhostButton(stringResource(ATMR.strings.novel_voice_get_sherpa)) {
                     runCatching {
                         context.startActivity(
                             android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://f-droid.org/packages/org.woheller69.ttsengine/"))
@@ -758,7 +769,11 @@ private fun VoiceSettings(
                 }
             }
         }
-        if (voices.isEmpty()) {
+        // Piper's voices, downloaded once each (Arabic and English, men and women)
+        if (settings.ttsEngine == NovelSpeaker.PIPER) {
+            item(key = "piper") { PiperDownloads(language) }
+        }
+        if (voices.isEmpty() && settings.ttsEngine != NovelSpeaker.PIPER) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(stringResource(if (speak.ready) ATMR.strings.novel_voices_none else ATMR.strings.novel_voices_loading))
@@ -786,8 +801,8 @@ private fun VoiceSettings(
                     androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(voices.size) { i ->
                             val voice = voices[i]
-                            val on = voice.name == chosen?.name
-                            val natural = voice.name.contains("network", ignoreCase = true) || voice.isNetworkConnectionRequired
+                            val on = voice.id == chosen?.id
+                            val natural = voice.natural
                             Column(
                                 Modifier
                                     .clip(RoundedCornerShape(14.dp))
@@ -795,17 +810,17 @@ private fun VoiceSettings(
                                     .clickable {
                                         onChange { s ->
                                             when (role) {
-                                                Role.NARRATOR -> s.copy(voiceNarrator = voice.name)
-                                                Role.MALE -> s.copy(voiceMale = voice.name)
-                                                Role.FEMALE -> s.copy(voiceFemale = voice.name)
+                                                Role.NARRATOR -> s.copy(voiceNarrator = voice.id)
+                                                Role.MALE -> s.copy(voiceMale = voice.id)
+                                                Role.FEMALE -> s.copy(voiceFemale = voice.id)
                                             }
                                         }
-                                        speaker.sample(sample, voice, language, settings.ttsRate, settings.ttsPitch)
+                                        speaker.sample(sample, voice.id, language, settings.ttsRate, settings.ttsPitch)
                                     }
                                     .padding(horizontal = 14.dp, vertical = 10.dp),
                             ) {
                                 Text(
-                                    stringResource(ATMR.strings.novel_voice_n, i + 1),
+                                    if (settings.ttsEngine == NovelSpeaker.PIPER) voice.label else stringResource(ATMR.strings.novel_voice_n, i + 1),
                                     color = if (on) Color.White else MaterialTheme.colorScheme.onSurface,
                                     fontWeight = FontWeight.Bold,
                                 )
@@ -831,6 +846,72 @@ private fun VoiceSettings(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(ATMR.strings.novel_voice_autonext), modifier = Modifier.weight(1f))
                     Switch(checked = settings.ttsAutoNext, onCheckedChange = { v -> onChange { s -> s.copy(ttsAutoNext = v) } })
+                }
+            }
+        }
+    }
+}
+
+/** Piper's voices for [language] (and the others after): download, the progress, or delete. */
+@Composable
+private fun PiperDownloads(language: String) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val network = remember { context.appGraph.networkHelper }
+    val installed by PiperVoices.installed.collectAsState()
+    val downloading by PiperVoices.downloading.collectAsState()
+    val failedText = stringResource(ATMR.strings.novel_piper_failed)
+    LaunchedEffect(Unit) { PiperVoices.refresh(context) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(ATMR.strings.novel_piper_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        if (!PiperVoices.available) {
+            Text(stringResource(ATMR.strings.novel_piper_missing), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            return@Column
+        }
+        Text(stringResource(ATMR.strings.novel_piper_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        PiperVoices.catalog.sortedBy { it.language != language }.forEach { voice ->
+            val progress = downloading[voice.id]
+            val have = voice.id in installed
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(voice.label, fontWeight = FontWeight.Bold)
+                    val who = when (voice.female) {
+                        true -> stringResource(ATMR.strings.novel_piper_woman)
+                        false -> stringResource(ATMR.strings.novel_piper_man)
+                        null -> ""
+                    }
+                    Text(
+                        listOfNotNull(voice.lang.replace('_', '-'), who.takeIf { it.isNotEmpty() }, stringResource(ATMR.strings.novel_piper_personal).takeIf { voice.nonCommercial }).joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (progress != null) {
+                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+                    }
+                }
+                when {
+                    progress != null -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    have -> Text(
+                        stringResource(ATMR.strings.novel_piper_delete),
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).clickable { PiperVoices.delete(context, voice.id) }.padding(8.dp),
+                    )
+                    else -> Text(
+                        stringResource(ATMR.strings.novel_piper_get),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).clickable {
+                            scope.launch {
+                                if (!PiperVoices.download(context, network, voice)) {
+                                    android.widget.Toast.makeText(context, failedText, android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }.padding(8.dp),
+                    )
                 }
             }
         }

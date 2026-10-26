@@ -299,6 +299,8 @@ dependencies {
 
     // HTML parser
     implementation(libs.jsoup)
+    // MANHWA novels: unpacks the downloaded Piper voices
+    implementation(libs.commons.compress)
 
     // Disk
     implementation(libs.diskLruCache)

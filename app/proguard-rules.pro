@@ -102,3 +102,4 @@
 
 # MANHWA: ONNX Runtime (PaddleOCR) is called from its native library by name
 -keep class ai.onnxruntime.** { *; }
+-keep class com.k2fsa.sherpa.onnx.** { *; }

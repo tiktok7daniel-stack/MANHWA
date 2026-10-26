@@ -1539,4 +1539,14 @@
     <string name="novel_voice_engine_default">Phone default</string>
     <string name="novel_voice_engine_hint">Open-source voices: install SherpaTTS (free, from F-Droid), pick its voices there (Piper: Arabic and many English ones), then choose it here. It works offline once a voice is downloaded.</string>
     <string name="novel_voice_get_sherpa">Get SherpaTTS (open source)</string>
+    <string name="novel_voice_engine_piper">Piper (in the app)</string>
+    <string name="novel_piper_failed">The voice could not be downloaded.</string>
+    <string name="novel_piper_title">Piper voices</string>
+    <string name="novel_piper_missing">This build has no Piper engine.</string>
+    <string name="novel_piper_hint">Open-source voices that speak on your phone, with no internet once downloaded (about 20 to 110 MB each).</string>
+    <string name="novel_piper_woman">Woman</string>
+    <string name="novel_piper_man">Man</string>
+    <string name="novel_piper_personal">Personal use</string>
+    <string name="novel_piper_delete">Delete</string>
+    <string name="novel_piper_get">Download</string>
 </resources>
