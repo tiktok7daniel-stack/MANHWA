@@ -1568,4 +1568,6 @@
     <string name="wn_myvoice_b">Export a voice from VoxGate and import it under Listening, Engine, Piper, My voices: the novel is read in your voice, Arabic or English, on the phone.</string>
     <string name="wn_voicefile_t">Import a voice file</string>
     <string name="wn_voicefile_b">A Piper voice model in a zip (.onnx and tokens.txt) can be imported and used like the other voices. With VoxGate installed, an Open VoxGate button sits in the engine choice.</string>
+    <string name="wn_piperfix_t">Piper voices and your own voices work</string>
+    <string name="wn_piperfix_b">The voice engine now loads on the phone (it said "This build has no Piper engine" before). Download a Piper voice, then your VoxGate voice reads the novels.</string>
 </resources>
