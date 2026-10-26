@@ -121,7 +121,33 @@ class MangaScreen(
             }
         }
 
-        MangaScreen(
+        // MANHWA: the second system has its own series page (the dialogs below still come from here)
+        if (eu.kanade.tachiyomi.ui.nova.rememberAppSystem() == eu.kanade.tachiyomi.ui.nova.AppSystem.NOVA) {
+            eu.kanade.tachiyomi.ui.nova.NovaMangaDetails(
+                state = successState,
+                onBack = navigator::pop,
+                onRead = { openChapter(context, it) },
+                onContinue = { continueReading(context, viewModel.getNextUnreadChapter()) },
+                onFavorite = {
+                    if (successState.manga.favorite) viewModel.showRemoveFromLibraryDialog() else viewModel.toggleFavorite()
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                },
+                onCategories = viewModel::showChangeCategoryDialog.takeIf { successState.manga.favorite },
+                onWebView = { openMangaInWebView(navigator, viewModel.manga, viewModel.source) }.takeIf { isHttpSource },
+                onRefresh = viewModel::fetchAllFromSource,
+                onDownload = { item: ChapterList.Item ->
+                    viewModel.runChapterDownloadActions(
+                        listOf(item),
+                        if (item.isDownloaded) {
+                            eu.kanade.presentation.manga.components.ChapterDownloadAction.DELETE
+                        } else {
+                            eu.kanade.presentation.manga.components.ChapterDownloadAction.START
+                        },
+                    )
+                }.takeIf { !successState.source.isLocalOrStub() },
+                onMarkRead = { chapter, read -> viewModel.markChaptersRead(listOf(chapter), read) },
+            )
+        } else MangaScreen(
             state = successState,
             snackbarHostState = viewModel.snackbarHostState,
             nextUpdate = successState.manga.expectedNextUpdate,

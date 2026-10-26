@@ -152,7 +152,7 @@ class SourceBestScreen(private val sourceId: Long, private val sourceName: Strin
         }
     }
 
-    private suspend fun rank(graph: mihon.app.di.AppGraph): List<Best> {
+    internal suspend fun rank(graph: mihon.app.di.AppGraph): List<Best> {
         val source = graph.sourceManager.get(sourceId) as? CatalogueSource ?: return emptyList()
         // The library (from any source) is left out: those series are already kept
         val kept = graph.getFavorites.await().map { WorkIdentity.key(it.title) }.toSet()

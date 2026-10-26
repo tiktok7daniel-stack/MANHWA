@@ -131,6 +131,11 @@ object HomeScreen : Screen() {
     @Composable
     override fun Content() {
         // MANHWA: this screen follows the chosen style (and its light version)
+        // MANHWA: the second system is a whole app of its own (its home, tabs and bar)
+        if (eu.kanade.tachiyomi.ui.nova.rememberAppSystem() == eu.kanade.tachiyomi.ui.nova.AppSystem.NOVA) {
+            eu.kanade.tachiyomi.ui.nova.NovaShell()
+            return
+        }
         eu.kanade.presentation.components.ManhwaStyledScreen { HomeContent() }
     }
 

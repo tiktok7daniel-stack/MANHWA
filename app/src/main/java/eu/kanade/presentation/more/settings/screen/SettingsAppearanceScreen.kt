@@ -44,6 +44,15 @@ object SettingsAppearanceScreen : SearchableSettings {
         val uiPreferences = remember { context.appGraph.uiPreferences }
 
         return listOf(
+            // MANHWA: the app's system first (a whole different app inside the app), then the look of the original
+            Preference.PreferenceGroup(
+                title = stringResource(ATMR.strings.system_title),
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.CustomPreference(title = stringResource(ATMR.strings.system_title)) {
+                        eu.kanade.tachiyomi.ui.nova.AppSystemPicker()
+                    },
+                ),
+            ),
             getThemeGroup(uiPreferences = uiPreferences),
             getHomeGroup(uiPreferences = uiPreferences),
             getDisplayGroup(uiPreferences = uiPreferences),

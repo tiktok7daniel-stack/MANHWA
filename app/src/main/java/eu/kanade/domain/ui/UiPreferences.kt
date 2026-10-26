@@ -35,6 +35,15 @@ class UiPreferences(
     /** MANHWA look of the whole app: "GLASS" (MANHWA Glass, the default) or "OBSIDIAN" (Obsidian Royal). */
     val manhwaStyle: Preference<String> = preferenceStore.getString("manhwa_style", "GLASS")
 
+    /**
+     * MANHWA: the app's system, a whole app inside the app (its home, series page, chapters and navigation):
+     * "CLASSIC" (the original) or "NOVA" (the second). More systems are added as more names (AppSystem).
+     */
+    val appSystem: Preference<String> = preferenceStore.getString("manhwa_app_system", "CLASSIC")
+
+    /** The source Nova's home shows (its "server"), -1 until the reader picks one. */
+    val novaSourceId: Preference<Long> = preferenceStore.getLong("manhwa_nova_source", -1L)
+
     /** Obsidian Royal in its light version (silk paper) instead of the dark one. */
     val manhwaStyleLight: Preference<Boolean> = preferenceStore.getBoolean("manhwa_style_light", false)
 
