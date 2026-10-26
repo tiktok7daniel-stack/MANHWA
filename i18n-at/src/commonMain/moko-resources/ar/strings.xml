@@ -1474,4 +1474,6 @@
     <string name="novel_voice_speed">السرعة: %1$sx</string>
     <string name="novel_voice_pitch">طبقة الصوت: %1$s</string>
     <string name="novel_voice_autonext">كمّل على الفصل اللي بعده</string>
+    <string name="novel_pin">ثبّته فوق</string>
+    <string name="novel_pinned">المثبتة</string>
 </resources>

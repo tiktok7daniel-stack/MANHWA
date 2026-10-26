@@ -1533,4 +1533,6 @@
     <string name="novel_voice_speed">Speed: %1$sx</string>
     <string name="novel_voice_pitch">Pitch: %1$s</string>
     <string name="novel_voice_autonext">Go on to the next chapter</string>
+    <string name="novel_pin">Pin to the top</string>
+    <string name="novel_pinned">Pinned</string>
 </resources>

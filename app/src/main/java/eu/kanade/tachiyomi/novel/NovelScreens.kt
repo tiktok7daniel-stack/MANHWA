@@ -91,11 +91,13 @@ import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Favorite
+import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.MenuBook
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.roundedfilled.Favorite
+import mihon.icons.materialsymbols.roundedfilled.Keep
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -174,34 +176,59 @@ fun NovelSourcesList(contentPadding: PaddingValues) {
         EmptyNovels(contentPadding, stringResource(ATMR.strings.novel_no_sources))
         return
     }
+    val pinned by graph.sourcePreferences.novelPinnedSources.collectPref()
+    val available by manager.available.collectAsState()
+    val iconUrls = remember(available) { available.associate { it.pkg to it.iconUrl } }
+    val pins = remember(sources, pinned) { sources.filter { it.source.id.toString() in pinned } }
+    val rest = remember(sources, pinned) { sources.filterNot { it.source.id.toString() in pinned } }
+
+    @Composable
+    fun SourceRow(ext: NovelExt) {
+        val isPinned = ext.source.id.toString() in pinned
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .glass(RoundedCornerShape(18.dp), alpha = if (isPinned) 0.5f else 0.35f)
+                .pressClickable { navigator.push(NovelBrowseScreen(ext.source.id)) }
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ExtIcon(ext, fallbackUrl = iconUrls[ext.pkg])
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(ext.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(LocaleHelper.getSourceDisplayName(ext.lang, context), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
+            }
+            // The pin keeps a favourite source on top
+            IconButton(onClick = {
+                val pref = graph.sourcePreferences.novelPinnedSources
+                val id = ext.source.id.toString()
+                pref.set(if (id in pref.get()) pref.get() - id else pref.get() + id)
+            }) {
+                Icon(
+                    if (isPinned) MaterialSymbols.RoundedFilled.Keep else MaterialSymbols.Rounded.Keep,
+                    contentDescription = stringResource(ATMR.strings.novel_pin),
+                    tint = if (isPinned) MaterialTheme.colorScheme.primary else ManhwaInk.muted,
+                )
+            }
+        }
+    }
+
     LazyColumn(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = contentPadding.calculateTopPadding() + 8.dp, bottom = contentPadding.calculateBottomPadding() + 16.dp)) {
+        if (pins.isNotEmpty()) {
+            item(key = "pinned-title") { Section(stringResource(ATMR.strings.novel_pinned)) }
+            items(pins, key = { "pin-${it.pkg}" }) { ext -> SourceRow(ext) }
+        }
         var lastLang: String? = null
-        sources.forEach { ext ->
+        rest.forEach { ext ->
             if (ext.lang != lastLang) {
                 lastLang = ext.lang
                 item(key = "lang-${ext.lang}") {
                     Section(LocaleHelper.getSourceDisplayName(ext.lang, context))
                 }
             }
-            item(key = ext.pkg) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .glass(RoundedCornerShape(18.dp), alpha = 0.35f)
-                        .pressClickable { navigator.push(NovelBrowseScreen(ext.source.id)) }
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ExtIcon(ext)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(ext.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(LocaleHelper.getSourceDisplayName(ext.lang, context), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
-                    }
-                    Icon(MaterialSymbols.Rounded.MenuBook, null, tint = MaterialTheme.colorScheme.primary)
-                }
-            }
+            item(key = ext.pkg) { SourceRow(ext) }
         }
     }
 }
@@ -350,11 +377,18 @@ private fun ExtRow(icon: @Composable () -> Unit, name: String, sub: String, nsfw
     }
 }
 
+/** A source's icon: the extension's own, else the one its repository shows, else a book. */
 @Composable
-private fun ExtIcon(ext: NovelExt?, size: Int = 42) {
+private fun ExtIcon(ext: NovelExt?, size: Int = 42, fallbackUrl: String? = null) {
     val bitmap = remember(ext?.pkg) { runCatching { ext?.icon?.toBitmap(96, 96)?.asImageBitmap() }.getOrNull() }
     if (bitmap != null) {
         Image(bitmap, null, Modifier.size(size.dp).clip(RoundedCornerShape(14.dp)))
+    } else if (fallbackUrl != null) {
+        AsyncImage(
+            model = fallbackUrl,
+            contentDescription = null,
+            modifier = Modifier.size(size.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        )
     } else {
         Box(Modifier.size(size.dp).glass(RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
             Icon(MaterialSymbols.Rounded.AutoStories, null, tint = MaterialTheme.colorScheme.primary)

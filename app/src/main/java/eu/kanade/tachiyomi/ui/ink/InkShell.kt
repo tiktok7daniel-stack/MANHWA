@@ -676,6 +676,7 @@ private fun NovelLobby() {
     val library by store.library.collectAsState()
     val progress by store.progress.collectAsState()
     val installed by graph.novelExtensionManager.installed.collectAsState()
+    val pinned by graph.sourcePreferences.novelPinnedSources.collectPref()
     val reading = remember(library, progress) { store.history().take(12) }
     val favorites = remember(library) { store.favorites() }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 120.dp, bottom = 120.dp)) {
@@ -712,7 +713,7 @@ private fun NovelLobby() {
         } else {
             item(key = "novel-sources") {
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(installed, key = { it.pkg }) { ext ->
+                    items(installed.sortedByDescending { it.source.id.toString() in pinned }, key = { it.pkg }) { ext ->
                         SourceChip(ext.name, ext.lang) { navigator.push(NovelBrowseScreen(ext.source.id)) }
                     }
                 }
