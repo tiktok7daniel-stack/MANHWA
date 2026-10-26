@@ -1505,4 +1505,8 @@
     <string name="wn_piper_b">أصوات Piper (عربي وإنجليزي) بتنزّلها مرة واحدة وبتتكلم على الموبايل من غير نت: الأصوات ← المحرك ← Piper.</string>
     <string name="wn_novelpin_t">ثبّت مصادر الروايات</string>
     <string name="wn_novelpin_b">الدبوس اللي جنب مصدر الرواية بيخليه فوق دايماً.</string>
+    <string name="wn_myvoice_t">الروايات بصوتك</string>
+    <string name="wn_myvoice_b">صدّر صوتك من VoxGate واستورده من الاستماع ← المحرك ← Piper ← أصواتي: الرواية تتقرأ بصوتك، عربي أو إنجليزي، على الموبايل.</string>
+    <string name="wn_voicefile_t">استيراد ملف صوت</string>
+    <string name="wn_voicefile_b">نموذج صوت Piper في ملف zip (.onnx وtokens.txt) تقدر تستورده وتستخدمه زي باقي الأصوات. ولو VoxGate متسطّب، فيه زرار "افتح VoxGate" في اختيار المحرك.</string>
 </resources>
