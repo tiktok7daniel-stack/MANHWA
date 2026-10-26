@@ -1535,4 +1535,8 @@
     <string name="novel_voice_autonext">Go on to the next chapter</string>
     <string name="novel_pin">Pin to the top</string>
     <string name="novel_pinned">Pinned</string>
+    <string name="novel_voice_engine">Speech engine</string>
+    <string name="novel_voice_engine_default">Phone default</string>
+    <string name="novel_voice_engine_hint">Open-source voices: install SherpaTTS (free, from F-Droid), pick its voices there (Piper: Arabic and many English ones), then choose it here. It works offline once a voice is downloaded.</string>
+    <string name="novel_voice_get_sherpa">Get SherpaTTS (open source)</string>
 </resources>

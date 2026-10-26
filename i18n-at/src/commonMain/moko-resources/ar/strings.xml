@@ -1476,4 +1476,8 @@
     <string name="novel_voice_autonext">كمّل على الفصل اللي بعده</string>
     <string name="novel_pin">ثبّته فوق</string>
     <string name="novel_pinned">المثبتة</string>
+    <string name="novel_voice_engine">محرك الصوت</string>
+    <string name="novel_voice_engine_default">الافتراضي بتاع الموبايل</string>
+    <string name="novel_voice_engine_hint">أصوات مفتوحة المصدر: سطّب SherpaTTS (مجاني من F-Droid)، ونزّل منه الأصوات اللي تعجبك (أصوات Piper: عربي وإنجليزي كتير)، وبعدين اختاره من هنا. بعد ما الصوت يتنزّل بيشتغل من غير نت.</string>
+    <string name="novel_voice_get_sherpa">نزّل SherpaTTS (مفتوح المصدر)</string>
 </resources>

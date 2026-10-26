@@ -68,6 +68,8 @@ data class NovelReaderSettings(
     val voiceFemale: String = "",
     /** Goes on to the next chapter when one ends while listening. */
     val ttsAutoNext: Boolean = true,
+    /** The speech engine (an app's package, such as the open-source SherpaTTS); empty = the phone's default. */
+    val ttsEngine: String = "",
 ) {
     companion object {
         const val THEME_PAPER = 0

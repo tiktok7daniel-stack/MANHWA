@@ -25,7 +25,7 @@ data class SpeakState(val ready: Boolean = false, val playing: Boolean = false, 
  * characters say has a man's or a woman's voice of its own, so a scene sounds like people talking. The reader
  * picks each voice, the speed and the pitch.
  */
-class NovelSpeaker(context: Context) {
+class NovelSpeaker(context: Context, engine: String = "") {
 
     private val _state = MutableStateFlow(SpeakState())
     val state: StateFlow<SpeakState> = _state.asStateFlow()
@@ -35,9 +35,11 @@ class NovelSpeaker(context: Context) {
     private var onFinished: (() -> Unit)? = null
 
     init {
-        tts = TextToSpeech(context.applicationContext) { status ->
+        val listener = TextToSpeech.OnInitListener { status ->
             _state.value = _state.value.copy(ready = status == TextToSpeech.SUCCESS, failed = status != TextToSpeech.SUCCESS)
         }
+        // A chosen engine (Google's, or an open-source one such as SherpaTTS with Piper voices), else the phone's default
+        tts = if (engine.isBlank()) TextToSpeech(context.applicationContext, listener) else TextToSpeech(context.applicationContext, listener, engine)
         tts?.setOnUtteranceProgressListener(
             object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String) {
@@ -58,6 +60,11 @@ class NovelSpeaker(context: Context) {
             },
         )
     }
+
+    /** The speech engines installed on the phone: package and name. */
+    fun engines(): List<Pair<String, String>> = runCatching {
+        tts?.engines.orEmpty().map { it.name to it.label }
+    }.getOrDefault(emptyList())
 
     /** The voices of [language] ("ar", "en"…) the engine has, the ones that sound most human first. */
     fun voices(language: String): List<Voice> = runCatching {

@@ -147,8 +147,8 @@ class NovelReaderScreen(
         val listState = rememberLazyListState()
 
         // Listening: the phone's voices read the chapter, the narration in one voice and the characters in theirs
-        val speaker = remember { NovelSpeaker(context) }
-        DisposableEffect(Unit) { onDispose { speaker.release() } }
+        val speaker = remember(settings.ttsEngine) { NovelSpeaker(context, settings.ttsEngine) }
+        DisposableEffect(speaker) { onDispose { speaker.release() } }
         val speak by speaker.state.collectAsState()
         var listening by remember { mutableStateOf(false) }
         var listenNext by remember { mutableStateOf(false) }
@@ -736,6 +736,27 @@ private fun VoiceSettings(
         item {
             Text(stringResource(ATMR.strings.novel_voices), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(stringResource(ATMR.strings.novel_voices_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // The engine: the phone's default, or another installed one (the open-source SherpaTTS runs Piper voices)
+        item(key = "engine") {
+            val engines = remember(speak.ready) { speaker.engines() }
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(ATMR.strings.novel_voice_engine), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(listOf("" to stringResource(ATMR.strings.novel_voice_engine_default)) + engines) { (pkg, label) ->
+                        ManhwaKit.Chip(label, selected = settings.ttsEngine == pkg) { onChange { s -> s.copy(ttsEngine = pkg, voiceNarrator = "", voiceMale = "", voiceFemale = "") } }
+                    }
+                }
+                Text(stringResource(ATMR.strings.novel_voice_engine_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ManhwaKit.GhostButton(stringResource(ATMR.strings.novel_voice_get_sherpa)) {
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://f-droid.org/packages/org.woheller69.ttsengine/"))
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }
+            }
         }
         if (voices.isEmpty()) {
             item {
