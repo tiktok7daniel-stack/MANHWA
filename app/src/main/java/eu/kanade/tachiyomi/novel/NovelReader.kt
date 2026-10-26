@@ -860,7 +860,20 @@ private fun PiperDownloads(language: String) {
     val network = remember { context.appGraph.networkHelper }
     val installed by PiperVoices.installed.collectAsState()
     val downloading by PiperVoices.downloading.collectAsState()
+    val own by PiperVoices.own.collectAsState()
     val failedText = stringResource(ATMR.strings.novel_piper_failed)
+    val importFailedText = stringResource(ATMR.strings.novel_piper_import_failed)
+    val importer = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                if (PiperVoices.importVoice(context, uri) == null) {
+                    android.widget.Toast.makeText(context, importFailedText, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
     LaunchedEffect(Unit) { PiperVoices.refresh(context) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(ATMR.strings.novel_piper_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
@@ -869,7 +882,11 @@ private fun PiperDownloads(language: String) {
             return@Column
         }
         Text(stringResource(ATMR.strings.novel_piper_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        PiperVoices.catalog.sortedBy { it.language != language }.forEach { voice ->
+        ManhwaKit.GhostButton(stringResource(ATMR.strings.novel_piper_import)) {
+            importer.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+        }
+        Text(stringResource(ATMR.strings.novel_piper_import_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        (own + PiperVoices.catalog).sortedBy { it.language != language }.forEach { voice ->
             val progress = downloading[voice.id]
             val have = voice.id in installed
             Row(

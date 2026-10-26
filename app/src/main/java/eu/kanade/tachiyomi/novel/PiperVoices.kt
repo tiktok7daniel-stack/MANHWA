@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.novel
 
 import android.content.Context
+import android.net.Uri
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -19,8 +20,10 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
+import org.json.JSONObject
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
+import java.util.zip.ZipInputStream
 
 /** An open-source Piper voice: its model's name, its language, who it sounds like and where it comes from. */
 data class PiperVoice(
@@ -69,6 +72,16 @@ object PiperVoices {
         runCatching { System.loadLibrary("sherpa-onnx-jni") }.isSuccess
     }
 
+    /** The folder-name prefix of the reader's own voices (imported from a file), so they never clash with the catalog. */
+    private const val OWN = "my_"
+
+    /** The reader's own voices, imported from a file (see [importVoice]). */
+    private val _own = MutableStateFlow<List<PiperVoice>>(emptyList())
+    val own: StateFlow<List<PiperVoice>> = _own.asStateFlow()
+
+    /** The catalog and the reader's own voices. */
+    fun all(): List<PiperVoice> = catalog + _own.value
+
     private val _installed = MutableStateFlow<Set<String>>(emptySet())
     val installed: StateFlow<Set<String>> = _installed.asStateFlow()
 
@@ -80,7 +93,74 @@ object PiperVoices {
     private fun dir(context: Context, id: String) = File(root(context), id)
 
     fun refresh(context: Context) {
-        _installed.value = catalog.map { it.id }.filter { model(context, it) != null }.toSet()
+        _own.value = root(context).listFiles().orEmpty()
+            .filter { it.isDirectory && it.name.startsWith(OWN) && model(context, it.name) != null }
+            .sortedBy { it.name }
+            .map { readOwn(it) }
+        _installed.value = all().map { it.id }.filter { model(context, it) != null }.toSet()
+    }
+
+    /** An own voice from its folder; `voice.json` (name, lang, female) is optional. */
+    private fun readOwn(folder: File): PiperVoice {
+        val meta = runCatching { JSONObject(File(folder, "voice.json").readText()) }.getOrNull()
+        val lang = meta?.optString("lang").orEmpty().ifBlank { "ar" }
+        val female = if (meta != null && meta.has("female") && !meta.isNull("female")) meta.optBoolean("female") else null
+        return PiperVoice(folder.name, meta?.optString("name").orEmpty().ifBlank { folder.name.removePrefix(OWN) }, lang, female)
+    }
+
+    /**
+     * Imports a voice the reader made elsewhere: a zip holding (in a folder or at its root) one `.onnx` model and its
+     * `tokens.txt`, and optionally `espeak-ng-data/` (taken from a voice already on the phone when it is missing) and
+     * `voice.json` (`{"name": "My voice", "lang": "ar", "female": false}`). Returns the voice's id, or null when the
+     * file is not a voice this engine can speak.
+     */
+    suspend fun importVoice(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+        val staging = File(root(context), "import.part")
+        try {
+            staging.deleteRecursively()
+            staging.mkdirs()
+            val base = staging.canonicalPath + File.separator
+            val input = context.contentResolver.openInputStream(uri) ?: return@withContext null
+            ZipInputStream(input.buffered()).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    val out = File(staging, entry.name)
+                    // Nothing may be written outside the staging folder
+                    if (!out.canonicalPath.startsWith(base)) continue
+                    if (entry.isDirectory) {
+                        out.mkdirs()
+                    } else {
+                        out.parentFile?.mkdirs()
+                        out.outputStream().use { zip.copyTo(it) }
+                    }
+                }
+            }
+            // The voice's files are at the root of the zip or in the one folder it holds
+            val inner = staging.takeIf { f -> f.listFiles().orEmpty().any { it.extension == "onnx" } }
+                ?: staging.listFiles().orEmpty().singleOrNull { it.isDirectory }
+                ?: return@withContext null
+            if (inner.listFiles().orEmpty().none { it.extension == "onnx" } || !File(inner, "tokens.txt").exists()) return@withContext null
+            if (!File(inner, "espeak-ng-data").isDirectory) {
+                val donor = catalog.map { dir(context, it.id) }.firstOrNull { File(it, "espeak-ng-data").isDirectory }
+                    ?: return@withContext null
+                File(donor, "espeak-ng-data").copyRecursively(File(inner, "espeak-ng-data"), overwrite = true)
+            }
+            val name = runCatching { JSONObject(File(inner, "voice.json").readText()).optString("name") }.getOrNull().orEmpty()
+                .ifBlank { uri.lastPathSegment.orEmpty().substringAfterLast('/').substringBeforeLast('.') }
+                .ifBlank { "voice" }
+            val id = OWN + name.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_').ifEmpty { "voice" }
+            val target = dir(context, id)
+            release(id)
+            target.deleteRecursively()
+            check(inner.renameTo(target)) { "Voice folder not moved" }
+            refresh(context)
+            id.takeIf { model(context, it) != null }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Voice file not imported" }
+            null
+        } finally {
+            staging.deleteRecursively()
+        }
     }
 
     /** The voice's files when it is on the phone: the model, its tokens and the phoneme data. */

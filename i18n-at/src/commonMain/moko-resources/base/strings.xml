@@ -1549,6 +1549,9 @@
     <string name="novel_piper_personal">Personal use</string>
     <string name="novel_piper_delete">Delete</string>
     <string name="novel_piper_get">Download</string>
+    <string name="novel_piper_import">Import a voice file</string>
+    <string name="novel_piper_import_hint">A zip made by your own voice app: a .onnx model, tokens.txt, and optionally espeak-ng-data and voice.json (name, lang, female). It speaks on your phone like the others.</string>
+    <string name="novel_piper_import_failed">This file is not a voice the app can speak (it needs a .onnx model and tokens.txt).</string>
     <string name="wn_listen_t">Listen to novels</string>
     <string name="wn_listen_b">The speaker button reads the chapter aloud: a narrator, and a man\'s or a woman\'s voice for who speaks; the page follows, and it goes on to the next chapter.</string>
     <string name="wn_piper_t">Open-source voices in the app</string>

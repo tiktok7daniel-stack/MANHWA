@@ -100,7 +100,7 @@ class NovelSpeaker(context: Context, private val engine: String = "") {
     fun voices(language: String): List<VoiceOption> {
         if (piper) {
             val installed = PiperVoices.installed.value
-            return PiperVoices.catalog.filter { it.language == language && it.id in installed }
+            return PiperVoices.all().filter { it.language == language && it.id in installed }
                 .map { VoiceOption(it.id, it.label, natural = true, female = it.female) }
         }
         return systemVoices(language).map { v ->
