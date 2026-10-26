@@ -52,13 +52,15 @@ jobs:
         run: |
           set -e
           V=1.12.14
-          curl -fsSL -o sherpa.tar.bz2 "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$V/sherpa-onnx-v$V-android.tar.bz2"
+          # The build with ONNX Runtime linked inside: the app's own ONNX Runtime (1.22, for the OCR and OpenVoice)
+          # does not carry the 1.17 symbol versions sherpa's shared build asks for, so that one never loaded on the
+          # phone ("This build has no Piper engine"). Linked inside, sherpa needs no libonnxruntime.so at all.
+          curl -fsSL -o sherpa.tar.bz2 "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$V/sherpa-onnx-v$V-android-static-link-onnxruntime.tar.bz2"
           mkdir -p sherpa && tar xjf sherpa.tar.bz2 -C sherpa
           mkdir -p app/src/main/jniLibs/arm64-v8a
-          cp sherpa/jniLibs/arm64-v8a/*.so app/src/main/jniLibs/arm64-v8a/
-          # The app already ships ONNX Runtime (1.22, for the OCR); sherpa (built on 1.17's C API, which 1.22 still
-          # serves) uses that one, so its own copy is left out
-          rm -f app/src/main/jniLibs/arm64-v8a/libonnxruntime.so
+          cp sherpa/jniLibs/arm64-v8a/libsherpa-onnx-jni.so app/src/main/jniLibs/arm64-v8a/
+          # It must not ask for a separate ONNX Runtime
+          if readelf -d app/src/main/jniLibs/arm64-v8a/libsherpa-onnx-jni.so | grep -q 'libonnxruntime'; then exit 1; fi
           ls -lh app/src/main/jniLibs/arm64-v8a
           echo "PIPER_LIBS_ADDED"
 
