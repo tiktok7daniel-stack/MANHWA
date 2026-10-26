@@ -1517,4 +1517,8 @@
     <string name="wn_voicefile_b">نموذج صوت Piper في ملف zip (.onnx وtokens.txt) تقدر تستورده وتستخدمه زي باقي الأصوات. ولو VoxGate متسطّب، فيه زرار "افتح VoxGate" في اختيار المحرك.</string>
     <string name="wn_piperfix_t">أصوات Piper وأصواتك بقت شغالة</string>
     <string name="wn_piperfix_b">محرك الصوت بقى بيشتغل على الموبايل (كان بيقول إن البناء ما فيهوش محرك Piper). نزّل صوت Piper، وبعدها صوتك من VoxGate يقرالك الروايات.</string>
+    <string name="wn_readalong_t">اقرا معايا</string>
+    <string name="wn_readalong_b">زرار سماعة عايم في القارئ: لما تشغّله، كل صفحة توصلها فقاعاتها بتتقري بصوت وإنت بتقرا، في كل الفصول. تقدر تسحبه لأي مكان.</string>
+    <string name="wn_readarabic_t">الصفحات العربي بتتقري بصوت</string>
+    <string name="wn_readarabic_b">الصفحات اللي عربي من المصدر بتتقري من الصورة نفسها على الموبايل، من غير ذكاء اصطناعي ومن غير نت بعد ما النموذج الصغير يتنزّل. والصفحات المترجمة بتتقري ترجمتها. والصوت هو صوت الروايات.</string>
 </resources>

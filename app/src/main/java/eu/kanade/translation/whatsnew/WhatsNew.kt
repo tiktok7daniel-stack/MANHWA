@@ -121,12 +121,15 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_piperfix_t, ATMR.strings.wn_piperfix_b),
+            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_readalong_t, ATMR.strings.wn_readalong_b),
+            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_readarabic_t, ATMR.strings.wn_readarabic_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 143
+            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_piperfix_t, ATMR.strings.wn_piperfix_b),
             // Build 142
             Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_myvoice_t, ATMR.strings.wn_myvoice_b),
             Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_voicefile_t, ATMR.strings.wn_voicefile_b),

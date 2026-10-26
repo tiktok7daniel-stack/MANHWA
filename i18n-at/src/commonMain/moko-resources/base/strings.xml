@@ -1576,4 +1576,8 @@
     <string name="wn_voicefile_b">A Piper voice model in a zip (.onnx and tokens.txt) can be imported and used like the other voices. With VoxGate installed, an Open VoxGate button sits in the engine choice.</string>
     <string name="wn_piperfix_t">Piper voices and your own voices work</string>
     <string name="wn_piperfix_b">The voice engine now loads on the phone (it said "This build has no Piper engine" before). Download a Piper voice, then your VoxGate voice reads the novels.</string>
+    <string name="wn_readalong_t">Read along</string>
+    <string name="wn_readalong_b">A floating headphones button in the reader: on, every page you reach has its bubbles read aloud while you read, in every chapter. Drag it out of the way.</string>
+    <string name="wn_readarabic_t">Arabic pages read aloud</string>
+    <string name="wn_readarabic_b">Pages already in Arabic are read straight from the picture, on the phone, no AI and no internet once the small model is in; translated pages are read in their translation. The voice is the one picked for the novels.</string>
 </resources>
