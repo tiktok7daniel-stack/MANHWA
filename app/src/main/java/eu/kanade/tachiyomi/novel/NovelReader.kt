@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -86,7 +88,13 @@ import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.ArrowBack
 import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
+import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.RecordVoiceOver
 import mihon.icons.materialsymbols.rounded.Settings
+import mihon.icons.materialsymbols.rounded.SkipNext
+import mihon.icons.materialsymbols.rounded.SkipPrevious
+import mihon.icons.materialsymbols.roundedfilled.Pause
+import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import mihon.icons.materialsymbols.rounded.Translate
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.core.common.i18n.stringResource as ctxString
@@ -137,6 +145,14 @@ class NovelReaderScreen(
         var bars by remember { mutableStateOf(true) }
         var sheet by remember { mutableStateOf(false) }
         val listState = rememberLazyListState()
+
+        // Listening: the phone's voices read the chapter, the narration in one voice and the characters in theirs
+        val speaker = remember { NovelSpeaker(context) }
+        DisposableEffect(Unit) { onDispose { speaker.release() } }
+        val speak by speaker.state.collectAsState()
+        var listening by remember { mutableStateOf(false) }
+        var listenNext by remember { mutableStateOf(false) }
+        var voiceSheet by remember { mutableStateOf(false) }
 
         // The chapter list, when the reader was opened without the novel's page (from the library or a shell)
         LaunchedEffect(Unit) {
@@ -194,20 +210,79 @@ class NovelReaderScreen(
             }.debounce(800).collect { fraction -> store.saveProgress(novelKey, current, name, fraction) }
         }
 
-        val paragraphs = blocks.orEmpty()
+        val raw = blocks.orEmpty()
+        // A chapter that opens with its own title shows it once, as the heading
+        val repeatsTitle = (raw.firstOrNull() as? Block.Para)?.text?.let { same(it, chapter.name) } == true
+        val paragraphs = if (repeatsTitle) raw.drop(1) else raw
         val shown: List<Block> = if (showTranslation && translated != null) {
+            val list = translated!!.let { t -> if (repeatsTitle && t.size == raw.count { it is Block.Para }) t.drop(1) else t }
             var i = 0
-            paragraphs.map { b -> if (b is Block.Para) Block.Para(translated!!.getOrElse(i++) { b.text }) else b }
+            paragraphs.map { b -> if (b is Block.Para) Block.Para(list.getOrElse(i++) { b.text }) else b }
         } else {
             paragraphs
         }
+        // Where each paragraph that is read aloud sits among the blocks (pictures are not read)
+        val spoken = remember(shown) { shown.withIndex().filter { it.value is Block.Para }.map { it.index } }
         val original = remember(paragraphs) { paragraphs.filterIsInstance<Block.Para>().map { it.text } }
         val rtl = remember(shown) { looksArabic(shown) }
         val colors = readerColors(settings.theme)
 
         fun go(to: ChapterInfo?) {
             to ?: return
+            speaker.stop()
             current = to.key
+        }
+
+        val language = if (rtl) "ar" else "en"
+
+        fun listen(from: Int) {
+            val texts = spoken.map { (shown[it] as Block.Para).text }
+            if (texts.isEmpty()) return
+            listening = true
+            val key = "$novelKey#$current#${if (showTranslation) "t" else "o"}"
+            scope.launch {
+                val cast = NovelCast.cast(key, texts)
+                val lines = texts.mapIndexed { i, t -> NovelSpeaker.lines(t, cast[i]) }
+                val voices = speaker.voices(language)
+                speaker.play(
+                    paragraphs = lines,
+                    from = from,
+                    language = language,
+                    rate = settings.ttsRate,
+                    pitch = settings.ttsPitch,
+                    voiceFor = { role -> pickVoice(voices, settings, role) },
+                    onFinished = {
+                        scope.launch {
+                            val next = chapters.getOrNull(chapters.indexOfFirst { it.key == current } + 1)
+                            if (settings.ttsAutoNext && next != null) {
+                                listenNext = true
+                                current = next.key
+                            } else {
+                                listening = false
+                            }
+                        }
+                    },
+                )
+            }
+        }
+
+        /** The paragraph at the top of the screen, to start listening where the reader is. */
+        fun visibleParagraph(): Int {
+            val block = (listState.firstVisibleItemIndex - 1).coerceAtLeast(0)
+            return spoken.indexOfFirst { it >= block }.coerceAtLeast(0)
+        }
+
+        // The next chapter goes on being read once its text is in
+        LaunchedEffect(current, blocks, speak.ready) {
+            if (listenNext && blocks != null && speak.ready) {
+                listenNext = false
+                listen(0)
+            }
+        }
+        // The page follows the voice
+        LaunchedEffect(speak.paragraph) {
+            val block = spoken.getOrNull(speak.paragraph) ?: return@LaunchedEffect
+            if (speak.playing) listState.animateScrollToItem(block + 1)
         }
 
         fun translate() {
@@ -268,7 +343,19 @@ class NovelReaderScreen(
                         }
                         itemsIndexed(shown, key = { i, _ -> "$current#$i" }) { i, block ->
                             when (block) {
-                                is Block.Para -> Column(Modifier.widthIn(max = 680.dp).fillMaxWidth().padding(bottom = (settings.fontSize * 0.9f).dp)) {
+                                is Block.Para -> Column(
+                                    Modifier
+                                        .widthIn(max = 680.dp)
+                                        .fillMaxWidth()
+                                        .padding(bottom = (settings.fontSize * 0.9f).dp)
+                                        .then(
+                                            if (listening && spoken.getOrNull(speak.paragraph) == i) {
+                                                Modifier.clip(RoundedCornerShape(10.dp)).background(colors.accent.copy(alpha = 0.14f)).padding(6.dp)
+                                            } else {
+                                                Modifier
+                                            },
+                                        ),
+                                ) {
                                     if (settings.sideBySide && showTranslation && translated != null) {
                                         val src = (paragraphs.getOrNull(i) as? Block.Para)?.text
                                         if (src != null) {
@@ -328,6 +415,36 @@ class NovelReaderScreen(
                 }
             }
 
+            // The player, while listening: the paragraph before and after, play or pause, the speed and the voices
+            AnimatedVisibility(
+                visible = listening,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (bars) 84.dp else 16.dp),
+            ) {
+                ListenBar(
+                    playing = speak.playing,
+                    rate = settings.ttsRate,
+                    colors = colors,
+                    onPrevious = { listen((speak.paragraph - 1).coerceAtLeast(0)) },
+                    onPlayPause = {
+                        if (speak.playing) speaker.pause() else listen(speak.paragraph.takeIf { it >= 0 } ?: visibleParagraph())
+                    },
+                    onNext = { listen((speak.paragraph + 1).coerceAtMost(spoken.size - 1)) },
+                    onRate = {
+                        val rates = listOf(0.8f, 1f, 1.2f, 1.5f, 1.8f)
+                        val next = rates[(rates.indexOfFirst { r -> r >= settings.ttsRate - 0.01f } + 1).mod(rates.size)]
+                        store.updateSettings { s -> s.copy(ttsRate = next) }
+                        if (speak.playing) listen(speak.paragraph.coerceAtLeast(0))
+                    },
+                    onVoices = { voiceSheet = true },
+                    onClose = {
+                        speaker.stop()
+                        listening = false
+                    },
+                )
+            }
+
             // Bottom bar: the chapters around this one, settings and translation
             AnimatedVisibility(
                 visible = bars,
@@ -346,6 +463,14 @@ class NovelReaderScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         ManhwaKit.IconOrb(MaterialSymbols.AutoMirroredRounded.ArrowBack) { go(chapters.getOrNull(index - 1)) }
                         ManhwaKit.IconOrb(MaterialSymbols.Rounded.Settings) { sheet = true }
+                        ManhwaKit.IconOrb(MaterialSymbols.Rounded.RecordVoiceOver, active = listening) {
+                            if (listening) {
+                                speaker.stop()
+                                listening = false
+                            } else {
+                                listen(visibleParagraph())
+                            }
+                        }
                         Row(
                             Modifier
                                 .clip(RoundedCornerShape(50))
@@ -388,6 +513,11 @@ class NovelReaderScreen(
         if (sheet) {
             ModalBottomSheet(onDismissRequest = { sheet = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
                 ReaderSettings(settings) { change -> store.updateSettings(change) }
+            }
+        }
+        if (voiceSheet) {
+            ModalBottomSheet(onDismissRequest = { voiceSheet = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+                VoiceSettings(speaker, language, settings) { change -> store.updateSettings(change) }
             }
         }
 
@@ -512,3 +642,176 @@ private fun parseBlocks(text: String): List<Block> =
     text.split("\n\n").map { it.trim() }.filter { it.isNotEmpty() }.map { part ->
         if (part.startsWith(PICTURE)) Block.Picture(part.removePrefix(PICTURE)) else Block.Para(part)
     }
+
+/** Whether a paragraph is the chapter's title again (spaces and colons aside). */
+private fun same(a: String, b: String): Boolean {
+    fun clean(t: String) = t.filter { it.isLetterOrDigit() }.lowercase()
+    return clean(a).isNotEmpty() && clean(a) == clean(b)
+}
+
+/**
+ * The voice of [role]: the one the reader picked, or else one chosen so the narrator, the men and the women each
+ * sound different when the phone has enough voices.
+ */
+internal fun pickVoice(voices: List<android.speech.tts.Voice>, settings: NovelReaderSettings, role: Role): android.speech.tts.Voice? {
+    if (voices.isEmpty()) return null
+    val picked = when (role) {
+        Role.NARRATOR -> settings.voiceNarrator
+        Role.MALE -> settings.voiceMale
+        Role.FEMALE -> settings.voiceFemale
+    }
+    voices.firstOrNull { it.name == picked }?.let { return it }
+    val slot = when (role) {
+        Role.NARRATOR -> 0
+        Role.MALE -> 1
+        Role.FEMALE -> 2
+    }
+    return voices.getOrNull(slot) ?: voices.firstOrNull()
+}
+
+@Composable
+private fun ListenBar(
+    playing: Boolean,
+    rate: Float,
+    colors: ReaderColors,
+    onPrevious: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onRate: () -> Unit,
+    onVoices: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Row(
+        Modifier
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(colors.bar)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        PlayerButton(MaterialSymbols.Rounded.Close, colors.muted, onClose)
+        PlayerButton(MaterialSymbols.Rounded.SkipPrevious, colors.text, onPrevious)
+        Box(
+            Modifier.size(52.dp).clip(RoundedCornerShape(50)).background(colors.accent).clickable(onClick = onPlayPause),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(if (playing) MaterialSymbols.RoundedFilled.Pause else MaterialSymbols.RoundedFilled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(30.dp))
+        }
+        PlayerButton(MaterialSymbols.Rounded.SkipNext, colors.text, onNext)
+        Text(
+            "%.1fx".format(rate),
+            color = colors.text,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onRate).padding(horizontal = 10.dp, vertical = 10.dp),
+        )
+        PlayerButton(MaterialSymbols.Rounded.RecordVoiceOver, colors.accent, onVoices)
+    }
+}
+
+@Composable
+private fun PlayerButton(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, onClick: () -> Unit) {
+    Box(Modifier.size(44.dp).clip(RoundedCornerShape(50)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = tint)
+    }
+}
+
+/** The voices: one for the narrator, one for the men, one for the women, each heard before it is picked; speed and pitch. */
+@Composable
+private fun VoiceSettings(
+    speaker: NovelSpeaker,
+    language: String,
+    settings: NovelReaderSettings,
+    onChange: ((NovelReaderSettings) -> NovelReaderSettings) -> Unit,
+) {
+    val context = LocalContext.current
+    val speak by speaker.state.collectAsState()
+    val voices = remember(speak.ready, language) { speaker.voices(language) }
+    val sample = stringResource(if (language == "ar") ATMR.strings.novel_voice_sample_ar else ATMR.strings.novel_voice_sample_en)
+    androidx.compose.foundation.lazy.LazyColumn(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        contentPadding = PaddingValues(bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Text(stringResource(ATMR.strings.novel_voices), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(ATMR.strings.novel_voices_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (voices.isEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(if (speak.ready) ATMR.strings.novel_voices_none else ATMR.strings.novel_voices_loading))
+                    ManhwaKit.GhostButton(stringResource(ATMR.strings.novel_voices_install)) {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(android.speech.tts.TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        listOf(
+            Role.NARRATOR to ATMR.strings.novel_voice_narrator,
+            Role.MALE to ATMR.strings.novel_voice_male,
+            Role.FEMALE to ATMR.strings.novel_voice_female,
+        ).forEach { (role, title) ->
+            if (voices.isEmpty()) return@forEach
+            item(key = "role-$role") {
+                val chosen = pickVoice(voices, settings, role)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(voices.size) { i ->
+                            val voice = voices[i]
+                            val on = voice.name == chosen?.name
+                            val natural = voice.name.contains("network", ignoreCase = true) || voice.isNetworkConnectionRequired
+                            Column(
+                                Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    .clickable {
+                                        onChange { s ->
+                                            when (role) {
+                                                Role.NARRATOR -> s.copy(voiceNarrator = voice.name)
+                                                Role.MALE -> s.copy(voiceMale = voice.name)
+                                                Role.FEMALE -> s.copy(voiceFemale = voice.name)
+                                            }
+                                        }
+                                        speaker.sample(sample, voice, language, settings.ttsRate, settings.ttsPitch)
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                            ) {
+                                Text(
+                                    stringResource(ATMR.strings.novel_voice_n, i + 1),
+                                    color = if (on) Color.White else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text(
+                                    stringResource(if (natural) ATMR.strings.novel_voice_natural else ATMR.strings.novel_voice_offline),
+                                    color = if (on) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item(key = "speed") {
+            var rate by remember(settings.ttsRate) { mutableStateOf(settings.ttsRate) }
+            var pitch by remember(settings.ttsPitch) { mutableStateOf(settings.ttsPitch) }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(ATMR.strings.novel_voice_speed, "%.1f".format(rate)))
+                Slider(value = rate, onValueChange = { rate = (it * 10).toInt() / 10f }, onValueChangeFinished = { onChange { s -> s.copy(ttsRate = rate) } }, valueRange = 0.5f..2.5f)
+                Text(stringResource(ATMR.strings.novel_voice_pitch, "%.1f".format(pitch)))
+                Slider(value = pitch, onValueChange = { pitch = (it * 10).toInt() / 10f }, onValueChangeFinished = { onChange { s -> s.copy(ttsPitch = pitch) } }, valueRange = 0.6f..1.6f)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(ATMR.strings.novel_voice_autonext), modifier = Modifier.weight(1f))
+                    Switch(checked = settings.ttsAutoNext, onCheckedChange = { v -> onChange { s -> s.copy(ttsAutoNext = v) } })
+                }
+            }
+        }
+    }
+}

@@ -1517,4 +1517,20 @@
     <string name="wn_novels_b">A third side next to manhwa and anime: novel sources in IReader\'s format (Arabic and foreign), a novel page, a calm reader you set yourself, and a chapter translated with one tap.</string>
     <string name="wn_logos_t">Five app icons and five openings</string>
     <string name="wn_logos_b">Pick the home-screen icon and the opening in Settings, Appearance; set its speed or turn it off.</string>
+    <string name="novel_voice_sample_ar">كان شاب هزيل المظهر يجلس قبالة مركز الشرطة.</string>
+    <string name="novel_voice_sample_en">A pale young man sat in front of the police station.</string>
+    <string name="novel_voices">Voices</string>
+    <string name="novel_voices_hint">Your phone\'s voices: the ones marked natural sound the most human. The narration has one voice; the men and the women who speak have theirs.</string>
+    <string name="novel_voices_none">Your phone has no voice for this language yet.</string>
+    <string name="novel_voices_loading">Getting the voices ready…</string>
+    <string name="novel_voices_install">Get voices</string>
+    <string name="novel_voice_narrator">Narrator</string>
+    <string name="novel_voice_male">Men\'s voice</string>
+    <string name="novel_voice_female">Women\'s voice</string>
+    <string name="novel_voice_n">Voice %1$d</string>
+    <string name="novel_voice_natural">Natural</string>
+    <string name="novel_voice_offline">On the phone</string>
+    <string name="novel_voice_speed">Speed: %1$sx</string>
+    <string name="novel_voice_pitch">Pitch: %1$s</string>
+    <string name="novel_voice_autonext">Go on to the next chapter</string>
 </resources>

@@ -60,6 +60,14 @@ data class NovelReaderSettings(
     val justify: Boolean = true,
     /** Shows the translation under each paragraph's original instead of in its place. */
     val sideBySide: Boolean = false,
+    /** Listening: speed and pitch, the voices of the narrator, of the men and of the women (by name, empty = picked by the app). */
+    val ttsRate: Float = 1f,
+    val ttsPitch: Float = 1f,
+    val voiceNarrator: String = "",
+    val voiceMale: String = "",
+    val voiceFemale: String = "",
+    /** Goes on to the next chapter when one ends while listening. */
+    val ttsAutoNext: Boolean = true,
 ) {
     companion object {
         const val THEME_PAPER = 0

@@ -1458,4 +1458,20 @@
     <string name="wn_novels_b">جنب المانهوا والأنمي بقى فيه روايات: مصادر بصيغة IReader (عربي وأجنبي)، وصفحة للرواية، وقارئ هادي تظبطه على مزاجك، والفصل بيتترجم بضغطة.</string>
     <string name="wn_logos_t">5 أيقونات و5 دخولات</string>
     <string name="wn_logos_b">اختار أيقونة التطبيق والدخول من الإعدادات ← المظهر، وظبط سرعته أو اقفله.</string>
+    <string name="novel_voice_sample_ar">كان شاب هزيل المظهر يجلس قبالة مركز الشرطة.</string>
+    <string name="novel_voice_sample_en">A pale young man sat in front of the police station.</string>
+    <string name="novel_voices">الأصوات</string>
+    <string name="novel_voices_hint">أصوات الموبايل بتاعك: اللي مكتوب عليها \"طبيعي\" هي الأقرب لصوت البني آدم. الراوي ليه صوت، والرجالة والستات اللي بيتكلموا ليهم أصواتهم.</string>
+    <string name="novel_voices_none">موبايلك لسه مفيهوش صوت للغة دي.</string>
+    <string name="novel_voices_loading">بيجهّز الأصوات…</string>
+    <string name="novel_voices_install">نزّل أصوات</string>
+    <string name="novel_voice_narrator">الراوي</string>
+    <string name="novel_voice_male">صوت الرجالة</string>
+    <string name="novel_voice_female">صوت الستات</string>
+    <string name="novel_voice_n">صوت %1$d</string>
+    <string name="novel_voice_natural">طبيعي</string>
+    <string name="novel_voice_offline">على الموبايل</string>
+    <string name="novel_voice_speed">السرعة: %1$sx</string>
+    <string name="novel_voice_pitch">طبقة الصوت: %1$s</string>
+    <string name="novel_voice_autonext">كمّل على الفصل اللي بعده</string>
 </resources>
