@@ -173,6 +173,8 @@ class ReaderActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         graph.inject(this)
         registerSecureActivity(this)
+        // MANHWA: Read along is switched on per reading, so a chapter never starts talking by itself
+        if (savedInstanceState == null) appGraph.translationPreferences.readerSpeakFollow().set(false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(
                 OVERRIDE_TRANSITION_OPEN,
