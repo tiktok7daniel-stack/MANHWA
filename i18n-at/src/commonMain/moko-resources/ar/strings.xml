@@ -1620,4 +1620,16 @@
     <string name="tour_refresh_s1">في الرئيسية اسحب من فوق لتحت.</string>
     <string name="tour_refresh_s2">دوّر على النقطة المنوّرة على الأغلفة في المكتبة.</string>
     <string name="tour_replay">جولة المميزات</string>
+    <string name="similar_title">مانهوات شبهها</string>
+    <string name="schedule_title">جدول الأسبوع</string>
+    <string name="schedule_subtitle">أعمالك بتنزل إمتى</string>
+    <string name="schedule_today">النهارده</string>
+    <string name="schedule_none">مفيش حاجة نازلة اليوم ده</string>
+    <string name="schedule_late">اتأخرت</string>
+    <string name="schedule_late_by">اتأخرت %1$d يوم</string>
+    <string name="schedule_behind">إنت متأخر فيها</string>
+    <string name="schedule_behind_by">متأخر %1$d</string>
+    <string name="schedule_irregular">مالهاش يوم ثابت</string>
+    <string name="schedule_every">كل %1$s</string>
+    <string name="schedule_every_days">كل %1$d يوم</string>
 </resources>

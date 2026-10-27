@@ -1679,4 +1679,16 @@
     <string name="tour_refresh_s1">On the home screen, pull down from the top.</string>
     <string name="tour_refresh_s2">Look for the glowing dot on the covers in the library.</string>
     <string name="tour_replay">Feature tour</string>
+    <string name="similar_title">Like this one</string>
+    <string name="schedule_title">This week</string>
+    <string name="schedule_subtitle">When your works come out</string>
+    <string name="schedule_today">Today</string>
+    <string name="schedule_none">Nothing due on this day</string>
+    <string name="schedule_late">Late</string>
+    <string name="schedule_late_by">%1$d days late</string>
+    <string name="schedule_behind">Where you are behind</string>
+    <string name="schedule_behind_by">%1$d behind</string>
+    <string name="schedule_irregular">No regular day</string>
+    <string name="schedule_every">Every %1$s</string>
+    <string name="schedule_every_days">Every %1$d days</string>
 </resources>

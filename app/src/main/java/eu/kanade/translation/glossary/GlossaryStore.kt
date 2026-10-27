@@ -300,7 +300,8 @@ class GlossaryStore(private val context: Context) {
     private companion object {
         const val STORY_CHAPTERS = 3
         // Enough for a recap of a long series; each summary is at most 600 characters
-        const val STORY_KEEP = 60
+        // MANHWA: the whole story is kept now, for the story map (about 600 characters a chapter)
+        const val STORY_KEEP = 500
     }
 
     @Synchronized

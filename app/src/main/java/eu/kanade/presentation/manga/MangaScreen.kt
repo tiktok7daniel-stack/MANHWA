@@ -477,6 +477,10 @@ private fun MangaScreenSmallImpl(
                     item(key = "manhwa_characters") {
                         eu.kanade.translation.characters.CharacterGallery(state.manga.id, state.manga.title)
                     }
+                    // MANHWA: works like this one, from AniList's recommendations
+                    item(key = "manhwa_similar") {
+                        eu.kanade.translation.characters.SimilarWorksRow(state.manga.id, state.manga.title)
+                    }
                     if (translateBar != null) {
                         item(key = "manhwa_translate") { translateBar() }
                     }

@@ -245,6 +245,9 @@ data object DiscoverTab : Tab {
                         MenuEntry(MaterialSymbols.Rounded.Download, stringResource(ATMR.strings.home_downloads)) {
                             closeDrawerThen { navigator.push(DownloadQueueScreen) }
                         },
+                        MenuEntry(MaterialSymbols.Rounded.Schedule, stringResource(ATMR.strings.schedule_title)) {
+                            closeDrawerThen { navigator.push(eu.kanade.tachiyomi.ui.home.schedule.ScheduleScreen()) }
+                        },
                         MenuEntry(MaterialSymbols.Rounded.EditNote, stringResource(ATMR.strings.notes_title)) {
                             closeDrawerThen { navigator.push(eu.kanade.tachiyomi.ui.reader.notes.PageNotesScreen()) }
                         },
