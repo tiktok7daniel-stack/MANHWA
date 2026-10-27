@@ -60,6 +60,8 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.BuildConfig
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.MilitaryTech
+import mihon.icons.materialsymbols.rounded.History
 import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.AutoStories
 import mihon.icons.materialsymbols.rounded.AutoAwesome
@@ -121,13 +123,18 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_readalong_t, ATMR.strings.wn_readalong_b),
-            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_readarabic_t, ATMR.strings.wn_readarabic_b),
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_anycolor_t, ATMR.strings.wn_anycolor_b),
+            Feature(MaterialSymbols.Rounded.History, ATMR.strings.wn_histkinds_t, ATMR.strings.wn_histkinds_b),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_onelook_t, ATMR.strings.wn_onelook_b),
+            Feature(MaterialSymbols.Rounded.MilitaryTech, ATMR.strings.wn_ranks_t, ATMR.strings.wn_ranks_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 144
+            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_readalong_t, ATMR.strings.wn_readalong_b),
+            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_readarabic_t, ATMR.strings.wn_readarabic_b),
             // Build 143
             Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_piperfix_t, ATMR.strings.wn_piperfix_b),
             // Build 142

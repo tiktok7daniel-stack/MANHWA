@@ -1523,4 +1523,12 @@
     <string name="wn_readarabic_b">الصفحات اللي عربي من المصدر بتتقري من الصورة نفسها على الموبايل، من غير ذكاء اصطناعي ومن غير نت بعد ما النموذج الصغير يتنزّل. والصفحات المترجمة بتتقري ترجمتها. والصوت هو صوت الروايات.</string>
     <string name="novel_history_empty">لسه ما قريتش أي رواية.</string>
     <string name="anime_history_empty">لسه ما اتفرجتش على أي أنمي.</string>
+    <string name="wn_anycolor_t">تبييض على أي لون</string>
+    <string name="wn_anycolor_b">الكلام اللي على أرضية غامقة أو ملونة أو متدرجة بيتمسح والترجمة بتتكتب مكانه بلون الحروف الأصلي.</string>
+    <string name="wn_histkinds_t">سجل للروايات والأنمي</string>
+    <string name="wn_histkinds_b">السجل فيه مانهوا وروايات وأنمي، والمكتبة بتعرض اللي عليه قلب بس. المستودعات بقت في قايمة ⋮.</string>
+    <string name="wn_onelook_t">شكل واحد نضيف</string>
+    <string name="wn_onelook_b">التطبيق بقى على النظام والشكل الأساسي بس.</string>
+    <string name="wn_ranks_t">رتب صياد جديدة</string>
+    <string name="wn_ranks_b">بعد المونارك: صياد بمستوى دولة، وملك الظلال، والحاكم، والكائن المطلق، والإله الخارجي.</string>
 </resources>

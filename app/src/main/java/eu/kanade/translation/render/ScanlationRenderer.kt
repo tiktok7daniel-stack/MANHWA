@@ -295,15 +295,19 @@ object ScanlationRenderer {
             val innerR = (text.right - l).roundToInt()
             val innerT = (text.top - t).roundToInt()
             val innerB = (text.bottom - t).roundToInt()
-            val ring = px.filterIndexed { i, _ ->
+            val inRing = BooleanArray(px.size) { i ->
                 val x = i % w
                 val y = i / w
                 x < innerL || x >= innerR || y < innerT || y >= innerB
             }
+            val ring = px.filterIndexed { i, _ -> inRing[i] }
             if (ring.size < 16) return false
-            val (_, share) = dominant(ring.toIntArray()) ?: return false
-            // MANHWA: any plain colour, light or dark (a white title on black is replaced too, not captioned)
-            return share >= ART_BUBBLE_SHARE || block.plainBg
+            val (bg, share) = dominant(ring.toIntArray()) ?: return false
+            // MANHWA: any plain colour, light, dark or vivid (a white title on black is replaced too, not captioned)
+            if (share >= ART_BUBBLE_SHARE || block.plainBg) return true
+            // ... and any smooth gradient (a sky, a glow, a coloured fade): the ring follows one colour plane
+            val plane = fitPlane(px, w, px.size, inRing, null, bg, Int.MAX_VALUE)
+            return residual(px, w, px.size, inRing, plane) <= SMOOTH_RESIDUAL
         }
 
         /**

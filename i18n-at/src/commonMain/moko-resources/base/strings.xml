@@ -1582,4 +1582,12 @@
     <string name="wn_readarabic_b">Pages already in Arabic are read straight from the picture, on the phone, no AI and no internet once the small model is in; translated pages are read in their translation. The voice is the one picked for the novels.</string>
     <string name="novel_history_empty">No novel read yet.</string>
     <string name="anime_history_empty">No anime watched yet.</string>
+    <string name="wn_anycolor_t">Cleaning on any colour</string>
+    <string name="wn_anycolor_b">Text on a dark, coloured or gradient background is erased and the translation written in its place, in the original letters\' colour.</string>
+    <string name="wn_histkinds_t">History for novels and anime</string>
+    <string name="wn_histkinds_b">History has Manhwa, Novels and Anime; the library shows only what has a heart. Repositories are behind the ⋮ menu.</string>
+    <string name="wn_onelook_t">One clean look</string>
+    <string name="wn_onelook_b">The app keeps its original system and look only.</string>
+    <string name="wn_ranks_t">New hunter ranks</string>
+    <string name="wn_ranks_b">Past the Monarch: National-Level, Shadow Monarch, Ruler, Absolute Being and Outer God.</string>
 </resources>
