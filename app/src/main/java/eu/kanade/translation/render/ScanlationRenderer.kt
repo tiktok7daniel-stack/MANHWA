@@ -197,7 +197,7 @@ object ScanlationRenderer {
         /** A bubble after cleaning: where its lines were, the colour behind them, and whether it is plain. */
         private class Cleaned(val block: TranslationBlock, val kind: BubbleKind, val union: RectF, val bg: Int, val plain: Boolean)
 
-        private class Placement(val cleaned: Cleaned, val area: RectF, val paint: TextPaint, val fit: Float)
+        private class Placement(val cleaned: Cleaned, val area: RectF, val paint: TextPaint, val fit: Float, val spacing: Float)
 
         /** The translation is the source as it was (letters, same words): nothing was translated. */
         private fun untranslated(block: TranslationBlock): Boolean =
@@ -244,9 +244,11 @@ object ScanlationRenderer {
             eraseJoinedLines(page, cleaned)
             // 2. Room for every bubble's text, stopping at outlines, the drawing and the other bubbles
             val unions = cleaned.map { it.union }
+            val rooms = ArrayList<RectF>(cleaned.size)
             val areas = cleaned.mapIndexed { i, c ->
                 val others = unions.filterIndexed { j, _ -> j != i }
                 val room = if (c.plain) grow(c.union, c.bg, others) else RectF(c.union)
+                rooms += RectF(room)
                 // A bubble grown to its outline keeps a wider margin on the sides, so the letters never touch
                 // the spikes of a shout or the curve of a round bubble
                 val grown = c.plain && room.width() > c.union.width() * GROWN_FACTOR
@@ -254,9 +256,20 @@ object ScanlationRenderer {
             }
             // Two texts never share space: overlapping areas are split at the middle of their overlap
             separate(areas)
+            val spacing = style.lineSpacing.coerceIn(0.8f, 1.8f)
             val sets = cleaned.mapIndexed { i, c ->
                 val paint = paintFor(c)
-                Placement(c, areas[i], paint, fit(shown(c.block), paint, areas[i]))
+                val text = shown(c.block)
+                val first = Placement(c, areas[i], paint, fit(text, paint, areas[i], spacing), spacing)
+                // MANHWA: a small bubble whose words come out too small (or do not fit at all) uses the whole of
+                // its room inside the outline and closer lines before giving up, instead of spilling over it
+                if (first.fit >= SMALL_TEXT_PX * s || c.block.edited) return@mapIndexed first
+                val roomy = clamp(RectF(rooms[i]))
+                // ... as long as that room does not reach into another bubble's text
+                if (areas.withIndex().any { (j, other) -> j != i && RectF.intersects(other, roomy) }) return@mapIndexed first
+                val tight = (spacing * 0.88f).coerceAtLeast(0.8f)
+                val second = fit(text, paint, roomy, tight)
+                if (second > first.fit) Placement(c, roomy, paint, second, tight) else first
             }
             // 3. Sizes evened out across the page, then drawn
             val fits = sets.map { it.fit }.filter { it > 0f }.sorted()
@@ -733,7 +746,7 @@ object ScanlationRenderer {
         }
 
         /** Largest text size (bitmap px) whose lines fit [area] without cutting a word. */
-        private fun fit(text: String, paint: TextPaint, area: RectF): Float {
+        private fun fit(text: String, paint: TextPaint, area: RectF, spacing: Float): Float {
             val maxW = area.width().toInt()
             if (maxW < 4 || area.height() < 4f) return 0f
             val words = text.split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -744,7 +757,7 @@ object ScanlationRenderer {
                 val mid = (low + high) / 2f
                 paint.textSize = mid
                 val widest = words.maxOfOrNull { paint.measureText(it) } ?: 0f
-                val fits = widest <= maxW && layout(text, paint, maxW).height <= area.height()
+                val fits = widest <= maxW && layout(text, paint, maxW, spacing).height <= area.height()
                 if (fits) {
                     best = mid
                     low = mid
@@ -761,7 +774,7 @@ object ScanlationRenderer {
             val area = set.area
             paint.textSize = size
             val maxW = area.width().toInt().coerceAtLeast(8)
-            var layout = layout(text, paint, maxW)
+            var layout = layout(text, paint, maxW, set.spacing)
             // Balanced lines: the narrowest width that keeps the same number of lines
             if (layout.lineCount > 1) {
                 // Never narrower than the widest word: a word is never cut over two lines
@@ -770,7 +783,7 @@ object ScanlationRenderer {
                 var high = maxW
                 repeat(8) {
                     val mid = (low + high) / 2
-                    val candidate = layout(text, paint, mid.coerceAtLeast(8))
+                    val candidate = layout(text, paint, mid.coerceAtLeast(8), set.spacing)
                     if (candidate.lineCount <= layout.lineCount && candidate.height <= max(area.height(), layout.height.toFloat())) {
                         layout = candidate
                         high = mid
@@ -860,11 +873,11 @@ object ScanlationRenderer {
             canvas.drawPath(path, glow)
         }
 
-        private fun layout(text: String, paint: TextPaint, width: Int): StaticLayout =
+        private fun layout(text: String, paint: TextPaint, width: Int, spacing: Float): StaticLayout =
             StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
                 .setAlignment(Layout.Alignment.ALIGN_CENTER)
                 .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_LTR)
-                .setLineSpacing(0f, style.lineSpacing.coerceIn(0.8f, 1.8f))
+                .setLineSpacing(0f, spacing)
                 .setIncludePad(false)
                 .setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)
                 .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
@@ -997,7 +1010,8 @@ object ScanlationRenderer {
 
     private fun luminance(c: Int) = 0.299 * Color.red(c) + 0.587 * Color.green(c) + 0.114 * Color.blue(c)
 
-    private fun textColorOn(bg: Int): Int = if (luminance(bg) > 140) Color.rgb(17, 17, 17) else Color.WHITE
+    /** MANHWA: the clearest ink for [bg], in a shade of its own hue on a coloured bubble (see [BubbleInk]). */
+    private fun textColorOn(bg: Int): Int = BubbleInk.on(bg)
 
     private fun outlineFor(text: Int): Int = if (luminance(text) > 140) Color.argb(230, 0, 0, 0) else Color.argb(240, 255, 255, 255)
 
@@ -1056,6 +1070,9 @@ object ScanlationRenderer {
     private const val GROW = 2
     private const val HOLE_GROW = 2
     private const val MIN_TEXT_PX = 6f
+
+    // MANHWA: below this size (page px) a bubble's text is given its whole room and closer lines
+    private const val SMALL_TEXT_PX = 11f
     private val RTL_SCRIPTS = setOf("ar", "fa", "ur", "he", "iw")
     private val WIDE_SCRIPTS = setOf("ja", "zh", "ko", "th", "hi", "ru", "uk", "el", "bg")
 }
