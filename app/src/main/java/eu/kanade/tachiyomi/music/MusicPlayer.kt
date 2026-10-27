@@ -153,7 +153,8 @@ object MusicPlayer {
         val current = _state.value.track?.id
         val keep = tracks.indexOfFirst { it.id == current }.takeIf { it >= 0 && playIndex == null }
         if (keep != null && _state.value.mangaId == mangaId) {
-            if (tracks.map { it.id } != _state.value.queue.map { it.id }) {
+            // A new trim must reach the loaded songs too, so a change of it reloads them where they are
+            if (tracks.map { it.id to it.trimEndMs } != _state.value.queue.map { it.id to it.trimEndMs }) {
                 val pos = player?.currentPosition ?: 0L
                 load(mangaId, tracks, keep, play = player?.isPlaying == true, seekMs = pos)
             }

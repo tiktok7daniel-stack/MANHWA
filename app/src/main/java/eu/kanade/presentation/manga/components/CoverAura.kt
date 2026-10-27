@@ -89,7 +89,7 @@ fun CoverAura(saved: Boolean, chaptersRead: Int, modifier: Modifier = Modifier, 
                     val life = (flare * (0.6f + speed * 0.8f) + seed) % 1f
                     // A point on the frame's edge
                     val per = 2 * (size.width + size.height)
-                    var d = edge * per
+                    val d = edge * per
                     val start = when {
                         d < size.width -> Offset(d, 0f)
                         d < size.width + size.height -> Offset(size.width, d - size.width)

@@ -54,6 +54,8 @@ object MusicBeat : TeeAudioProcessor.AudioBufferSink {
         val data = buffer.duplicate().order(ByteOrder.LITTLE_ENDIAN)
         val start = data.position()
         val end = data.limit()
+        // Only 16-bit and float sound is read; any other kind leaves the effects still rather than wild
+        if (encoding != C.ENCODING_PCM_16BIT && encoding != C.ENCODING_PCM_FLOAT) return
         val float = encoding == C.ENCODING_PCM_FLOAT
         val step = if (float) 4 else 2
         val frame = step * channels
