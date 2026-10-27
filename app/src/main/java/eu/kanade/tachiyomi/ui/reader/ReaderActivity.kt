@@ -980,6 +980,9 @@ class ReaderActivity : BaseActivity() {
      * Tells the presenter to load the next chapter and mark it as active. The progress dialog
      * should be automatically shown.
      */
+    /** MANHWA: the chapter-end card's button. */
+    fun goToNextChapter() = loadNextChapter()
+
     private fun loadNextChapter() {
         lifecycleScope.launch {
             viewModel.loadNextChapter()
@@ -1405,7 +1408,7 @@ class ReaderActivity : BaseActivity() {
                 .onEach(::setCustomBrightness)
                 .launchIn(lifecycleScope)
 
-            val tune = combine(
+            val tuned = combine(
                 readerPreferences.pageTune.changes(),
                 readerPreferences.pageBrightness.changes(),
                 readerPreferences.pageContrast.changes(),
@@ -1414,6 +1417,17 @@ class ReaderActivity : BaseActivity() {
             ) { on, brightness, contrast, saturation, warmth ->
                 PageTune(brightness, contrast, saturation, warmth).takeIf { on && !it.isNeutral }
             }
+            // MANHWA: AMOLED reading softens the whites (a tune of its own when no other is set)
+            val tune = combine(tuned, readerPreferences.amoledReading.changes()) { pageTune, amoled ->
+                when {
+                    !amoled -> pageTune
+                    pageTune == null -> PageTune.AMOLED
+                    else -> pageTune.copy(brightness = pageTune.brightness + PageTune.AMOLED.brightness)
+                }
+            }
+            readerPreferences.amoledReading.changes()
+                .onEach { if (it) readerPreferences.readerTheme.set(1) }
+                .launchIn(lifecycleScope)
             combine(
                 readerPreferences.grayscale.changes(),
                 readerPreferences.invertedColors.changes(),

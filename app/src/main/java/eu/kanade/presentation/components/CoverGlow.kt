@@ -80,8 +80,83 @@ object CoverGlow {
         return android.graphics.Color.HSVToColor(hsv)
     }
 
+    private val palettes = LruCache<Long, CoverPalette>(CACHE_ENTRIES)
+
+    /** The cover's own colours: its strongest, a second hue apart from it, and a deep shade for backgrounds. */
+    suspend fun paletteOf(context: Context, manga: Manga): CoverPalette? {
+        palettes.get(manga.id)?.let { return it }
+        val palette = withContext(Dispatchers.IO) {
+            runCatching {
+                val request = ImageRequest.Builder(context)
+                    .data(manga.asMangaCover())
+                    .size(Size(SAMPLE, SAMPLE))
+                    .allowHardware(false)
+                    .build()
+                val drawable = context.imageLoader.execute(request).image?.asDrawable(context.resources) as? BitmapDrawable
+                drawable?.bitmap?.let(::palette)
+            }.getOrNull()
+        } ?: return null
+        palettes.put(manga.id, palette)
+        return palette
+    }
+
+    private fun palette(bitmap: Bitmap): CoverPalette? {
+        val w = bitmap.width
+        val h = bitmap.height
+        if (w <= 0 || h <= 0) return null
+        val px = IntArray(w * h)
+        bitmap.getPixels(px, 0, w, 0, 0, w, h)
+        val hsv = FloatArray(3)
+        // Hue in 24 slices of 15 degrees, weighted by how colourful each pixel is
+        val weight = FloatArray(24)
+        val sat = FloatArray(24)
+        var dark = 0f
+        var darkHue = 0f
+        for (c in px) {
+            android.graphics.Color.colorToHSV(c, hsv)
+            if (hsv[2] < 0.35f) {
+                dark += 1f
+                darkHue += hsv[0]
+            }
+            if (hsv[1] < 0.25f || hsv[2] < 0.2f || hsv[2] > 0.98f) continue
+            val slice = (hsv[0] / 15f).toInt().coerceIn(0, 23)
+            val w8 = hsv[1] * hsv[2]
+            weight[slice] += w8
+            sat[slice] += hsv[1] * w8
+        }
+        val first = weight.indices.maxByOrNull { weight[it] }?.takeIf { weight[it] > 0f } ?: return null
+        // The second hue must stand apart (at least 45 degrees), or it is a shade of the first
+        val second = weight.indices
+            .filter { val d = kotlin.math.abs(it - first).let { x -> minOf(x, 24 - x) }; d >= 3 }
+            .maxByOrNull { weight[it] }
+            ?.takeIf { weight[it] > weight[first] * 0.12f }
+        fun tone(slice: Int, s: Float, v: Float) = Color(
+            android.graphics.Color.HSVToColor(floatArrayOf(slice * 15f + 7.5f, s.coerceIn(0f, 1f), v)),
+        )
+        val firstSat = (sat[first] / weight[first]).coerceAtLeast(0.55f)
+        val primary = tone(first, firstSat * 1.1f, 0.92f)
+        val secondary = second?.let { tone(it, (sat[it] / weight[it]).coerceAtLeast(0.5f), 0.88f) }
+            ?: tone((first + 2) % 24, firstSat * 0.8f, 0.95f)
+        val deep = tone(first, 0.55f, 0.13f)
+        return CoverPalette(primary, secondary, deep)
+    }
+
     private const val SAMPLE = 48
     private const val CACHE_ENTRIES = 300
+}
+
+/** MANHWA: a cover's colours (see [CoverGlow.paletteOf]). */
+data class CoverPalette(val primary: Color, val secondary: Color, val deep: Color)
+
+/** The palette of [manga]'s cover, or null until it is read (or when the cover has no colour). */
+@Composable
+fun rememberCoverPalette(manga: Manga?): CoverPalette? {
+    val context = LocalContext.current
+    var palette by remember(manga?.id) { mutableStateOf<CoverPalette?>(null) }
+    LaunchedEffect(manga?.id, manga?.thumbnailUrl) {
+        palette = manga?.let { CoverGlow.paletteOf(context, it) }
+    }
+    return palette
 }
 
 /** The cover colour of [manga], or null until it is read (or when the cover has none). */

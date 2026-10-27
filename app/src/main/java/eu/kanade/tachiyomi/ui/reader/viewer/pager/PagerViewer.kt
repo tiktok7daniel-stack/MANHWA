@@ -248,6 +248,10 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         val pages = page.chapter.pages ?: return
         logcat { "onReaderPageSelected: ${page.number}/${pages.size}" }
         activity.onPageSelected(page)
+        // MANHWA: a light tick under the finger as the page turns
+        if (readerPreferences.haptics.get()) {
+            pager.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+        }
 
         // Notify holder of page change
         getPageHolder(page)?.onPageSelected(forward)

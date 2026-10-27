@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
+
 package eu.kanade.tachiyomi.ui.main
 
 import eu.kanade.translation.whatsnew.WhatsNewShowcase
@@ -281,12 +283,19 @@ class MainActivity : BaseActivity() {
                     // Consume insets already used by app state banners
                     Box {
                         // Shows current screen
-                        DefaultNavigatorScreenTransition(
-                            navigator = navigator,
-                            modifier = Modifier
-                                .padding(contentPadding)
-                                .consumeWindowInsets(contentPadding),
-                        )
+                        // MANHWA: one shared scope for the whole stack, so a cover can fly from a list to its page
+                        androidx.compose.animation.SharedTransitionLayout {
+                            androidx.compose.runtime.CompositionLocalProvider(
+                                eu.kanade.presentation.components.LocalSharedCoverScope provides this,
+                            ) {
+                                DefaultNavigatorScreenTransition(
+                                    navigator = navigator,
+                                    modifier = Modifier
+                                        .padding(contentPadding)
+                                        .consumeWindowInsets(contentPadding),
+                                )
+                            }
+                        }
 
                         // Draw navigation bar scrim when needed
                         if (remember { isNavigationBarNeedsScrim() }) {

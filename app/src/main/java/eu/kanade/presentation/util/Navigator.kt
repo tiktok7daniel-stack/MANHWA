@@ -66,8 +66,11 @@ fun ScreenTransition(
         modifier = modifier,
         label = "transition",
     ) { screen ->
-        navigator.saveableState("transition", screen) {
-            content(screen)
+        // MANHWA: each screen knows its own enter/exit animation, so shared covers can fly between screens
+        androidx.compose.runtime.CompositionLocalProvider(eu.kanade.presentation.components.LocalScreenAnimationScope provides this) {
+            navigator.saveableState("transition", screen) {
+                content(screen)
+            }
         }
     }
 

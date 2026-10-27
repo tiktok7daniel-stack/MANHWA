@@ -194,6 +194,8 @@ fun MangaActionRow(
         }
     }
 
+    // MANHWA: saving a work buzzes, so it is felt as well as seen
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     Row(modifier = modifier.padding(start = 16.dp, top = 8.dp, end = 16.dp)) {
         MangaActionButton(
             title = if (favorite) {
@@ -203,7 +205,10 @@ fun MangaActionRow(
             },
             icon = if (favorite) MaterialSymbols.RoundedFilled.Favorite else MaterialSymbols.Rounded.Favorite,
             color = if (favorite) MaterialTheme.colorScheme.primary else defaultActionButtonColor,
-            onClick = onAddToLibraryClicked,
+            onClick = {
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                onAddToLibraryClicked()
+            },
             onLongClick = onEditCategory,
         )
         MangaActionButton(

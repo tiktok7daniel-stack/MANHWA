@@ -17,6 +17,9 @@ class LibraryPreferences(
     private val preferenceStore: PreferenceStore,
 ) {
 
+    /** MANHWA: the library as books standing on shelves, over whichever display mode is set. */
+    val shelfView: Preference<Boolean> = preferenceStore.getBoolean("manhwa_library_shelf", false)
+
     val displayMode: Preference<LibraryDisplayMode> = preferenceStore.getObjectFromString(
         "pref_display_mode_library",
         LibraryDisplayMode.default,

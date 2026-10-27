@@ -1615,4 +1615,16 @@
     <string name="wn_histclear_b">Clearing the history asks which sides to clear, with the open one picked.</string>
     <string name="wn_iconfix_t">The icon you see is the icon you get</string>
     <string name="wn_iconfix_b">The icon picker shows the real home-screen icon, and each icon keeps its own look with themed icons.</string>
+    <string name="poster_edition">Manhwa edition</string>
+    <string name="poster_progress">%1$d / %2$d chapters</string>
+    <string name="library_shelf">Shelf</string>
+    <string name="end_card_title">Chapter finished</string>
+    <string name="end_card_minutes">%1$d min</string>
+    <string name="end_card_time">Time</string>
+    <string name="end_card_level">Level</string>
+    <string name="end_card_rank">Rank</string>
+    <string name="end_card_to_next">%1$d more to the next level</string>
+    <string name="end_card_next">Next chapter</string>
+    <string name="amoled_reading">AMOLED reading (pure black, softer whites)</string>
+    <string name="reader_haptics">Haptics on page turn and chapter end</string>
 </resources>

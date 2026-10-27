@@ -147,6 +147,8 @@ fun MangaScreen(
         }
     }
 
+    // MANHWA: the whole page takes its colours from the cover, so every work has its own look
+    eu.kanade.presentation.manga.components.CoverTheme(state.manga) {
     if (!isTabletUi) {
         MangaScreenSmallImpl(
             state = state,
@@ -233,6 +235,7 @@ fun MangaScreen(
             onAllChapterSelected = onAllChapterSelected,
             onInvertSelection = onInvertSelection,
         )
+    }
     }
 }
 
@@ -409,19 +412,26 @@ private fun MangaScreenSmallImpl(
                         key = MangaScreenItem.INFO_BOX,
                         contentType = MangaScreenItem.INFO_BOX,
                     ) {
-                        // MANHWA: the header glows in the colour of the cover
-                        eu.kanade.presentation.components.AmbientGlow(eu.kanade.presentation.components.rememberCoverColor(state.manga)) {
-                            MangaInfoBox(
-                                isTabletUi = false,
-                                appBarPadding = topPadding,
-                                manga = state.manga,
-                                source = remember { state.source },
-                                isStubSource = remember { state.source is StubSource },
-                                onCoverClick = onCoverClicked,
-                                doSearch = onSearch,
-                                chaptersRead = remember(state.chapters) { state.chapters.count { it.chapter.read } },
-                            )
-                        }
+                        // MANHWA: the head of the page as an editorial poster, in the cover's colours
+                        eu.kanade.presentation.manga.components.PosterHeader(
+                            manga = state.manga,
+                            sourceName = remember(state.source) { state.source.getNameForMangaInfo() },
+                            chaptersRead = remember(state.chapters) { state.chapters.count { it.chapter.read } },
+                            chapterCount = state.chapters.size,
+                            topPadding = topPadding,
+                            scrollProvider = {
+                                if (chapterListState.firstVisibleItemIndex == 0) {
+                                    chapterListState.firstVisibleItemScrollOffset.toFloat()
+                                } else {
+                                    2000f
+                                }
+                            },
+                            onCoverClick = onCoverClicked,
+                            doSearch = onSearch,
+                            onTagSearch = onTagSearch,
+                            onContinue = onContinueReading.takeIf { state.hasUnreadChapters },
+                            continueLabel = stringResource(if (state.hasReadChapters) MR.strings.action_resume else MR.strings.action_start),
+                        )
                     }
 
                     item(

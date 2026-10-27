@@ -1556,4 +1556,16 @@
     <string name="wn_histclear_b">مسح السجل بيسألك تمسح أنهي قسم، والقسم المفتوح هو المتعلّم.</string>
     <string name="wn_iconfix_t">الأيقونة زي ما بتشوفها</string>
     <string name="wn_iconfix_b">اختيار الأيقونة بيعرض أيقونة الشاشة الرئيسية الحقيقية، وكل أيقونة بتحتفظ بشكلها مع الأيقونات الملونة بالثيم.</string>
+    <string name="poster_edition">نسخة مانهوا</string>
+    <string name="poster_progress">%1$d / %2$d فصل</string>
+    <string name="library_shelf">رفوف</string>
+    <string name="end_card_title">خلصت الفصل</string>
+    <string name="end_card_minutes">%1$d د</string>
+    <string name="end_card_time">الوقت</string>
+    <string name="end_card_level">المستوى</string>
+    <string name="end_card_rank">الرتبة</string>
+    <string name="end_card_to_next">باقي %1$d للمستوى الجاي</string>
+    <string name="end_card_next">الفصل الجاي</string>
+    <string name="amoled_reading">قراءة AMOLED (أسود كامل وأبيض أهدى)</string>
+    <string name="reader_haptics">اهتزاز خفيف مع قلب الصفحة وآخر الفصل</string>
 </resources>

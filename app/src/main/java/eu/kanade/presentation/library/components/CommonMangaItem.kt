@@ -47,6 +47,7 @@ import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.i18n.stringResource
+import eu.kanade.presentation.components.sharedCover
 import tachiyomi.domain.manga.model.MangaCover as MangaCoverModel
 
 object CommonMangaItemDefaults {
@@ -94,6 +95,7 @@ fun MangaCompactGridItem(
                 MangaCover.Book(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .sharedCover(coverData.mangaId)
                         .alpha(if (isSelected) GRID_SELECTED_COVER_ALPHA else coverAlpha),
                     data = coverData,
                 )
@@ -205,6 +207,7 @@ fun MangaComfortableGridItem(
                     MangaCover.Book(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .sharedCover(coverData.mangaId)
                             .alpha(if (isSelected) GRID_SELECTED_COVER_ALPHA else coverAlpha),
                         data = coverData,
                     )

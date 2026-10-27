@@ -34,5 +34,8 @@ data class PageTune(val brightness: Int, val contrast: Int, val saturation: Int,
     companion object {
         /** A gentle lift for washed-out, compressed scans. */
         val AUTO = PageTune(brightness = 4, contrast = 14, saturation = 18, warmth = 0)
+
+        /** AMOLED reading: whites a little lower, so a white page does not glare in the dark. */
+        val AMOLED = PageTune(brightness = -14, contrast = 0, saturation = 0, warmth = 8)
     }
 }

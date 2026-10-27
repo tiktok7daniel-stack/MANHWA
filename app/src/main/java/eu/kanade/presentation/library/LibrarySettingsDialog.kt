@@ -229,14 +229,24 @@ private fun ColumnScope.DisplayPage(
     viewModel: LibrarySettingsViewModel,
 ) {
     val displayMode by viewModel.libraryPreferences.displayMode.collectAsState()
+    val shelf by viewModel.libraryPreferences.shelfView.collectAsState()
     SettingsChipRow(MR.strings.action_display_mode) {
         displayModes.map { (titleRes, mode) ->
             FilterChip(
-                selected = displayMode == mode,
-                onClick = { viewModel.setDisplayMode(mode) },
+                selected = !shelf && displayMode == mode,
+                onClick = {
+                    viewModel.libraryPreferences.shelfView.set(false)
+                    viewModel.setDisplayMode(mode)
+                },
                 label = { Text(stringResource(titleRes)) },
             )
         }
+        // MANHWA: books standing on shelves
+        FilterChip(
+            selected = shelf,
+            onClick = { viewModel.libraryPreferences.shelfView.set(true) },
+            label = { Text(stringResource(tachiyomi.i18n.at.ATMR.strings.library_shelf)) },
+        )
     }
 
     if (displayMode != LibraryDisplayMode.List) {

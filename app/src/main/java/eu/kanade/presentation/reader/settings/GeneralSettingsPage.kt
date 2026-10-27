@@ -129,6 +129,16 @@ internal fun ColumnScope.GeneralPage(viewModel: ReaderSettingsViewModel) {
         pref = viewModel.preferences.alwaysShowChapterTransition,
     )
 
+    // MANHWA: pure black and softer whites for night reading on OLED screens
+    CheckboxItem(
+        label = stringResource(tachiyomi.i18n.at.ATMR.strings.amoled_reading),
+        pref = viewModel.preferences.amoledReading,
+    )
+    CheckboxItem(
+        label = stringResource(tachiyomi.i18n.at.ATMR.strings.reader_haptics),
+        pref = viewModel.preferences.haptics,
+    )
+
     // MANHWA: pass over the groups' credits and ads at the chapters' ends; and forget what was learned
     CheckboxItem(
         label = stringResource(tachiyomi.i18n.at.ATMR.strings.credit_skip),

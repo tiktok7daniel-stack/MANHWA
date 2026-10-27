@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
+import mihon.app.di.appGraph
+import tachiyomi.presentation.core.util.collectAsState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -65,6 +67,7 @@ fun LibraryPager(
             return@HorizontalPager
         }
 
+        val context = androidx.compose.ui.platform.LocalContext.current
         val displayMode by getDisplayMode(page)
         val columns by if (displayMode != LibraryDisplayMode.List) {
             val configuration = LocalConfiguration.current
@@ -77,6 +80,20 @@ fun LibraryPager(
 
         val onClickManga: (LibraryManga) -> Unit = { onClickManga(category, it) }
         val onLongClickManga: (LibraryManga) -> Unit = { onLongClickManga(category, it) }
+
+        // MANHWA: the shelf view, when on, stands in for the display mode
+        val shelfPref = remember { context.appGraph.libraryPreferences.shelfView }
+        val shelf by shelfPref.collectAsState()
+        if (shelf) {
+            LibraryShelf(
+                items = items,
+                contentPadding = contentPadding,
+                selection = selection,
+                onClick = onClickManga,
+                onLongClick = onLongClickManga,
+            )
+            return@HorizontalPager
+        }
 
         when (displayMode) {
             LibraryDisplayMode.List -> {

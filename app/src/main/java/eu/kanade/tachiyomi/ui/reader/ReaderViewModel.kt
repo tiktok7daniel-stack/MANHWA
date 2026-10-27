@@ -828,6 +828,7 @@ class ReaderViewModel(
 
     fun restartReadTimer() {
         chapterReadStartTime = Clock.System.now()
+        eu.kanade.presentation.reader.ReadingClock.startedAt = System.currentTimeMillis()
     }
 
     /**

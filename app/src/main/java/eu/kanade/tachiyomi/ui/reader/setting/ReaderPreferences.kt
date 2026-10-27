@@ -187,6 +187,12 @@ class ReaderPreferences(
 
     val pageWarmth: Preference<Int> = preferenceStore.getInt("manhwa_page_warmth", 0)
 
+    /** MANHWA: pure black around the pages and softer whites on them, for reading at night on an OLED screen. */
+    val amoledReading: Preference<Boolean> = preferenceStore.getBoolean("manhwa_amoled_reading", false)
+
+    /** MANHWA: a light tick on each page turn, and a buzz at a chapter's end. */
+    val haptics: Preference<Boolean> = preferenceStore.getBoolean("manhwa_reader_haptics", true)
+
     /** MANHWA: credit, recruitment and ad pages at a chapter's ends are passed over. */
     val skipCreditPages: Preference<Boolean> = preferenceStore.getBoolean("manhwa_skip_credit_pages", true)
 
