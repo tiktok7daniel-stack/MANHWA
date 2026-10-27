@@ -173,8 +173,6 @@ class ReaderActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         graph.inject(this)
         registerSecureActivity(this)
-        // MANHWA: Read along is switched on per reading, so a chapter never starts talking by itself
-        if (savedInstanceState == null) appGraph.translationPreferences.readerSpeakFollow().set(false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(
                 OVERRIDE_TRANSITION_OPEN,
@@ -317,7 +315,6 @@ class ReaderActivity : BaseActivity() {
             val qualityStore = remember { eu.kanade.translation.team.ChapterQuality(appGraph.translationPreferences.translationChapterQuality()) }
             val quality = remember(chapterIdNow, hudOpen, showQuality) { chapterIdNow?.let { qualityStore[it] } }
             val speaking by speaker.speaking.collectAsState()
-            val speakFollow by speakFollowPref.collectAsState()
             var scrolling by rememberSaveable { mutableStateOf(false) }
             val editStore = remember { appGraph.translationEditStore }
             val editing by editStore.editing.collectAsState()
@@ -456,8 +453,6 @@ class ReaderActivity : BaseActivity() {
                 onQuality = { showQuality = true },
                 speaking = speaking,
                 onSpeak = { toggleSpeaking() },
-                speakFollow = speakFollow,
-                onSpeakFollow = ::setSpeakFollow,
                 onStudy = { showStudy = true },
                 onPip = if (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) ::enterPip else null,
                 modifier = Modifier
@@ -1111,7 +1106,7 @@ class ReaderActivity : BaseActivity() {
      */
     private val speakerLazy = lazy {
         eu.kanade.translation.speech.PageVoice(this).apply {
-            onPageDone = { runOnUiThread { if (speakFollowPref.get()) followDone() else speakNextPage() } }
+            onPageDone = { runOnUiThread { speakNextPage() } }
             sourceLanguage = { viewModel.state.value.source?.lang }
             onProblem = { problem ->
                 runOnUiThread {
@@ -1184,7 +1179,6 @@ class ReaderActivity : BaseActivity() {
 
     fun onPageSelected(page: ReaderPage) {
         viewModel.onPageSelected(page)
-        if (speakFollowPref.get()) followPage(page)
         // MANHWA fight reader: a page of blasts and sound effects shakes the screen a little
         if (page !== lastFightPage && readerPreferences.fightEffects.get() && FightPages.isFight(page.translation)) {
             lastFightPage = page
@@ -1223,52 +1217,6 @@ class ReaderActivity : BaseActivity() {
 
     private var shownNoteChapter = -1L
     private var shownNotePage = -1
-
-    /** MANHWA read along: the switch, kept for every chapter. */
-    private val speakFollowPref by lazy { appGraph.translationPreferences.readerSpeakFollow() }
-
-    /** Read along: the page being said now (null while nothing is said), and the one to say when it ends. */
-    private var followSpoken: ReaderPage? = null
-    private var followNext: ReaderPage? = null
-
-    private fun setSpeakFollow(on: Boolean) {
-        speakFollowPref.set(on)
-        followSpoken = null
-        followNext = null
-        if (speaker.speaking.value) speaker.stop()
-        if (on) currentReaderPage()?.let { followPage(it) }
-    }
-
-    /**
-     * Read along: the page the reader reached is said. Moving on to the next page lets the one being said end first;
-     * jumping further, or back, starts the new page at once.
-     */
-    private fun followPage(page: ReaderPage) {
-        val spoken = followSpoken
-        if (spoken === page) return
-        if (spoken != null && speaker.speaking.value) {
-            val pages = spoken.chapter.pages
-            val from = pages?.indexOf(spoken) ?: -1
-            val to = pages?.indexOf(page) ?: -1
-            if (from >= 0 && to == from + 1) {
-                followNext = page
-                return
-            }
-        }
-        followNext = null
-        followSpoken = page
-        speaker.speak(page)
-        speaker.prefetch(nextReaderPage(page))
-    }
-
-    /** Read along: a page was said; the page the reader moved to meanwhile is next, else it waits for them. */
-    private fun followDone() {
-        val next = followNext
-        followNext = null
-        followSpoken = null
-        speaker.stop()
-        if (next != null) followPage(next)
-    }
 
     /**
      * Called from the viewer whenever a [page] is long clicked. A bottom sheet with a list of

@@ -166,7 +166,6 @@ object WhatsNew {
             Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_onelook_t, ATMR.strings.wn_onelook_b),
             Feature(MaterialSymbols.Rounded.MilitaryTech, ATMR.strings.wn_ranks_t, ATMR.strings.wn_ranks_b),
             // Build 144
-            Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_readalong_t, ATMR.strings.wn_readalong_b),
             Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_readarabic_t, ATMR.strings.wn_readarabic_b),
             // Build 143
             Feature(MaterialSymbols.Rounded.RecordVoiceOver, ATMR.strings.wn_piperfix_t, ATMR.strings.wn_piperfix_b),
