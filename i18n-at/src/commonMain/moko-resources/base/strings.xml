@@ -1806,7 +1806,7 @@
     <string name="wn_music_t">Music for every manhwa</string>
     <string name="wn_music_b">Add your own songs to a manhwa: they play on its page and in its chapters, in order, on repeat or shuffled, under a glass bar with a turning vinyl.</string>
     <string name="wn_scene_t">A scene behind every manhwa</string>
-    <string name="wn_scene_b">The page stands on a scene in the cover's colours; pick another in the music player.</string>
+    <string name="wn_scene_b">The page stands on a scene in the cover\'s colours, among 59 (yours and free space pictures from NASA); pick another, or your own picture, in the music player.</string>
     <string name="wn_pagefix_t">A cleaner page</string>
     <string name="wn_pagefix_b">No source tag on the cover, no mismatched panels, the big title fades as you scroll, and the bar takes the cover's colour.</string>
     <string name="music_scene_add">Your picture</string>

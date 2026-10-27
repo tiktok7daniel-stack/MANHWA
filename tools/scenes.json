@@ -1,14 +1,5 @@
 [
  {
-  "url": "https://images-assets.nasa.gov/image/PIA04225/PIA04225~medium.jpg",
-  "source": "https://images.nasa.gov/details/PIA04225",
-  "title": "N44C nebula",
-  "creator": "JPL",
-  "license": "Public domain (NASA)",
-  "name": "scene_001",
-  "family": "WARM"
- },
- {
   "url": "https://images-assets.nasa.gov/image/PIA07902/PIA07902~medium.jpg",
   "source": "https://images.nasa.gov/details/PIA07902",
   "title": "Planetary Nebula NGC 7293 also Known as the Helix Nebula",
@@ -61,15 +52,6 @@
   "license": "Public domain (NASA)",
   "name": "scene_007",
   "family": "TEAL"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/PIA17409/PIA17409~medium.jpg",
-  "source": "https://images.nasa.gov/details/PIA17409",
-  "title": "Nebula? No, It the Cat Eye Crater!",
-  "creator": "JPL",
-  "license": "Public domain (NASA)",
-  "name": "scene_008",
-  "family": "WARM"
  },
  {
   "url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000699/GSFC_20171208_Archive_e000699~medium.jpg",
@@ -144,15 +126,6 @@
   "family": "MONO"
  },
  {
-  "url": "https://images-assets.nasa.gov/image/PIA15656/PIA15656~medium.jpg",
-  "source": "https://images.nasa.gov/details/PIA15656",
-  "title": "Portrait of a Galaxy Life",
-  "creator": "JPL",
-  "license": "Public domain (NASA)",
-  "name": "scene_017",
-  "family": "WARM"
- },
- {
   "url": "https://images-assets.nasa.gov/image/PIA04624/PIA04624~medium.jpg",
   "source": "https://images.nasa.gov/details/PIA04624",
   "title": "Galaxy Centaurus A",
@@ -178,24 +151,6 @@
   "license": "Public domain (NASA)",
   "name": "scene_020",
   "family": "MONO"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/astronomers-set-a-new-galaxy-distance-record_17389972462_o/astronomers-set-a-new-galaxy-distance-record_17389972462_o~medium.jpg",
-  "source": "https://images.nasa.gov/details/astronomers-set-a-new-galaxy-distance-record_17389972462_o",
-  "title": "Astronomers Set a New Galaxy Distance Record",
-  "creator": "GSFC",
-  "license": "Public domain (NASA)",
-  "name": "scene_021",
-  "family": "BLUE"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/PIA11805/PIA11805~medium.jpg",
-  "source": "https://images.nasa.gov/details/PIA11805",
-  "title": "Seeing Baby Dwarf Galaxies",
-  "creator": "JPL",
-  "license": "Public domain (NASA)",
-  "name": "scene_022",
-  "family": "BLUE"
  },
  {
   "url": "https://images-assets.nasa.gov/image/PIA17246/PIA17246~medium.jpg",
@@ -252,15 +207,6 @@
   "family": "MONO"
  },
  {
-  "url": "https://images-assets.nasa.gov/image/PIA11986/PIA11986~medium.jpg",
-  "source": "https://images.nasa.gov/details/PIA11986",
-  "title": "Cluster of Stars in Kepler Sight",
-  "creator": "JPL",
-  "license": "Public domain (NASA)",
-  "name": "scene_029",
-  "family": "WARM"
- },
- {
   "url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e002049/GSFC_20171208_Archive_e002049~medium.jpg",
   "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e002049",
   "title": "Starburst Cluster Shows Celestial Fireworks",
@@ -276,15 +222,6 @@
   "creator": "JPL",
   "license": "Public domain (NASA)",
   "name": "scene_031",
-  "family": "WARM"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/PIA10227/PIA10227~medium.jpg",
-  "source": "https://images.nasa.gov/details/PIA10227",
-  "title": "Celestial Cities and the Roads That Connect Them",
-  "creator": "JPL",
-  "license": "Public domain (NASA)",
-  "name": "scene_032",
   "family": "WARM"
  },
  {
@@ -360,42 +297,6 @@
   "family": "BLUE"
  },
  {
-  "url": "https://images-assets.nasa.gov/image/hubble-captures-vivid-auroras-in-jupiters-atmosphere_28000029525_o/hubble-captures-vivid-auroras-in-jupiters-atmosphere_28000029525_o~medium.jpg",
-  "source": "https://images.nasa.gov/details/hubble-captures-vivid-auroras-in-jupiters-atmosphere_28000029525_o",
-  "title": "Hubble Captures Vivid Auroras in Jupiter\u2019s Atmosphere",
-  "creator": "GSFC",
-  "license": "Public domain (NASA)",
-  "name": "scene_041",
-  "family": "WARM"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/KSC-20251111-PH-JBS01_0011/KSC-20251111-PH-JBS01_0011~large.jpg",
-  "source": "https://images.nasa.gov/details/KSC-20251111-PH-JBS01_0011",
-  "title": "Aurora Borealis at Kennedy Space Center",
-  "creator": "KSC",
-  "license": "Public domain (NASA)",
-  "name": "scene_042",
-  "family": "WARM"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/KSC-20251111-PH-JBS01_0013/KSC-20251111-PH-JBS01_0013~large.jpg",
-  "source": "https://images.nasa.gov/details/KSC-20251111-PH-JBS01_0013",
-  "title": "Aurora Borealis at Kennedy Space Center",
-  "creator": "KSC",
-  "license": "Public domain (NASA)",
-  "name": "scene_043",
-  "family": "WARM"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/KSC-20251111-PH-JBS01_0008/KSC-20251111-PH-JBS01_0008~large.jpg",
-  "source": "https://images.nasa.gov/details/KSC-20251111-PH-JBS01_0008",
-  "title": "Aurora Borealis at Kennedy Space Center",
-  "creator": "KSC",
-  "license": "Public domain (NASA)",
-  "name": "scene_044",
-  "family": "WARM"
- },
- {
   "url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001189/GSFC_20171208_Archive_e001189~medium.jpg",
   "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e001189",
   "title": "GREECE Mission Launching Into Aurora",
@@ -405,24 +306,6 @@
   "family": "GREEN"
  },
  {
-  "url": "https://images-assets.nasa.gov/image/PIA01257/PIA01257~medium.jpg",
-  "source": "https://images.nasa.gov/details/PIA01257",
-  "title": "Hubble Images Reveal Jupiter Auroras",
-  "creator": "JPL",
-  "license": "Public domain (NASA)",
-  "name": "scene_046",
-  "family": "BLUE"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000276/GSFC_20171208_Archive_e000276~medium.jpg",
-  "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e000276",
-  "title": "Hubble Captures Vivid Auroras in Jupiter\u2019s Atmosphere",
-  "creator": "GSFC",
-  "license": "Public domain (NASA)",
-  "name": "scene_047",
-  "family": "WARM"
- },
- {
   "url": "https://images-assets.nasa.gov/image/PIA06909/PIA06909~medium.jpg",
   "source": "https://images.nasa.gov/details/PIA06909",
   "title": "Kepler Supernova Remnant: A View from Hubble Space Telescope",
@@ -430,15 +313,6 @@
   "license": "Public domain (NASA)",
   "name": "scene_048",
   "family": "MONO"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/stsci-h-p1708c-m-2000x2000/stsci-h-p1708c-m-2000x2000~medium.jpg",
-  "source": "https://images.nasa.gov/details/stsci-h-p1708c-m-2000x2000",
-  "title": "The Dawn of a New Era for Supernova 1987A",
-  "creator": "GSFC",
-  "license": "Public domain (NASA)",
-  "name": "scene_049",
-  "family": "PURPLE"
  },
  {
   "url": "https://images-assets.nasa.gov/image/PIA06908/PIA06908~medium.jpg",
@@ -459,24 +333,6 @@
   "family": "WARM"
  },
  {
-  "url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e002190/GSFC_20171208_Archive_e002190~medium.jpg",
-  "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e002190",
-  "title": "Suzaku Finds \"Fossil\" Fireballs from Supernovae",
-  "creator": "GSFC",
-  "license": "Public domain (NASA)",
-  "name": "scene_052",
-  "family": "WARM"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/PIA11213/PIA11213~medium.jpg",
-  "source": "https://images.nasa.gov/details/PIA11213",
-  "title": "Supernova Flashback",
-  "creator": "JPL",
-  "license": "Public domain (NASA)",
-  "name": "scene_053",
-  "family": "WARM"
- },
- {
   "url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001791/GSFC_20171208_Archive_e001791~medium.jpg",
   "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e001791",
   "title": "Hubble Solves Mystery on Source of Supernova in Nearby Galaxy",
@@ -484,15 +340,6 @@
   "license": "Public domain (NASA)",
   "name": "scene_054",
   "family": "BLUE"
- },
- {
-  "url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001896/GSFC_20171208_Archive_e001896~medium.jpg",
-  "source": "https://images.nasa.gov/details/GSFC_20171208_Archive_e001896",
-  "title": "NASA's Hubble Sees A New Supernova Remnant Light Up",
-  "creator": "GSFC",
-  "license": "Public domain (NASA)",
-  "name": "scene_055",
-  "family": "WARM"
  },
  {
   "url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e002183/GSFC_20171208_Archive_e002183~medium.jpg",
