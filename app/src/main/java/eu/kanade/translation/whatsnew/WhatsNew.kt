@@ -60,6 +60,11 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.BuildConfig
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.LocalFireDepartment
+import mihon.icons.materialsymbols.rounded.EditNote
+import mihon.icons.materialsymbols.rounded.DoneAll
+import mihon.icons.materialsymbols.rounded.LocalLibrary
+import mihon.icons.materialsymbols.rounded.Image
 import mihon.icons.materialsymbols.rounded.MilitaryTech
 import mihon.icons.materialsymbols.rounded.FolderOpen
 import mihon.icons.materialsymbols.rounded.History
@@ -124,17 +129,26 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
+            Feature(MaterialSymbols.Rounded.Image, ATMR.strings.wn_poster_t, ATMR.strings.wn_poster_b),
+            Feature(MaterialSymbols.Rounded.LocalLibrary, ATMR.strings.wn_bookshelf_t, ATMR.strings.wn_bookshelf_b),
+            Feature(MaterialSymbols.Rounded.DoneAll, ATMR.strings.wn_endcard_t, ATMR.strings.wn_endcard_b),
+            Feature(MaterialSymbols.Rounded.Group, ATMR.strings.wn_storymap_t, ATMR.strings.wn_storymap_b),
+            Feature(MaterialSymbols.Rounded.Schedule, ATMR.strings.wn_schedule_t, ATMR.strings.wn_schedule_b),
+            Feature(MaterialSymbols.Rounded.Psychology, ATMR.strings.wn_mood_t, ATMR.strings.wn_mood_b),
+            Feature(MaterialSymbols.Rounded.EditNote, ATMR.strings.wn_notes_t, ATMR.strings.wn_notes_b),
+            Feature(MaterialSymbols.Rounded.LocalFireDepartment, ATMR.strings.wn_cinema_t, ATMR.strings.wn_cinema_b),
+        )
+
+    /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
+    val earlier: List<Feature>
+        get() = listOf(
+            // Build 146
             Feature(MaterialSymbols.Rounded.SkipNext, ATMR.strings.wn_credits_t, ATMR.strings.wn_credits_b),
             Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_tune_t, ATMR.strings.wn_tune_b),
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_aura_t, ATMR.strings.wn_aura_b),
             Feature(MaterialSymbols.Rounded.FolderOpen, ATMR.strings.wn_repomenu_t, ATMR.strings.wn_repomenu_b),
             Feature(MaterialSymbols.Rounded.History, ATMR.strings.wn_histclear_t, ATMR.strings.wn_histclear_b),
             Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_iconfix_t, ATMR.strings.wn_iconfix_b),
-        )
-
-    /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
-    val earlier: List<Feature>
-        get() = listOf(
             // Build 145
             Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_anycolor_t, ATMR.strings.wn_anycolor_b),
             Feature(MaterialSymbols.Rounded.History, ATMR.strings.wn_histkinds_t, ATMR.strings.wn_histkinds_b),

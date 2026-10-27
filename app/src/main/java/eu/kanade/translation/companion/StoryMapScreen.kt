@@ -72,6 +72,7 @@ import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.History
 import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.Refresh
+import mihon.icons.materialsymbols.rounded.Share
 import mihon.icons.materialsymbols.rounded.Visibility
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -119,6 +120,18 @@ class StoryMapScreen(private val mangaId: Long, private val title: String) : Scr
                     subtitle = title,
                     onBack = navigator::pop,
                     actions = {
+                        // MANHWA visual recap: the map as a card to share
+                        val heading = stringResource(ATMR.strings.storymap_title)
+                        val upToLine = stringResource(ATMR.strings.storymap_spoiler_free, upTo.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() })
+                        map?.takeIf { it.events.isNotEmpty() }?.let { current ->
+                            ManhwaKit.IconOrb(MaterialSymbols.Rounded.Share) {
+                                scope.launch {
+                                    val manga = withContext(Dispatchers.IO) { runCatching { context.appGraph.getMangaById.await(mangaId) }.getOrNull() }
+                                    if (manga != null) RecapCard.share(context, manga, current, heading, upToLine)
+                                }
+                            }
+                            Spacer(Modifier.width(8.dp))
+                        }
                         ManhwaKit.IconOrb(MaterialSymbols.Rounded.Refresh) { scope.launch { build(force = true) } }
                     },
                 )

@@ -57,6 +57,13 @@ import androidx.compose.ui.window.DialogProperties
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Visibility
+import mihon.icons.materialsymbols.rounded.Headphones
+import mihon.icons.materialsymbols.rounded.LocalFireDepartment
+import mihon.icons.materialsymbols.rounded.Psychology
+import mihon.icons.materialsymbols.rounded.Schedule
+import mihon.icons.materialsymbols.rounded.Search
+import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.Bedtime
 import mihon.icons.materialsymbols.rounded.EditNote
@@ -152,6 +159,54 @@ object FeatureTour {
                 ATMR.strings.tour_refresh_t,
                 ATMR.strings.tour_refresh_b,
                 listOf(ATMR.strings.tour_refresh_s1, ATMR.strings.tour_refresh_s2),
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.Group,
+                ATMR.strings.tour_storymap_t,
+                ATMR.strings.tour_storymap_b,
+                listOf(ATMR.strings.tour_storymap_s1, ATMR.strings.tour_storymap_s2, ATMR.strings.tour_storymap_s3),
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.Search,
+                ATMR.strings.tour_who_t,
+                ATMR.strings.tour_who_b,
+                listOf(ATMR.strings.tour_who_s1, ATMR.strings.tour_who_s2),
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.Schedule,
+                ATMR.strings.tour_schedule_t,
+                ATMR.strings.tour_schedule_b,
+                listOf(ATMR.strings.tour_schedule_s1, ATMR.strings.tour_schedule_s2),
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.Psychology,
+                ATMR.strings.tour_mood_t,
+                ATMR.strings.tour_mood_b,
+                listOf(ATMR.strings.tour_mood_s1, ATMR.strings.tour_mood_s2),
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.AutoAwesome,
+                ATMR.strings.tour_similar_t,
+                ATMR.strings.tour_similar_b,
+                listOf(ATMR.strings.tour_similar_s1),
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.LocalFireDepartment,
+                ATMR.strings.tour_cinema_t,
+                ATMR.strings.tour_cinema_b,
+                listOf(ATMR.strings.tour_cinema_s1, ATMR.strings.tour_cinema_s2, ATMR.strings.tour_cinema_s3),
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.Headphones,
+                ATMR.strings.tour_voices_t,
+                ATMR.strings.tour_voices_b,
+                listOf(ATMR.strings.tour_voices_s1),
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.Visibility,
+                ATMR.strings.tour_spoilers_t,
+                ATMR.strings.tour_spoilers_b,
+                listOf(ATMR.strings.tour_spoilers_s1, ATMR.strings.tour_spoilers_s2),
             ),
         )
 }
