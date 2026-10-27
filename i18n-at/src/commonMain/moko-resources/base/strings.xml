@@ -1886,4 +1886,10 @@
     <string name="wn_arfonts_b">Ruqaa, Kufi, Naskh, Nastaliq and more for Arabic titles; an Arabic title gets one by itself.</string>
     <string name="wn_mixes_t">70 effects and a daily mix</string>
     <string name="wn_mixes_b">Ten new effects (aurora, galaxy, sakura, snow, rain, bokeh, shockwave, black hole, fireflies, smoke), fifty mixes of two, and \'Every day\': a new mix by itself each day.</string>
+    <string name="wn_battery_t">Cooler, lighter</string>
+    <string name="wn_battery_b">All the moving decoration shares one slow clock: it rests when you leave the screen alone, slows down on battery saver, low battery or a warm phone, and wakes at a touch. Everything still works as before.</string>
+    <string name="wn_trfonts_t">42 translation fonts</string>
+    <string name="wn_trfonts_b">Thirty more Arabic faces that scanlation teams use (or free look-alikes), with « » … and quotes in every one.</string>
+    <string name="wn_bubbleink_t">Text that suits every bubble</string>
+    <string name="wn_bubbleink_b">On a coloured bubble the translation takes a deep or pale shade of its colour that reads clearly, and small bubbles use all their room instead of spilling over.</string>
 </resources>
