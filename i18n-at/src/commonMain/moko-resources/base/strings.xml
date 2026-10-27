@@ -1717,4 +1717,9 @@
     <string name="mood_funny">Something funny</string>
     <string name="mood_dark">Dark and scary</string>
     <string name="mood_count">%1$d works in your library</string>
+    <string name="fight_effects">Fight effects: the screen shakes on action pages</string>
+    <string name="poster_next">Next chapter likely on %1$s</string>
+    <string name="poster_next_late">Next chapter is %1$d days late</string>
+    <string name="bubble_focus">Bubble by bubble: zoom onto each bubble (paged mode, translated pages)</string>
+    <string name="cinema_mode">Cinema: move on by itself, bubble by bubble</string>
 </resources>

@@ -129,6 +129,33 @@ open class ReaderPageImageView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * MANHWA bubble focus: zooms onto [rect] (in the page's own pixels, out of a page [pageWidth] wide), or back to
+     * the whole page when it is null. False when the page cannot zoom (an animated image, or not drawn yet).
+     */
+    fun focusOn(rect: android.graphics.RectF?, pageWidth: Float): Boolean {
+        val view = pageView as? SubsamplingScaleImageView ?: return false
+        if (!view.isReady || view.sWidth <= 0) return false
+        if (rect == null) {
+            view.animateScaleAndCenter(view.minScale, PointF(view.sWidth / 2f, view.sHeight / 2f))
+                ?.withDuration(350)
+                ?.withEasing(EASE_IN_OUT_QUAD)
+                ?.start()
+            return true
+        }
+        // The page on screen can be the cropped or translated copy: map the box to its size
+        val k = if (pageWidth > 0f) view.sWidth / pageWidth else 1f
+        val box = android.graphics.RectF(rect.left * k, rect.top * k, rect.right * k, rect.bottom * k)
+        val scale = minOf(view.width / (box.width() * 1.35f), view.height / (box.height() * 1.8f))
+            .coerceIn(view.minScale, view.maxScale)
+        view.animateScaleAndCenter(scale, PointF(box.centerX(), box.centerY()))
+            ?.withDuration(450)
+            ?.withEasing(EASE_IN_OUT_QUAD)
+            ?.withInterruptible(true)
+            ?.start()
+        return true
+    }
+
     private fun SubsamplingScaleImageView.landscapeZoom(forward: Boolean) {
         if (
             config != null &&

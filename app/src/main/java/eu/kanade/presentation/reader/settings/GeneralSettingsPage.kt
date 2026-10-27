@@ -138,6 +138,19 @@ internal fun ColumnScope.GeneralPage(viewModel: ReaderSettingsViewModel) {
         label = stringResource(tachiyomi.i18n.at.ATMR.strings.reader_haptics),
         pref = viewModel.preferences.haptics,
     )
+    CheckboxItem(
+        label = stringResource(tachiyomi.i18n.at.ATMR.strings.fight_effects),
+        pref = viewModel.preferences.fightEffects,
+    )
+    // MANHWA: bubble by bubble (paged reader, translated pages), and cinema that moves on by itself
+    CheckboxItem(
+        label = stringResource(tachiyomi.i18n.at.ATMR.strings.bubble_focus),
+        pref = viewModel.preferences.bubbleFocus,
+    )
+    CheckboxItem(
+        label = stringResource(tachiyomi.i18n.at.ATMR.strings.cinema_mode),
+        pref = viewModel.preferences.cinemaMode,
+    )
 
     // MANHWA: pass over the groups' credits and ads at the chapters' ends; and forget what was learned
     CheckboxItem(

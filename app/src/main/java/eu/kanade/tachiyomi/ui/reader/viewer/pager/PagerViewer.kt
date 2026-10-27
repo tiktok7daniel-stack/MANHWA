@@ -20,6 +20,8 @@ import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import tachiyomi.core.common.util.system.logcat
 import kotlin.math.min
@@ -121,6 +123,19 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         }
         // MANHWA: a double tap shows or hides the auto-scroll button
         pager.doubleTapListener = { activity.onPageDoubleTap() }
+        // MANHWA cinema: bubble by bubble on its own, each held as long as it takes to read
+        scope.launch {
+            readerPreferences.cinemaMode.changes().collectLatest { on ->
+                if (!on) return@collectLatest
+                while (true) {
+                    val page = currentPage as? ReaderPage
+                    val bubble = page?.translation?.blocks?.getOrNull(bubbleIndex.coerceAtLeast(0))
+                    val words = (bubble?.translation?.ifBlank { bubble.text } ?: "").length
+                    kotlinx.coroutines.delay(if (page?.translation == null) 4_000L else (1_600L + words * 55L).coerceAtMost(9_000L))
+                    if (!activity.viewModel.state.value.menuVisible && readerPreferences.bubbleFocus.get()) moveToNext()
+                }
+            }
+        }
         pager.longTapListener = f@{ event ->
             // MANHWA: a long press in the middle of the page shows or hides the translation
             if (!activity.viewModel.state.value.menuVisible && pager.width > 0 && pager.height > 0 &&
@@ -346,6 +361,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      * Moves to the next page.
      */
     open fun moveToNext() {
+        if (bubbleStep(1)) return
         moveRight()
     }
 
@@ -353,7 +369,48 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      * Moves to the previous page.
      */
     open fun moveToPrevious() {
+        if (bubbleStep(-1)) return
         moveLeft()
+    }
+
+    /** MANHWA bubble focus: the bubble of [bubblePage] zoomed onto now (-1 for the whole page). */
+    private var bubbleIndex = -1
+    private var bubblePage: ReaderPage? = null
+
+    /**
+     * MANHWA bubble focus (as Seeneva reads comics): with it on, next and previous go bubble by bubble through a
+     * translated page, zoomed onto each, and only then to the next page. True when it moved to a bubble.
+     */
+    protected fun bubbleStep(direction: Int): Boolean {
+        if (!readerPreferences.bubbleFocus.get()) return false
+        val page = currentPage as? ReaderPage ?: return false
+        val translation = page.translation ?: return false
+        val holder = getPageHolder(page) ?: return false
+        val bubbles = translation.blocks
+            .filter { it.text.isNotBlank() || it.translation.isNotBlank() }
+            .map {
+                if (it.bubbleW > 0f && it.bubbleH > 0f) {
+                    android.graphics.RectF(it.bubbleX, it.bubbleY, it.bubbleX + it.bubbleW, it.bubbleY + it.bubbleH)
+                } else {
+                    android.graphics.RectF(it.x, it.y, it.x + it.width, it.y + it.height)
+                }
+            }
+            .sortedWith(compareBy({ (it.top / 40).toInt() }, { it.left }))
+        if (bubbles.isEmpty()) return false
+        if (bubblePage !== page) {
+            bubblePage = page
+            bubbleIndex = if (direction > 0) -1 else bubbles.size
+        }
+        val next = bubbleIndex + direction
+        if (next !in bubbles.indices) {
+            holder.focusOn(null, translation.imgWidth)
+            bubblePage = null
+            bubbleIndex = -1
+            return false
+        }
+        if (!holder.focusOn(bubbles[next], translation.imgWidth)) return false
+        bubbleIndex = next
+        return true
     }
 
     /**

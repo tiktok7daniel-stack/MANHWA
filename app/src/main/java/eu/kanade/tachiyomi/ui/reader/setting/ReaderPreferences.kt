@@ -190,6 +190,15 @@ class ReaderPreferences(
     /** MANHWA: pure black around the pages and softer whites on them, for reading at night on an OLED screen. */
     val amoledReading: Preference<Boolean> = preferenceStore.getBoolean("manhwa_amoled_reading", false)
 
+    /** MANHWA bubble focus: in the paged reader, next goes bubble by bubble on a translated page, zoomed onto each. */
+    val bubbleFocus: Preference<Boolean> = preferenceStore.getBoolean("manhwa_bubble_focus", false)
+
+    /** MANHWA cinema: with bubble focus, the reader moves on by itself, giving each bubble the time to read it. */
+    val cinemaMode: Preference<Boolean> = preferenceStore.getBoolean("manhwa_cinema_mode", false)
+
+    /** MANHWA: a fight page (sound effects, shouts) shakes the reader a little and buzzes. */
+    val fightEffects: Preference<Boolean> = preferenceStore.getBoolean("manhwa_fight_effects", true)
+
     /** MANHWA: a light tick on each page turn, and a buzz at a chapter's end. */
     val haptics: Preference<Boolean> = preferenceStore.getBoolean("manhwa_reader_haptics", true)
 

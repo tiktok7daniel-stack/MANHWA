@@ -135,6 +135,7 @@ fun PosterHeader(
     onContinue: (() -> Unit)?,
     continueLabel: String,
     modifier: Modifier = Modifier,
+    nextChapterHint: String? = null,
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -432,6 +433,21 @@ fun PosterHeader(
                     modifier = Modifier.clickable {
                         manga.author?.takeIf { it.isNotBlank() }?.let { doSearch(it, true) }
                     },
+                )
+            }
+
+            // When the next chapter is due, from the rhythm of the last ones
+            if (nextChapterHint != null) {
+                Text(
+                    text = nextChapterHint,
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .padding(top = 10.dp)
+                        .graphicsLayer { alpha = head }
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .padding(horizontal = 12.dp, vertical = 5.dp),
                 )
             }
 

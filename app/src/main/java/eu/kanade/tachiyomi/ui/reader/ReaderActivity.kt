@@ -1117,6 +1117,11 @@ class ReaderActivity : BaseActivity() {
     fun onPageSelected(page: ReaderPage) {
         viewModel.onPageSelected(page)
         if (speakFollowPref.get()) followPage(page)
+        // MANHWA fight reader: a page of blasts and sound effects shakes the screen a little
+        if (page !== lastFightPage && readerPreferences.fightEffects.get() && FightPages.isFight(page.translation)) {
+            lastFightPage = page
+            shakeForFight()
+        }
         // MANHWA: a note left on this page shows as it comes up
         val chapterId = page.chapter.chapter.id
         if (chapterId != shownNoteChapter || page.index != shownNotePage) {
@@ -1125,6 +1130,26 @@ class ReaderActivity : BaseActivity() {
                 shownNotePage = page.index
                 toast(it.text, android.widget.Toast.LENGTH_LONG)
             }
+        }
+    }
+
+    private var lastFightPage: ReaderPage? = null
+
+    private fun shakeForFight() {
+        val view = binding.viewerContainer
+        val d = 7f * resources.displayMetrics.density
+        android.animation.ObjectAnimator.ofFloat(view, android.view.View.TRANSLATION_X, 0f, -d, d, -d * 0.7f, d * 0.6f, -d * 0.3f, 0f).apply {
+            duration = 380
+            start()
+        }
+        if (readerPreferences.haptics.get()) {
+            view.performHapticFeedback(
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    android.view.HapticFeedbackConstants.REJECT
+                } else {
+                    android.view.HapticFeedbackConstants.LONG_PRESS
+                },
+            )
         }
     }
 

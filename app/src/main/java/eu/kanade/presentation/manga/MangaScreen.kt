@@ -434,6 +434,7 @@ private fun MangaScreenSmallImpl(
                             onTagSearch = onTagSearch,
                             onContinue = onContinueReading.takeIf { state.hasUnreadChapters },
                             continueLabel = stringResource(if (state.hasReadChapters) MR.strings.action_resume else MR.strings.action_start),
+                            nextChapterHint = nextChapterHint(state),
                         )
                     }
 
@@ -835,6 +836,25 @@ private fun SharedMangaBottomActionMenu(
             selected.fastAny { it.downloadState == Download.State.DOWNLOADED }
         },
     )
+}
+
+/** MANHWA: "next chapter likely on Thursday" (or how late it is), from when the last chapters came out. */
+@Composable
+private fun nextChapterHint(state: MangaViewModel.State.Success): String? {
+    val rhythm = remember(state.chapters) {
+        eu.kanade.tachiyomi.ui.home.schedule.ReleaseRhythm.of(
+            state.chapters.mapNotNull { it.chapter.dateUpload?.toEpochMilliseconds() },
+            System.currentTimeMillis(),
+        )
+    } ?: return null
+    if (state.manga.status == eu.kanade.tachiyomi.source.model.SManga.COMPLETED.toLong()) return null
+    return if (rhythm.lateDays > 0) {
+        stringResource(tachiyomi.i18n.at.ATMR.strings.poster_next_late, rhythm.lateDays)
+    } else {
+        val day = java.time.Instant.ofEpochMilli(rhythm.nextAt).atZone(java.time.ZoneId.systemDefault()).dayOfWeek
+            .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())
+        stringResource(tachiyomi.i18n.at.ATMR.strings.poster_next, day)
+    }
 }
 
 private fun LazyListScope.sharedChapterItems(

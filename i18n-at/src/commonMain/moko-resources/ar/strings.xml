@@ -1658,4 +1658,9 @@
     <string name="mood_funny">حاجة تضحك</string>
     <string name="mood_dark">مظلم ومرعب</string>
     <string name="mood_count">%1$d عمل في مكتبتك</string>
+    <string name="fight_effects">مؤثرات القتال: الشاشة تهتز في صفحات الأكشن</string>
+    <string name="poster_next">الفصل الجاي غالباً يوم %1$s</string>
+    <string name="poster_next_late">الفصل الجاي متأخر %1$d يوم</string>
+    <string name="bubble_focus">فقاعة بفقاعة: قرّب على كل فقاعة (وضع الصفحات، الصفحات المترجمة)</string>
+    <string name="cinema_mode">وضع السينما: يمشي لوحده فقاعة بفقاعة</string>
 </resources>
