@@ -558,6 +558,19 @@ class ReaderActivity : BaseActivity() {
                     onSetAsCover = viewModel::setAsCover,
                     onShare = viewModel::shareImage,
                     onSave = viewModel::saveImage,
+                    onSkipAlways = {
+                        val page = (state.dialog as ReaderViewModel.Dialog.PageActions).page
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            val marked = runCatching {
+                                page.stream?.let { stream -> stream().use { okio.Buffer().readFrom(it) } }
+                                    ?.let { eu.kanade.tachiyomi.ui.reader.CreditPages.markManual(this@ReaderActivity, it) }
+                            }.getOrNull() == true
+                            if (marked) page.credit = true
+                            withContext(Dispatchers.Main) {
+                                toast(if (marked) tachiyomi.i18n.at.ATMR.strings.credit_marked else tachiyomi.i18n.at.ATMR.strings.credit_mark_failed)
+                            }
+                        }
+                    },
                 )
             }
             null -> {}
@@ -1345,12 +1358,13 @@ class ReaderActivity : BaseActivity() {
      */
     private inner class ReaderConfig {
 
-        private fun getCombinedPaint(grayscale: Boolean, invertedColors: Boolean): Paint {
+        private fun getCombinedPaint(grayscale: Boolean, invertedColors: Boolean, tune: PageTune?): Paint {
             return Paint().apply {
                 colorFilter = ColorMatrixColorFilter(
                     ColorMatrix().apply {
+                        tune?.let { postConcat(it.matrix()) }
                         if (grayscale) {
-                            setSaturation(0f)
+                            postConcat(ColorMatrix().apply { setSaturation(0f) })
                         }
                         if (invertedColors) {
                             postConcat(
@@ -1391,12 +1405,22 @@ class ReaderActivity : BaseActivity() {
                 .onEach(::setCustomBrightness)
                 .launchIn(lifecycleScope)
 
+            val tune = combine(
+                readerPreferences.pageTune.changes(),
+                readerPreferences.pageBrightness.changes(),
+                readerPreferences.pageContrast.changes(),
+                readerPreferences.pageSaturation.changes(),
+                readerPreferences.pageWarmth.changes(),
+            ) { on, brightness, contrast, saturation, warmth ->
+                PageTune(brightness, contrast, saturation, warmth).takeIf { on && !it.isNeutral }
+            }
             combine(
                 readerPreferences.grayscale.changes(),
                 readerPreferences.invertedColors.changes(),
-            ) { grayscale, invertedColors -> grayscale to invertedColors }
-                .onEach { (grayscale, invertedColors) ->
-                    setLayerPaint(grayscale, invertedColors)
+                tune,
+            ) { grayscale, invertedColors, pageTune -> Triple(grayscale, invertedColors, pageTune) }
+                .onEach { (grayscale, invertedColors, pageTune) ->
+                    setLayerPaint(grayscale, invertedColors, pageTune)
                 }
                 .launchIn(lifecycleScope)
 
@@ -1475,8 +1499,8 @@ class ReaderActivity : BaseActivity() {
 
             viewModel.setBrightnessOverlayValue(value)
         }
-        private fun setLayerPaint(grayscale: Boolean, invertedColors: Boolean) {
-            val paint = if (grayscale || invertedColors) getCombinedPaint(grayscale, invertedColors) else null
+        private fun setLayerPaint(grayscale: Boolean, invertedColors: Boolean, tune: PageTune?) {
+            val paint = if (grayscale || invertedColors || tune != null) getCombinedPaint(grayscale, invertedColors, tune) else null
             binding.viewerContainer.setLayerType(LAYER_TYPE_HARDWARE, paint)
         }
     }

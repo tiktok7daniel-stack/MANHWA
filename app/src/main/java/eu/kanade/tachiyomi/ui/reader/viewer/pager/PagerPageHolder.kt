@@ -20,6 +20,7 @@ import eu.kanade.translation.data.TranslationFont
 import eu.kanade.translation.presentation.PagerTranslationsView
 import eu.kanade.translation.render.PageTranslationDisplay
 import eu.kanade.translation.render.ScanlationRenderer
+import eu.kanade.tachiyomi.ui.reader.CreditPages
 import mihon.app.di.appGraph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -181,6 +182,13 @@ class PagerPageHolder(
 
         try {
             val buffer = withContext(Dispatchers.IO) { streamFn().use { Buffer().readFrom(it) } }
+            // MANHWA: a group's credits or ads at the chapter's ends are turned past
+            if (readerPreferences.skipCreditPages.get() && !page.credit &&
+                withContext(Dispatchers.Default) { CreditPages.check(context, page, buffer) }
+            ) {
+                page.credit = true
+                withContext(Dispatchers.Main) { viewer.skipCredit(page) }
+            }
             // Splitting, merging and sampling the background decode the image, which is CPU work
             val (source, isAnimated, background) = withContext(Dispatchers.Default) {
                 val animated = ImageUtil.isAnimatedAndSupported(buffer)

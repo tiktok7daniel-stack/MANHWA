@@ -20,6 +20,10 @@ open class ReaderPage(
     /** MANHWA: the page's name in the saved translation file (its image file or archive entry), when known. */
     var translationKey: String? = null
 
+    /** MANHWA: a scanlation group's page (credits, recruitment, ads) the reader passes over. */
+    @Volatile
+    var credit: Boolean = false
+
     private val _translationFlow = MutableStateFlow(translation)
 
     /** The page's translation; live translation can set it while the page is on screen. */

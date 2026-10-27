@@ -100,7 +100,8 @@ class ReaderPreferences(
 
     val alwaysShowChapterTransition: Preference<Boolean> = preferenceStore.getBoolean(
         "always_show_chapter_transition",
-        true,
+        // MANHWA: chapters run on into each other unless the reader asks for the break
+        false,
     )
 
     val cropBorders: Preference<Boolean> = preferenceStore.getBoolean("crop_borders", false)
@@ -174,6 +175,20 @@ class ReaderPreferences(
     val grayscale: Preference<Boolean> = preferenceStore.getBoolean("pref_grayscale", false)
 
     val invertedColors: Preference<Boolean> = preferenceStore.getBoolean("pref_inverted_colors", false)
+
+    // MANHWA: page colour tuning (on the reader's layer, so translated pages get it too); 0 is unchanged
+    val pageTune: Preference<Boolean> = preferenceStore.getBoolean("manhwa_page_tune", false)
+
+    val pageBrightness: Preference<Int> = preferenceStore.getInt("manhwa_page_brightness", 0)
+
+    val pageContrast: Preference<Int> = preferenceStore.getInt("manhwa_page_contrast", 0)
+
+    val pageSaturation: Preference<Int> = preferenceStore.getInt("manhwa_page_saturation", 0)
+
+    val pageWarmth: Preference<Int> = preferenceStore.getInt("manhwa_page_warmth", 0)
+
+    /** MANHWA: credit, recruitment and ad pages at a chapter's ends are passed over. */
+    val skipCreditPages: Preference<Boolean> = preferenceStore.getBoolean("manhwa_skip_credit_pages", true)
 
     // endregion
 

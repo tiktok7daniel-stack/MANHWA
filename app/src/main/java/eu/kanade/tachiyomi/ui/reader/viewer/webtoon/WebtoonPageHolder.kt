@@ -34,6 +34,7 @@ import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import okio.Buffer
+import eu.kanade.tachiyomi.ui.reader.CreditPages
 import okio.BufferedSource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.ImageUtil
@@ -223,11 +224,20 @@ class WebtoonPageHolder(
     private suspend fun setImage(display: PageTranslationDisplay, firstTry: Boolean = true): Boolean {
         progressIndicator.setProgress(0)
 
-        val streamFn = page?.stream ?: return true
+        val page = page ?: return true
+        val streamFn = page.stream ?: return true
         var bakedOk = true
 
         try {
             val buffer = withContext(Dispatchers.IO) { streamFn().use { Buffer().readFrom(it) } }
+            // MANHWA: a group's credits or ads at the chapter's ends fold away, so the chapters run on into each other
+            if (readerPreferences.skipCreditPages.get() &&
+                withContext(Dispatchers.Default) { page.credit || CreditPages.check(frame.context, page, buffer) }
+            ) {
+                page.credit = true
+                withContext(Dispatchers.Main) { foldAway() }
+                return true
+            }
             // Splitting and merging decode the image, which is CPU work
             val (source, isAnimated) = withContext(Dispatchers.Default) {
                 val animated = ImageUtil.isAnimatedAndSupported(buffer)
@@ -288,6 +298,14 @@ class WebtoonPageHolder(
         } else {
             imageSource
         }
+    }
+
+    /** MANHWA: the holder takes no room, so a skipped page is passed without a gap. */
+    private fun foldAway() {
+        progressContainer.isVisible = false
+        removeErrorLayout()
+        removeTranslationsView()
+        frame.layoutParams = frame.layoutParams.apply { height = 0 }
     }
 
     /**

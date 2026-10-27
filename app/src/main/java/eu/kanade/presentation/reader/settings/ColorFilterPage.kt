@@ -1,22 +1,29 @@
 package eu.kanade.presentation.reader.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.core.graphics.alpha
 import androidx.core.graphics.blue
 import androidx.core.graphics.green
 import androidx.core.graphics.red
+import eu.kanade.tachiyomi.ui.reader.PageTune
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SliderItem
+import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 
@@ -111,6 +118,58 @@ internal fun ColumnScope.ColorFilterPage(viewModel: ReaderSettingsViewModel) {
                     label = { Text(stringResource(it.first)) },
                 )
             }
+        }
+    }
+
+    // MANHWA: tune the pages' colours (brightness, contrast, saturation, warmth), with a one-tap lift and a reset
+    val pageTune by viewModel.preferences.pageTune.collectAsState()
+    CheckboxItem(
+        label = stringResource(ATMR.strings.page_tune),
+        pref = viewModel.preferences.pageTune,
+    )
+    if (pageTune) {
+        val prefs = viewModel.preferences
+        listOf(
+            ATMR.strings.page_tune_brightness to prefs.pageBrightness,
+            ATMR.strings.page_tune_contrast to prefs.pageContrast,
+            ATMR.strings.page_tune_saturation to prefs.pageSaturation,
+            ATMR.strings.page_tune_warmth to prefs.pageWarmth,
+        ).forEach { (label, pref) ->
+            val value by pref.collectAsState()
+            SliderItem(
+                value = value,
+                valueRange = -100..100,
+                steps = 0,
+                label = stringResource(label),
+                onChange = { pref.set(it) },
+                pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+        }
+        Row(
+            modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        ) {
+            FilterChip(
+                selected = false,
+                onClick = {
+                    val auto = PageTune.AUTO
+                    prefs.pageBrightness.set(auto.brightness)
+                    prefs.pageContrast.set(auto.contrast)
+                    prefs.pageSaturation.set(auto.saturation)
+                    prefs.pageWarmth.set(auto.warmth)
+                },
+                label = { Text(stringResource(ATMR.strings.page_tune_auto)) },
+            )
+            FilterChip(
+                selected = false,
+                onClick = {
+                    prefs.pageBrightness.set(0)
+                    prefs.pageContrast.set(0)
+                    prefs.pageSaturation.set(0)
+                    prefs.pageWarmth.set(0)
+                },
+                label = { Text(stringResource(ATMR.strings.page_tune_reset)) },
+            )
         }
     }
 

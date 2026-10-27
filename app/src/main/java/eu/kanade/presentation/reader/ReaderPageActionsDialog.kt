@@ -2,6 +2,7 @@ package eu.kanade.presentation.reader
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +21,9 @@ import mihon.icons.materialsymbols.rounded.ContentCopy
 import mihon.icons.materialsymbols.rounded.Photo
 import mihon.icons.materialsymbols.rounded.Save
 import mihon.icons.materialsymbols.rounded.Share
+import mihon.icons.materialsymbols.rounded.SkipNext
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.components.ActionButton
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -31,6 +34,7 @@ fun ReaderPageActionsDialog(
     onSetAsCover: () -> Unit,
     onShare: (Boolean) -> Unit,
     onSave: () -> Unit,
+    onSkipAlways: (() -> Unit)? = null,
 ) {
     var showSetCoverDialog by remember { mutableStateOf(false) }
 
@@ -69,6 +73,18 @@ fun ReaderPageActionsDialog(
                 icon = MaterialSymbols.Rounded.Save,
                 onClick = {
                     onSave()
+                    onDismissRequest()
+                },
+            )
+        }
+        // MANHWA: a group's credits or ads page, passed over from now on wherever it shows up
+        if (onSkipAlways != null) {
+            ActionButton(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                title = stringResource(ATMR.strings.credit_skip_always),
+                icon = MaterialSymbols.Rounded.SkipNext,
+                onClick = {
+                    onSkipAlways()
                     onDismissRequest()
                 },
             )

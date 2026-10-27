@@ -4,7 +4,9 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
@@ -126,6 +128,22 @@ internal fun ColumnScope.GeneralPage(viewModel: ReaderSettingsViewModel) {
         label = stringResource(MR.strings.pref_always_show_chapter_transition),
         pref = viewModel.preferences.alwaysShowChapterTransition,
     )
+
+    // MANHWA: pass over the groups' credits and ads at the chapters' ends; and forget what was learned
+    CheckboxItem(
+        label = stringResource(tachiyomi.i18n.at.ATMR.strings.credit_skip),
+        pref = viewModel.preferences.skipCreditPages,
+    )
+    val creditContext = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.material3.TextButton(
+        onClick = {
+            eu.kanade.tachiyomi.ui.reader.CreditPages.forget(creditContext)
+            android.widget.Toast.makeText(creditContext, creditContext.getString(android.R.string.ok), android.widget.Toast.LENGTH_SHORT).show()
+        },
+        modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp),
+    ) {
+        Text(stringResource(tachiyomi.i18n.at.ATMR.strings.credit_forget))
+    }
 
     CheckboxItem(
         label = stringResource(MR.strings.pref_page_transitions),

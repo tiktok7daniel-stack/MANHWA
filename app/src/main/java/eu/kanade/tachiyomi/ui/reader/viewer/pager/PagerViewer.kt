@@ -201,11 +201,24 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
                 else -> true
             }
             currentPage = page
+            lastForward = forward
             when (page) {
-                is ReaderPage -> onReaderPageSelected(page, allowPreload, forward)
+                is ReaderPage -> {
+                    onReaderPageSelected(page, allowPreload, forward)
+                    if (page.credit) skipCredit(page)
+                }
                 is ChapterTransition -> onTransitionSelected(page)
             }
         }
+    }
+
+    /** MANHWA: which way the reader last turned, so a skipped group page is passed the same way. */
+    private var lastForward = true
+
+    /** MANHWA: turns past [page], a group's credits or ads, when it is the one on screen and the menu is closed. */
+    fun skipCredit(page: ReaderPage) {
+        if (currentPage !== page || activity.viewModel.state.value.menuVisible) return
+        pager.post { if (lastForward) moveToNext() else moveToPrevious() }
     }
 
     private fun checkAllowPreload(page: ReaderPage?): Boolean {

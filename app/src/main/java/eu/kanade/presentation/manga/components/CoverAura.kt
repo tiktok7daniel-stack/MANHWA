@@ -43,7 +43,7 @@ fun CoverAura(saved: Boolean, chaptersRead: Int, modifier: Modifier = Modifier, 
     val angle by spin.animateFloat(
         0f,
         360f,
-        infiniteRepeatable(tween((9000 - 5000 * power).toInt().coerceAtLeast(3000), easing = LinearEasing)),
+        infiniteRepeatable(tween(6000, easing = LinearEasing)),
         label = "angle",
     )
     val pulse by spin.animateFloat(0.75f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Reverse), label = "pulse")
