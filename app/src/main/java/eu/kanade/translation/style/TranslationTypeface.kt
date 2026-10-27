@@ -176,7 +176,7 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
         val mangaMaster = FontFamily(Font(R.font.manga_master_bb, FontWeight.Bold))
         val comic = FontFamily(Font(R.font.comic_book, FontWeight.Bold))
 
-        private val extras = HashMap<Int, FontFamily>()
+        private val extras = java.util.concurrent.ConcurrentHashMap<Int, FontFamily>()
         fun extra(res: Int): FontFamily = extras.getOrPut(res) { FontFamily(Font(res, FontWeight.Bold)) }
     }
 

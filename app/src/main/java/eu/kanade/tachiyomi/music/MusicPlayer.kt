@@ -203,7 +203,8 @@ object MusicPlayer {
 
     fun seek(fraction: Float) = player?.let { p ->
         if (p.duration > 0) p.seekTo((p.duration * fraction.coerceIn(0f, 1f)).toLong())
-        _state.update { it.copy(positionMs = p.currentPosition) }
+        // The slider shows the new place at once, also while paused (the tick only runs while playing)
+        _position.value = p.currentPosition
     }
 
     fun setMode(context: Context, mangaId: Long, mode: String) {
@@ -277,6 +278,7 @@ object MusicPlayer {
                 p.stop()
                 p.clearMediaItems()
                 _state.value = State()
+                _position.value = 0L
                 pausedByUser = false
             }
         }

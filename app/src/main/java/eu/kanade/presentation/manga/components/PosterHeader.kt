@@ -345,7 +345,7 @@ fun PosterHero(
                 val music by eu.kanade.tachiyomi.music.MusicPlayer.state.collectAsState()
                 val beatOn = music.playing && music.mangaId == workId
                 val beatLevel by animateFloatAsState(if (beatOn) 1f else 0f, tween(600), label = "beat")
-                val beat by remember(decor) { derivedStateOf { decor.value } }
+                val beat by decor
                 // MANHWA: the effect picked for this work, round and behind the cover
                 EffectLayers(
                     effects.cover,
