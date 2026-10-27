@@ -82,7 +82,14 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /** One stop of the tour: what it is, and the steps to use it. */
-data class TourStop(val icon: ImageVector, val title: StringResource, val body: StringResource, val steps: List<StringResource>)
+data class TourStop(
+    val icon: ImageVector,
+    val title: StringResource,
+    val body: StringResource,
+    val steps: List<StringResource>,
+    /** The tour version that brought this stop: a reader who saw an older tour sees only the newer stops. */
+    val since: Int = 1,
+)
 
 /**
  * MANHWA: a full-screen guided tour of a big update, shown once. Each stop has a glowing emblem orbited by sparks,
@@ -94,10 +101,16 @@ object FeatureTour {
     private const val PREFS = "manhwa_tour"
 
     /** Raised whenever the tour gets new stops, so it shows again once. */
-    private const val VERSION = 1
+    private const val VERSION = 2
 
     fun shouldShow(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("seen", 0) < VERSION
+
+    /** The stops not seen yet: all of them on a first tour, only the newer ones after. */
+    fun unseen(context: Context): List<TourStop> {
+        val seen = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("seen", 0)
+        return if (seen == 0) stops else stops.filter { it.since > seen }.ifEmpty { stops }
+    }
 
     fun markSeen(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt("seen", VERSION).apply()
@@ -203,6 +216,20 @@ object FeatureTour {
                 listOf(ATMR.strings.tour_voices_s1),
             ),
             TourStop(
+                MaterialSymbols.Rounded.Headphones,
+                ATMR.strings.tour_music_t,
+                ATMR.strings.tour_music_b,
+                listOf(ATMR.strings.tour_music_s1, ATMR.strings.tour_music_s2, ATMR.strings.tour_music_s3, ATMR.strings.tour_music_s4),
+                since = 2,
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.Image,
+                ATMR.strings.tour_scene_t,
+                ATMR.strings.tour_scene_b,
+                listOf(ATMR.strings.tour_scene_s1),
+                since = 2,
+            ),
+            TourStop(
                 MaterialSymbols.Rounded.Visibility,
                 ATMR.strings.tour_spoilers_t,
                 ATMR.strings.tour_spoilers_b,
@@ -212,18 +239,19 @@ object FeatureTour {
 }
 
 @Composable
-fun FeatureTourDialog(onDismiss: () -> Unit) {
+fun FeatureTourDialog(onDismiss: () -> Unit, onlyNew: Boolean = false) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        FeatureTourContent(onDismiss)
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val stops = androidx.compose.runtime.remember { if (onlyNew) FeatureTour.unseen(context) else FeatureTour.stops }
+        FeatureTourContent(stops, onDismiss)
     }
 }
 
 @Composable
-private fun FeatureTourContent(onDismiss: () -> Unit) {
-    val stops = FeatureTour.stops
+private fun FeatureTourContent(stops: List<TourStop>, onDismiss: () -> Unit) {
     val pager = rememberPagerState { stops.size }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current

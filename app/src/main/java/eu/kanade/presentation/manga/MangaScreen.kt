@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import tachiyomi.presentation.core.util.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
@@ -317,7 +318,16 @@ private fun MangaScreenSmallImpl(
         onAllChapterSelected(false)
     }
 
+    // MANHWA: the page stands on a scene in the cover's colours (or the one picked for this work)
+    val pagePalette = eu.kanade.presentation.manga.components.LocalCoverPalette.current
+    val sceneContext = LocalContext.current
+    val pickedScene by remember(state.manga.id) { eu.kanade.tachiyomi.music.MusicStore.get(sceneContext).sceneFlow(state.manga.id) }.collectAsState(null)
+    eu.kanade.presentation.manga.components.PageBackdrop(
+        scene = eu.kanade.presentation.manga.components.BackdropScene.of(pickedScene)
+            ?: eu.kanade.presentation.manga.components.BackdropScene.forColor(pagePalette?.primary),
+    ) {
     Scaffold(
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
             val isFirstItemVisible by remember {
                 derivedStateOf { chapterListState.firstVisibleItemIndex == 0 }
@@ -465,7 +475,7 @@ private fun MangaScreenSmallImpl(
                             description = state.manga.description,
                             mangaId = state.manga.id,
                             title = state.manga.title,
-                            tagsProvider = { state.manga.genre },
+                            tagsProvider = { null },
                             notes = state.manga.notes,
                             onTagSearch = onTagSearch,
                             onCopyTagToClipboard = onCopyTagToClipboard,
@@ -533,6 +543,30 @@ private fun MangaScreenSmallImpl(
                 }
             }
         }
+    }
+    // MANHWA music: the work's songs play while its page (or a chapter of it) is open, under a glass music bar
+    val musicContext = LocalContext.current
+    val musicLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(state.manga.id, musicLifecycle) {
+        val id = state.manga.id
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) eu.kanade.tachiyomi.music.MusicPlayer.attach(musicContext, id)
+        }
+        musicLifecycle.lifecycle.addObserver(observer)
+        eu.kanade.tachiyomi.music.MusicPlayer.attach(musicContext, id)
+        onDispose {
+            musicLifecycle.lifecycle.removeObserver(observer)
+            eu.kanade.tachiyomi.music.MusicPlayer.leave(id)
+        }
+    }
+    eu.kanade.tachiyomi.music.MusicMiniBar(
+        mangaId = state.manga.id,
+        title = state.manga.title,
+        modifier = Modifier
+            .align(Alignment.BottomStart)
+            .navigationBarsPadding()
+            .padding(start = 16.dp, bottom = 92.dp),
+    )
     }
 }
 

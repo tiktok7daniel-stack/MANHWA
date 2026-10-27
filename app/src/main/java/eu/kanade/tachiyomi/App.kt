@@ -250,6 +250,8 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                     }
                 }
                 runCatching { eu.kanade.translation.collection.Phrasebook.seedIfNeeded(this@App, graph.translationCollection) }
+                // MANHWA music: the song library is read here, not on the first screen that needs it
+                runCatching { eu.kanade.tachiyomi.music.MusicStore.get(this@App) }
             }
         }
     }

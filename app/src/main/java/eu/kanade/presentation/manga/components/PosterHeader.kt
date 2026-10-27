@@ -106,7 +106,6 @@ fun CoverTheme(manga: Manga, content: @Composable () -> Unit) {
         onSecondary = if (secondary.luminance() > 0.5f) Color.Black else Color.White,
         secondaryContainer = secondary.copy(alpha = 0.24f).compositeOver(base.surface),
         tertiary = secondary,
-        surfaceTint = primary,
     )
     CompositionLocalProvider(LocalCoverPalette provides palette) {
         MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes, content = content)
@@ -192,8 +191,8 @@ fun PosterHeader(
                     Brush.verticalGradient(
                         0f to deep.copy(alpha = 0.55f),
                         0.45f to deep.copy(alpha = 0.35f),
-                        0.82f to background.copy(alpha = 0.85f),
-                        1f to background,
+                        0.8f to deep.copy(alpha = 0.2f),
+                        1f to Color.Transparent,
                     ),
                 ),
         )
@@ -252,7 +251,7 @@ fun PosterHeader(
                         .align(Alignment.TopStart)
                         .wrapContentWidth(Alignment.Start, unbounded = true)
                         .graphicsLayer {
-                            alpha = back
+                            alpha = back * (1f - scrollProvider() / 700f).coerceIn(0f, 1f)
                             translationX = -40.dp.toPx() * drift - (1 - back) * 60.dp.toPx()
                             translationY = scrollProvider() * 0.3f
                         }
@@ -271,7 +270,7 @@ fun PosterHeader(
                         .wrapContentWidth(unbounded = true)
                         .graphicsLayer {
                             rotationZ = -90f
-                            alpha = label
+                            alpha = label * (1f - scrollProvider() / 500f).coerceIn(0f, 1f)
                         },
                 )
                 // The title stacked bold, beside the cover
@@ -281,7 +280,7 @@ fun PosterHeader(
                         .align(Alignment.BottomEnd)
                         .padding(end = 14.dp, bottom = 38.dp)
                         .graphicsLayer {
-                            alpha = side * 0.92f
+                            alpha = side * 0.92f * (1f - scrollProvider() / 500f).coerceIn(0f, 1f)
                             translationX = (1 - side) * 50.dp.toPx()
                             translationY = scrollProvider() * 0.15f
                         },
@@ -342,56 +341,6 @@ fun PosterHeader(
                                             (0.45f + 0.3f * float) to Color.Transparent,
                                         ),
                                     ),
-                            )
-                        }
-                    }
-                    // White tag naming the source, pinned to the cover's corner
-                    val tag = enter(4)
-                    Row(
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = 34.dp, y = 44.dp)
-                            .graphicsLayer {
-                                alpha = tag
-                                scaleX = 0.8f + 0.2f * tag
-                                scaleY = 0.8f + 0.2f * tag
-                            }
-                            .clip(RoundedCornerShape(50))
-                            .background(Color.White)
-                            .padding(start = 4.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            Modifier
-                                .size(26.dp)
-                                .clip(CircleShape)
-                                .background(accent),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = manga.title.firstOrNull()?.uppercase().orEmpty(),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 13.sp,
-                            )
-                        }
-                        Spacer(Modifier.width(6.dp))
-                        Column {
-                            Text(
-                                text = sourceName,
-                                color = Color(0xFF111114),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.width(96.dp),
-                            )
-                            Text(
-                                text = statusText(manga.status).uppercase(),
-                                color = Color(0xFF6B6B74),
-                                fontSize = 8.sp,
-                                letterSpacing = 1.sp,
-                                maxLines = 1,
                             )
                         }
                     }

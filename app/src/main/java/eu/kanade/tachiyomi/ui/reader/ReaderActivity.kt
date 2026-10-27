@@ -503,6 +503,22 @@ class ReaderActivity : BaseActivity() {
             }
 
             AppBars(state = state)
+
+            // MANHWA music: the work's songs go on in its chapters; the bar shows with the menu
+            val musicManga = state.manga
+            LaunchedEffect(musicManga?.id) { musicManga?.id?.let { eu.kanade.tachiyomi.music.MusicPlayer.attach(this@ReaderActivity, it) } }
+            if (musicManga != null && state.menuVisible) {
+                eu.kanade.presentation.manga.components.CoverTheme(musicManga) {
+                    eu.kanade.tachiyomi.music.MusicMiniBar(
+                        mangaId = musicManga.id,
+                        title = musicManga.title,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(bottom = 150.dp),
+                    )
+                }
+            }
         }
 
         val onDismissRequest = viewModel::closeDialog
@@ -688,6 +704,8 @@ class ReaderActivity : BaseActivity() {
 
     override fun onPause() {
         runCatching { saveSmartFocus() }
+        // MANHWA music: closing the reader lets the music fade, unless the work's page takes it back at once
+        if (isFinishing) viewModel.state.value.manga?.id?.let { eu.kanade.tachiyomi.music.MusicPlayer.leave(it) }
         // MANHWA Vault: after a reading session, the sync folder gets a fresh copy (at most every hour)
         if (isFinishing) {
             appGraph.manhwaVault.syncSoon(eu.kanade.tachiyomi.data.backup.vault.ManhwaVault.HOUR_MS)
@@ -704,6 +722,7 @@ class ReaderActivity : BaseActivity() {
         super.onResume()
         viewModel.restartReadTimer()
         setMenuVisibility(viewModel.state.value.menuVisible)
+        viewModel.state.value.manga?.id?.let { eu.kanade.tachiyomi.music.MusicPlayer.attach(this, it) }
         // MANHWA: Android 12+ shrinks the reader into its small window by itself when you swipe home
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) runCatching { setPictureInPictureParams(pipParams()) }
     }

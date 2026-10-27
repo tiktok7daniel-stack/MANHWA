@@ -318,6 +318,7 @@ class MainActivity : BaseActivity() {
                         var showTour by rememberSaveable { mutableStateOf(eu.kanade.translation.whatsnew.FeatureTour.shouldShow(this@MainActivity)) }
                         if (showTour && !showIntro) {
                             eu.kanade.translation.whatsnew.FeatureTourDialog(
+                                onlyNew = true,
                                 onDismiss = {
                                     eu.kanade.translation.whatsnew.FeatureTour.markSeen(this@MainActivity)
                                     // The tour already showed what is new in this build

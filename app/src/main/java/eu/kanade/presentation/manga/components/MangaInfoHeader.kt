@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -673,6 +674,7 @@ private fun MangaSummary(
         label = "summary",
     )
     var infoHeight by remember { mutableIntStateOf(0) }
+    val visibleHeight = remember { mutableIntStateOf(0) }
     Layout(
         modifier = modifier.clipToBounds(),
         contents = listOf(
@@ -686,9 +688,28 @@ private fun MangaSummary(
             },
             {
                 Column(
-                    modifier = Modifier.onSizeChanged { size ->
-                        infoHeight = size.height
-                    },
+                    modifier = Modifier
+                        .onSizeChanged { size ->
+                            infoHeight = size.height
+                        }
+                        // MANHWA: while folded, the last lines fade to nothing over whatever is behind
+                        .graphicsLayer(compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen)
+                        .drawWithContent {
+                            drawContent()
+                            val shown = visibleHeight.intValue.toFloat()
+                            if (animProgress < 1f && shown > 0f && shown < size.height) {
+                                val fadeTop = (shown - 36.dp.toPx()).coerceAtLeast(0f)
+                                drawRect(
+                                    Brush.verticalGradient(
+                                        0f to Color.Black,
+                                        (fadeTop / size.height) to Color.Black,
+                                        (shown / size.height) to Color.Black.copy(alpha = animProgress),
+                                        1f to Color.Black.copy(alpha = animProgress),
+                                    ),
+                                    blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                                )
+                            }
+                        },
                 ) {
                     MangaNotesSection(
                         content = notes,
@@ -709,9 +730,10 @@ private fun MangaSummary(
                 }
             },
             {
-                val colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background)
+                // MANHWA: no painted scrim (it showed as a band over the page's scene): the text itself fades out
+                val colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f))
                 Box(
-                    modifier = Modifier.background(Brush.verticalGradient(colors = colors)),
+                    modifier = Modifier,
                     contentAlignment = Alignment.Center,
                 ) {
                     val image = AnimatedImageVector.animatedVectorResource(R.drawable.animated_caret_flip)
@@ -739,6 +761,7 @@ private fun MangaSummary(
             .measure(Constraints.fixed(width = constraints.maxWidth, height = scrimHeight))
 
         val currentHeight = shrunkHeight + ((heightDelta + scrimHeight) * animProgress).roundToInt()
+        visibleHeight.intValue = currentHeight
         layout(constraints.maxWidth, currentHeight) {
             actualPlaceable.place(0, 0)
 

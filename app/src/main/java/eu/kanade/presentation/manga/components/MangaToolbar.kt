@@ -68,9 +68,9 @@ fun MangaToolbar(
             }
         },
         modifier = modifier,
-        backgroundColor = MaterialTheme.colorScheme
-            .surfaceColorAtElevation(3.dp)
-            .copy(alpha = if (isActionMode) 1f else backgroundAlphaProvider()),
+        // MANHWA: the bar takes the cover's deep shade, so it sits on the page's colours
+        backgroundColor = (LocalCoverPalette.current?.deep ?: MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp))
+            .copy(alpha = if (isActionMode) 1f else backgroundAlphaProvider() * 0.94f),
         navigateUp = navigateUp,
         actions = {
             var downloadExpanded by remember { mutableStateOf(false) }
