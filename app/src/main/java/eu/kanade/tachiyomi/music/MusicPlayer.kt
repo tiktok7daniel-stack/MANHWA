@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 
 /**
  * MANHWA music: plays a work's songs while its page or its chapters are open. Opening the work starts them (fading
@@ -71,7 +73,7 @@ object MusicPlayer {
 
                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                         // A song whose file is gone or unreadable: on to the next one
-                        tachiyomi.core.common.util.system.logcat(logcat.LogPriority.WARN, error) { "Music could not play a song" }
+                        logcat(LogPriority.WARN, error) { "Music could not play a song" }
                         if (p.mediaItemCount > 1 && p.hasNextMediaItem()) {
                             p.seekToNextMediaItem()
                             p.prepare()
