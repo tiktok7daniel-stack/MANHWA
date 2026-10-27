@@ -124,6 +124,7 @@ fun MangaInfoBox(
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    chaptersRead: Int = 0,
 ) {
     Box(modifier = modifier) {
         // Backdrop
@@ -152,25 +153,17 @@ fun MangaInfoBox(
 
         // Manga & source info
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-            if (!isTabletUi) {
-                MangaAndSourceTitlesSmall(
-                    appBarPadding = appBarPadding,
-                    manga = manga,
-                    source = source,
-                    isStubSource = isStubSource,
-                    onCoverClick = onCoverClick,
-                    doSearch = doSearch,
-                )
-            } else {
-                MangaAndSourceTitlesLarge(
-                    appBarPadding = appBarPadding,
-                    manga = manga,
-                    source = source,
-                    isStubSource = isStubSource,
-                    onCoverClick = onCoverClick,
-                    doSearch = doSearch,
-                )
-            }
+            // MANHWA: the cover sits in the middle on phones too, with its rank light round it once saved
+            MangaAndSourceTitlesLarge(
+                appBarPadding = appBarPadding,
+                manga = manga,
+                source = source,
+                isStubSource = isStubSource,
+                onCoverClick = onCoverClick,
+                doSearch = doSearch,
+                coverWidth = if (isTabletUi) 0.65f else 0.48f,
+                chaptersRead = chaptersRead,
+            )
         }
     }
 }
@@ -395,6 +388,8 @@ private fun MangaAndSourceTitlesLarge(
     isStubSource: Boolean,
     onCoverClick: () -> Unit,
     doSearch: (query: String, global: Boolean) -> Unit,
+    coverWidth: Float = 0.65f,
+    chaptersRead: Int = 0,
 ) {
     Column(
         modifier = Modifier
@@ -402,16 +397,18 @@ private fun MangaAndSourceTitlesLarge(
             .padding(start = 16.dp, top = appBarPadding + 16.dp, end = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        MangaCover.Book(
-            modifier = Modifier.fillMaxWidth(0.65f),
-            data = ImageRequest.Builder(LocalContext.current)
-                .data(manga)
-                .crossfade(true)
-                .build(),
-            contentDescription = stringResource(MR.strings.manga_cover),
-            onClick = onCoverClick,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        CoverAura(saved = manga.favorite, chaptersRead = chaptersRead, modifier = Modifier.fillMaxWidth(coverWidth)) {
+            MangaCover.Book(
+                data = ImageRequest.Builder(LocalContext.current)
+                    .data(manga)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = stringResource(MR.strings.manga_cover),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                onClick = onCoverClick,
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
         MangaContentInfo(
             title = manga.title,
             author = manga.author,
