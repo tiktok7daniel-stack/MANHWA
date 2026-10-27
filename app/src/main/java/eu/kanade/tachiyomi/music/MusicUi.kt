@@ -24,6 +24,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -392,8 +393,8 @@ private fun MusicPlayerContent(mangaId: Long, title: String, onDismiss: () -> Un
     }
     LaunchedEffect(mangaId) { if (state.mangaId != mangaId) MusicPlayer.attach(context, mangaId) }
 
-    val scene = BackdropScene.of(work.scene) ?: BackdropScene.forColor(palette?.primary)
-    PageBackdrop(scene, dim = 0.45f) {
+    val scene = BackdropScene.of(work.scene) ?: BackdropScene.forColor(palette?.primary, mangaId)
+    PageBackdrop(scene, dim = 0.45f, custom = remember(work.scene) { store.sceneFile(work.scene) }) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -729,8 +730,35 @@ private fun Settings(mangaId: Long, work: MusicStore.WorkMusic, library: MusicSt
         item {
             SceneChip(null, work.scene == null, accent) { store.setScene(mangaId, null) }
         }
+        // The reader's own pictures first (a long press removes one), then the built-in scenes
+        items(library.customScenes) { name ->
+            val value = MusicStore.CUSTOM + name
+            CustomSceneChip(store.sceneFile(value), work.scene == value, accent, onClick = { store.setScene(mangaId, value) }) {
+                store.deleteScene(value)
+            }
+        }
         items(BackdropScene.entries) { scene ->
             SceneChip(scene, work.scene == scene.name, accent) { store.setScene(mangaId, scene.name) }
+        }
+        item {
+            val scope = rememberCoroutineScope()
+            val pickScene = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                if (uri != null) scope.launch { store.addScene(uri)?.let { store.setScene(mangaId, it) } }
+            }
+            Box(
+                Modifier
+                    .size(width = 72.dp, height = 96.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White.copy(alpha = 0.06f))
+                    .border(1.dp, accent.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+                    .clickable { pickScene.launch("image/*") },
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(MaterialSymbols.Rounded.Add, null, tint = accent)
+                    Text(stringResource(ATMR.strings.music_scene_add), color = Color.White, fontSize = 10.sp, textAlign = TextAlign.Center)
+                }
+            }
         }
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -748,6 +776,34 @@ private fun Settings(mangaId: Long, work: MusicStore.WorkMusic, library: MusicSt
                 MusicPlayer.setVolume(context, it)
             },
             colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = accent, inactiveTrackColor = Color.White.copy(alpha = 0.15f)),
+        )
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun CustomSceneChip(file: File?, selected: Boolean, accent: Color, onClick: () -> Unit, onDelete: () -> Unit) {
+    var confirm by remember { mutableStateOf(false) }
+    Box(
+        Modifier
+            .size(width = 72.dp, height = 96.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .border(if (selected) 2.dp else 1.dp, if (selected) accent else Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+            .combinedClickable(onClick = onClick, onLongClick = { confirm = true }),
+    ) {
+        if (file != null) AsyncImage(model = file, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            text = { Text(stringResource(ATMR.strings.music_scene_delete)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirm = false
+                    onDelete()
+                }) { Text(stringResource(ATMR.strings.music_delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(tachiyomi.i18n.MR.strings.action_cancel)) } },
         )
     }
 }

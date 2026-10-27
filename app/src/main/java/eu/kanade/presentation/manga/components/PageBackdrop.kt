@@ -27,29 +27,52 @@ import androidx.compose.ui.res.painterResource
 import eu.kanade.tachiyomi.R
 import kotlin.random.Random
 
-/** MANHWA: the scenes a work's page and its music player stand on, each for a family of cover colours. */
-enum class BackdropScene(@DrawableRes val res: Int) {
-    COSMIC(R.drawable.music_bg_cosmic),
-    STORM(R.drawable.music_bg_storm),
-    SAVAGE(R.drawable.music_bg_savage),
-    MIRRORS(R.drawable.music_bg_mirrors),
-    GATE(R.drawable.music_bg_gate),
+/** MANHWA: the families of cover colours a scene can go with. */
+enum class SceneFamily { BLUE, PURPLE, TEAL, GREEN, MONO }
+
+/**
+ * MANHWA: the scenes a work's page and its music player stand on (the reader's own pictures), each in a family of
+ * cover colours. Works of the same colour get different scenes of that family, so pages don't all look the same.
+ */
+enum class BackdropScene(@DrawableRes val res: Int, val family: SceneFamily) {
+    COSMIC(R.drawable.music_bg_cosmic, SceneFamily.BLUE),
+    METEORS(R.drawable.music_bg_meteors, SceneFamily.BLUE),
+    BLUE_GATE(R.drawable.music_bg_bluegate, SceneFamily.BLUE),
+    BLUE_MOON(R.drawable.music_bg_bluemoon, SceneFamily.BLUE),
+    STORM(R.drawable.music_bg_storm, SceneFamily.PURPLE),
+    SAVAGE(R.drawable.music_bg_savage, SceneFamily.PURPLE),
+    VIOLET_MOON(R.drawable.music_bg_violetmoon, SceneFamily.PURPLE),
+    TEAL_MOON(R.drawable.music_bg_tealmoon, SceneFamily.TEAL),
+    TEMPLE(R.drawable.music_bg_temple, SceneFamily.TEAL),
+    ABYSS(R.drawable.music_bg_abyss, SceneFamily.TEAL),
+    PORTAL(R.drawable.music_bg_portal, SceneFamily.TEAL),
+    MIRRORS(R.drawable.music_bg_mirrors, SceneFamily.GREEN),
+    LAB(R.drawable.music_bg_lab, SceneFamily.GREEN),
+    GATE(R.drawable.music_bg_gate, SceneFamily.MONO),
+    ECLIPSE(R.drawable.music_bg_eclipse, SceneFamily.MONO),
+    RING(R.drawable.music_bg_ring, SceneFamily.MONO),
     ;
 
     companion object {
-        /** The scene for a cover colour: blue the cosmic temple, purple the storm, pink the savage, green the mirrors, the rest the gate. */
-        fun forColor(color: Color?): BackdropScene {
-            color ?: return GATE
+        fun familyOf(color: Color?): SceneFamily {
+            color ?: return SceneFamily.MONO
             val hsv = FloatArray(3)
             android.graphics.Color.colorToHSV(android.graphics.Color.rgb((color.red * 255).toInt(), (color.green * 255).toInt(), (color.blue * 255).toInt()), hsv)
-            if (hsv[1] < 0.2f) return GATE
+            if (hsv[1] < 0.2f) return SceneFamily.MONO
             return when (hsv[0]) {
-                in 170f..250f -> COSMIC
-                in 250f..295f -> STORM
-                in 295f..335f -> SAVAGE
-                in 70f..170f -> MIRRORS
-                else -> GATE
+                in 200f..250f -> SceneFamily.BLUE
+                in 250f..335f -> SceneFamily.PURPLE
+                in 160f..200f -> SceneFamily.TEAL
+                in 70f..160f -> SceneFamily.GREEN
+                // Reds, oranges and yellows stand on the dark scenes, washed with their own colour
+                else -> SceneFamily.MONO
             }
+        }
+
+        /** The scene of a cover colour; [seed] (the work's id) picks among the scenes of that family. */
+        fun forColor(color: Color?, seed: Long = 0L): BackdropScene {
+            val family = entries.filter { it.family == familyOf(color) }
+            return family[((seed % family.size + family.size) % family.size).toInt()]
         }
 
         fun of(name: String?): BackdropScene? = entries.firstOrNull { it.name == name }
@@ -61,7 +84,14 @@ enum class BackdropScene(@DrawableRes val res: Int) {
  * deep shade, with dust drifting up through it. It stays still while the page scrolls over it.
  */
 @Composable
-fun PageBackdrop(scene: BackdropScene, modifier: Modifier = Modifier, dim: Float = 0.62f, content: @Composable BoxScope.() -> Unit) {
+fun PageBackdrop(
+    scene: BackdropScene,
+    modifier: Modifier = Modifier,
+    dim: Float = 0.62f,
+    /** A picture of the reader's own, shown instead of [scene]. */
+    custom: java.io.File? = null,
+    content: @Composable BoxScope.() -> Unit,
+) {
     val palette = LocalCoverPalette.current
     val deep = palette?.deep ?: Color(0xFF07070A)
     val accent = palette?.primary ?: Color(0xFFFF3B4E)
@@ -70,9 +100,20 @@ fun PageBackdrop(scene: BackdropScene, modifier: Modifier = Modifier, dim: Float
     val rise by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(16000, easing = LinearEasing)), label = "rise")
     val dust = remember { List(40) { Triple(Random.nextFloat(), Random.nextFloat(), Random.nextFloat()) } }
     Box(modifier.fillMaxSize().background(Color(0xFF040406))) {
-        Crossfade(scene, animationSpec = tween(900), label = "scene") { s ->
+        Crossfade(custom ?: scene, animationSpec = tween(900), label = "scene") { s ->
+            val picture = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = breathe
+                    scaleY = breathe
+                    alpha = 1f - dim
+                }
+            if (s is java.io.File) {
+                coil3.compose.AsyncImage(model = s, contentDescription = null, contentScale = ContentScale.Crop, modifier = picture)
+                return@Crossfade
+            }
             Image(
-                painter = painterResource(s.res),
+                painter = painterResource((s as BackdropScene).res),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

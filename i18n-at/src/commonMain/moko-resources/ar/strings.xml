@@ -1750,4 +1750,6 @@
     <string name="wn_scene_b">الصفحة واقفة على خلفية بألوان الغلاف، وتقدر تغيّرها من مشغّل الموسيقى.</string>
     <string name="wn_pagefix_t">صفحة أنضف</string>
     <string name="wn_pagefix_b">شلت تاج المصدر من على الغلاف، ومفيش ألوان مش راكبة، والعنوان الكبير بيختفي وانت نازل، والشريط اللي فوق بقى بلون الغلاف.</string>
+    <string name="music_scene_add">صورتك</string>
+    <string name="music_scene_delete">تشيل الخلفية دي من التطبيق؟</string>
 </resources>

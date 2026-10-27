@@ -55,12 +55,15 @@ class MusicStore private constructor(private val context: Context) {
         val works: Map<String, WorkMusic> = emptyMap(),
         val autoplay: Boolean = true,
         val volume: Float = 0.7f,
+        /** The reader's own background pictures (file names in the scenes folder). */
+        val customScenes: List<String> = emptyList(),
     )
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val dir = File(context.filesDir, "music").apply { mkdirs() }
     private val audioDir = File(dir, "audio").apply { mkdirs() }
     private val artDir = File(dir, "art").apply { mkdirs() }
+    private val sceneDir = File(dir, "scenes").apply { mkdirs() }
     private val file = File(dir, "library.json")
     private val writer = Executors.newSingleThreadExecutor()
 
@@ -165,6 +168,33 @@ class MusicStore private constructor(private val context: Context) {
         }
     }
 
+    /** A scene value naming one of the reader's own pictures. */
+    fun sceneFile(scene: String?): File? =
+        scene?.takeIf { it.startsWith(CUSTOM) }?.let { File(sceneDir, it.removePrefix(CUSTOM)) }?.takeIf { it.exists() }
+
+    /** Adds a picture from the phone as a background (kept in the app); its scene value, or null. */
+    suspend fun addScene(uri: Uri): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val name = "${UUID.randomUUID()}.img"
+            context.contentResolver.openInputStream(uri)?.use { input -> File(sceneDir, name).outputStream().use { input.copyTo(it) } }
+                ?: return@runCatching null
+            save { it.copy(customScenes = it.customScenes + name) }
+            CUSTOM + name
+        }.onFailure { logcat(LogPriority.ERROR, it) { "Could not add a background" } }.getOrNull()
+    }
+
+    /** Removes one of the reader's pictures; works that used it go back to their colour's scene. */
+    fun deleteScene(scene: String) {
+        val name = scene.removePrefix(CUSTOM)
+        save { lib ->
+            lib.copy(
+                customScenes = lib.customScenes - name,
+                works = lib.works.mapValues { (_, w) -> if (w.scene == scene) w.copy(scene = null) else w },
+            )
+        }
+        writer.execute { File(sceneDir, name).delete() }
+    }
+
     fun setOnWork(mangaId: Long, trackId: String, on: Boolean) = changeWork(mangaId) { w ->
         w.copy(tracks = if (on) (w.tracks - trackId) + trackId else w.tracks - trackId)
     }
@@ -206,6 +236,8 @@ class MusicStore private constructor(private val context: Context) {
     }
 
     companion object {
+        const val CUSTOM = "CUSTOM:"
+
         private val VIDEO_EXTENSIONS = setOf("mp4", "mov", "m4v", "webm", "3gp", "mkv")
 
         @Volatile

@@ -1809,4 +1809,6 @@
     <string name="wn_scene_b">The page stands on a scene in the cover's colours; pick another in the music player.</string>
     <string name="wn_pagefix_t">A cleaner page</string>
     <string name="wn_pagefix_b">No source tag on the cover, no mismatched panels, the big title fades as you scroll, and the bar takes the cover's colour.</string>
+    <string name="music_scene_add">Your picture</string>
+    <string name="music_scene_delete">Remove this background from the app?</string>
 </resources>
