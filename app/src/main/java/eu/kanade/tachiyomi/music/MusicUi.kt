@@ -262,7 +262,8 @@ fun MusicMiniBar(mangaId: Long, title: String, modifier: Modifier = Modifier) {
             }
         }
     }
-    val current = state.track.takeIf { state.mangaId == mangaId }
+    // The song as it is now in the library (renamed, a new picture), not the copy the player started with
+    val current = state.track?.let { t -> library.tracks.firstOrNull { it.id == t.id } ?: t }.takeIf { state.mangaId == mangaId }
     AnimatedVisibility(
         visible = hasSongs,
         enter = slideInVertically { it } + fadeIn(),
@@ -428,7 +429,7 @@ private fun MusicPlayerContent(mangaId: Long, title: String, onDismiss: () -> Un
             } else {
                 SongCarousel(songs, state, mangaId, accent)
                 val playingHere = state.mangaId == mangaId
-                val current = if (playingHere) state.track else songs.first()
+                val current = if (playingHere) state.track?.let { t -> songs.firstOrNull { it.id == t.id } ?: t } else songs.first()
                 PlateTitle(current, Modifier.padding(horizontal = 24.dp))
                 Progress(state.takeIf { playingHere }, accent)
                 Controls(state.playing && playingHere, work.mode, accent, onMode = {
@@ -881,6 +882,16 @@ private fun EditSong(song: MusicStore.Track, accent: Color, onDismiss: () -> Uni
                         }
                     }
                 }
+                // The end that is not played (TikTok's sound), in whole seconds
+                Text(stringResource(ATMR.strings.music_trim, (live.trimEndMs / 1000).toInt()), fontWeight = FontWeight.Bold)
+                Slider(
+                    value = (live.trimEndMs / 1000f),
+                    onValueChange = { v -> store.edit(song.id) { it.copy(trimEndMs = (v.toInt() * 1000L)) } },
+                    onValueChangeFinished = { MusicPlayer.state.value.mangaId?.let { MusicPlayer.refresh(context, it) } },
+                    valueRange = 0f..10f,
+                    steps = 9,
+                    colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent),
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(ATMR.strings.music_chrome), modifier = Modifier.weight(1f))
                     Switch(checked = live.chrome, onCheckedChange = { on -> store.edit(song.id) { it.copy(chrome = on) } })

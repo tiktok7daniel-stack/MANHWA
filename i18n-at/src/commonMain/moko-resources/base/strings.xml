@@ -1811,4 +1811,6 @@
     <string name="wn_pagefix_b">No source tag on the cover, no mismatched panels, the big title fades as you scroll, and the bar takes the cover's colour.</string>
     <string name="music_scene_add">Your picture</string>
     <string name="music_scene_delete">Remove this background from the app?</string>
+    <string name="music_trim">Cut off the end: %1$d s</string>
+    <string name="music_sound">Sound %1$d</string>
 </resources>

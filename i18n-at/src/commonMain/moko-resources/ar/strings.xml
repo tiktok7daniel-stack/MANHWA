@@ -1752,4 +1752,6 @@
     <string name="wn_pagefix_b">شلت تاج المصدر من على الغلاف، ومفيش ألوان مش راكبة، والعنوان الكبير بيختفي وانت نازل، والشريط اللي فوق بقى بلون الغلاف.</string>
     <string name="music_scene_add">صورتك</string>
     <string name="music_scene_delete">تشيل الخلفية دي من التطبيق؟</string>
+    <string name="music_trim">اقطع من الآخر: %1$d ثانية</string>
+    <string name="music_sound">صوت %1$d</string>
 </resources>

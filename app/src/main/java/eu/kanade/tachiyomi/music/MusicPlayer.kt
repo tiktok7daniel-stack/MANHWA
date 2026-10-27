@@ -150,8 +150,12 @@ object MusicPlayer {
     fun toggle(context: Context) {
         val p = ensure(context)
         if (p.isPlaying) {
+            // The reader's own pause is at once, no fade
             pausedByUser = true
-            fadeOut(stop = false)
+            fadeJob?.cancel()
+            p.pause()
+            p.volume = store?.library?.value?.volume ?: 0.7f
+            _state.update { it.copy(playing = false) }
         } else {
             pausedByUser = false
             if (p.mediaItemCount == 0) _state.value.mangaId?.let { refresh(context, it, 0) } else fadeIn()
@@ -201,10 +205,21 @@ object MusicPlayer {
         p.clearMediaItems()
         _state.value = State(mangaId = mangaId, queue = tracks, index = startIndex.coerceIn(0, (tracks.size - 1).coerceAtLeast(0)), mode = s.work(mangaId).mode)
         if (tracks.isEmpty()) return
-        p.setMediaItems(tracks.map { MediaItem.fromUri(android.net.Uri.fromFile(s.audioFile(it))) }, _state.value.index, seekMs)
+        p.setMediaItems(tracks.map { item(s, it) }, _state.value.index, seekMs)
         applyMode(s.work(mangaId).mode)
         p.prepare()
         if (play && !pausedByUser) fadeIn() else p.volume = s.library.value.volume
+    }
+
+    /** A song as the player takes it, its trimmed end cut off. */
+    private fun item(s: MusicStore, track: MusicStore.Track): MediaItem {
+        val builder = MediaItem.Builder().setUri(android.net.Uri.fromFile(s.audioFile(track))).setMediaId(track.id)
+        if (track.trimEndMs > 0 && track.durationMs > track.trimEndMs) {
+            builder.setClippingConfiguration(
+                MediaItem.ClippingConfiguration.Builder().setEndPositionMs(track.durationMs - track.trimEndMs).build(),
+            )
+        }
+        return builder.build()
     }
 
     private fun fadeIn() {
@@ -214,9 +229,9 @@ object MusicPlayer {
         fadeJob = scope.launch {
             p.volume = 0f
             p.play()
-            for (i in 1..20) {
-                p.volume = target * i / 20f
-                delay(40)
+            for (i in 1..12) {
+                p.volume = target * i / 12f
+                delay(25)
             }
         }
     }

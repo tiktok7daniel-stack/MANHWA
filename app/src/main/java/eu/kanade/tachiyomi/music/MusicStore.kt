@@ -16,6 +16,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.core.common.i18n.stringResource
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -38,6 +39,8 @@ class MusicStore private constructor(private val context: Context) {
         val plate: String = "THORN",
         val chrome: Boolean = true,
         val durationMs: Long = 0L,
+        /** The end that is not played (TikTok's sound at the end of its videos). */
+        val trimEndMs: Long = 0L,
     )
 
     @Serializable
@@ -47,6 +50,10 @@ class MusicStore private constructor(private val context: Context) {
         val mode: String = "NEXT",
         /** The scene behind the page, or null for the one of the cover's colour. */
         val scene: String? = null,
+        /** MANHWA title look: the font, the plate and how the cover moves (null: the work's own default). */
+        val titleFont: String? = null,
+        val titlePlate: String? = null,
+        val motion: String? = null,
     )
 
     @Serializable
@@ -69,6 +76,15 @@ class MusicStore private constructor(private val context: Context) {
 
     private val _library = MutableStateFlow(read())
     val library: StateFlow<Library> = _library.asStateFlow()
+
+    private fun lib() = _library.value
+
+    private fun looksLikeId(text: String) = text.trim().matches(Regex("[0-9a-fA-F_-]{16,}"))
+
+    fun setTitleLook(mangaId: Long, font: String? = work(mangaId).titleFont, plate: String? = work(mangaId).titlePlate, motion: String? = work(mangaId).motion) =
+        changeWork(mangaId) { it.copy(titleFont = font, titlePlate = plate, motion = motion) }
+
+    fun lookFlow(mangaId: Long): Flow<WorkMusic> = library.map { it.works[mangaId.toString()] ?: WorkMusic() }.distinctUntilChanged()
 
     fun work(mangaId: Long): WorkMusic = _library.value.works[mangaId.toString()] ?: WorkMusic()
 
@@ -113,7 +129,8 @@ class MusicStore private constructor(private val context: Context) {
             runCatching {
                 MediaMetadataRetriever().apply {
                     setDataSource(target.absolutePath)
-                    extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() }?.let { title = it }
+                    // TikTok and other apps put an id (a long run of hex) as the title: that is no name
+                    extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() && !looksLikeId(it) }?.let { title = it }
                     extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)?.takeIf { it.isNotBlank() }?.let { artist = it }
                     duration = extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
                     (embeddedPicture ?: videoFrame)?.let { bytes ->
@@ -123,7 +140,10 @@ class MusicStore private constructor(private val context: Context) {
                     release()
                 }
             }
-            val track = Track(id = id, title = title, artist = artist, file = target.name, cover = cover, durationMs = duration)
+            if (looksLikeId(title)) title = context.stringResource(tachiyomi.i18n.at.ATMR.strings.music_sound, lib().tracks.size + 1)
+            // A video's last seconds are cut off: TikTok puts its own sound there
+            val trim = if (isVideo && duration > VIDEO_END_TRIM_MS * 2) VIDEO_END_TRIM_MS else 0L
+            val track = Track(id = id, title = title, artist = artist, file = target.name, cover = cover, durationMs = duration, trimEndMs = trim)
             save { lib ->
                 val works = if (mangaId != null) {
                     val key = mangaId.toString()
@@ -237,6 +257,8 @@ class MusicStore private constructor(private val context: Context) {
 
     companion object {
         const val CUSTOM = "CUSTOM:"
+
+        private const val VIDEO_END_TRIM_MS = 4_000L
 
         private val VIDEO_EXTENSIONS = setOf("mp4", "mov", "m4v", "webm", "3gp", "mkv")
 
