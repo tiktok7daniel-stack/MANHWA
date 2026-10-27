@@ -74,6 +74,7 @@ import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.SkipNext
 import mihon.icons.materialsymbols.rounded.TouchApp
 import mihon.icons.materialsymbols.rounded.Image
+import mihon.icons.materialsymbols.rounded.AutoStories
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.math.PI
@@ -101,7 +102,7 @@ object FeatureTour {
     private const val PREFS = "manhwa_tour"
 
     /** Raised whenever the tour gets new stops, so it shows again once. */
-    private const val VERSION = 2
+    private const val VERSION = 3
 
     fun shouldShow(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("seen", 0) < VERSION
@@ -228,6 +229,20 @@ object FeatureTour {
                 ATMR.strings.tour_scene_b,
                 listOf(ATMR.strings.tour_scene_s1),
                 since = 2,
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.Palette,
+                ATMR.strings.tour_titlelook_t,
+                ATMR.strings.tour_titlelook_b,
+                listOf(ATMR.strings.tour_titlelook_s1, ATMR.strings.tour_titlelook_s2, ATMR.strings.tour_titlelook_s3),
+                since = 3,
+            ),
+            TourStop(
+                MaterialSymbols.Rounded.AutoStories,
+                ATMR.strings.tour_novels_t,
+                ATMR.strings.tour_novels_b,
+                listOf(ATMR.strings.tour_novels_s1, ATMR.strings.tour_novels_s2),
+                since = 3,
             ),
             TourStop(
                 MaterialSymbols.Rounded.Visibility,

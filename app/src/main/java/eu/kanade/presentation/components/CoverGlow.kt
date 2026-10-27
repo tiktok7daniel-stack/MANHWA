@@ -83,12 +83,15 @@ object CoverGlow {
     private val palettes = LruCache<Long, CoverPalette>(CACHE_ENTRIES)
 
     /** The cover's own colours: its strongest, a second hue apart from it, and a deep shade for backgrounds. */
-    suspend fun paletteOf(context: Context, manga: Manga): CoverPalette? {
-        palettes.get(manga.id)?.let { return it }
+    suspend fun paletteOf(context: Context, manga: Manga): CoverPalette? = paletteOf(context, manga.id, manga.asMangaCover())
+
+    /** The palette of any cover Coil can load ([data]), kept under [key] (a novel's uses a negative one). */
+    suspend fun paletteOf(context: Context, key: Long, data: Any): CoverPalette? {
+        palettes.get(key)?.let { return it }
         val palette = withContext(Dispatchers.IO) {
             runCatching {
                 val request = ImageRequest.Builder(context)
-                    .data(manga.asMangaCover())
+                    .data(data)
                     .size(Size(SAMPLE, SAMPLE))
                     .allowHardware(false)
                     .build()
@@ -96,7 +99,7 @@ object CoverGlow {
                 drawable?.bitmap?.let(::palette)
             }.getOrNull()
         } ?: return null
-        palettes.put(manga.id, palette)
+        palettes.put(key, palette)
         return palette
     }
 
@@ -155,6 +158,17 @@ fun rememberCoverPalette(manga: Manga?): CoverPalette? {
     var palette by remember(manga?.id) { mutableStateOf<CoverPalette?>(null) }
     LaunchedEffect(manga?.id, manga?.thumbnailUrl) {
         palette = manga?.let { CoverGlow.paletteOf(context, it) }
+    }
+    return palette
+}
+
+/** The palette of the cover at [url], kept under [key]; null until it is read. */
+@Composable
+fun rememberCoverPalette(key: Long, url: String?): CoverPalette? {
+    val context = LocalContext.current
+    var palette by remember(key) { mutableStateOf<CoverPalette?>(null) }
+    LaunchedEffect(key, url) {
+        palette = url?.takeIf { it.isNotBlank() }?.let { CoverGlow.paletteOf(context, key, it) }
     }
     return palette
 }

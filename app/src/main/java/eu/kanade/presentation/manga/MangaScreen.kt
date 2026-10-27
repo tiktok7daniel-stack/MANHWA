@@ -547,20 +547,7 @@ private fun MangaScreenSmallImpl(
         }
     }
     // MANHWA music: the work's songs play while its page (or a chapter of it) is open, under a glass music bar
-    val musicContext = LocalContext.current
-    val musicLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    androidx.compose.runtime.DisposableEffect(state.manga.id, musicLifecycle) {
-        val id = state.manga.id
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) eu.kanade.tachiyomi.music.MusicPlayer.attach(musicContext, id)
-        }
-        musicLifecycle.lifecycle.addObserver(observer)
-        eu.kanade.tachiyomi.music.MusicPlayer.attach(musicContext, id)
-        onDispose {
-            musicLifecycle.lifecycle.removeObserver(observer)
-            eu.kanade.tachiyomi.music.MusicPlayer.leave(id)
-        }
-    }
+    eu.kanade.tachiyomi.music.WorkMusicEffect(state.manga.id)
     eu.kanade.tachiyomi.music.MusicMiniBar(
         mangaId = state.manga.id,
         title = state.manga.title,

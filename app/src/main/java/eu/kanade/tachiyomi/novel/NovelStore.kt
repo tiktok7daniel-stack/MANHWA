@@ -232,6 +232,20 @@ class NovelStore(
         const val READ_FRACTION = 0.95f
 
         fun key(sourceId: Long, url: String) = "$sourceId|$url"
+
+        /**
+         * MANHWA: a novel's id for the systems keyed by a work id (its music, scene and title look). Always negative,
+         * so it never meets a manga's id.
+         */
+        fun workId(novelKey: String): Long {
+            // FNV-1a 64-bit: the same id on every run (String.hashCode is too, but only 32 bits wide)
+            var h = -0x340d631b7bdddcdbL
+            for (c in novelKey) {
+                h = h xor c.code.toLong()
+                h *= 0x100000001b3L
+            }
+            return -((h and Long.MAX_VALUE) % 1_000_000_000_000L) - 1
+        }
         private fun pkey(novelKey: String, chapterUrl: String) = "$novelKey#$chapterUrl"
 
         private fun hash(s: String): String =

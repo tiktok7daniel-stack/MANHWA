@@ -208,6 +208,27 @@ fun PlateTitle(track: MusicStore.Track?, modifier: Modifier = Modifier) {
 }
 
 /**
+ * MANHWA: the work's songs play while one of its screens is open: they start (or carry on) when it opens or comes
+ * back, and fade out shortly after it closes unless another screen of the same work opens.
+ */
+@Composable
+fun WorkMusicEffect(workId: Long) {
+    val context = LocalContext.current
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(workId, lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) MusicPlayer.attach(context, workId)
+        }
+        lifecycle.lifecycle.addObserver(observer)
+        MusicPlayer.attach(context, workId)
+        onDispose {
+            lifecycle.lifecycle.removeObserver(observer)
+            MusicPlayer.leave(workId)
+        }
+    }
+}
+
+/**
  * MANHWA: the music bar of a work's page and chapters: a glass capsule with the turning vinyl, the title running
  * across, the dancing bars, play and next, and a thin glowing line of the song's progress. A tap opens the player;
  * a work with no songs yet shows a small orb to add some.

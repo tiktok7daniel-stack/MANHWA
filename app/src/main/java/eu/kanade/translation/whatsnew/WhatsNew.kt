@@ -130,14 +130,19 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.Headphones, ATMR.strings.wn_music_t, ATMR.strings.wn_music_b),
-            Feature(MaterialSymbols.Rounded.Image, ATMR.strings.wn_scene_t, ATMR.strings.wn_scene_b),
-            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_pagefix_t, ATMR.strings.wn_pagefix_b),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_titlelook_t, ATMR.strings.wn_titlelook_b),
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_sunaura_t, ATMR.strings.wn_sunaura_b),
+            Feature(MaterialSymbols.Rounded.Headphones, ATMR.strings.wn_musicfix_t, ATMR.strings.wn_musicfix_b),
+            Feature(MaterialSymbols.Rounded.AutoStories, ATMR.strings.wn_novelposter_t, ATMR.strings.wn_novelposter_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 150
+            Feature(MaterialSymbols.Rounded.Headphones, ATMR.strings.wn_music_t, ATMR.strings.wn_music_b),
+            Feature(MaterialSymbols.Rounded.Image, ATMR.strings.wn_scene_t, ATMR.strings.wn_scene_b),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_pagefix_t, ATMR.strings.wn_pagefix_b),
             // Build 147
             Feature(MaterialSymbols.Rounded.Image, ATMR.strings.wn_poster_t, ATMR.strings.wn_poster_b),
             Feature(MaterialSymbols.Rounded.LocalLibrary, ATMR.strings.wn_bookshelf_t, ATMR.strings.wn_bookshelf_b),

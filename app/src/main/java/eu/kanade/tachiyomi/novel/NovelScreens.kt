@@ -1,6 +1,19 @@
 package eu.kanade.tachiyomi.novel
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.lazy.rememberLazyListState
+import eu.kanade.presentation.components.rememberCoverPalette
+import eu.kanade.presentation.manga.components.BackdropScene
+import eu.kanade.presentation.manga.components.CoverTheme
+import eu.kanade.presentation.manga.components.PageBackdrop
+import eu.kanade.presentation.manga.components.PosterHero
+import eu.kanade.tachiyomi.music.MusicMiniBar
+import eu.kanade.tachiyomi.music.MusicStore
+import eu.kanade.tachiyomi.music.WorkMusicEffect
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,7 +32,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -49,9 +61,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -541,7 +551,7 @@ private fun searchFilters(source: CatalogSource, query: String): List<Filter<*>>
 
 // ---------------------------------------------------------------- One novel
 
-/** A novel: its cover over a blurred copy of it, its numbers, the library and continue buttons, its story and chapters. */
+/** A novel, on the same poster page as a manhwa: its numbers, the library and continue buttons, its story and chapters. */
 class NovelDetailsScreen(
     private val sourceId: Long,
     private val url: String,
@@ -609,48 +619,45 @@ class NovelDetailsScreen(
             navigator.push(NovelReaderScreen(sourceId, url, chapter.key))
         }
 
-        GlassBackdrop {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+        // MANHWA: the same page as a manhwa's: the poster with its framed title, the cover's colours and light, the
+        // scene behind, and the novel's own music
+        val workId = remember(novelKey) { NovelStore.workId(novelKey) }
+        val palette = rememberCoverPalette(workId, info.cover)
+        val musicStore = remember { MusicStore.get(context) }
+        val pickedScene by remember(workId) { musicStore.sceneFlow(workId) }.collectAsState(null)
+        val listState = rememberLazyListState()
+        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        WorkMusicEffect(workId)
+        CoverTheme(palette) {
+        PageBackdrop(
+            scene = BackdropScene.of(pickedScene) ?: BackdropScene.forColor(palette?.primary, workId),
+            custom = remember(pickedScene) { musicStore.sceneFile(pickedScene) },
+        ) {
+        Box(Modifier.fillMaxSize()) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 96.dp)) {
                 item(key = "hero") {
                     Box(Modifier.fillMaxWidth()) {
-                        AsyncImage(
-                            model = info.cover.ifBlank { null },
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.matchParentSize().blur(36.dp),
+                        PosterHero(
+                            workId = workId,
+                            title = info.title.ifBlank { title },
+                            author = info.author,
+                            genres = info.genres,
+                            favorite = entry?.favorite == true,
+                            coverData = info.cover.ifBlank { null },
+                            chaptersRead = readCount,
+                            chapterCount = chapters.size,
+                            topPadding = topInset + 48.dp,
+                            scrollProvider = {
+                                if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 2000f
+                            },
+                            onCoverClick = {},
+                            onAuthorClick = {},
+                            onTagSearch = {},
+                            onContinue = null,
+                            continueLabel = "",
                         )
-                        Box(
-                            Modifier.matchParentSize().background(
-                                Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.35f), MaterialTheme.colorScheme.background)),
-                            ),
-                        )
-                        Column(Modifier.fillMaxWidth().statusBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
-                            ManhwaKit.TopBar(title = "", onBack = navigator::pop) {
-                                ManhwaKit.IconOrb(MaterialSymbols.Rounded.Refresh) { refresh() }
-                            }
-                            AsyncImage(
-                                model = info.cover.ifBlank { null },
-                                contentDescription = info.title,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .novaAppear()
-                                    .width(150.dp)
-                                    .aspectRatio(2f / 3f)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                    .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(16.dp)),
-                            )
-                            Text(
-                                info.title,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp),
-                            )
-                            val meta = listOfNotNull(info.author.takeIf { it.isNotBlank() }, source?.name).joinToString("  •  ")
-                            if (meta.isNotBlank()) Text(meta, style = MaterialTheme.typography.bodyMedium, color = ManhwaInk.muted, modifier = Modifier.padding(top = 6.dp))
+                        ManhwaKit.TopBar(title = "", onBack = navigator::pop) {
+                            ManhwaKit.IconOrb(MaterialSymbols.Rounded.Refresh) { refresh() }
                         }
                     }
                 }
@@ -697,9 +704,11 @@ class NovelDetailsScreen(
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 6.dp).clickable { expanded = !expanded },
                             )
-                            if (info.genres.isNotEmpty()) {
+                            // The poster carries the first five genres; the rest are here
+                            val moreGenres = info.genres.filter { it.isNotBlank() }.drop(5).take(12)
+                            if (moreGenres.isNotEmpty()) {
                                 FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    info.genres.take(12).forEach { g ->
+                                    moreGenres.forEach { g ->
                                         Text(g, style = MaterialTheme.typography.labelMedium, modifier = Modifier.glass(RoundedCornerShape(50), alpha = 0.3f).padding(horizontal = 10.dp, vertical = 5.dp))
                                     }
                                 }
@@ -762,6 +771,16 @@ class NovelDetailsScreen(
                     }
                 }
             }
+            MusicMiniBar(
+                mangaId = workId,
+                title = info.title.ifBlank { title },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, bottom = 24.dp),
+            )
+        }
+        }
         }
     }
 }
@@ -785,10 +804,6 @@ private fun androidx.compose.foundation.layout.RowScope.Stat(value: String, labe
         Text(label, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
     }
 }
-
-/** Fills the box it is in, as matchParentSize does, for the layers behind the hero. */
-@Composable
-private fun Modifier.matchParentSize(): Modifier = this.then(Modifier.fillMaxWidth().height(380.dp))
 
 // ---------------------------------------------------------------- Library
 

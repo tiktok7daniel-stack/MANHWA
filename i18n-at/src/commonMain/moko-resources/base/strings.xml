@@ -1822,4 +1822,21 @@
     <string name="look_motion">How the cover moves</string>
     <string name="look_plate">Frame</string>
     <string name="look_font">Font</string>
+    <string name="wn_titlelook_t">The title on a frame</string>
+    <string name="wn_titlelook_b">Every work\'s name stands on a shining, moving frame in one of 50 decorative fonts. Tap the name to pick the frame, the font and how the cover moves.</string>
+    <string name="wn_sunaura_t">A cover that shines like the sun</string>
+    <string name="wn_sunaura_b">The cover\'s light glows in its own colour, with rays and sparks flying off its edge, and music bars dance round it while its song plays.</string>
+    <string name="wn_musicfix_t">Music, better</string>
+    <string name="wn_musicfix_b">A renamed song shows its new name everywhere, the last 4 seconds of TikTok videos are cut off (you can change it per song), and pause stops at once.</string>
+    <string name="wn_novelposter_t">Novels get it all too</string>
+    <string name="wn_novelposter_b">A novel\'s page is now a poster like a manhwa\'s: the framed title, the fonts, the cover\'s light, the scenes behind, and its own music, on its page and while reading.</string>
+    <string name="tour_titlelook_t">Your work\'s name, your way</string>
+    <string name="tour_titlelook_b">The title stands on a moving frame, in a font of its own.</string>
+    <string name="tour_titlelook_s1">Tap the title on a work\'s page.</string>
+    <string name="tour_titlelook_s2">Pick how the cover moves, the frame and one of 50 fonts; the preview changes as you pick.</string>
+    <string name="tour_titlelook_s3">A long press on the title copies it.</string>
+    <string name="tour_novels_t">Novels, like manhwa</string>
+    <string name="tour_novels_b">Each novel\'s page has the poster, the frame, the scene and the music.</string>
+    <string name="tour_novels_s1">Add songs to a novel from the headphones button at the bottom of its page.</string>
+    <string name="tour_novels_s2">They keep playing while you read its chapters.</string>
 </resources>

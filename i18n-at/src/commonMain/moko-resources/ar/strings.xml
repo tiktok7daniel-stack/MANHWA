@@ -1763,4 +1763,21 @@
     <string name="look_motion">حركة الغلاف</string>
     <string name="look_plate">البرواز</string>
     <string name="look_font">الخط</string>
+    <string name="wn_titlelook_t">اسم العمل على إطار</string>
+    <string name="wn_titlelook_b">اسم كل عمل بقى على إطار بيلمع ويتحرك، بخط من 50 خط مزخرف. دوس على الاسم واختار الإطار والخط وحركة الغلاف.</string>
+    <string name="wn_sunaura_t">غلاف منوّر زي الشمس</string>
+    <string name="wn_sunaura_b">نور الغلاف بلونه هو، وحواليه أشعة وشرار طالع من حافته، ولما أغنيته تشتغل بتتحرك موجات الموسيقى حواليه.</string>
+    <string name="wn_musicfix_t">الموسيقى بقت أحسن</string>
+    <string name="wn_musicfix_b">لما تغيّر اسم أغنية بيتغير في كل حتة، وآخر 4 ثواني من فيديوهات تيك توك بتتشال لوحدها (وتقدر تغيّرها لكل أغنية)، والإيقاف بقى فوري.</string>
+    <string name="wn_novelposter_t">الروايات خدت كل ده</string>
+    <string name="wn_novelposter_b">صفحة الرواية بقت بوستر زي المانهوا: الاسم على إطار، والخطوط، ونور الغلاف، والخلفيات، وأغانيها هي، في صفحتها وإنت بتقرا.</string>
+    <string name="tour_titlelook_t">اسم عملك على ذوقك</string>
+    <string name="tour_titlelook_b">الاسم واقف على إطار بيتحرك، بخط خاص بيه.</string>
+    <string name="tour_titlelook_s1">دوس على الاسم في صفحة العمل.</string>
+    <string name="tour_titlelook_s2">اختار حركة الغلاف، والإطار، وخط من 50؛ المعاينة بتتغير وإنت بتختار.</string>
+    <string name="tour_titlelook_s3">ضغطة طويلة على الاسم بتنسخه.</string>
+    <string name="tour_novels_t">الروايات زي المانهوا</string>
+    <string name="tour_novels_b">صفحة كل رواية فيها البوستر والإطار والخلفية والموسيقى.</string>
+    <string name="tour_novels_s1">ضيف أغاني للرواية من زرار السماعات تحت في صفحتها.</string>
+    <string name="tour_novels_s2">بتفضل شغالة وإنت بتقرا فصولها.</string>
 </resources>

@@ -93,7 +93,12 @@ val LocalCoverPalette = staticCompositionLocalOf<CoverPalette?> { null }
  */
 @Composable
 fun CoverTheme(manga: Manga, content: @Composable () -> Unit) {
-    val palette = rememberCoverPalette(manga)
+    CoverTheme(rememberCoverPalette(manga), content)
+}
+
+/** [CoverTheme] for any work whose cover palette is already read, such as a novel's. */
+@Composable
+fun CoverTheme(palette: CoverPalette?, content: @Composable () -> Unit) {
     val base = MaterialTheme.colorScheme
     val primary by animateColorAsState(palette?.primary ?: base.primary, tween(700), label = "primary")
     val secondary by animateColorAsState(palette?.secondary ?: base.secondary, tween(700), label = "secondary")
@@ -120,7 +125,6 @@ fun CoverTheme(manga: Manga, content: @Composable () -> Unit) {
  * it, all in the cover's colours. Scrolling pushes the art back slower than the page (parallax) and lifts the
  * cover away.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PosterHeader(
     manga: Manga,
@@ -137,6 +141,54 @@ fun PosterHeader(
     modifier: Modifier = Modifier,
     nextChapterHint: String? = null,
 ) {
+    PosterHero(
+        workId = manga.id,
+        title = manga.title,
+        author = manga.author,
+        genres = manga.genre.orEmpty(),
+        favorite = manga.favorite,
+        coverData = manga,
+        chaptersRead = chaptersRead,
+        chapterCount = chapterCount,
+        topPadding = topPadding,
+        scrollProvider = scrollProvider,
+        onCoverClick = onCoverClick,
+        onAuthorClick = { doSearch(it, true) },
+        onTagSearch = onTagSearch,
+        onContinue = onContinue,
+        continueLabel = continueLabel,
+        modifier = modifier,
+        coverModifier = Modifier.sharedCover(manga.id),
+        nextChapterHint = nextChapterHint,
+    )
+}
+
+/**
+ * MANHWA: the poster head itself, for any work with a cover: a manga ([PosterHeader]) or a novel. [workId] keys the
+ * work's look and music in [eu.kanade.tachiyomi.music.MusicStore]; [coverData] is anything Coil can load.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun PosterHero(
+    workId: Long,
+    title: String,
+    author: String?,
+    genres: List<String>,
+    favorite: Boolean,
+    coverData: Any?,
+    chaptersRead: Int,
+    chapterCount: Int,
+    topPadding: Dp,
+    scrollProvider: () -> Float,
+    onCoverClick: () -> Unit,
+    onAuthorClick: (String) -> Unit,
+    onTagSearch: (String) -> Unit,
+    onContinue: (() -> Unit)?,
+    continueLabel: String,
+    modifier: Modifier = Modifier,
+    coverModifier: Modifier = Modifier,
+    nextChapterHint: String? = null,
+) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val palette = LocalCoverPalette.current
@@ -146,8 +198,8 @@ fun PosterHeader(
     val background = MaterialTheme.colorScheme.background
 
     // The parts come in one after another
-    var shown by remember(manga.id) { mutableStateOf(false) }
-    LaunchedEffect(manga.id) { shown = true }
+    var shown by remember(workId) { mutableStateOf(false) }
+    LaunchedEffect(workId) { shown = true }
     @Composable
     fun enter(order: Int): Float {
         val value by animateFloatAsState(
@@ -165,32 +217,32 @@ fun PosterHeader(
 
     // MANHWA: the work's title look (frame, font) and how its cover moves, picked by the reader
     val lookStore = remember { eu.kanade.tachiyomi.music.MusicStore.get(context) }
-    val look by remember(manga.id) { lookStore.lookFlow(manga.id) }.collectAsState(lookStore.work(manga.id))
-    val titleFont = TitleFonts.of(look.titleFont) ?: TitleFonts.forWork(manga.id)
-    val titlePlate = TitlePlate.of(look.titlePlate) ?: TitlePlate.forWork(manga.id)
+    val look by remember(workId) { lookStore.lookFlow(workId) }.collectAsState(lookStore.work(workId))
+    val titleFont = TitleFonts.of(look.titleFont) ?: TitleFonts.forWork(workId)
+    val titlePlate = TitlePlate.of(look.titlePlate) ?: TitlePlate.forWork(workId)
     val coverMotion = CoverMotion.of(look.motion)
     var lookOpen by remember { mutableStateOf(false) }
     if (lookOpen) {
         TitleLookDialog(
-            title = manga.title,
+            title = title,
             accent = accent,
             motion = coverMotion,
             plate = titlePlate,
             font = titleFont,
-            onMotion = { lookStore.setTitleLook(manga.id, motion = it.name) },
-            onPlate = { lookStore.setTitleLook(manga.id, plate = it.key) },
-            onFont = { lookStore.setTitleLook(manga.id, font = it.key) },
+            onMotion = { lookStore.setTitleLook(workId, motion = it.name) },
+            onPlate = { lookStore.setTitleLook(workId, plate = it.key) },
+            onFont = { lookStore.setTitleLook(workId, font = it.key) },
             onDismiss = { lookOpen = false },
         )
     }
 
-    val words = remember(manga.title) { manga.title.split(' ').filter { it.isNotBlank() } }
-    val bigWord = remember(words) { (words.maxByOrNull { it.length } ?: manga.title).uppercase().take(10) }
+    val words = remember(title) { title.split(' ').filter { it.isNotBlank() } }
+    val bigWord = remember(words) { (words.maxByOrNull { it.length } ?: title).uppercase().take(10) }
 
     Box(modifier.fillMaxWidth()) {
         // The cover's own art, blurred and pushed back
         AsyncImage(
-            model = ImageRequest.Builder(context).data(manga).crossfade(true).build(),
+            model = ImageRequest.Builder(context).data(coverData).crossfade(true).build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -280,7 +332,7 @@ fun PosterHeader(
                 )
                 // MANHWA music: while this work's song plays, bars dance in a ring round the cover
                 val music by eu.kanade.tachiyomi.music.MusicPlayer.state.collectAsState()
-                val beatOn = music.playing && music.mangaId == manga.id
+                val beatOn = music.playing && music.mangaId == workId
                 val beatLevel by animateFloatAsState(if (beatOn) 1f else 0f, tween(600), label = "beat")
                 val beat by motion.animateFloat(0f, 1000f, infiniteRepeatable(tween(1_000_000, easing = LinearEasing)), label = "beatClock")
                 if (beatLevel > 0.01f) {
@@ -350,15 +402,15 @@ fun PosterHeader(
                             scaleY = scale
                         },
                 ) {
-                    CoverAura(saved = manga.favorite, chaptersRead = chaptersRead) {
+                    CoverAura(saved = favorite, chaptersRead = chaptersRead) {
                         Box {
                             MangaCover.Book(
-                                data = ImageRequest.Builder(context).data(manga).crossfade(true).build(),
+                                data = ImageRequest.Builder(context).data(coverData).crossfade(true).build(),
                                 contentDescription = stringResource(MR.strings.manga_cover),
                                 shape = RoundedCornerShape(10.dp),
                                 onClick = onCoverClick,
                                 modifier = Modifier
-                                    .sharedCover(manga.id)
+                                    .then(coverModifier)
                                     .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(10.dp)),
                             )
                             // A glossy sweep over the cover
@@ -392,7 +444,7 @@ fun PosterHeader(
             ) {
                 // MANHWA: the title on its frame, in its font; a tap picks how it looks and how the cover moves
                 AnimatedPlate(
-                    text = manga.title.ifBlank { stringResource(MR.strings.unknown_title) },
+                    text = title.ifBlank { stringResource(MR.strings.unknown_title) },
                     plate = titlePlate,
                     font = titleFont.family,
                     accent = accent,
@@ -401,20 +453,20 @@ fun PosterHeader(
                         onClick = { lookOpen = true },
                         onLongClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            context.copyToClipboard(manga.title, manga.title)
+                            context.copyToClipboard(title, title)
                         },
                     ),
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = (manga.author?.takeIf { it.isNotBlank() } ?: stringResource(MR.strings.unknown_author)).uppercase(),
+                    text = (author?.takeIf { it.isNotBlank() } ?: stringResource(MR.strings.unknown_author)).uppercase(),
                     style = TextStyle(fontSize = 12.sp, letterSpacing = 3.sp, fontWeight = FontWeight.SemiBold),
                     color = accent,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.clickable {
-                        manga.author?.takeIf { it.isNotBlank() }?.let { doSearch(it, true) }
+                        author?.takeIf { it.isNotBlank() }?.let(onAuthorClick)
                     },
                 )
             }
@@ -435,8 +487,8 @@ fun PosterHeader(
             }
 
             // Genres as pills
-            val genres = manga.genre.orEmpty().filter { it.isNotBlank() }.take(5)
-            if (genres.isNotEmpty()) {
+            val shownGenres = genres.filter { it.isNotBlank() }.take(5)
+            if (shownGenres.isNotEmpty()) {
                 val pills = enter(6)
                 FlowRow(
                     Modifier
@@ -445,7 +497,7 @@ fun PosterHeader(
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    genres.forEach { genre ->
+                    shownGenres.forEach { genre ->
                         Text(
                             text = "#$genre",
                             color = Color.White.copy(alpha = 0.9f),

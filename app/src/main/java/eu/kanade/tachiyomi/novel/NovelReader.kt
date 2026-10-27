@@ -129,6 +129,9 @@ class NovelReaderScreen(
         val scope = rememberCoroutineScope()
         val novelKey = NovelStore.key(sourceId, novelUrl)
         val novel = remember { store.entry(sourceId, novelUrl) }
+        // MANHWA music: the novel's songs carry on from its page while a chapter is open
+        val workId = remember(novelKey) { NovelStore.workId(novelKey) }
+        eu.kanade.tachiyomi.music.WorkMusicEffect(workId)
         val settings by store.settings.collectAsState()
 
         var current by rememberSaveable { mutableStateOf(chapterUrl) }
@@ -393,6 +396,16 @@ class NovelReaderScreen(
                         }
                     }
                 }
+            }
+
+            // The novel's music bar, with the reading bars
+            AnimatedVisibility(
+                visible = bars && !listening,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(start = 16.dp, bottom = 96.dp),
+            ) {
+                eu.kanade.tachiyomi.music.MusicMiniBar(mangaId = workId, title = novel?.title.orEmpty())
             }
 
             // Top bar: back and the chapter
