@@ -13,6 +13,8 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -127,16 +129,17 @@ val LocalReduceMotion = staticCompositionLocalOf { false }
 fun ProvideLookClock(moving: Boolean, content: @Composable () -> Unit) {
     val reduce = rememberReduceMotion()
     val time = remember { mutableLongStateOf(android.os.SystemClock.uptimeMillis()) }
-    if (moving && !reduce) {
-        LaunchedEffect(Unit) {
-            var last = 0L
+    // MANHWA battery: the looks rest with the rest of the decoration, and tick by a timer instead of waking for
+    // every frame of a fast screen
+    val awake by DecorMotion.awake.collectAsState()
+    val level by DecorMotion.level.collectAsState()
+    if (moving && !reduce && awake && level != DecorMotion.Level.OFF) {
+        LaunchedEffect(level) {
+            val step = if (level == DecorMotion.Level.FULL) TICK_MS else TICK_MS * 2
             while (true) {
-                withFrameMillis { frame ->
-                    if (frame - last >= TICK_MS) {
-                        last = frame
-                        time.longValue = android.os.SystemClock.uptimeMillis()
-                    }
-                }
+                kotlinx.coroutines.delay(step)
+                withFrameMillis { }
+                time.longValue = android.os.SystemClock.uptimeMillis()
             }
         }
     }

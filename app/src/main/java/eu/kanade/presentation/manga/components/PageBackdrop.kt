@@ -1,12 +1,10 @@
 package eu.kanade.presentation.manga.components
 
+import eu.kanade.presentation.components.swing
+import eu.kanade.presentation.components.loop
+import androidx.compose.runtime.derivedStateOf
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -104,9 +102,10 @@ fun PageBackdrop(
     val palette = LocalCoverPalette.current
     val deep = palette?.deep ?: Color(0xFF07070A)
     val accent = palette?.primary ?: Color(0xFFFF3B4E)
-    val motion = rememberInfiniteTransition(label = "backdrop")
-    val breathe by motion.animateFloat(1.04f, 1.12f, infiniteRepeatable(tween(18000, easing = LinearEasing), RepeatMode.Reverse), label = "breathe")
-    val rise by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(16000, easing = LinearEasing)), label = "rise")
+    // MANHWA battery: on the app's one decoration clock, read while drawing
+    val decor = eu.kanade.presentation.components.LocalDecorTime.current
+    val breathe by remember(decor) { derivedStateOf { 1.04f + 0.08f * decor.swing(36f) } }
+    val rise by remember(decor) { derivedStateOf { decor.loop(16f) } }
     val dust = remember { List(40) { Triple(Random.nextFloat(), Random.nextFloat(), Random.nextFloat()) } }
     Box(modifier.fillMaxSize().background(Color(0xFF040406))) {
         Crossfade(custom ?: scene, animationSpec = tween(900), label = "scene") { s ->

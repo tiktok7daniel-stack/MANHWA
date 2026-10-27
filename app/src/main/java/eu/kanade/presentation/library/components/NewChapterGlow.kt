@@ -29,12 +29,8 @@ fun LibraryManga.hasFreshChapter(): Boolean {
 @Composable
 fun NewChapterGlow(modifier: Modifier = Modifier) {
     val accent = MaterialTheme.colorScheme.primary
-    val pulse by rememberInfiniteTransition(label = "fresh").animateFloat(
-        0f,
-        1f,
-        infiniteRepeatable(tween(1400), RepeatMode.Restart),
-        label = "pulse",
-    )
+    // MANHWA battery: on the app's decoration clock (a library full of these used to run one animation each)
+    val pulse by eu.kanade.presentation.components.decorLoop(0f, 1f, 1400)
     Canvas(modifier.padding(4.dp).size(18.dp)) {
         val r = size.minDimension / 2
         drawCircle(accent.copy(alpha = 0.45f * (1 - pulse)), radius = r * (0.45f + 0.55f * pulse))

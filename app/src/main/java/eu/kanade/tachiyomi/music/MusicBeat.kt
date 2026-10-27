@@ -113,15 +113,18 @@ fun rememberBeat(workId: Long): State<Float> {
         var average = 0.05f
         var bassAverage = 0.03f
         while (true) {
+            // MANHWA battery: about 30 readings a second is plenty for the eye, and costs far less than every frame
+            // of a fast screen
+            kotlinx.coroutines.delay(33)
             withFrameNanos { }
             val (level, bass) = MusicBeat.now()
-            average += (level - average) * 0.02f
-            bassAverage += (bass - bassAverage) * 0.02f
+            average += (level - average) * 0.04f
+            bassAverage += (bass - bassAverage) * 0.04f
             val hit = ((bass / bassAverage.coerceAtLeast(0.005f)) - 0.9f).coerceIn(0f, 1.6f) / 1.6f
             val body = (level / average.coerceAtLeast(0.01f) * 0.5f).coerceIn(0f, 1f)
             val target = (hit * 0.75f + body * 0.25f).coerceIn(0f, 1f)
             val current = beat.floatValue
-            beat.floatValue = if (target > current) current + (target - current) * 0.6f else current + (target - current) * 0.08f
+            beat.floatValue = if (target > current) current + (target - current) * 0.8f else current + (target - current) * 0.16f
         }
     }
     return beat

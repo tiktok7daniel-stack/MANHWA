@@ -75,7 +75,10 @@ private fun BaseTachiyomiTheme(
     CompositionLocalProvider(LocalManhwaLook provides look, LocalManhwaWantsLight provides light) {
         // One clock for the looks that move (Aurora Veil, Monarch Holo), still for the others
         eu.kanade.presentation.components.ProvideLookClock(moving = style == ManhwaStyle.AURORA || style == ManhwaStyle.HOLO || style == ManhwaStyle.DOCK || style == ManhwaStyle.HUNTER) {
-            MaterialExpressiveTheme(colorScheme = scheme, content = content)
+            // MANHWA battery: one slow clock for all decoration, resting when the screen is left alone
+            eu.kanade.presentation.components.ProvideDecorClock {
+                MaterialExpressiveTheme(colorScheme = scheme, content = content)
+            }
         }
     }
 }

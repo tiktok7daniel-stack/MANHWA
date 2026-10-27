@@ -1,13 +1,13 @@
 package eu.kanade.presentation.manga.components
 
+import eu.kanade.presentation.components.swing
+import eu.kanade.presentation.components.loop
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -210,10 +210,12 @@ fun PosterHero(
         return value
     }
 
-    val motion = rememberInfiniteTransition(label = "poster")
-    val drift by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(14000, easing = LinearEasing), RepeatMode.Reverse), label = "drift")
-    val float by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(5200, easing = LinearEasing)), label = "float")
-    val streak by motion.animateFloat(-0.4f, 1.4f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "streak")
+    // MANHWA battery: the poster moves on the app's one decoration clock (read while drawing, so nothing is laid
+    // out again for it)
+    val decor = eu.kanade.presentation.components.LocalDecorTime.current
+    val drift by remember(decor) { derivedStateOf { decor.swing(28f) } }
+    val float by remember(decor) { derivedStateOf { decor.loop(5.2f) } }
+    val streak by remember(decor) { derivedStateOf { -0.4f + 1.8f * decor.loop(9f) } }
 
     // MANHWA: the work's title look (frame, font) and how its cover moves, picked by the reader
     val lookStore = remember { eu.kanade.tachiyomi.music.MusicStore.get(context) }
@@ -343,7 +345,7 @@ fun PosterHero(
                 val music by eu.kanade.tachiyomi.music.MusicPlayer.state.collectAsState()
                 val beatOn = music.playing && music.mangaId == workId
                 val beatLevel by animateFloatAsState(if (beatOn) 1f else 0f, tween(600), label = "beat")
-                val beat by motion.animateFloat(0f, 1000f, infiniteRepeatable(tween(1_000_000, easing = LinearEasing)), label = "beatClock")
+                val beat by remember(decor) { derivedStateOf { decor.value } }
                 // MANHWA: the effect picked for this work, round and behind the cover
                 EffectLayers(
                     effects.cover,
@@ -430,18 +432,20 @@ fun PosterHero(
                                     .then(coverModifier)
                                     .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(10.dp)),
                             )
-                            // A glossy sweep over the cover
+                            // A glossy sweep over the cover, drawn (not recomposed) as it moves
                             Box(
                                 Modifier
                                     .matchParentSize()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(
-                                        Brush.linearGradient(
-                                            0f to Color.Transparent,
-                                            (0.35f + 0.3f * float) to Color.White.copy(alpha = 0.10f),
-                                            (0.45f + 0.3f * float) to Color.Transparent,
-                                        ),
-                                    ),
+                                    .drawBehind {
+                                        drawRect(
+                                            Brush.linearGradient(
+                                                0f to Color.Transparent,
+                                                (0.35f + 0.3f * float) to Color.White.copy(alpha = 0.10f),
+                                                (0.45f + 0.3f * float) to Color.Transparent,
+                                            ),
+                                        )
+                                    },
                             )
                         }
                     }

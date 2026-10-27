@@ -143,12 +143,7 @@ fun GlowProgress(fraction: Float, color: Color, modifier: Modifier = Modifier) {
 fun GlowIcon(icon: ImageVector, color: Color, size: Int = 54, pulse: Boolean = false) {
     // The breathing value is only read while drawing, so the tile itself never recomposes per frame
     val glow = if (pulse) {
-        rememberInfiniteTransition(label = "glow").animateFloat(
-            initialValue = 0.18f,
-            targetValue = 0.42f,
-            animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-            label = "glowValue",
-        )
+        eu.kanade.presentation.components.decorSwing(0.18f, 0.42f, 1400)
     } else {
         null
     }

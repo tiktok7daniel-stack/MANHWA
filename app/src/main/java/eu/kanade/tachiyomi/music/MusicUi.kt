@@ -174,7 +174,7 @@ fun VinylDisc(track: MusicStore.Track?, playing: Boolean, discSize: Dp) {
 /** Four bars that dance while the music plays. */
 @Composable
 fun Equalizer(playing: Boolean, color: Color, modifier: Modifier = Modifier) {
-    val t by rememberInfiniteTransition(label = "eq").animateFloat(0f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "t")
+    val t by eu.kanade.presentation.components.decorLoop(0f, 1f, 900)
     val level by animateFloatAsState(if (playing) 1f else 0.15f, label = "level")
     Canvas(modifier.size(18.dp, 16.dp)) {
         val w = size.width / 7
@@ -273,7 +273,7 @@ fun MusicMiniBar(mangaId: Long, title: String, modifier: Modifier = Modifier) {
         exit = slideOutVertically { it } + fadeOut(),
         modifier = modifier,
     ) {
-        val glow by rememberInfiniteTransition(label = "bar").animateFloat(0.35f, 0.8f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "glow")
+        val glow by eu.kanade.presentation.components.decorSwing(0.35f, 0.8f, 1400)
         Box(
             Modifier
                 .width(250.dp)
@@ -323,13 +323,15 @@ fun MusicMiniBar(mangaId: Long, title: String, modifier: Modifier = Modifier) {
                 )
             }
             // The song's progress, a glowing line along the bottom
-            val fraction = if (state.durationMs > 0 && current != null) state.positionMs.toFloat() / state.durationMs else 0f
+            // Read while drawing: the line moves without the bar being composed again each tick
+            val position = MusicPlayer.position.collectAsState()
+            val fraction = { if (state.durationMs > 0 && current != null) position.value.toFloat() / state.durationMs else 0f }
             Canvas(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp).padding(horizontal = 24.dp)) {
                 drawLine(Color.White.copy(alpha = 0.12f), Offset(0f, size.height / 2), Offset(size.width, size.height / 2), strokeWidth = size.height)
                 drawLine(
                     Brush.horizontalGradient(listOf(accent.copy(alpha = 0.6f), Color.White)),
                     Offset(0f, size.height / 2),
-                    Offset(size.width * fraction, size.height / 2),
+                    Offset(size.width * fraction(), size.height / 2),
                     strokeWidth = size.height,
                 )
             }
@@ -599,7 +601,8 @@ private fun SongCard(song: MusicStore.Track, accent: Color, modifier: Modifier =
 
 @Composable
 private fun Progress(state: MusicPlayer.State?, accent: Color) {
-    val fraction = if (state != null && state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
+    val positionMs by MusicPlayer.position.collectAsState()
+    val fraction = if (state != null && state.durationMs > 0) positionMs.toFloat() / state.durationMs else 0f
     var dragging by remember { mutableStateOf<Float?>(null) }
     Column(Modifier.padding(horizontal = 28.dp)) {
         Slider(
@@ -612,9 +615,9 @@ private fun Progress(state: MusicPlayer.State?, accent: Color) {
             colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = accent, inactiveTrackColor = Color.White.copy(alpha = 0.15f)),
         )
         Row(Modifier.fillMaxWidth()) {
-            Text(time(state?.positionMs ?: 0), color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+            Text(time(positionMs), color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
             Spacer(Modifier.weight(1f))
-            Text("-" + time(((state?.durationMs ?: 0) - (state?.positionMs ?: 0)).coerceAtLeast(0)), color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+            Text("-" + time(((state?.durationMs ?: 0) - positionMs).coerceAtLeast(0)), color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
         }
     }
 }

@@ -1,11 +1,10 @@
 package eu.kanade.presentation.manga.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
+import eu.kanade.presentation.components.swing
+import eu.kanade.presentation.components.loop
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -41,15 +40,11 @@ fun CoverAura(saved: Boolean, chaptersRead: Int, modifier: Modifier = Modifier, 
     val color = LocalCoverPalette.current?.primary ?: rank
     // 0 for a level-1 work, 1 from level 50 (rank S) on
     val power by animateFloatAsState(if (saved) 0.25f + 0.75f * ((level.level - 1) / 49f).coerceIn(0f, 1f) else 0f, tween(700), label = "aura")
-    val spin = rememberInfiniteTransition(label = "aura")
-    val angle by spin.animateFloat(
-        0f,
-        360f,
-        infiniteRepeatable(tween(6000, easing = LinearEasing)),
-        label = "angle",
-    )
-    val pulse by spin.animateFloat(0.75f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Reverse), label = "pulse")
-    val flare by spin.animateFloat(0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "flare")
+    // MANHWA battery: on the app's one decoration clock, read only while drawing (and not at all with no aura)
+    val decor = eu.kanade.presentation.components.LocalDecorTime.current
+    val angle by remember(decor) { derivedStateOf { decor.loop(6f) * 360f } }
+    val pulse by remember(decor) { derivedStateOf { 0.75f + 0.25f * decor.swing(3.2f) } }
+    val flare by remember(decor) { derivedStateOf { decor.loop(2.4f) } }
     val sparks = androidx.compose.runtime.remember { List(28) { Triple(kotlin.random.Random.nextFloat(), kotlin.random.Random.nextFloat(), kotlin.random.Random.nextFloat()) } }
     Box(
         modifier

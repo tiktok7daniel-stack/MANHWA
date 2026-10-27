@@ -50,6 +50,13 @@ object MusicPlayer {
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
 
+    /**
+     * Where the song is, in milliseconds, ticking while it plays. Kept apart from [state] so the screens that only
+     * need to know what plays (the work's page, the effects) are not redrawn four times a second for it.
+     */
+    private val _position = MutableStateFlow(0L)
+    val position: StateFlow<Long> = _position.asStateFlow()
+
     private val scope = MainScope()
     private var player: ExoPlayer? = null
     private var store: MusicStore? = null
@@ -75,6 +82,7 @@ object MusicPlayer {
                     }
 
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                        _position.value = 0L
                         _state.update { it.copy(index = p.currentMediaItemIndex, positionMs = 0L, durationMs = p.duration.coerceAtLeast(0L)) }
                     }
 
@@ -278,7 +286,11 @@ object MusicPlayer {
         tickJob?.cancel()
         tickJob = scope.launch {
             while (isActive) {
-                player?.let { p -> _state.update { it.copy(positionMs = p.currentPosition, durationMs = p.duration.coerceAtLeast(0L)) } }
+                player?.let { p ->
+                    _position.value = p.currentPosition
+                    val duration = p.duration.coerceAtLeast(0L)
+                    if (_state.value.durationMs != duration) _state.update { it.copy(durationMs = duration) }
+                }
                 delay(250)
             }
         }

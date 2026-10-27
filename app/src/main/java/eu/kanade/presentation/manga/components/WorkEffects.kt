@@ -1,10 +1,5 @@
 package eu.kanade.presentation.manga.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -104,8 +99,8 @@ fun EffectLayer(
 ) {
     if (effect == WorkEffect.NONE) return
     // A still effect (the picker's small previews) is drawn once, at one moment, and never again
-    val clock = if (still) null else rememberInfiniteTransition(label = "effect")
-        .animateFloat(0f, 100_000f, infiniteRepeatable(tween(100_000_000, easing = LinearEasing)), label = "t")
+    // MANHWA battery: the app's one decoration clock (about 30 frames a second, resting when left alone)
+    val clock = if (still) null else eu.kanade.presentation.components.LocalDecorTime.current
     val seeds = remember(effect) { Random(effect.ordinal * 7919 + 17).let { r -> FloatArray(SEEDS) { r.nextFloat() } } }
     Canvas(modifier) {
         val t = clock?.value ?: 7.3f

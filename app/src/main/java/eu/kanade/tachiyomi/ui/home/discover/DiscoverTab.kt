@@ -599,12 +599,7 @@ data object DiscoverTab : Tab {
     @Composable
     private fun AlertCard(alert: HomeIntelligence.SourceAlert, onOpen: () -> Unit) {
         val colors = MaterialTheme.colorScheme
-        val pulse by rememberInfiniteTransition(label = "alert").animateFloat(
-            initialValue = 0.15f,
-            targetValue = 0.4f,
-            animationSpec = infiniteRepeatable(tween(1_200), RepeatMode.Reverse),
-            label = "pulse",
-        )
+        val pulse by eu.kanade.presentation.components.decorSwing(0.15f, 0.4f, 1_200)
         val number = formatChapter(alert.chapterNumber)
         val message = when (val days = alert.daysAgo) {
             null, 0 -> stringResource(ATMR.strings.alert_message_today, number, alert.libraryManga.title, alert.source.name)

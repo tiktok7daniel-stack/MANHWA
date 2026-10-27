@@ -175,6 +175,12 @@ class MainActivity : BaseActivity() {
         registerSecureActivity(this)
     }
 
+    /** MANHWA battery: any touch wakes the resting decoration. */
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        eu.kanade.presentation.components.DecorMotion.touched()
+        return super.dispatchTouchEvent(ev)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         graph.inject(this)
         val isLaunch = savedInstanceState == null

@@ -170,6 +170,12 @@ class ReaderActivity : BaseActivity() {
     /**
      * Called when the activity is created. Initializes the presenter and configuration.
      */
+    /** MANHWA battery: any touch wakes the resting decoration. */
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        eu.kanade.presentation.components.DecorMotion.touched()
+        return super.dispatchTouchEvent(ev)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         graph.inject(this)
         registerSecureActivity(this)

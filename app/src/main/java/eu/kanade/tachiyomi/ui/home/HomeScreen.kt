@@ -566,12 +566,7 @@ object HomeScreen : Screen() {
     @Composable
     private fun RowScope.AiCenterButton(onClick: () -> Unit) {
         val colors = MaterialTheme.colorScheme
-        val halo by rememberInfiniteTransition(label = "orb").animateFloat(
-            initialValue = 0.9f,
-            targetValue = 1.08f,
-            animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse),
-            label = "halo",
-        )
+        val halo by eu.kanade.presentation.components.decorSwing(0.9f, 1.08f, 1_600)
         // Same width as every tab, so the orb sits exactly in the middle of the bar
         val calm = eu.kanade.presentation.components.LocalManhwaLook.current.isCalm
         Box(

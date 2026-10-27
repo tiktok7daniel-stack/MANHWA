@@ -1,7 +1,6 @@
 package eu.kanade.presentation.manga.components
 
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -39,6 +38,8 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import eu.kanade.presentation.components.loop
+import eu.kanade.presentation.components.swing
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -172,11 +173,11 @@ fun AnimatedPlate(
         plate.drawn?.palette == FramePalette.AUTO -> autoColors.glow
         else -> plate.drawn?.palette?.glow ?: accent
     }
-    val motion = if (still) null else rememberInfiniteTransition(label = "plate")
-    val sweep = motion?.animateFloat(-0.5f, 1.5f, infiniteRepeatable(tween(3200, easing = LinearEasing)), label = "sweep")
-    val breathe = motion?.animateFloat(0.35f, 0.75f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "breathe")
-    val shine = motion?.animateFloat(-0.4f, 1.4f, infiniteRepeatable(tween(4000, easing = LinearEasing)), label = "shine")
-    val clock = motion?.animateFloat(0f, 10_000f, infiniteRepeatable(tween(10_000_000, easing = LinearEasing)), label = "clock")
+    // MANHWA battery: everything here moves on the app's one decoration clock, read while drawing
+    val clock = if (still) null else eu.kanade.presentation.components.LocalDecorTime.current
+    val sweep = clock?.let { c -> FloatState { -0.5f + 2f * c.loop(3.2f) } }
+    val breathe = clock?.let { c -> FloatState { 0.35f + 0.4f * c.swing(3.6f) } }
+    val shine = clock?.let { c -> FloatState { -0.4f + 1.8f * c.loop(4f) } }
     BoxWithConstraints(
         modifier
             .fillMaxWidth()
@@ -276,6 +277,11 @@ fun AnimatedPlate(
             )
         }
     }
+}
+
+/** A value worked out from the decoration clock each time it is read (while drawing). */
+private class FloatState(private val read: () -> Float) {
+    val value: Float get() = read()
 }
 
 /** The moment a still plate is shown at: gems lit, light half way round. */
