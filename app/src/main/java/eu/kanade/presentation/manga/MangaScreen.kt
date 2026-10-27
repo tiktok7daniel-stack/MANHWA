@@ -323,10 +323,14 @@ private fun MangaScreenSmallImpl(
     val pagePalette = eu.kanade.presentation.manga.components.LocalCoverPalette.current
     val sceneContext = LocalContext.current
     val pickedScene by remember(state.manga.id) { eu.kanade.tachiyomi.music.MusicStore.get(sceneContext).sceneFlow(state.manga.id) }.collectFlowAsState(null)
+    val pageEffects = eu.kanade.presentation.manga.components.rememberWorkEffects(state.manga.id)
     eu.kanade.presentation.manga.components.PageBackdrop(
         scene = eu.kanade.presentation.manga.components.BackdropScene.of(pickedScene)
             ?: eu.kanade.presentation.manga.components.BackdropScene.forColor(pagePalette?.primary, state.manga.id),
         custom = remember(pickedScene) { eu.kanade.tachiyomi.music.MusicStore.get(sceneContext).sceneFile(pickedScene) },
+        effect = pageEffects.page,
+        effectColor = pageEffects.color,
+        beat = pageEffects.beat,
     ) {
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,

@@ -54,6 +54,12 @@ class MusicStore private constructor(private val context: Context) {
         val titleFont: String? = null,
         val titlePlate: String? = null,
         val motion: String? = null,
+        /** MANHWA effects: the one behind the cover, the one over the page, their colour (null: the cover's). */
+        val coverEffect: String? = null,
+        val pageEffect: String? = null,
+        val effectColor: String? = null,
+        /** Whether the effects pulse with the song. */
+        val effectBeat: Boolean = true,
     )
 
     @Serializable
@@ -83,6 +89,14 @@ class MusicStore private constructor(private val context: Context) {
 
     fun setTitleLook(mangaId: Long, font: String? = work(mangaId).titleFont, plate: String? = work(mangaId).titlePlate, motion: String? = work(mangaId).motion) =
         changeWork(mangaId) { it.copy(titleFont = font, titlePlate = plate, motion = motion) }
+
+    fun setEffects(
+        mangaId: Long,
+        cover: String? = work(mangaId).coverEffect,
+        page: String? = work(mangaId).pageEffect,
+        color: String? = work(mangaId).effectColor,
+        beat: Boolean = work(mangaId).effectBeat,
+    ) = changeWork(mangaId) { it.copy(coverEffect = cover, pageEffect = page, effectColor = color, effectBeat = beat) }
 
     fun lookFlow(mangaId: Long): Flow<WorkMusic> = library.map { it.works[mangaId.toString()] ?: WorkMusic() }.distinctUntilChanged()
 

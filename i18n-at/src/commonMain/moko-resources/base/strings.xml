@@ -1839,4 +1839,23 @@
     <string name="tour_novels_b">Each novel\'s page has the poster, the frame, the scene and the music.</string>
     <string name="tour_novels_s1">Add songs to a novel from the headphones button at the bottom of its page.</string>
     <string name="tour_novels_s2">They keep playing while you read its chapters.</string>
+    <string name="effect_none">None</string>
+    <string name="effect_fire">Blue fire</string>
+    <string name="effect_eyes">Glowing eyes</string>
+    <string name="effect_lightning">Lightning</string>
+    <string name="effect_warp">Star warp</string>
+    <string name="effect_orb">Energy orb</string>
+    <string name="effect_plasma">Plasma</string>
+    <string name="effect_circle">Magic circle</string>
+    <string name="effect_beams">Light beams</string>
+    <string name="effect_spirit">Spirits</string>
+    <string name="effect_embers">Embers</string>
+    <string name="look_effect_cover">Effect behind the cover</string>
+    <string name="look_effect_page">Effect on the page</string>
+    <string name="look_effect_color">Effect colour</string>
+    <string name="look_effect_beat">Move with the music</string>
+    <string name="look_effect_beat_sub">The effects pulse with the song\'s beat while it plays.</string>
+    <string name="wn_effects_t">Living effects</string>
+    <string name="wn_effects_b">Blue fire, glowing eyes, lightning, a star warp, an energy orb, plasma, a magic circle, beams, spirits and embers, behind the cover or over the page, in any colour, pulsing with the song\'s real beat. Tap the title to pick them.</string>
+    <string name="tour_titlelook_s4">Below, pick an effect behind the cover and one on the page, their colour, and whether they move with the music.</string>
 </resources>

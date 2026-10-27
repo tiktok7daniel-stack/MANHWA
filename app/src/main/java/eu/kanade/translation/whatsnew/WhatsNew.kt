@@ -130,6 +130,7 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
+            Feature(MaterialSymbols.Rounded.LocalFireDepartment, ATMR.strings.wn_effects_t, ATMR.strings.wn_effects_b),
             Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_titlelook_t, ATMR.strings.wn_titlelook_b),
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_sunaura_t, ATMR.strings.wn_sunaura_b),
             Feature(MaterialSymbols.Rounded.Headphones, ATMR.strings.wn_musicfix_t, ATMR.strings.wn_musicfix_b),

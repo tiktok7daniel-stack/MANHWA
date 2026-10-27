@@ -8,7 +8,13 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
@@ -26,6 +32,7 @@ import tachiyomi.core.common.util.system.logcat
  * in); leaving it fades them out; the app going to the background pauses them. The songs follow each other, repeat
  * one, or shuffle, as set for the work. One player for the whole app, on the main thread.
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 object MusicPlayer {
 
     data class State(
@@ -55,7 +62,7 @@ object MusicPlayer {
         player?.let { return it }
         val app = context.applicationContext
         store = MusicStore.get(app)
-        return ExoPlayer.Builder(app).build().also { p ->
+        return ExoPlayer.Builder(app, beatRenderers(app)).build().also { p ->
             p.setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
                 true,
@@ -103,6 +110,16 @@ object MusicPlayer {
                 },
             )
         }
+    }
+
+    /** The usual renderers, with the sound also passed through [MusicBeat] so the effects can follow the beat. */
+    private fun beatRenderers(context: Context) = object : DefaultRenderersFactory(context) {
+        override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+            DefaultAudioSink.Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setAudioProcessors(arrayOf<AudioProcessor>(TeeAudioProcessor(MusicBeat)))
+                .build()
     }
 
     /** The work [mangaId] is on screen (its page or a chapter): its songs play, unless they already are. */

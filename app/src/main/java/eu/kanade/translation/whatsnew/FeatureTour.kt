@@ -234,7 +234,7 @@ object FeatureTour {
                 MaterialSymbols.Rounded.Palette,
                 ATMR.strings.tour_titlelook_t,
                 ATMR.strings.tour_titlelook_b,
-                listOf(ATMR.strings.tour_titlelook_s1, ATMR.strings.tour_titlelook_s2, ATMR.strings.tour_titlelook_s3),
+                listOf(ATMR.strings.tour_titlelook_s1, ATMR.strings.tour_titlelook_s2, ATMR.strings.tour_titlelook_s3, ATMR.strings.tour_titlelook_s4),
                 since = 3,
             ),
             TourStop(

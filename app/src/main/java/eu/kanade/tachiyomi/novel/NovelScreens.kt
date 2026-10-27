@@ -11,6 +11,7 @@ import eu.kanade.presentation.manga.components.BackdropScene
 import eu.kanade.presentation.manga.components.CoverTheme
 import eu.kanade.presentation.manga.components.PageBackdrop
 import eu.kanade.presentation.manga.components.PosterHero
+import eu.kanade.presentation.manga.components.rememberWorkEffects
 import eu.kanade.tachiyomi.music.MusicMiniBar
 import eu.kanade.tachiyomi.music.MusicStore
 import eu.kanade.tachiyomi.music.WorkMusicEffect
@@ -627,11 +628,15 @@ class NovelDetailsScreen(
         val pickedScene by remember(workId) { musicStore.sceneFlow(workId) }.collectAsState(null)
         val listState = rememberLazyListState()
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val pageEffects = rememberWorkEffects(workId)
         WorkMusicEffect(workId)
         CoverTheme(palette) {
         PageBackdrop(
             scene = BackdropScene.of(pickedScene) ?: BackdropScene.forColor(palette?.primary, workId),
             custom = remember(pickedScene) { musicStore.sceneFile(pickedScene) },
+            effect = pageEffects.page,
+            effectColor = pageEffects.color,
+            beat = pageEffects.beat,
         ) {
         Box(Modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 96.dp)) {

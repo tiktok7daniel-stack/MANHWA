@@ -221,6 +221,7 @@ fun PosterHero(
     val titleFont = TitleFonts.of(look.titleFont) ?: TitleFonts.forWork(workId)
     val titlePlate = TitlePlate.of(look.titlePlate) ?: TitlePlate.forWork(workId)
     val coverMotion = CoverMotion.of(look.motion)
+    val effects = rememberWorkEffects(workId)
     var lookOpen by remember { mutableStateOf(false) }
     if (lookOpen) {
         TitleLookDialog(
@@ -232,6 +233,14 @@ fun PosterHero(
             onMotion = { lookStore.setTitleLook(workId, motion = it.name) },
             onPlate = { lookStore.setTitleLook(workId, plate = it.key) },
             onFont = { lookStore.setTitleLook(workId, font = it.key) },
+            coverEffect = effects.cover,
+            pageEffect = effects.page,
+            effectColor = EffectColor.of(look.effectColor),
+            effectBeat = look.effectBeat,
+            onCoverEffect = { lookStore.setEffects(workId, cover = it.name) },
+            onPageEffect = { lookStore.setEffects(workId, page = it.name) },
+            onEffectColor = { lookStore.setEffects(workId, color = it.name) },
+            onEffectBeat = { lookStore.setEffects(workId, beat = it) },
             onDismiss = { lookOpen = false },
         )
     }
@@ -335,6 +344,13 @@ fun PosterHero(
                 val beatOn = music.playing && music.mangaId == workId
                 val beatLevel by animateFloatAsState(if (beatOn) 1f else 0f, tween(600), label = "beat")
                 val beat by motion.animateFloat(0f, 1000f, infiniteRepeatable(tween(1_000_000, easing = LinearEasing)), label = "beatClock")
+                // MANHWA: the effect picked for this work, round and behind the cover
+                EffectLayer(
+                    effects.cover,
+                    effects.color ?: accent,
+                    Modifier.fillMaxSize().graphicsLayer { alpha = back },
+                    beat = effects.beat,
+                )
                 if (beatLevel > 0.01f) {
                     Canvas(Modifier.fillMaxSize()) {
                         val cx = size.width / 2
@@ -348,7 +364,8 @@ fun PosterHero(
                             val v = (0.5f + 0.5f * sin(beat * 4.1f + i * 0.45f)) * 0.55f +
                                 (0.5f + 0.5f * sin(beat * 9.7f + i * 1.3f)) * 0.3f +
                                 (0.5f + 0.5f * sin(beat * 2.3f + i * 0.11f)) * 0.15f
-                            val len = (6.dp.toPx() + 26.dp.toPx() * v) * beatLevel
+                            // The bars follow the song's real beat too
+                            val len = (6.dp.toPx() + 26.dp.toPx() * v * (0.45f + 0.9f * effects.rawBeat())) * beatLevel
                             val dx = kotlin.math.cos(a)
                             val dy = sin(a)
                             val start = Offset(cx + dx * rx, cy + dy * ry)

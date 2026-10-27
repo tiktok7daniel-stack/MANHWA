@@ -1780,4 +1780,23 @@
     <string name="tour_novels_b">صفحة كل رواية فيها البوستر والإطار والخلفية والموسيقى.</string>
     <string name="tour_novels_s1">ضيف أغاني للرواية من زرار السماعات تحت في صفحتها.</string>
     <string name="tour_novels_s2">بتفضل شغالة وإنت بتقرا فصولها.</string>
+    <string name="effect_none">من غير</string>
+    <string name="effect_fire">نار زرقا</string>
+    <string name="effect_eyes">عيون منوّرة</string>
+    <string name="effect_lightning">برق</string>
+    <string name="effect_warp">نجوم طايرة</string>
+    <string name="effect_orb">كرة طاقة</string>
+    <string name="effect_plasma">بلازما</string>
+    <string name="effect_circle">دايرة سحرية</string>
+    <string name="effect_beams">أشعة نور</string>
+    <string name="effect_spirit">أرواح</string>
+    <string name="effect_embers">شرار</string>
+    <string name="look_effect_cover">تأثير ورا الغلاف</string>
+    <string name="look_effect_page">تأثير على الصفحة</string>
+    <string name="look_effect_color">لون التأثير</string>
+    <string name="look_effect_beat">يتحرك مع الموسيقى</string>
+    <string name="look_effect_beat_sub">التأثيرات بتنبض على إيقاع الأغنية وهي شغالة.</string>
+    <string name="wn_effects_t">تأثيرات حيّة</string>
+    <string name="wn_effects_b">نار زرقا، وعيون منوّرة، وبرق، ونجوم طايرة، وكرة طاقة، وبلازما، ودايرة سحرية، وأشعة، وأرواح، وشرار. ورا الغلاف أو على الصفحة، بأي لون، وبتنبض على إيقاع الأغنية الحقيقي. دوس على الاسم واختار.</string>
+    <string name="tour_titlelook_s4">تحت، اختار تأثير ورا الغلاف وتأثير على الصفحة، ولونهم، ولو يتحركوا مع الموسيقى.</string>
 </resources>

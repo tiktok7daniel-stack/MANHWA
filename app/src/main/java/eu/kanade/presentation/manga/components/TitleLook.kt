@@ -245,6 +245,14 @@ fun TitleLookDialog(
     onMotion: (CoverMotion) -> Unit,
     onPlate: (TitlePlate) -> Unit,
     onFont: (TitleFonts.Entry) -> Unit,
+    coverEffect: WorkEffect,
+    pageEffect: WorkEffect,
+    effectColor: EffectColor,
+    effectBeat: Boolean,
+    onCoverEffect: (WorkEffect) -> Unit,
+    onPageEffect: (WorkEffect) -> Unit,
+    onEffectColor: (EffectColor) -> Unit,
+    onEffectBeat: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -319,6 +327,62 @@ fun TitleLookDialog(
                         }
                     }
                 }
+                // MANHWA effects: each choice shows itself, live
+                val tint = effectColor.color ?: accent
+                item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_effect_cover), accent) }
+                item(span = { GridItemSpan(maxLineSpan) }) { EffectRow(coverEffect, tint, accent, onCoverEffect) }
+                item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_effect_page), accent) }
+                item(span = { GridItemSpan(maxLineSpan) }) { EffectRow(pageEffect, tint, accent, onPageEffect) }
+                item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_effect_color), accent) }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        items(EffectColor.entries) { c ->
+                            val on = c == effectColor
+                            Box(
+                                Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        c.color?.let { Brush.radialGradient(listOf(Color.White, it, it.copy(alpha = 0.6f))) }
+                                            ?: Brush.sweepGradient(listOf(accent, Color.White, accent)),
+                                    )
+                                    .border(if (on) 3.dp else 1.dp, if (on) Color.White else Color.White.copy(alpha = 0.2f), CircleShape)
+                                    .clickable { onEffectColor(c) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (c == EffectColor.AUTO) Text("A", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (effectBeat) accent.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.05f))
+                            .border(1.dp, if (effectBeat) accent else Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                            .clickable { onEffectBeat(!effectBeat) }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(ATMR.strings.look_effect_beat), color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(stringResource(ATMR.strings.look_effect_beat_sub), color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                        }
+                        Box(
+                            Modifier
+                                .size(width = 46.dp, height = 26.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(if (effectBeat) accent else Color.White.copy(alpha = 0.15f))
+                                .padding(3.dp),
+                            contentAlignment = if (effectBeat) Alignment.CenterEnd else Alignment.CenterStart,
+                        ) {
+                            Box(Modifier.size(20.dp).clip(CircleShape).background(Color.White))
+                        }
+                    }
+                }
                 item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_font), accent) }
                 items(TitleFonts.all, key = { it.key }) { f ->
                     val on = f.key == font.key
@@ -341,6 +405,37 @@ fun TitleLookDialog(
                         Text(f.label, color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp, maxLines = 1)
                     }
                 }
+            }
+        }
+    }
+}
+
+/** The effects side by side, each one playing in its tile. */
+@Composable
+private fun EffectRow(current: WorkEffect, tint: Color, accent: Color, onPick: (WorkEffect) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(WorkEffect.entries) { e ->
+            val on = e == current
+            Column(
+                Modifier
+                    .width(104.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.Black)
+                    .border(if (on) 2.dp else 1.dp, if (on) accent else Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                    .clickable { onPick(e) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(Modifier.fillMaxWidth().height(104.dp), contentAlignment = Alignment.Center) {
+                    EffectLayer(e, tint, Modifier.fillMaxSize())
+                }
+                Text(
+                    stringResource(e.label),
+                    color = if (on) accent else Color.White.copy(alpha = 0.8f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
             }
         }
     }
