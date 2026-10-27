@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -162,9 +163,29 @@ fun PosterHeader(
     val float by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(5200, easing = LinearEasing)), label = "float")
     val streak by motion.animateFloat(-0.4f, 1.4f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "streak")
 
+    // MANHWA: the work's title look (frame, font) and how its cover moves, picked by the reader
+    val lookStore = remember { eu.kanade.tachiyomi.music.MusicStore.get(context) }
+    val look by remember(manga.id) { lookStore.lookFlow(manga.id) }.collectAsState(lookStore.work(manga.id))
+    val titleFont = TitleFonts.of(look.titleFont) ?: TitleFonts.forWork(manga.id)
+    val titlePlate = TitlePlate.of(look.titlePlate) ?: TitlePlate.forWork(manga.id)
+    val coverMotion = CoverMotion.of(look.motion)
+    var lookOpen by remember { mutableStateOf(false) }
+    if (lookOpen) {
+        TitleLookDialog(
+            title = manga.title,
+            accent = accent,
+            motion = coverMotion,
+            plate = titlePlate,
+            font = titleFont,
+            onMotion = { lookStore.setTitleLook(manga.id, motion = it.name) },
+            onPlate = { lookStore.setTitleLook(manga.id, plate = it.key) },
+            onFont = { lookStore.setTitleLook(manga.id, font = it.key) },
+            onDismiss = { lookOpen = false },
+        )
+    }
+
     val words = remember(manga.title) { manga.title.split(' ').filter { it.isNotBlank() } }
     val bigWord = remember(words) { (words.maxByOrNull { it.length } ?: manga.title).uppercase().take(10) }
-    val stack = remember(words) { words.take(3).map { it.uppercase() } }
 
     Box(modifier.fillMaxWidth()) {
         // The cover's own art, blurred and pushed back
@@ -257,47 +278,37 @@ fun PosterHeader(
                         }
                         .padding(top = 18.dp, start = 8.dp),
                 )
-                // Side label, set upright along the left edge
-                val label = enter(1)
-                Text(
-                    text = stringResource(ATMR.strings.poster_edition).uppercase(),
-                    style = TextStyle(fontSize = 10.sp, letterSpacing = 4.sp, fontWeight = FontWeight.Medium),
-                    color = Color.White.copy(alpha = 0.55f),
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .wrapContentWidth(unbounded = true)
-                        .graphicsLayer {
-                            rotationZ = -90f
-                            alpha = label * (1f - scrollProvider() / 500f).coerceIn(0f, 1f)
-                        },
-                )
-                // The title stacked bold, beside the cover
-                val side = enter(3)
-                Column(
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 14.dp, bottom = 38.dp)
-                        .graphicsLayer {
-                            alpha = side * 0.92f * (1f - scrollProvider() / 500f).coerceIn(0f, 1f)
-                            translationX = (1 - side) * 50.dp.toPx()
-                            translationY = scrollProvider() * 0.15f
-                        },
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    stack.forEach { word ->
-                        Text(
-                            text = word,
-                            style = TextStyle(
-                                fontWeight = FontWeight.Black,
-                                fontSize = if (word.length > 7) 22.sp else 30.sp,
-                                letterSpacing = 1.sp,
-                                lineHeight = 30.sp,
-                            ),
-                            color = Color.White.copy(alpha = 0.82f),
-                            maxLines = 1,
-                        )
+                // MANHWA music: while this work's song plays, bars dance in a ring round the cover
+                val music by eu.kanade.tachiyomi.music.MusicPlayer.state.collectAsState()
+                val beatOn = music.playing && music.mangaId == manga.id
+                val beatLevel by animateFloatAsState(if (beatOn) 1f else 0f, tween(600), label = "beat")
+                val beat by motion.animateFloat(0f, 1000f, infiniteRepeatable(tween(1_000_000, easing = LinearEasing)), label = "beatClock")
+                if (beatLevel > 0.01f) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        val cx = size.width / 2
+                        val cy = size.height / 2
+                        val rx = size.width * 0.54f * 0.5f + 18.dp.toPx()
+                        val ry = rx * 1.45f
+                        val bars = 72
+                        for (i in 0 until bars) {
+                            val a = (i.toFloat() / bars) * 2 * PI.toFloat()
+                            // Several waves at once read like music: a slow swell, a beat and a flicker
+                            val v = (0.5f + 0.5f * sin(beat * 4.1f + i * 0.45f)) * 0.55f +
+                                (0.5f + 0.5f * sin(beat * 9.7f + i * 1.3f)) * 0.3f +
+                                (0.5f + 0.5f * sin(beat * 2.3f + i * 0.11f)) * 0.15f
+                            val len = (6.dp.toPx() + 26.dp.toPx() * v) * beatLevel
+                            val dx = kotlin.math.cos(a)
+                            val dy = sin(a)
+                            val start = Offset(cx + dx * rx, cy + dy * ry)
+                            val end = Offset(cx + dx * (rx + len), cy + dy * (ry + len))
+                            drawLine(
+                                Brush.linearGradient(listOf(accent.copy(alpha = 0.9f * beatLevel), Color.White.copy(alpha = 0.8f * beatLevel)), start, end),
+                                start,
+                                end,
+                                strokeWidth = 3.dp.toPx(),
+                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                            )
+                        }
                     }
                 }
                 // The cover, lit by its rank, floating gently
@@ -308,12 +319,33 @@ fun PosterHeader(
                         .graphicsLayer {
                             val s = scrollProvider()
                             val wave = sin(float * 2 * PI).toFloat()
-                            translationY = s * 0.22f + wave * 4.dp.toPx() + (1 - coverIn) * 40.dp.toPx()
-                            rotationY = wave * 3.5f
-                            rotationZ = -1.2f + wave * 0.4f
+                            val wave2 = kotlin.math.cos(float * 2 * PI).toFloat()
+                            var scale = 0.92f + 0.08f * coverIn - (s / 4000f).coerceIn(0f, 0.12f)
+                            translationY = s * 0.22f + (1 - coverIn) * 40.dp.toPx()
                             cameraDistance = 14 * density
+                            // MANHWA: the cover moves the way picked for this work
+                            when (coverMotion) {
+                                CoverMotion.FLOAT -> {
+                                    translationY += wave * 5.dp.toPx()
+                                    rotationY = wave * 3.5f
+                                    rotationZ = -1.2f + wave * 0.4f
+                                }
+                                CoverMotion.ORBIT -> {
+                                    rotationY = wave * 16f
+                                    rotationX = wave2 * 8f
+                                    translationY += wave2 * 3.dp.toPx()
+                                }
+                                CoverMotion.PULSE -> {
+                                    val p = kotlin.math.abs(sin(float * 4 * PI).toFloat())
+                                    scale *= 1f + 0.035f * p
+                                }
+                                CoverMotion.SWING -> {
+                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+                                    rotationZ = wave * 5f
+                                }
+                                CoverMotion.STILL -> Unit
+                            }
                             alpha = coverIn * (1f - (s / 1400f)).coerceIn(0f, 1f)
-                            val scale = 0.92f + 0.08f * coverIn - (s / 4000f).coerceIn(0f, 0.12f)
                             scaleX = scale
                             scaleY = scale
                         },
@@ -358,13 +390,15 @@ fun PosterHeader(
                     },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
+                // MANHWA: the title on its frame, in its font; a tap picks how it looks and how the cover moves
+                AnimatedPlate(
                     text = manga.title.ifBlank { stringResource(MR.strings.unknown_title) },
-                    style = TextStyle(fontWeight = FontWeight.Black, fontSize = 26.sp, lineHeight = 30.sp),
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
+                    plate = titlePlate,
+                    font = titleFont.family,
+                    accent = accent,
+                    height = 104.dp,
                     modifier = Modifier.combinedClickable(
-                        onClick = { if (manga.title.isNotBlank()) doSearch(manga.title, true) },
+                        onClick = { lookOpen = true },
                         onLongClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             context.copyToClipboard(manga.title, manga.title)

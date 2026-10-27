@@ -1813,4 +1813,13 @@
     <string name="music_scene_delete">Remove this background from the app?</string>
     <string name="music_trim">Cut off the end: %1$d s</string>
     <string name="music_sound">Sound %1$d</string>
+    <string name="motion_float">Float</string>
+    <string name="motion_orbit">Orbit</string>
+    <string name="motion_pulse">Pulse</string>
+    <string name="motion_swing">Swing</string>
+    <string name="motion_still">Still</string>
+    <string name="look_title">The title's look</string>
+    <string name="look_motion">How the cover moves</string>
+    <string name="look_plate">Frame</string>
+    <string name="look_font">Font</string>
 </resources>

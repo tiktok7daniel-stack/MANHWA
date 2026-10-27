@@ -186,41 +186,23 @@ fun Equalizer(playing: Boolean, color: Color, modifier: Modifier = Modifier) {
     }
 }
 
-/** The title on its plate: thorns, crystal, gold, or a plain glass pill. */
+/** The title on its plate (any of the frames, animated), or a plain glass pill. */
 @Composable
 fun PlateTitle(track: MusicStore.Track?, modifier: Modifier = Modifier) {
-    val plate = when (track?.plate) {
-        "THORN" -> R.drawable.music_plate_thorn
-        "CRYSTAL" -> R.drawable.music_plate_crystal
-        "GOLD" -> R.drawable.music_plate_gold
-        else -> null
-    }
-    val dark = track?.plate == "CRYSTAL" || track?.plate == "THORN"
-    Box(modifier.fillMaxWidth().height(96.dp), contentAlignment = Alignment.Center) {
-        if (plate != null) {
-            Image(painterResource(plate), null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
-        } else {
-            Box(
-                Modifier
-                    .fillMaxWidth(0.86f)
-                    .height(64.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.08f))
-                    .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(50)),
-            )
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 60.dp)) {
-            Text(
-                track?.title ?: "",
-                color = if (dark) Color(0xFF1A1024) else Color.White,
-                fontWeight = FontWeight.Black,
-                fontSize = 17.sp,
-                maxLines = 1,
-                modifier = Modifier.basicMarquee(),
-            )
-            if (!track?.artist.isNullOrBlank()) {
-                Text(track!!.artist, color = if (dark) Color(0xFF3B2A4A) else Color.White.copy(alpha = 0.7f), fontSize = 12.sp, maxLines = 1)
-            }
+    val accent = accentOf(LocalCoverPalette.current)
+    val plate = eu.kanade.presentation.manga.components.TitlePlate.of(track?.plate)
+        ?: eu.kanade.presentation.manga.components.TitlePlate.all.last()
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        eu.kanade.presentation.manga.components.AnimatedPlate(
+            text = track?.title ?: "",
+            plate = plate,
+            font = androidx.compose.ui.text.font.FontFamily.Default,
+            accent = accent,
+            height = 96.dp,
+            maxFont = 22,
+        )
+        if (!track?.artist.isNullOrBlank()) {
+            Text(track!!.artist, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, maxLines = 1)
         }
     }
 }
@@ -836,6 +818,7 @@ private fun SceneChip(scene: BackdropScene?, selected: Boolean, accent: Color, o
 }
 
 /** Editing a song: its name and artist, its picture, the plate under its title and the chrome frame of its card. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun EditSong(song: MusicStore.Track, accent: Color, onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -866,8 +849,8 @@ private fun EditSong(song: MusicStore.Track, accent: Color, onDismiss: () -> Uni
                 OutlinedTextField(title, { title = it }, label = { Text(stringResource(ATMR.strings.music_song_title)) }, singleLine = true)
                 OutlinedTextField(artist, { artist = it }, label = { Text(stringResource(ATMR.strings.music_artist)) }, singleLine = true)
                 Text(stringResource(ATMR.strings.music_plate), fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("THORN" to R.drawable.music_plate_thorn, "CRYSTAL" to R.drawable.music_plate_crystal, "GOLD" to R.drawable.music_plate_gold, "NONE" to null).forEach { (key, res) ->
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    eu.kanade.presentation.manga.components.TitlePlate.all.map { it.key to it.res }.forEach { (key, res) ->
                         Box(
                             Modifier
                                 .size(width = 64.dp, height = 40.dp)

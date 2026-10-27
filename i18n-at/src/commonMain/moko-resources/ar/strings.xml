@@ -1754,4 +1754,13 @@
     <string name="music_scene_delete">تشيل الخلفية دي من التطبيق؟</string>
     <string name="music_trim">اقطع من الآخر: %1$d ثانية</string>
     <string name="music_sound">صوت %1$d</string>
+    <string name="motion_float">طفو</string>
+    <string name="motion_orbit">دوران</string>
+    <string name="motion_pulse">نبض</string>
+    <string name="motion_swing">تأرجح</string>
+    <string name="motion_still">ثابت</string>
+    <string name="look_title">شكل الاسم</string>
+    <string name="look_motion">حركة الغلاف</string>
+    <string name="look_plate">البرواز</string>
+    <string name="look_font">الخط</string>
 </resources>
