@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import tachiyomi.presentation.core.util.collectAsState
+import androidx.compose.runtime.collectAsState as collectFlowAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -321,7 +322,7 @@ private fun MangaScreenSmallImpl(
     // MANHWA: the page stands on a scene in the cover's colours (or the one picked for this work)
     val pagePalette = eu.kanade.presentation.manga.components.LocalCoverPalette.current
     val sceneContext = LocalContext.current
-    val pickedScene by remember(state.manga.id) { eu.kanade.tachiyomi.music.MusicStore.get(sceneContext).sceneFlow(state.manga.id) }.collectAsState(null)
+    val pickedScene by remember(state.manga.id) { eu.kanade.tachiyomi.music.MusicStore.get(sceneContext).sceneFlow(state.manga.id) }.collectFlowAsState(null)
     eu.kanade.presentation.manga.components.PageBackdrop(
         scene = eu.kanade.presentation.manga.components.BackdropScene.of(pickedScene)
             ?: eu.kanade.presentation.manga.components.BackdropScene.forColor(pagePalette?.primary),

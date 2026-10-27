@@ -69,6 +69,16 @@ object MusicPlayer {
                         _state.update { it.copy(index = p.currentMediaItemIndex, positionMs = 0L, durationMs = p.duration.coerceAtLeast(0L)) }
                     }
 
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        // A song whose file is gone or unreadable: on to the next one
+                        tachiyomi.core.common.util.system.logcat(logcat.LogPriority.WARN, error) { "Music could not play a song" }
+                        if (p.mediaItemCount > 1 && p.hasNextMediaItem()) {
+                            p.seekToNextMediaItem()
+                            p.prepare()
+                            p.play()
+                        }
+                    }
+
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         if (playbackState == Player.STATE_READY) _state.update { it.copy(durationMs = p.duration.coerceAtLeast(0L)) }
                     }
@@ -152,7 +162,7 @@ object MusicPlayer {
 
     fun playAt(context: Context, index: Int) {
         val p = ensure(context)
-        if (index in 0 until p.mediaItemCount) {
+        if (index in 0 until p.mediaItemCount && index < _state.value.queue.size) {
             p.seekTo(index, 0L)
             pausedByUser = false
             fadeIn()

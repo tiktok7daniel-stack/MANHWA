@@ -142,7 +142,7 @@ fun TrackArt(track: MusicStore.Track?, modifier: Modifier = Modifier) {
 
 /** A vinyl that turns while the song plays (and stops where it is), the song's picture as its label. */
 @Composable
-fun VinylDisc(track: MusicStore.Track?, playing: Boolean, size: Dp) {
+fun VinylDisc(track: MusicStore.Track?, playing: Boolean, discSize: Dp) {
     val angle = remember { Animatable(0f) }
     LaunchedEffect(playing) {
         while (playing) {
@@ -151,7 +151,7 @@ fun VinylDisc(track: MusicStore.Track?, playing: Boolean, size: Dp) {
     }
     Box(
         Modifier
-            .size(size)
+            .size(discSize)
             .graphicsLayer { rotationZ = angle.value % 360f },
         contentAlignment = Alignment.Center,
     ) {
@@ -162,8 +162,8 @@ fun VinylDisc(track: MusicStore.Track?, playing: Boolean, size: Dp) {
                 drawArc(Color.White.copy(alpha = 0.12f), -30f, 40f, false, style = Stroke(size.minDimension * 0.08f))
             }
         }
-        TrackArt(track, Modifier.size(size * 0.5f).clip(CircleShape))
-        Box(Modifier.size(size * 0.08f).clip(CircleShape).background(Ink))
+        TrackArt(track, Modifier.size(discSize * 0.5f).clip(CircleShape))
+        Box(Modifier.size(discSize * 0.08f).clip(CircleShape).background(Ink))
     }
 }
 
@@ -531,7 +531,7 @@ private fun SongCarousel(songs: List<MusicStore.Track>, state: MusicPlayer.State
     LaunchedEffect(pager) {
         snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { page ->
             val s = MusicPlayer.state.value
-            if (s.mangaId == mangaId && s.index != page) MusicPlayer.playAt(context, page)
+            if (s.mangaId == mangaId && s.index != page && s.queue.size == songs.size) MusicPlayer.playAt(context, page)
         }
     }
     val float by rememberInfiniteTransition(label = "float").animateFloat(0f, 1f, infiniteRepeatable(tween(4200, easing = LinearEasing)), label = "f")
@@ -541,7 +541,7 @@ private fun SongCarousel(songs: List<MusicStore.Track>, state: MusicPlayer.State
         modifier = Modifier.fillMaxWidth().height(330.dp).padding(top = 12.dp),
     ) { page ->
         val offset = (pager.currentPage - page) + pager.currentPageOffsetFraction
-        val song = songs[page]
+        val song = songs.getOrNull(page) ?: return@HorizontalPager
         Box(
             Modifier
                 .fillMaxSize()
