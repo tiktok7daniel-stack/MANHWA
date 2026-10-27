@@ -135,6 +135,7 @@ import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.EditNote
+import eu.kanade.presentation.components.GlowRefreshIndicator
 import mihon.icons.materialsymbols.rounded.Psychology
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Home
@@ -291,7 +292,7 @@ data object DiscoverTab : Tab {
                     },
                     modifier = Modifier.fillMaxSize(),
                     state = pullState,
-                    indicator = { eu.kanade.presentation.components.GlowRefreshIndicator(pullState, state.refreshing) },
+                    indicator = { GlowRefreshIndicator(pullState, state.refreshing) },
                 ) {
                     LazyColumn(
                         state = listState,

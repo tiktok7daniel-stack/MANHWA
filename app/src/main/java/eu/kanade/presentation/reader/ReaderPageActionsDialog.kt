@@ -80,8 +80,8 @@ fun ReaderPageActionsDialog(
                 },
             )
         }
-        // MANHWA: a note on this page, and a group's credits or ads page passed over from now on
-        Row(
+        // MANHWA: a note on this page, who is on it, and a group's credits or ads page passed over from now on
+        if (onAddNote != null || onWhoIsThis != null || onSkipAlways != null) Row(
             modifier = Modifier.padding(bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
         ) {

@@ -144,8 +144,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             Security.insertProviderAt(Conscrypt.newProvider(), 1)
         }
 
-        // MANHWA: the channels are made off the main thread, so the first screen does not wait on the system
-        thread(name = "NotificationChannels") { setupNotificationChannels() }
+        setupNotificationChannels()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
 
