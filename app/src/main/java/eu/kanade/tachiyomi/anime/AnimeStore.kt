@@ -48,6 +48,8 @@ data class EpisodeProgress(
 private data class AnimeData(
     val anime: Map<String, AnimeEntry> = emptyMap(),
     val progress: Map<String, EpisodeProgress> = emptyMap(),
+    /** The history shows what was watched after this time (clearing it keeps where each episode was left). */
+    val historyClearedAt: Long = 0L,
 )
 
 /**
@@ -138,9 +140,14 @@ class AnimeStore(
 
     /** The last episode watched of each anime, newest first (the history and "continue"). */
     fun history(): List<Pair<AnimeEntry, EpisodeProgress>> =
-        _progress.value.values.groupBy { it.animeKey }
+        _progress.value.values.filter { it.at > _data.value.historyClearedAt }.groupBy { it.animeKey }
             .mapNotNull { (k, list) -> _anime.value[k]?.let { it to list.maxBy { p -> p.at } } }
             .sortedByDescending { it.second.at }
+
+    /** Empties the anime history (what was seen stays marked seen). */
+    fun clearHistory() {
+        save { it.copy(historyClearedAt = System.currentTimeMillis()) }
+    }
 
     companion object {
         const val SEEN_FRACTION = 0.92

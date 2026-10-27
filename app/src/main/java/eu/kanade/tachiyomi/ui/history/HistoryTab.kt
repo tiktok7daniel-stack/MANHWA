@@ -31,6 +31,7 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
+import mihon.app.di.appGraph
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.chapter.model.Chapter
@@ -65,7 +66,20 @@ data object HistoryTab : Tab {
         val context = LocalContext.current
         val viewModel = metroViewModel<HistoryViewModel>()
         val state by viewModel.state.collectAsStateWithLifecycle()
+        var clearing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
         var kind by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(eu.kanade.tachiyomi.novel.KIND_MANGA) }
+        if (clearing) {
+            eu.kanade.tachiyomi.novel.ClearHistoryDialog(
+                current = kind,
+                onDismiss = { clearing = false },
+                onClear = { sides ->
+                    clearing = false
+                    if (eu.kanade.tachiyomi.novel.KIND_MANGA in sides) viewModel.removeAllHistory()
+                    if (eu.kanade.tachiyomi.novel.KIND_NOVEL in sides) context.appGraph.novelStore.clearHistory()
+                    if (eu.kanade.tachiyomi.novel.KIND_ANIME in sides) context.appGraph.animeStore.clearHistory()
+                },
+            )
+        }
 
         HistoryScreen(
             state = state,
@@ -73,7 +87,10 @@ data object HistoryTab : Tab {
             onSearchQueryChange = viewModel::updateSearchQuery,
             onClickCover = { navigator.push(MangaScreen(it)) },
             onClickResume = viewModel::getNextChapterForManga,
-            onDialogChange = viewModel::setDialog,
+            // MANHWA: "clear history" asks which sides to clear, the one open already chosen
+            onDialogChange = { dialog ->
+                if (dialog is HistoryViewModel.Dialog.DeleteAll) clearing = true else viewModel.setDialog(dialog)
+            },
             onClickFavorite = viewModel::addFavorite,
             kind = kind,
             onKind = { kind = it },

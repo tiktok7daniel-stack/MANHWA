@@ -268,37 +268,6 @@ fun NovelExtensionsList(contentPadding: PaddingValues, query: String?) {
         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = contentPadding.calculateTopPadding() + 8.dp, bottom = contentPadding.calculateBottomPadding() + 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // The repositories live behind the menu (as the manhwa extension stores do)
-        item(key = "repos") {
-            var menu by remember { mutableStateOf(false) }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { Section(stringResource(ATMR.strings.novel_repos)) }
-                if (repos.isEmpty()) {
-                    Text(
-                        stringResource(ATMR.strings.novel_add_ireader),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).clickable {
-                            manager.addRepo(NovelExtensionManager.IREADER_REPO)
-                            repos = manager.repos()
-                        }.padding(8.dp),
-                    )
-                }
-                Box {
-                    IconButton(onClick = { menu = true }) { Icon(MaterialSymbols.Rounded.MoreVert, null) }
-                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text(stringResource(ATMR.strings.novel_repos)) },
-                            onClick = {
-                                menu = false
-                                navigator.push(NovelReposScreen())
-                            },
-                        )
-                    }
-                }
-            }
-        }
         if (installed.isNotEmpty()) {
             item(key = "installed-title") { Section(stringResource(ATMR.strings.novel_installed)) }
             items(installed, key = { "i-${it.pkg}" }) { ext ->

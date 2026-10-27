@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
@@ -58,6 +59,7 @@ data object BrowseTab : Tab {
     @Composable
     override fun Content() {
         val context = LocalContext.current
+        val navigator = cafe.adriel.voyager.navigator.LocalNavigator.currentOrThrow
 
         // Hoisted for extensions tab's search bar
         val extensionsViewModel = metroViewModel<ExtensionsViewModel>()
@@ -81,6 +83,22 @@ data object BrowseTab : Tab {
                 },
             ),
             extensions.copy(
+                // MANHWA: the ⋮ menu up top opens the repositories of the side that is shown
+                actions = when (kind) {
+                    eu.kanade.tachiyomi.novel.KIND_NOVEL -> listOf(
+                        eu.kanade.presentation.components.AppBar.OverflowAction(
+                            title = stringResource(tachiyomi.i18n.at.ATMR.strings.novel_repos),
+                            onClick = { navigator.push(eu.kanade.tachiyomi.novel.NovelReposScreen()) },
+                        ),
+                    )
+                    eu.kanade.tachiyomi.novel.KIND_ANIME -> listOf(
+                        eu.kanade.presentation.components.AppBar.OverflowAction(
+                            title = stringResource(tachiyomi.i18n.at.ATMR.strings.anime_repos),
+                            onClick = { navigator.push(eu.kanade.tachiyomi.anime.AnimeReposScreen()) },
+                        ),
+                    )
+                    else -> extensions.actions
+                },
                 content = { padding, snackbar ->
                     eu.kanade.tachiyomi.novel.MediaSwitch(kind, { kind = it }, padding) { inner ->
                         when (kind) {

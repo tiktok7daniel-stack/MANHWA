@@ -86,6 +86,8 @@ private data class NovelData(
     val novels: Map<String, NovelEntry> = emptyMap(),
     val progress: Map<String, NovelProgress> = emptyMap(),
     val settings: NovelReaderSettings = NovelReaderSettings(),
+    /** The history shows what was read after this time (clearing it keeps the read marks). */
+    val historyClearedAt: Long = 0L,
 )
 
 /**
@@ -189,9 +191,14 @@ class NovelStore(
 
     /** The last chapter read of each novel, newest first (the history and "continue reading"). */
     fun history(): List<Pair<NovelEntry, NovelProgress>> =
-        _progress.value.values.groupBy { it.novelKey }
+        _progress.value.values.filter { it.at > _data.value.historyClearedAt }.groupBy { it.novelKey }
             .mapNotNull { (k, list) -> _novels.value[k]?.let { it to list.maxBy { p -> p.at } } }
             .sortedByDescending { it.second.at }
+
+    /** Empties the novels' history (what was read stays marked read). */
+    fun clearHistory() {
+        save { it.copy(historyClearedAt = System.currentTimeMillis()) }
+    }
 
     fun updateSettings(change: (NovelReaderSettings) -> NovelReaderSettings) {
         save { it.copy(settings = change(it.settings)) }

@@ -1590,4 +1590,5 @@
     <string name="wn_onelook_b">The app keeps its original system and look only.</string>
     <string name="wn_ranks_t">New hunter ranks</string>
     <string name="wn_ranks_b">Past the Monarch: National-Level, Shadow Monarch, Ruler, Absolute Being and Outer God.</string>
+    <string name="history_clear_title">Clear the history of…</string>
 </resources>

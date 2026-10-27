@@ -92,7 +92,6 @@ import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.Keep
-import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.Visibility
@@ -218,24 +217,11 @@ fun AnimeExtensionsList(contentPadding: PaddingValues, searchQuery: String?) {
     }
 
     LazyColumn(contentPadding = PaddingValues(top = contentPadding.calculateTopPadding() + 4.dp, bottom = contentPadding.calculateBottomPadding() + 24.dp)) {
-        // The repositories live behind the menu (as the manhwa extension stores do)
+        // The repositories are in the ⋮ menu up top (as the manhwa extension stores are)
         item(key = "repos") {
-            var menu by remember { mutableStateOf(false) }
             GlowHeader(stringResource(MR.strings.label_extensions)) {
                 IconButton(onClick = { scope.launch { manager.refreshAvailable(); manager.reload() } }) {
                     Icon(MaterialSymbols.Rounded.Refresh, null, tint = MaterialTheme.colorScheme.primary)
-                }
-                Box {
-                    IconButton(onClick = { menu = true }) { Icon(MaterialSymbols.Rounded.MoreVert, null) }
-                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text(stringResource(ATMR.strings.anime_repos)) },
-                            onClick = {
-                                menu = false
-                                navigator.push(AnimeReposScreen())
-                            },
-                        )
-                    }
                 }
             }
         }

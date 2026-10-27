@@ -1531,4 +1531,5 @@
     <string name="wn_onelook_b">التطبيق بقى على النظام والشكل الأساسي بس.</string>
     <string name="wn_ranks_t">رتب صياد جديدة</string>
     <string name="wn_ranks_b">بعد المونارك: صياد بمستوى دولة، وملك الظلال، والحاكم، والكائن المطلق، والإله الخارجي.</string>
+    <string name="history_clear_title">امسح سجل…</string>
 </resources>

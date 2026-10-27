@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.main.brand
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.annotation.AnyRes
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.Color
 import dev.icerock.moko.resources.StringResource
@@ -18,6 +19,8 @@ import tachiyomi.i18n.at.ATMR
 enum class AppLogo(
     val alias: String,
     @DrawableRes val mark: Int,
+    /** The home-screen icon itself, so the picker shows exactly what the launcher will. */
+    @AnyRes val icon: Int,
     val title: StringResource,
     /** The icon's background, top to bottom, and the colour its opening glows with. */
     val top: Color,
@@ -25,11 +28,11 @@ enum class AppLogo(
     val accent: Color,
     val intro: IntroStyle,
 ) {
-    CLASSIC("LauncherClassic", R.drawable.manhwa_logo, ATMR.strings.logo_classic, Color(0xFF050507), Color(0xFF8E0F1F), Color(0xFFFF3B4E), IntroStyle.RIFT),
-    NOVA("LauncherNova", R.drawable.manhwa_logo_nova, ATMR.strings.logo_nova, Color(0xFF0B1220), Color(0xFF1E3A8A), Color(0xFF3B82F6), IntroStyle.ORBIT),
-    GOLD("LauncherGold", R.drawable.manhwa_logo_gold, ATMR.strings.logo_gold, Color(0xFF0A0806), Color(0xFF2A1F0A), Color(0xFFF5C451), IntroStyle.BLOOM),
-    NEON("LauncherNeon", R.drawable.manhwa_logo_neon, ATMR.strings.logo_neon, Color(0xFF12002B), Color(0xFF3B0764), Color(0xFF22D3EE), IntroStyle.GLITCH),
-    PAPER("LauncherPaper", R.drawable.manhwa_logo_paper, ATMR.strings.logo_paper, Color(0xFFF7F3EA), Color(0xFFEDE6D6), Color(0xFFC8102E), IntroStyle.RISE),
+    CLASSIC("LauncherClassic", R.drawable.manhwa_logo, R.mipmap.ic_launcher, ATMR.strings.logo_classic, Color(0xFF050507), Color(0xFF8E0F1F), Color(0xFFFF3B4E), IntroStyle.RIFT),
+    NOVA("LauncherNova", R.drawable.manhwa_logo_nova, R.mipmap.ic_launcher_nova, ATMR.strings.logo_nova, Color(0xFF0B1220), Color(0xFF1E3A8A), Color(0xFF3B82F6), IntroStyle.ORBIT),
+    GOLD("LauncherGold", R.drawable.manhwa_logo_gold, R.mipmap.ic_launcher_gold, ATMR.strings.logo_gold, Color(0xFF0A0806), Color(0xFF2A1F0A), Color(0xFFF5C451), IntroStyle.BLOOM),
+    NEON("LauncherNeon", R.drawable.manhwa_logo_neon, R.mipmap.ic_launcher_neon, ATMR.strings.logo_neon, Color(0xFF12002B), Color(0xFF3B0764), Color(0xFF22D3EE), IntroStyle.GLITCH),
+    PAPER("LauncherPaper", R.drawable.manhwa_logo_paper, R.mipmap.ic_launcher_paper, ATMR.strings.logo_paper, Color(0xFFF7F3EA), Color(0xFFEDE6D6), Color(0xFFC8102E), IntroStyle.RISE),
     ;
 
     companion object {

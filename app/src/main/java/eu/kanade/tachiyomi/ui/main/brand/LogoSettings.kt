@@ -40,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -59,6 +61,20 @@ import tachiyomi.presentation.core.util.collectAsState
 /** The app's icon as the home screen shows it: its background, its mark, at [size]. */
 @Composable
 fun LogoTile(logo: AppLogo, size: Dp, modifier: Modifier = Modifier) {
+    // The real launcher icon, drawn in the device's own icon shape, so what is picked here is what the home
+    // screen shows; the drawn gradient and mark stay as the fallback when the icon cannot be read.
+    val context = LocalContext.current
+    val px = with(androidx.compose.ui.platform.LocalDensity.current) { size.roundToPx() }.coerceAtLeast(1)
+    val bitmap = remember(logo, px) {
+        runCatching {
+            androidx.core.content.res.ResourcesCompat.getDrawable(context.resources, logo.icon, context.theme)
+                ?.toBitmap(px, px)?.asImageBitmap()
+        }.getOrNull()
+    }
+    if (bitmap != null) {
+        Image(bitmap = bitmap, contentDescription = null, modifier = modifier.size(size))
+        return
+    }
     Box(
         modifier
             .size(size)
