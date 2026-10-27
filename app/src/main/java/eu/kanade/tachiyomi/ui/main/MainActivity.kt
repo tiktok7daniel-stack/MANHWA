@@ -314,9 +314,21 @@ class MainActivity : BaseActivity() {
                         // MANHWA: where the organizer just put a series the reader added
                         AutoOrganizeBanner()
 
+                        // MANHWA feature tour: a big update is walked through once, after the opening, before what's new
+                        var showTour by rememberSaveable { mutableStateOf(eu.kanade.translation.whatsnew.FeatureTour.shouldShow(this@MainActivity)) }
+                        if (showTour && !showIntro) {
+                            eu.kanade.translation.whatsnew.FeatureTourDialog(
+                                onDismiss = {
+                                    eu.kanade.translation.whatsnew.FeatureTour.markSeen(this@MainActivity)
+                                    // The tour already showed what is new in this build
+                                    eu.kanade.translation.whatsnew.WhatsNew.markSeen(this@MainActivity)
+                                    showTour = false
+                                },
+                            )
+                        }
                         // MANHWA what's new: once per build, after the opening
                         var showWhatsNew by rememberSaveable { mutableStateOf(eu.kanade.translation.whatsnew.WhatsNew.shouldShow(this@MainActivity)) }
-                        if (showWhatsNew && !showIntro) {
+                        if (showWhatsNew && !showIntro && !showTour) {
                             WhatsNewShowcase(
                                 onDismiss = {
                                     eu.kanade.translation.whatsnew.WhatsNew.markSeen(this@MainActivity)

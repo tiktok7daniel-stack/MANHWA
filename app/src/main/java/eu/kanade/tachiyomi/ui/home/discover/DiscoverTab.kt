@@ -194,6 +194,9 @@ data object DiscoverTab : Tab {
         val drawerState = rememberDrawerState(DrawerValue.Closed)
         val scope = rememberCoroutineScope()
         val openHub = { navigator.push(SourceHubScreen()) }
+        // MANHWA: the feature tour, replayed from the menu
+        var showTour by remember { androidx.compose.runtime.mutableStateOf(false) }
+        if (showTour) eu.kanade.translation.whatsnew.FeatureTourDialog(onDismiss = { showTour = false })
         val listState = rememberLazyListState()
         val shown by remember {
             combine(HomeSection.entries.map { uiPreferences.homeSection(it.key, it.shownByDefault).changes() }) { on ->
@@ -244,6 +247,9 @@ data object DiscoverTab : Tab {
                         },
                         MenuEntry(MaterialSymbols.Rounded.EditNote, stringResource(ATMR.strings.notes_title)) {
                             closeDrawerThen { navigator.push(eu.kanade.tachiyomi.ui.reader.notes.PageNotesScreen()) }
+                        },
+                        MenuEntry(MaterialSymbols.Rounded.AutoAwesome, stringResource(ATMR.strings.tour_replay)) {
+                            closeDrawerThen { showTour = true }
                         },
                         MenuEntry(MaterialSymbols.Rounded.Public, stringResource(ATMR.strings.hub_title)) {
                             closeDrawerThen { openHub() }
