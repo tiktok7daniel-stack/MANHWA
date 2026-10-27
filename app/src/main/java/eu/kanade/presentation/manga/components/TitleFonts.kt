@@ -108,6 +108,12 @@ object TitleFonts {
             Entry("ar_ruwudu", "رُوُدو", FontFamily(Font(R.font.ar_ruwudu)), arabic = true),
             Entry("ar_playpensansarabic", "بلاي بن", FontFamily(Font(R.font.ar_playpensansarabic)), arabic = true),
             Entry("ar_notonastaliqurdu", "نستعليق", FontFamily(Font(R.font.ar_notonastaliqurdu)), arabic = true),
+            Entry("ar_ibmplexsansarabic", "آي بي إم بلكس", FontFamily(Font(R.font.ar_ibmplexsansarabic)), arabic = true),
+            Entry("ar_vazirmatn", "وزير", FontFamily(Font(R.font.ar_vazirmatn)), arabic = true),
+            Entry("ar_alexandria", "الإسكندرية", FontFamily(Font(R.font.ar_alexandria)), arabic = true),
+            Entry("ar_beiruti", "بيروتي", FontFamily(Font(R.font.ar_beiruti)), arabic = true),
+            Entry("ar_notosansarabic", "نوتو سانس", FontFamily(Font(R.font.ar_notosansarabic)), arabic = true),
+            Entry("ar_rubik", "روبيك", FontFamily(Font(R.font.ar_rubik)), arabic = true),
         )
     }
 

@@ -53,7 +53,43 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
     MANGA_MASTER("Manga Master BB", false),
     COMIC("Comic Font", false),
     SMART("متناسق: Cairo + Lalezar للصراخ / Consistent", true),
+
+    // MANHWA: the faces Arabic scanlation teams set their pages in, or free (OFL) look-alikes of the paid ones.
+    // Added after the first ones so a choice saved before still means the same font.
+    ALMARAI("المراعي / Almarai", true),
+    BALOO("بالو / Baloo Bhaijaan", true),
+    IBM_PLEX("آي بي إم / IBM Plex Arabic", true),
+    VAZIRMATN("وزير / Vazirmatn", true),
+    ALEXANDRIA("الإسكندرية / Alexandria", true),
+    BEIRUTI("بيروتي / Beiruti", true),
+    NOTO_SANS("نوتو سانس / Noto Sans Arabic", true),
+    RUBIK("روبيك / Rubik", true),
+    READEX("ريدكس / Readex Pro", true),
+    NOTO_KUFI("نوتو كوفي / Noto Kufi", true),
+    KUFAM("كوفام / Kufam", true),
+    LEMONADA("ليمونادة / Lemonada", true),
+    RAKKAS("رقّاص / Rakkas", true),
+    MADA("مدى / Mada", true),
+    HARMATTAN("هرمتان / Harmattan", true),
+    MIRZA("ميرزا / Mirza", true),
+    EL_MESSIRI("المسيري / El Messiri", true),
+    ZAIN("زين / Zain", true),
+    PLAYPEN("بلاي بن / Playpen Sans", true),
+    JOMHURIA("جمهورية / Jomhuria", true),
+    KATIBEH("كاتبة / Katibeh", true),
+    BLAKA("بلاكا / Blaka", true),
+    VIBES("فايبز / Vibes", true),
+    AREF_RUQAA("رقعة / Aref Ruqaa", true),
+    AMIRI("أميري / Amiri", true),
+    LATEEF("لطيف / Lateef", true),
+    SCHEHERAZADE("شهرزاد / Scheherazade", true),
+    MARKAZI("مركزي / Markazi", true),
+    HANDJET("هاندجت / Handjet", true),
+    QAHIRI("قاهري / Qahiri", true),
     ;
+
+    /** The bundled font of the added faces (one weight, drawn as is). */
+    private val extraFont: Int? get() = EXTRA[this]
 
     /** The family for a bubble of [kind]; Auto picks a matching style for every kind. */
     fun family(kind: BubbleKind, latinOnly: Boolean = false): FontFamily = when (this) {
@@ -86,6 +122,7 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
         ANIME_ACE -> Families.animeAce
         MANGA_MASTER -> Families.mangaMaster
         COMIC -> Families.comic
+        else -> Families.extra(extraFont ?: R.font.ar_cairo)
     }
 
     /**
@@ -119,6 +156,7 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
         ANIME_ACE -> R.font.animeace to 0
         MANGA_MASTER -> R.font.manga_master_bb to 0
         COMIC -> R.font.comic_book to 0
+        else -> (extraFont ?: R.font.ar_cairo) to 0
     }
 
     private object Families {
@@ -137,9 +175,47 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
         val animeAce = FontFamily(Font(R.font.animeace, FontWeight.Bold))
         val mangaMaster = FontFamily(Font(R.font.manga_master_bb, FontWeight.Bold))
         val comic = FontFamily(Font(R.font.comic_book, FontWeight.Bold))
+
+        private val extras = HashMap<Int, FontFamily>()
+        fun extra(res: Int): FontFamily = extras.getOrPut(res) { FontFamily(Font(res, FontWeight.Bold)) }
     }
 
     companion object {
+        private val EXTRA: Map<TranslationTypeface, Int> by lazy {
+            mapOf(
+                ALMARAI to R.font.ar_almarai,
+                BALOO to R.font.ar_baloobhaijaan2,
+                IBM_PLEX to R.font.ar_ibmplexsansarabic,
+                VAZIRMATN to R.font.ar_vazirmatn,
+                ALEXANDRIA to R.font.ar_alexandria,
+                BEIRUTI to R.font.ar_beiruti,
+                NOTO_SANS to R.font.ar_notosansarabic,
+                RUBIK to R.font.ar_rubik,
+                READEX to R.font.ar_readexpro,
+                NOTO_KUFI to R.font.ar_notokufiarabic,
+                KUFAM to R.font.ar_kufam,
+                LEMONADA to R.font.ar_lemonada,
+                RAKKAS to R.font.ar_rakkas,
+                MADA to R.font.ar_mada,
+                HARMATTAN to R.font.ar_harmattan,
+                MIRZA to R.font.ar_mirza,
+                EL_MESSIRI to R.font.ar_elmessiri,
+                ZAIN to R.font.ar_zain,
+                PLAYPEN to R.font.ar_playpensansarabic,
+                JOMHURIA to R.font.ar_jomhuria,
+                KATIBEH to R.font.ar_katibeh,
+                BLAKA to R.font.ar_blaka,
+                VIBES to R.font.ar_vibes,
+                AREF_RUQAA to R.font.ar_arefruqaa,
+                AMIRI to R.font.ar_amiri,
+                LATEEF to R.font.ar_lateef,
+                SCHEHERAZADE to R.font.ar_scheherazadenew,
+                MARKAZI to R.font.ar_markazitext,
+                HANDJET to R.font.ar_handjet,
+                QAHIRI to R.font.ar_qahiri,
+            )
+        }
+
         fun fromPref(pref: Preference<Int>): TranslationTypeface = entries.getOrNull(pref.get()) ?: SMART
     }
 }

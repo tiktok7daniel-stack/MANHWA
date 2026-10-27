@@ -103,3 +103,11 @@ From the Google Fonts collection, fetched and cut down to Arabic and basic Latin
 | Ruwudu | Ruwudu-Bold.ttf | OFL |
 | Playpen Sans Arabic | PlaypenSansArabic[wght].ttf | OFL |
 | Noto Nastaliq Urdu | NotoNastaliqUrdu[wght].ttf | OFL |
+| IBM Plex Sans Arabic | IBMPlexSansArabic-Bold.ttf | OFL |
+| Vazirmatn | Vazirmatn[wght].ttf | OFL |
+| Alexandria | Alexandria[wght].ttf | OFL |
+| Beiruti | Beiruti[wght].ttf | OFL |
+| Noto Sans Arabic | NotoSansArabic[wdth,wght].ttf | OFL |
+| Rubik | Rubik[wght].ttf | OFL |
+
+The Arabic fonts now carry the punctuation translations use (« » … — and quotes). Cairo, Changa, Lalezar and Marhey stay the full variable fonts the translation used before.

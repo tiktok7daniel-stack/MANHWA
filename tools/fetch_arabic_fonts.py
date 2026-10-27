@@ -16,8 +16,13 @@ FONTS = [
     "mirza", "amiri", "amiriquran", "cairo", "tajawal", "changa", "harmattan", "lateef", "scheherazadenew",
     "markazitext", "vibes", "alkalami", "badeendisplay", "notokufiarabic", "notonaskharabic", "readexpro",
     "almarai", "mada", "baloobhaijaan2", "handjet", "zain", "ruwudu", "playpensansarabic", "notonastaliqurdu",
+    # Clean faces Arabic scanlation teams favour (or free look-alikes of the paid ones they use)
+    "ibmplexsansarabic", "vazirmatn", "alexandria", "beiruti", "notosansarabic", "rubik",
 ]
-UNICODES = "U+0020-007E,U+00A0,U+0600-06FF,U+0750-077F,U+08A0-08FF,U+FB50-FDFF,U+FE70-FEFF,U+200C-200F,U+25CC"
+# Kept as bundled before (full variable fonts the translation already uses): not fetched again
+KEEP = {"cairo", "changa", "lalezar", "marhey"}
+# Arabic, basic Latin and the punctuation translations use (« » … — ‘ ’ “ ”), so nothing falls back to another font
+UNICODES = "U+0020-007E,U+00A0-00BF,U+00D7,U+00F7,U+0600-06FF,U+0750-077F,U+08A0-08FF,U+FB50-FDFF,U+FE70-FEFF,U+200C-200F,U+2010-2027,U+2030-203A,U+2122,U+25CC"
 
 
 def get(url, out):
@@ -29,6 +34,8 @@ def main(res_dir, credits_out):
     tmp = tempfile.mkdtemp()
     rows = []
     for key in FONTS:
+        if key in KEEP:
+            continue
         meta = os.path.join(tmp, key + ".pb")
         if not get(RAW + key + "/METADATA.pb", meta):
             print("no metadata", key)
