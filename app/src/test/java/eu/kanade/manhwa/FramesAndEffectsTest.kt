@@ -11,8 +11,19 @@ class FramesAndEffectsTest {
 
     @Test
     fun `there are a hundred drawn frames with their own keys`() {
-        TitlePlate.drawnFrames shouldHaveSize 100
-        TitlePlate.all.map { it.key }.toSet() shouldHaveSize 101
+        // Ten shapes in ten finishes, and each shape in the cover's own colours
+        TitlePlate.drawnFrames shouldHaveSize 110
+        TitlePlate.energyFrames shouldHaveSize 100
+        TitlePlate.all.map { it.key }.toSet() shouldHaveSize 211
+        TitlePlate.all.last().key shouldBe "NONE"
+    }
+
+    @Test
+    fun `the hundred frames in the work's colours are ten families of ten`() {
+        TitlePlate.energyFrames.map { it.energy?.family }.toSet() shouldHaveSize 10
+        TitlePlate.energyFrames.all { it.key.startsWith("E_") } shouldBe true
+        TitlePlate.of("E_THORN_0")?.energy?.variant shouldBe 0
+        TitlePlate.of("E_CELESTIAL_9") shouldNotBe null
     }
 
     @Test
