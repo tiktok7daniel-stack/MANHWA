@@ -1870,6 +1870,14 @@
     <string name="effect_smoke">Smoke</string>
     <string name="effect_daily">Every day</string>
     <string name="look_finish">Frame finish</string>
+    <string name="look_energy">In the work\'s colours</string>
+    <string name="look_energy_sub">A hundred frames, ten families of ten, each lit in the colours of this work\'s cover.</string>
+    <string name="wn_energy_t">A hundred frames in each work\'s colours</string>
+    <string name="wn_energy_b">Thorn crowns, iron spikes, winged crests, antlers, tribal hooks, flame crests, the system window, arcane seals, storm blades and star crowns: ten of each, each with its own motion, all lit in the colours of the work\'s cover. In the title look, under In the work\'s colours.</string>
+    <string name="wn_autofinish_t">Old frames in the cover\'s colours</string>
+    <string name="wn_autofinish_b">Every frame shape now also comes in the work\'s own colours (the first finish), and the look picker is lighter: only the frame and effect you picked move.</string>
+    <string name="wn_dailyfx_t">Two effects behind every cover</string>
+    <string name="wn_dailyfx_b">A work starts with the plain frame and two effects of its own behind its cover, a new pair every day at 6 am, until you pick.</string>
     <string name="look_font_arabic">Arabic fonts</string>
     <string name="look_arabic_sample">البداية بعد النهاية</string>
     <string name="wn_frames100_t">A hundred frames, drawn</string>

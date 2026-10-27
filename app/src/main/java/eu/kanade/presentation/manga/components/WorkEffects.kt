@@ -100,13 +100,15 @@ fun EffectLayer(
     modifier: Modifier = Modifier,
     strength: Float = 1f,
     beat: () -> Float = { 0f },
+    still: Boolean = false,
 ) {
     if (effect == WorkEffect.NONE) return
-    val clock by rememberInfiniteTransition(label = "effect")
+    // A still effect (the picker's small previews) is drawn once, at one moment, and never again
+    val clock = if (still) null else rememberInfiniteTransition(label = "effect")
         .animateFloat(0f, 100_000f, infiniteRepeatable(tween(100_000_000, easing = LinearEasing)), label = "t")
     val seeds = remember(effect) { Random(effect.ordinal * 7919 + 17).let { r -> FloatArray(SEEDS) { r.nextFloat() } } }
     Canvas(modifier) {
-        val t = clock
+        val t = clock?.value ?: 7.3f
         val b = beat().coerceIn(0f, 1f)
         when (effect) {
             WorkEffect.NONE -> Unit
@@ -742,9 +744,11 @@ fun EffectLayers(
     modifier: Modifier = Modifier,
     strength: Float = 1f,
     beat: () -> Float = { 0f },
+    still: Boolean = false,
 ) {
-    val each = if (effects.size > 1) strength * 0.75f else strength
-    effects.forEach { EffectLayer(it, color, modifier, each, beat) }
+    // Effects laid over each other are each lighter, so two together are not twice as heavy
+    val each = if (effects.size > 1) strength * 0.6f else strength
+    effects.forEach { EffectLayer(it, color, modifier, each, beat, still) }
 }
 
 /** A work's effects as picked: behind the cover, over the page, their colour, and the beat they follow. */

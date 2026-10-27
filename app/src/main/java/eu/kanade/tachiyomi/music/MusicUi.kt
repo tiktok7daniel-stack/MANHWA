@@ -892,6 +892,7 @@ private fun EditSong(song: MusicStore.Track, accent: Color, onDismiss: () -> Uni
                                 accent = accent,
                                 height = 52.dp,
                                 maxFont = 12,
+                                still = !on,
                             )
                         }
                     }

@@ -1,0 +1,252 @@
+<!doctype html><html><body style="margin:0;background:#0b0c14">
+<canvas id="c"></canvas>
+<script>
+// MANHWA energy frames, prototype. Written against a tiny drawing layer (P, fill, stroke, glow, lin, rad, withT, clip)
+// that maps one to one onto Compose (Path, drawPath, Brush.linearGradient/radialGradient, withTransform, clipPath),
+// so the Kotlin port (EnergyFrames.kt) is line for line.
+const cv=document.getElementById('c');const ctx=cv.getContext('2d');
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const fract=x=>x-Math.floor(x);
+const WHITE=[255,255,255],BLACK=[0,0,0];
+const mix=(a,b,f)=>[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f];
+const rgba=(c,a)=>`rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${clamp(a,0,1)})`;
+function rng(seed){let s=(seed*2654435761)>>>0||1;return()=>{s^=s<<13;s>>>=0;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
+// ---- drawing layer
+function P(){return new Path2D();}
+function lin(x0,y0,x1,y1,stops){const g=ctx.createLinearGradient(x0,y0,x1,y1);stops.forEach(([o,c,a])=>g.addColorStop(o,rgba(c,a)));return g;}
+function rad(cx,cy,r,stops){const g=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(r,0.01));stops.forEach(([o,c,a])=>g.addColorStop(o,rgba(c,a)));return g;}
+function fill(path,brush,plus){ctx.save();if(plus)ctx.globalCompositeOperation='lighter';ctx.fillStyle=brush;ctx.fill(path);ctx.restore();}
+function stroke(path,brush,width,plus){ctx.save();if(plus)ctx.globalCompositeOperation='lighter';ctx.strokeStyle=brush;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke(path);ctx.restore();}
+function glow(x,y,r,c,a){if(r<=0.5||a<=0.01)return;const p=P();p.arc(x,y,r,0,Math.PI*2);fill(p,rad(x,y,r,[[0,c,a],[1,c,0]]),true);}
+function withT(tx,ty,rot,sc,fn){ctx.save();ctx.translate(tx,ty);ctx.rotate(rot);ctx.scale(sc,sc);fn();ctx.restore();}
+function clip(path,fn){ctx.save();ctx.clip(path);fn();ctx.restore();}
+// ---- colours of a frame, all from the cover
+const METALS=[[214,172,84],[196,204,218],[92,84,96],null];
+function colorsOf(C,metal){
+ const base=METALS[metal]?mix(METALS[metal],C.p,metal===2?0.18:0.22):mix(C.p,WHITE,0.12);
+ return {p:C.p,s:C.s,d:C.d,
+  metal:[mix(base,WHITE,0.85),mix(base,WHITE,0.35),base,mix(base,BLACK,0.6),mix(base,WHITE,0.45)],
+  lac:mix(mix([34,28,44],C.d,0.4),C.p,0.12),
+  hi:mix(C.p,WHITE,0.6)};
+}
+function metalBrush(K,top,bottom){return lin(0,top,0,bottom,[[0,K.metal[0],1],[0.3,K.metal[1],1],[0.55,K.metal[2],1],[0.8,K.metal[3],1],[1,K.metal[4],1]]);}
+function lacBrush(K,top,bottom){return lin(0,top,0,bottom,[[0,mix(K.lac,K.p,0.35),1],[0.5,K.lac,1],[1,mix(K.lac,BLACK,0.5),1]]);}
+// ---- shapes
+function roundBody(l,t,r,b,rr){const p=P();p.roundRect(l,t,r-l,b-t,rr);return p;}
+function chamferBody(l,t,r,b,c){const p=P();p.moveTo(l+c,t);p.lineTo(r-c,t);p.lineTo(r,t+c);p.lineTo(r,b-c);p.lineTo(r-c,b);p.lineTo(l+c,b);p.lineTo(l,b-c);p.lineTo(l,t+c);p.closePath();return p;}
+function pointedBody(l,t,r,b,pt){const cy=(t+b)/2,p=P();p.moveTo(l+pt,t);p.lineTo(r-pt,t);p.lineTo(r,cy);p.lineTo(r-pt,b);p.lineTo(l+pt,b);p.lineTo(l,cy);p.closePath();return p;}
+function notchBody(l,t,r,b,c){const cy=(t+b)/2,p=P();p.moveTo(l,t);p.lineTo(r,t);p.lineTo(r,cy-c);p.lineTo(r-c,cy);p.lineTo(r,cy+c);p.lineTo(r,b);p.lineTo(l,b);p.lineTo(l,cy+c);p.lineTo(l+c,cy);p.lineTo(l,cy-c);p.closePath();return p;}
+function shieldBody(l,t,r,b,c){const p=P();p.moveTo(l,t+c);p.quadraticCurveTo(l,t,l+c,t);p.lineTo(r-c,t);p.quadraticCurveTo(r,t,r,t+c);p.lineTo(r,b-c);p.lineTo(r-c*1.6,b);p.lineTo(l+c*1.6,b);p.lineTo(l,b-c);p.closePath();return p;}
+function bodyOf(kind,l,t,r,b){const h=b-t;switch(kind){case 0:return roundBody(l,t,r,b,h*0.18);case 1:return chamferBody(l,t,r,b,h*0.22);case 2:return pointedBody(l,t,r,b,h*0.42);case 3:return notchBody(l,t,r,b,h*0.18);default:return shieldBody(l,t,r,b,h*0.2);}}
+// A tapered, curved blade from (x,y) along angle a: the leaf, thorn, flame tongue and feather of every frame
+function blade(x,y,a,len,wd,curve){const dx=Math.cos(a),dy=Math.sin(a),px=-dy,py=dx;
+ const tx=x+dx*len+px*curve*len*0.35,ty=y+dy*len+py*curve*len*0.35;
+ const p=P();p.moveTo(x+px*wd*0.5,y+py*wd*0.5);
+ p.quadraticCurveTo(x+dx*len*0.5+px*(curve*len*0.42+wd*0.55),y+dy*len*0.5+py*(curve*len*0.42+wd*0.55),tx,ty);
+ p.quadraticCurveTo(x+dx*len*0.55+px*(curve*len*0.3-wd*0.25),y+dy*len*0.55+py*(curve*len*0.3-wd*0.25),x-px*wd*0.5,y-py*wd*0.5);
+ p.closePath();return p;}
+function diamond(cx,cy,rx,ry){const p=P();p.moveTo(cx,cy-ry);p.lineTo(cx+rx,cy);p.lineTo(cx,cy+ry);p.lineTo(cx-rx,cy);p.closePath();return p;}
+function star(cx,cy,n,ro,ri,rot){const p=P();for(let i=0;i<n*2;i++){const a=rot+i*Math.PI/n;const r=i%2?ri:ro;const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;i?p.lineTo(x,y):p.moveTo(x,y);}p.closePath();return p;}
+function spark(x,y,s){const p=P();p.moveTo(x,y-s);p.quadraticCurveTo(x,y,x+s,y);p.quadraticCurveTo(x,y,x,y+s);p.quadraticCurveTo(x,y,x-s,y);p.quadraticCurveTo(x,y,x,y-s);p.closePath();return p;}
+// ---- the plate face and rim
+function face(path,K,l,t,r,b,mirror){
+ if(mirror){fill(path,lin(l,0,r,0,[[0,mix(K.d,BLACK,0.4),1],[0.5,mix(K.d,K.p,0.45),1],[1,mix(K.d,BLACK,0.4),1]]));}
+ else fill(path,lin(0,t,0,b,[[0,mix(K.d,K.p,0.3),1],[1,mix(K.d,BLACK,0.55),1]]));
+ fill(path,rad((l+r)/2,(t+b)/2,(r-l)*0.42,[[0,mix(K.p,WHITE,0.3),0.28],[1,K.p,0]]),true);
+ fill(path,lin(0,t,0,(t+b)/2,[[0,WHITE,0.16],[1,WHITE,0]]));
+}
+function rim(path,K,t,b,sw){stroke(path,rgba(BLACK,0.6),sw*2,false);stroke(path,metalBrush(K,t-sw,b+sw),sw,false);stroke(path,rgba(K.metal[0],0.8),sw*0.22,false);}
+function ornament(path,K,t,b,sw,lacquer){stroke(path,rgba(BLACK,0.6),sw*0.7,false);fill(path,lacquer?lacBrush(K,t,b):metalBrush(K,t,b));stroke(path,lacquer?metalBrush(K,t,b):rgba(K.metal[0],0.55),sw*(lacquer?0.3:0.14),false);}
+function gem(cx,cy,r,K,t,ph){const pulse=0.6+0.4*Math.sin(t*2.6+ph);glow(cx,cy,r*3.4,K.p,0.55*pulse);const d=diamond(cx,cy,r,r*1.3);stroke(d,rgba(BLACK,0.5),r*0.35,false);stroke(d,metalBrush(K,cy-r*1.5,cy+r*1.5),r*0.22,false);
+ fill(d,rad(cx-r*0.3,cy-r*0.4,r*1.5,[[0,WHITE,1],[0.25,mix(K.p,WHITE,0.4),1],[0.7,K.p,1],[1,mix(K.p,BLACK,0.5),1]]));
+ const s=spark(cx-r*0.3,cy-r*0.45,r*(0.5+0.5*pulse));fill(s,rgba(WHITE,pulse),true);}
+
+// ================================================================================================ families
+// Each family: build(w,h,K,v) draws the still part; live(w,h,t,K,v,A) draws what moves (A: anchors from build).
+const F={};
+
+// 1. Thorn crown: lacquer and metal blades fanning from both ends and along the top, a gem in the middle (ref 1, 5)
+F.thorn={area:[0.14,0.86,0.3,0.72],build(w,h,K,v){
+ const r0=rng(v.seed);const l=w*0.12,r=w*0.88,t=h*0.3,b=h*0.72,cy=(t+b)/2,bh=b-t,sw=h*0.028;const A={gems:[],pts:[]};
+ for(const side of [-1,1]){const ex=side<0?l:r;const n=5+v.dense;
+  for(let pass=0;pass<2;pass++)for(let i=0;i<n;i++){const f=i/(n-1)-0.5;const a=(side<0?Math.PI:0)+f*2.3*side*(pass?0.85:1);const len=bh*(1.0-Math.abs(f)*0.7)*(pass?0.8:1.0)*(0.9+0.2*r0());
+   const p=blade(ex+side*bh*0.05,cy+f*bh*0.6,a,len,bh*(pass?0.2:0.27),(f>0?1:-1)*side*(0.6+v.curl*0.4));ornament(p,K,t-bh,b+bh,sw,pass===0);if(pass)A.pts.push([ex+Math.cos(a)*len,cy+f*bh*0.6+Math.sin(a)*len]);}}
+ const body=bodyOf(v.body,l,t,r,b);face(body,K,l,t,r,b,v.mirror);rim(body,K,t,b,sw);
+ const inner=bodyOf(v.body,l+sw*2.2,t+sw*2.2,r-sw*2.2,b-sw*2.2);stroke(inner,rgba(K.p,0.6),sw*0.35,true);
+ for(const dir of [-1,1])for(let k=0;k<3;k++){const x=w/2+dir*bh*(0.25+k*0.42);const p=blade(x,t+sw*0.3,dir<0?Math.PI+0.16+k*0.08:-0.16-k*0.08,bh*(0.9-k*0.18),bh*0.13,-dir*0.9);ornament(p,K,t-bh,t,sw,k%2===0);}
+ const sp=P();sp.moveTo(w/2-bh*0.12,t);sp.lineTo(w/2,t-bh*0.62);sp.lineTo(w/2+bh*0.12,t);sp.closePath();ornament(sp,K,t-bh,t,sw,false);
+ A.gems.push([w/2,t,bh*0.13],[w/2,b,bh*0.1]);const bp=diamond(w/2,b+bh*0.06,bh*0.2,bh*0.3);ornament(bp,K,b,b+bh,sw,false);
+ A.body=body;return A;}};
+
+// 2. Iron spikes: a jagged crown of barbs all round, clusters at the corners, a torn bright patch (ref 2)
+F.spike={area:[0.1,0.9,0.3,0.7],build(w,h,K,v){
+ const r0=rng(v.seed*3+1);const l=w*0.08,r=w*0.92,t=h*0.3,b=h*0.7,bh=b-t,sw=h*0.024;const A={gems:[],pts:[]};
+ const step=bh*(0.14+0.05*v.dense);
+ const edge=(x0,y0,x1,y1,nx,ny)=>{const len=Math.hypot(x1-x0,y1-y0);const n=Math.floor(len/step);for(let i=1;i<n;i++){const f=i/n;const x=x0+(x1-x0)*f,y=y0+(y1-y0)*f;const L=bh*(0.08+0.22*Math.pow(r0(),2));const lean=(r0()-0.5)*0.9;const a=Math.atan2(ny,nx)+lean;const p=blade(x,y,a,L,step*0.55,(r0()-0.5)*1.2);ornament(p,K,t-bh,b+bh,sw,r0()<0.5);if(L>bh*0.2)A.pts.push([x+Math.cos(a)*L,y+Math.sin(a)*L]);}};
+ edge(l,t,r,t,0,-1);edge(l,b,r,b,0,1);edge(l,t,l,b,-1,0);edge(r,t,r,b,1,0);
+ for(const [x,y,sx,sy] of [[l,t,-1,-1],[r,t,1,-1],[l,b,-1,1],[r,b,1,1]]){const base=Math.atan2(sy,sx);for(let i=0;i<5;i++){const a=base+(i-2)*0.32;const p=blade(x,y,a,bh*(0.35+0.25*r0()),bh*0.12,(r0()-0.5)*1.6);ornament(p,K,t-bh,b+bh,sw,i%2===1);}}
+ const body=bodyOf(v.body,l,t,r,b);face(body,K,l,t,r,b,v.mirror);
+ clip(body,()=>{for(let i=0;i<14;i++){const x=l+(r-l)*r0(),y=t+bh*r0();const p=P();p.moveTo(x,y);p.lineTo(x+bh*(0.8+r0()),y+bh*(0.2+0.3*r0()));stroke(p,rgba(WHITE,0.05),1.2,false);}
+  const tx=l+(r-l)*(v.flip?0.15:0.82),tp=P();tp.moveTo(tx,t);tp.lineTo(tx+bh*0.5,t);tp.lineTo(tx+bh*0.3,t+bh*0.3);tp.lineTo(tx+bh*0.45,t+bh*0.45);tp.lineTo(tx-bh*0.05,t+bh*0.2);tp.closePath();fill(tp,lin(tx,t,tx,t+bh*0.45,[[0,mix(K.metal[0],K.p,0.2),0.9],[1,K.metal[2],0.5]]));});
+ rim(body,K,t,b,sw);A.gems.push([w/2,b,bh*0.09]);A.body=body;return A;}};
+
+// 3. Winged crest: a shield with a gem and spread wings on one end, blade tips on the other (ref 3)
+F.crest={area:[0.26,0.9,0.32,0.68],build(w,h,K,v){
+ const l=w*0.2,r=w*0.92,t=h*0.32,b=h*0.68,bh=b-t,cy=(t+b)/2,sw=h*0.022;const A={gems:[],pts:[]};
+ const body=roundBody(l,t,r,b,bh*0.5);face(body,K,l,t,r,b,v.mirror);rim(body,K,t,b,sw);
+ for(const y of [t+sw*1.4,b-sw*1.4]){const p=P();p.moveTo(l+bh,y);p.lineTo(r-bh*0.7,y);stroke(p,rgba(K.hi,0.55),sw*0.35,true);}
+ for(let i=0;i<3;i++){const a=(i-1)*0.42;const p=blade(r-bh*0.25,cy,a,bh*(0.95-Math.abs(i-1)*0.25),bh*0.28,(i-1)*0.4);ornament(p,K,t-bh,b+bh,sw,i!==1);A.pts.push([r-bh*0.25+Math.cos(a)*bh*0.9,cy+Math.sin(a)*bh*0.9]);}
+ const cx=l+bh*0.05,s=bh*1.15;
+ for(const side of [-1,1])for(let i=0;i<4+v.dense;i++){const a=(side<0?Math.PI:0)+side*(-0.25-i*0.24);const len=s*(1.5-i*0.17);const p=blade(cx+side*s*0.18,cy-s*0.1+i*s*0.05,a,len,s*0.26,-side*0.35);ornament(p,K,cy-s*1.5,cy+s,sw,i%2===1);if(i===0)A.pts.push([cx+side*s*0.18+Math.cos(a)*len,cy-s*0.1+Math.sin(a)*len]);}
+ for(const side of [-1,1]){const p=blade(cx+side*s*0.18,cy-s*0.42,-Math.PI/2+side*0.5,s*0.85,s*0.2,side*0.9);ornament(p,K,cy-s*1.4,cy,sw,false);}
+ const sh=P();sh.moveTo(cx-s*0.5,cy-s*0.55);sh.lineTo(cx+s*0.5,cy-s*0.55);sh.lineTo(cx+s*0.45,cy+s*0.1);sh.lineTo(cx,cy+s*0.75);sh.lineTo(cx-s*0.45,cy+s*0.1);sh.closePath();ornament(sh,K,cy-s*0.6,cy+s*0.8,sw*1.2,false);
+ const si=P();si.moveTo(cx-s*0.33,cy-s*0.4);si.lineTo(cx+s*0.33,cy-s*0.4);si.lineTo(cx+s*0.3,cy+s*0.05);si.lineTo(cx,cy+s*0.55);si.lineTo(cx-s*0.3,cy+s*0.05);si.closePath();fill(si,lin(0,cy-s*0.4,0,cy+s*0.55,[[0,mix(K.d,K.p,0.5),1],[1,mix(K.d,BLACK,0.4),1]]));stroke(si,rgba(K.hi,0.8),sw*0.3,true);
+ A.gems.push([cx,cy-s*0.05,s*0.2]);A.body=body;return A;}};
+
+// 4. Antlers: branching horns from the top corners, star bursts below, engraved corners and a top band (ref 4)
+F.antler={area:[0.14,0.86,0.36,0.76],build(w,h,K,v){
+ const r0=rng(v.seed*5+2);const l=w*0.12,r=w*0.88,t=h*0.36,b=h*0.76,bh=b-t,sw=h*0.024;const A={gems:[],pts:[]};
+ const tine=(x,y,a,len,wd,depth,side)=>{const p=blade(x,y,a,len,wd,side*0.35);ornament(p,K,t-bh*2,t+bh,sw,true);const ex=x+Math.cos(a)*len*0.98,ey=y+Math.sin(a)*len*0.98;if(depth===0){A.pts.push([ex,ey]);return;}
+  const n=2+Math.floor(r0()*2);for(let i=1;i<=n;i++){const f=i/(n+1);const bx=x+Math.cos(a)*len*f,by=y+Math.sin(a)*len*f;tine(bx,by,a-side*(0.5+r0()*0.4),len*(0.45+r0()*0.15),wd*0.6,depth-1,side);}
+  const tip=diamond(ex,ey,wd*0.25,wd*0.25);fill(tip,rgba(K.metal[1],1));};
+ for(const side of [-1,1]){const x=side<0?l+bh*0.35:r-bh*0.35;tine(x,t,-Math.PI/2-side*(0.55+0.1*v.curl),bh*1.15,bh*0.38,1+(v.dense>1?1:0),side);
+  const sx=side<0?l+bh*0.1:r-bh*0.1;const st=star(sx,b+bh*0.05,4,bh*0.42,bh*0.12,Math.PI/4);ornament(st,K,b-bh*0.4,b+bh*0.5,sw,false);const s2=star(sx,b+bh*0.05,4,bh*0.28,bh*0.08,0);ornament(s2,K,b-bh*0.3,b+bh*0.4,sw,false);A.gems.push([sx,b+bh*0.05,bh*0.07]);}
+ const band=chamferBody(l+bh*0.9,t-bh*0.22,r-bh*0.9,t+bh*0.1,bh*0.12);fill(band,lacBrush(K,t-bh*0.22,t+bh*0.1));stroke(band,metalBrush(K,t-bh*0.3,t+bh*0.2),sw*0.6,false);
+ const body=bodyOf(v.body===2?1:v.body,l,t,r,b);face(body,K,l,t,r,b,true);rim(body,K,t,b,sw);
+ const inner=bodyOf(v.body===2?1:v.body,l+sw*2.4,t+sw*2.4,r-sw*2.4,b-sw*2.4);stroke(inner,metalBrush(K,t,b),sw*0.3,false);
+ for(const [x,y,sx,sy] of [[l+sw*3,t+sw*3,1,1],[r-sw*3,t+sw*3,-1,1],[l+sw*3,b-sw*3,1,-1],[r-sw*3,b-sw*3,-1,-1]]){const p=P();p.moveTo(x,y+sy*bh*0.3);p.lineTo(x,y);p.lineTo(x+sx*bh*0.3,y);p.moveTo(x+sx*bh*0.08,y+sy*bh*0.16);p.lineTo(x+sx*bh*0.16,y+sy*bh*0.08);stroke(p,rgba(K.metal[1],0.85),sw*0.3,false);}
+ const g=diamond(w/2,t-bh*0.06,bh*0.14,bh*0.12);ornament(g,K,t-bh*0.3,t+bh*0.1,sw,false);A.gems.push([w/2,b+sw*0.5,bh*0.08]);A.body=body;return A;}};
+
+// 5. Tribal: hooked curls on every side and at the corners, gem diamonds above and below (ref 5)
+F.tribal={area:[0.14,0.86,0.3,0.7],build(w,h,K,v){
+ const l=w*0.12,r=w*0.88,t=h*0.3,b=h*0.7,bh=b-t,cy=(t+b)/2,sw=h*0.024;const A={gems:[],pts:[]};
+ const hook=(x,y,a,len,wd,dir,lac)=>{const p=blade(x,y,a,len*1.15,wd*1.45,dir*(1.2+0.3*v.curl));ornament(p,K,t-bh,b+bh,sw,lac);A.pts.push([x+Math.cos(a)*len,y+Math.sin(a)*len]);};
+ for(const sy of [-1,1]){const y=sy<0?t:b;const sc=sy<0?1:0.75;for(const sx of [-1,1]){for(let k=0;k<2+v.dense;k++){const x=w/2+sx*bh*(0.45+k*0.55);hook(x,y,sy*Math.PI/2+sx*(0.7+k*0.15)*-sy*-1,bh*(0.55-k*0.06)*sc,bh*0.17*sc,sx*sy,k%2===0);}}
+  const g=diamond(w/2,y+sy*bh*0.12,bh*0.13,bh*0.28*sc);ornament(g,K,y-bh*0.4,y+bh*0.4,sw,false);A.gems.push([w/2,y+sy*bh*0.12,bh*0.08*sc]);
+  const sp=blade(w/2,y,sy*Math.PI/2,bh*0.5*sc,bh*0.08,0);ornament(sp,K,y-bh,y+bh,sw,false);}
+ for(const sx of [-1,1]){const x=sx<0?l:r;for(let k=0;k<3;k++){const yy=cy+(k-1)*bh*0.38;hook(x,yy,(sx<0?Math.PI:0)+(k-1)*0.5*sx,bh*(0.6-Math.abs(k-1)*0.12),bh*0.2,(k-1||1)*sx,k===1);}
+  for(const sy of [-1,1]){hook(x,sy<0?t:b,Math.atan2(sy,sx),bh*0.75,bh*0.22,sx*sy,true);}}
+ const body=bodyOf(v.body===0?1:v.body,l,t,r,b);face(body,K,l,t,r,b,v.mirror);rim(body,K,t,b,sw);
+ const inner=bodyOf(v.body===0?1:v.body,l+sw*1.8,t+sw*1.8,r-sw*1.8,b-sw*1.8);stroke(inner,rgba(K.p,0.85),sw*0.45,true);
+ A.body=body;return A;}};
+
+// 6. Flame crest: dark flames curling from one corner, a spire with a gem on top, rivets and a drip (ref 6)
+F.flamecrest={area:[0.16,0.88,0.3,0.7],build(w,h,K,v){
+ const l=w*0.08,r=w*0.92,t=h*0.3,b=h*0.7,bh=b-t,sw=h*0.022;const A={gems:[],pts:[],flames:[]};const fl=v.flip?-1:1;const X=x=>fl>0?x:w-x;
+ const body=chamferBody(l,t,r,b,bh*0.12);face(body,K,l,t,r,b,v.mirror);
+ clip(body,()=>{for(let i=0;i<5;i++){glow(X(l+bh*(0.4+i*0.9)),b-bh*0.25+Math.sin(i)*bh*0.1,bh*0.55,K.p,0.22);}});
+ rim(body,K,t,b,sw);
+ // A swirl of dark flames round one corner, each with a burning core, curling the same way
+ const fx=X(l+bh*0.35),fy=b-bh*0.1;for(let i=0;i<7+v.dense;i++){const f=i/(6+v.dense);const ang=fl>0?Math.PI*0.95-f*1.55:Math.PI*0.05+f*1.55;const a=fl>0?ang-0.25:ang+0.25;const x=fx+Math.cos(ang)*bh*0.18,y=fy+Math.sin(ang)*bh*0.1;const len=bh*(0.85+0.75*Math.sin(f*Math.PI))*(i%2?0.78:1);const cv=fl*1.1;
+  const p=blade(x,y,-Math.abs(a)+(fl>0?0:0),len,bh*0.3,cv);ornament(p,K,b-bh*1.8,b+bh*0.3,sw,true);const core=blade(x,y,-Math.abs(a),len*0.7,bh*0.12,cv);fill(core,lin(x,y,x+Math.cos(-Math.abs(a))*len,y+Math.sin(-Math.abs(a))*len,[[0,mix(K.p,WHITE,0.5),0.95],[0.6,K.p,0.6],[1,K.p,0]]),true);A.pts.push([x+Math.cos(-Math.abs(a))*len,y+Math.sin(-Math.abs(a))*len]);}
+ for(let i=0;i<3;i++){const p=blade(X(r-bh*0.1),t+bh*0.1,fl>0?-0.5-i*0.45:Math.PI+0.5+i*0.45,bh*(0.5-i*0.1),bh*0.1,-fl*0.9);ornament(p,K,t-bh,t+bh,sw,true);}
+ const d=P();d.moveTo(X(r-bh*0.6),b);d.lineTo(X(r-bh*0.52),b+bh*0.9);d.lineTo(X(r-bh*0.44),b);d.closePath();ornament(d,K,b,b+bh,sw,true);A.pts.push([X(r-bh*0.52),b+bh*0.9]);
+ const sp=P();const cx=w/2;sp.moveTo(cx-bh*0.1,t);sp.lineTo(cx,t-bh*0.95);sp.lineTo(cx+bh*0.1,t);sp.closePath();ornament(sp,K,t-bh,t,sw,true);
+ for(const s of [-1,1])for(let k=0;k<2;k++){const p=blade(cx+s*bh*0.05,t-bh*(0.25+k*0.22),-Math.PI/2+s*(1.1-k*0.2),bh*(0.42-k*0.1),bh*0.12,-s*0.9);ornament(p,K,t-bh,t,sw,true);}
+ A.gems.push([cx,t-bh*0.32,bh*0.12]);
+ for(const [x,y] of [[l+bh*0.25,t+bh*0.22],[r-bh*0.25,t+bh*0.22],[r-bh*0.25,b-bh*0.22],[l+bh*0.25,b-bh*0.22]]){A.gems.push([x,y,bh*0.06]);}
+ A.body=body;return A;}};
+
+// 7. System window: the hunter's status window, hex grid, header tab, corner brackets (Solo Leveling)
+F.system={area:[0.08,0.92,0.26,0.78],build(w,h,K,v){
+ const l=w*0.05,r=w*0.95,t=h*0.26,b=h*0.78,bh=b-t,sw=h*0.016;const A={gems:[],pts:[]};
+ const c=bh*0.16;const body=P();body.moveTo(l+c,t);body.lineTo(r,t);body.lineTo(r,b-c);body.lineTo(r-c,b);body.lineTo(l,b);body.lineTo(l,t+c);body.closePath();
+ fill(body,lin(0,t,0,b,[[0,mix(K.d,K.p,0.22),0.95],[1,mix(K.d,BLACK,0.6),0.95]]));
+ clip(body,()=>{const hs=bh*0.2;for(let row=0;row<7;row++)for(let col=0;col<36;col++){const x=l+col*hs*1.5,y=t+row*hs*0.87+(col%2)*hs*0.43;const hx=P();for(let k=0;k<6;k++){const a=k*Math.PI/3;const px=x+Math.cos(a)*hs*0.5,py=y+Math.sin(a)*hs*0.5;k?hx.lineTo(px,py):hx.moveTo(px,py);}hx.closePath();stroke(hx,rgba(K.p,0.07),1,true);}});
+ stroke(body,rgba(K.p,0.12),sw*8,true);stroke(body,rgba(K.p,0.5),sw*2.6,true);stroke(body,rgba(K.hi,0.95),sw*0.9,false);
+ const hw=w*0.17,th=h*0.12;const tab=P();tab.moveTo(w/2-hw-th,t);tab.lineTo(w/2-hw,t-th);tab.lineTo(w/2+hw,t-th);tab.lineTo(w/2+hw+th,t);tab.closePath();fill(tab,rgba(mix(K.d,K.p,0.35),0.95));stroke(tab,rgba(K.p,0.5),sw*2.2,true);stroke(tab,rgba(K.hi,0.95),sw*0.8,false);
+ A.tab=[w/2,t-th*0.5,hw,th];A.body=body;A.box=[l,t,r,b];return A;},
+ live(w,h,t,K,v,A){const [l,tp,r,b]=A.box,bh=b-tp;
+  clip(A.body,()=>{const sx=l+(r-l)*fract(t*0.35);const p=P();p.rect(sx-bh,tp,bh,bh);fill(p,lin(sx-bh,0,sx,0,[[0,K.p,0],[1,K.p,0.35]]),true);const q=P();q.rect(sx-1.5,tp,3,bh);fill(q,rgba(K.hi,0.8),true);});
+  const [cx,cy,hw]=A.tab;for(let i=-1;i<=1;i++){const x=cx+i*hw*0.45;const on=(Math.floor(t*3)%3)===i+1;const d=diamond(x,cy,A.tab[3]*0.22,A.tab[3]*0.22);fill(d,rgba(on?WHITE:K.p,on?1:0.6),true);if(on)glow(x,cy,A.tab[3],K.p,0.7);}
+  const pulse=0.55+0.45*Math.sin(t*3),g2=h*0.045,arm=bh*0.5;for(const [x,y,sx,sy] of [[l-g2,tp-g2,1,1],[r+g2,tp-g2,-1,1],[l-g2,b+g2,1,-1],[r+g2,b+g2,-1,-1]]){const p=P();p.moveTo(x+sx*arm,y);p.lineTo(x,y);p.lineTo(x,y+sy*arm*0.6);stroke(p,rgba(K.p,0.3*pulse),h*0.05,true);stroke(p,rgba(K.hi,pulse),h*0.012,false);}
+  for(const side of [-1,1]){const x0=side<0?l+bh*0.18:r-bh*0.18;for(let k=0;k<5;k++){const hh=bh*(0.12+0.25*(0.5+0.5*Math.sin(t*6+k*1.3+side)));const x=x0-side*k*bh*0.09;const p=P();p.rect(x-bh*0.025,(tp+b)/2+bh*0.3-hh,bh*0.05,hh);fill(p,rgba(K.p,0.55),true);}}
+ }};
+
+// 8. Arcane: turning seal circles at both ends, rune ticks and triangles, a dashed energy rail
+F.arcane={area:[0.2,0.8,0.32,0.68],build(w,h,K,v){
+ const l=w*0.15,r=w*0.85,t=h*0.32,b=h*0.68,bh=b-t,cy=(t+b)/2,sw=h*0.02;const A={gems:[],pts:[]};
+ const body=roundBody(l,t,r,b,bh*0.5);face(body,K,l,t,r,b,v.mirror);rim(body,K,t,b,sw);
+ for(const ex of [l,r]){const R=h*0.42;const c0=P();c0.arc(ex,cy,R*0.82,0,Math.PI*2);fill(c0,rad(ex,cy,R*0.82,[[0,mix(K.d,K.p,0.4),1],[1,mix(K.d,BLACK,0.6),1]]));const ring=P();ring.arc(ex,cy,R,0,Math.PI*2);rim(ring,K,cy-R,cy+R,sw*0.8);}
+ A.ends=[l,r];A.cy=cy;A.R=h*0.42;A.rail=[l+bh*0.6,r-bh*0.6,t,b];A.body=body;return A;},
+ live(w,h,t,K,v,A){const R=A.R,cy=A.cy;
+  A.ends.forEach((ex,k)=>{const dir=k?-1:1;withT(ex,cy,t*0.7*dir,1,()=>{for(let i=0;i<36;i++){const a=i/36*Math.PI*2;const q=P();q.moveTo(Math.cos(a)*R*0.84,Math.sin(a)*R*0.84);q.lineTo(Math.cos(a)*R*(i%3?0.9:0.96),Math.sin(a)*R*(i%3?0.9:0.96));stroke(q,rgba(K.hi,0.9),1.3,true);}
+    const ring=P();ring.arc(0,0,R*0.78,0,Math.PI*2);stroke(ring,rgba(K.p,0.8),1.4,true);});
+   withT(ex,cy,-t*1.1*dir,1,()=>{for(const st of [0,Math.PI]){const tri=P();for(let i=0;i<4;i++){const a=st-Math.PI/2+i*2*Math.PI/3;const x=Math.cos(a)*R*0.66,y=Math.sin(a)*R*0.66;i?tri.lineTo(x,y):tri.moveTo(x,y);}stroke(tri,rgba(K.s,0.4),3.5,true);stroke(tri,rgba(mix(K.s,WHITE,0.6),0.95),1.1,false);}});
+   glow(ex,cy,R*0.38*(0.8+0.3*Math.sin(t*4)),WHITE,0.85);glow(ex,cy,R*1.3,K.p,0.3);});
+  const [a,bx,tp,b]=A.rail;for(const y of [tp,b]){ctx.save();ctx.setLineDash([16,12]);ctx.lineDashOffset=-t*80;const p=P();p.moveTo(a,y);p.lineTo(bx,y);stroke(p,rgba(K.hi,0.9),2,true);ctx.restore();}
+ }};
+
+// 9. Storm blade: a chamfered plate with blade fins at both ends and lightning crawling its edge
+F.stormblade={area:[0.16,0.84,0.3,0.7],build(w,h,K,v){
+ const l=w*0.14,r=w*0.86,t=h*0.3,b=h*0.7,bh=b-t,cy=(t+b)/2,sw=h*0.024;const A={gems:[],pts:[]};
+ for(const side of [-1,1]){const ex=side<0?l:r;for(let i=0;i<3+v.dense;i++){const f=(i/(2+v.dense))-0.5;const a=(side<0?Math.PI:0)+f*1.0*side;const p=blade(ex,cy+f*bh*0.5,a,bh*(1.4-Math.abs(f)*1.1),bh*0.2,0);ornament(p,K,t-bh,b+bh,sw,i%2===1);A.pts.push([ex+Math.cos(a)*bh*(1.35-Math.abs(f)*1.1),cy+f*bh*0.5+Math.sin(a)*bh*(1.35-Math.abs(f)*1.1)]);}
+  const g=P();g.moveTo(ex,t-bh*0.3);g.lineTo(ex+side*bh*0.18,cy);g.lineTo(ex,b+bh*0.3);g.lineTo(ex-side*bh*0.1,cy);g.closePath();ornament(g,K,t-bh*0.3,b+bh*0.3,sw,false);}
+ const body=chamferBody(l,t,r,b,bh*0.3);face(body,K,l,t,r,b,v.mirror);rim(body,K,t,b,sw);
+ const inner=chamferBody(l+sw*2,t+sw*2,r-sw*2,b-sw*2,bh*0.25);stroke(inner,rgba(K.p,0.6),sw*0.3,true);
+ A.gems.push([w/2,t,bh*0.1],[w/2,b,bh*0.1]);A.body=body;A.box=[l,t,r,b];return A;}};
+
+// 10. Celestial: a crown of stars over the plate, moons at the ends, light rays behind
+F.celestial={area:[0.15,0.85,0.38,0.76],build(w,h,K,v){
+ const l=w*0.1,r=w*0.9,t=h*0.38,b=h*0.76,bh=b-t,cy=(t+b)/2,sw=h*0.022;const A={gems:[],pts:[],stars:[]};
+ const body=bodyOf(v.body,l,t,r,b);face(body,K,l,t,r,b,v.mirror);rim(body,K,t,b,sw);
+ const arc=P();for(let i=0;i<=40;i++){const f=i/40;const x=l+bh*0.8+(r-l-bh*1.6)*f;const y=t-h*0.04-Math.sin(f*Math.PI)*h*0.24;i?arc.lineTo(x,y):arc.moveTo(x,y);}stroke(arc,metalBrush(K,t-h*0.3,t),sw*0.6,false);
+ for(let i=0;i<9;i++){const f=i/8;const x=l+bh*0.8+(r-l-bh*1.6)*f;const y=t-h*0.04-Math.sin(f*Math.PI)*h*0.24;const s=star(x,y,i===4?6:4,bh*(i===4?0.32:0.16),bh*(i===4?0.12:0.06),-Math.PI/2);ornament(s,K,y-bh*0.3,y+bh*0.3,sw,false);A.stars.push([x,y]);}
+ for(const side of [-1,1]){const ex=side<0?l:r;const m=P();m.arc(ex,cy,bh*0.55,0,Math.PI*2);const cut=P();cut.arc(ex+side*-bh*0.22,cy-bh*0.08,bh*0.48,0,Math.PI*2);ctx.save();const both=new Path2D();both.addPath(m);clip(m,()=>{ctx.globalCompositeOperation='source-over';});ctx.restore();
+  // crescent: the moon minus a shifted disc
+  const cr=P();cr.arc(ex,cy,bh*0.55,0,Math.PI*2);cr.arc(ex-side*bh*0.22,cy-bh*0.08,bh*0.46,0,Math.PI*2,true);ctx.save();ctx.fillStyle=metalBrush(K,cy-bh*0.6,cy+bh*0.6);ctx.fill(cr,'evenodd');ctx.restore();stroke(cr,rgba(K.metal[0],0.6),sw*0.2,false);A.gems.push([ex+side*bh*0.3,cy,bh*0.07]);}
+ A.body=body;return A;}};
+
+// ================================================================================================ the moving layer
+// Every frame has one of ten motions on top of its family's own, drawn from the anchors the build left.
+function edgePts(path,box,n){const [l,t,r,b]=box;const pts=[];const per=2*(r-l)+2*(b-t);for(let i=0;i<n;i++){let d=i/n*per;if(d<r-l)pts.push([l+d,t]);else if((d-=r-l)<b-t)pts.push([r,t+d]);else if((d-=b-t)<r-l)pts.push([r-d,b]);else{d-=r-l;pts.push([l,b-d]);}}return pts;}
+const MOTIONS=[
+ // comets running round the plate
+ (w,h,t,K,A,box)=>{const pts=edgePts(A.body,box,320);for(let k=0;k<2;k++){const head=fract(t*0.16+k/2);for(let j=0;j<26;j++){const pt=pts[Math.floor(fract(head-j*0.003)*pts.length)];const a=1-j/26;glow(pt[0],pt[1],(j?h*0.03:h*0.07)*a+2,j?K.p:WHITE,a*(j?0.55:0.95));}}},
+ // twinkling glints on the ornaments' tips
+ (w,h,t,K,A)=>{A.pts.forEach(([x,y],i)=>{const a=Math.pow(0.5+0.5*Math.sin(t*2.2+i*1.7),5);if(a>0.05){fill(spark(x,y,h*0.05*(0.6+a)),rgba(WHITE,a),true);glow(x,y,h*0.07,K.p,a*0.6);}});},
+ // embers rising
+ (w,h,t,K,A,box)=>{const rd=rng(7);for(let i=0;i<34;i++){const age=fract(t*0.4+rd());const x=box[0]+(box[2]-box[0])*rd()+Math.sin(t*2+i)*h*0.04;const y=box[3]-age*h*0.9;glow(x,y,h*(0.012+0.02*rd()),mix(K.p,WHITE,0.4),(1-age)*0.9);}},
+ // lightning crawling the edge
+ (w,h,t,K,A,box)=>{const pts=edgePts(A.body,box,500);const tick=Math.floor(t*10);for(let k=0;k<2;k++){const rd=rng(tick*13+k+1);const s=Math.floor(rd()*pts.length);const p=P();for(let i=0;i<=90;i+=6){const q=pts[(s+i)%pts.length];const jx=(rd()-0.5)*h*0.1,jy=(rd()-0.5)*h*0.1;i?p.lineTo(q[0]+jx,q[1]+jy):p.moveTo(q[0],q[1]);}stroke(p,rgba(K.p,0.35),h*0.03,true);stroke(p,rgba(K.hi,0.95),h*0.007,false);}},
+ // rings pulsing out of the gems
+ (w,h,t,K,A)=>{A.gems.forEach(([x,y,r],i)=>{for(let k=0;k<2;k++){const f=fract(t*0.6+k*0.5+i*0.13);const c=P();c.arc(x,y,r*(1+f*4),0,Math.PI*2);stroke(c,rgba(K.p,(1-f)*0.8),h*0.008,true);}});},
+ // motes orbiting the ends
+ (w,h,t,K,A,box)=>{const cy=(box[1]+box[3])/2;for(const [ex,dir] of [[box[0],1],[box[2],-1]])for(let i=0;i<10;i++){const a=t*1.6*dir+i/10*Math.PI*2;const x=ex+Math.cos(a)*h*0.3,y=cy+Math.sin(a)*h*0.14;glow(x,y,h*0.025,i%3?K.p:K.s,0.85*(0.5+0.5*Math.sin(a)));}},
+ // energy flowing along an inner line
+ (w,h,t,K,A,box)=>{const [l,tp,r,b]=box;const ins=h*0.05;const p=P();p.rect(l+ins,tp+ins,r-l-ins*2,b-tp-ins*2);ctx.save();ctx.setLineDash([h*0.12,h*0.08]);ctx.lineDashOffset=-t*h*0.8;stroke(p,rgba(K.p,0.5),h*0.018,true);stroke(p,rgba(K.hi,0.9),h*0.006,false);ctx.restore();},
+ // light rays turning behind the middle (drawn first)
+ null,
+ // aurora wisps behind (drawn first)
+ null,
+ // a slow sweep of light and breathing glow
+ (w,h,t,K,A,box)=>{const [l,tp,r,b]=box;clip(A.body,()=>{const x=l+(r-l)*fract(t*0.22)*1.4-(r-l)*0.2;const p=P();p.rect(x-h*0.5,tp,h,b-tp);fill(p,lin(x-h*0.5,tp,x+h*0.5,b,[[0,WHITE,0],[0.5,WHITE,0.28],[1,WHITE,0]]),true);});glow(w/2,(tp+b)/2,w*0.45,K.p,0.08+0.06*Math.sin(t*2));},
+];
+const BEHIND=[null,null,null,null,null,null,null,
+ (w,h,t,K)=>{const cx=w/2,cy=h/2;for(let i=0;i<24;i++){const a=i/24*Math.PI*2+t*0.15;const len=w*0.55;const p=P();p.moveTo(cx,cy);p.lineTo(cx+Math.cos(a-0.025)*len,cy+Math.sin(a-0.025)*len*0.45);p.lineTo(cx+Math.cos(a+0.025)*len,cy+Math.sin(a+0.025)*len*0.45);p.closePath();fill(p,rad(cx,cy,len,[[0,K.p,0.25*(0.6+0.4*Math.sin(t*2+i))],[1,K.p,0]]),true);}},
+ (w,h,t,K)=>{for(let k=0;k<3;k++){const p=P();for(let i=0;i<=60;i++){const x=w*i/60;const y=h*(0.5+0.32*Math.sin(i*0.18+t*(0.8+k*0.3)+k*2));i?p.lineTo(x,y):p.moveTo(x,y);}stroke(p,rgba(k===1?K.s:K.p,0.18),h*0.12,true);stroke(p,rgba(K.hi,0.35),h*0.012,true);}},
+ null];
+
+// ================================================================================================ the hundred
+const FAM=['thorn','spike','crest','antler','tribal','flamecrest','system','arcane','stormblade','celestial'];
+function specOf(i){const fam=Math.floor(i/10),k=i%10;return {fam:FAM[fam],motion:(k*3+fam)%10,body:(k+fam*2)%5,metal:(k+fam)%4,mirror:(k%3)===1,dense:k%3,curl:(k*7%10)/10,flip:k%2===1,seed:i*31+7};}
+function draw(i,w,h,t,C){const v=specOf(i);const K=colorsOf(C,v.metal);const fam=F[v.fam];
+ const behind=BEHIND[v.motion];if(behind)behind(w,h,t,K);
+ const A=fam.build(w,h,K,v);
+ const box=A.box||[w*fam.area[0]-w*0.02,h*fam.area[2]-h*0.02,w*fam.area[1]+w*0.02,h*fam.area[3]+h*0.02];
+ A.gems.forEach(([x,y,r],j)=>gem(x,y,r,K,t,j*1.3));
+ if(fam.live)fam.live(w,h,t,K,v,A);
+ const m=MOTIONS[v.motion];if(m)m(w,h,t,K,A,box);
+ return fam.area;}
+
+const covers=[{p:[90,140,255],s:[180,90,255],d:[14,20,48]},{p:[255,70,90],s:[255,170,60],d:[40,8,14]},{p:[60,230,160],s:[80,200,255],d:[6,30,24]},{p:[200,120,255],s:[255,120,200],d:[26,10,40]},{p:[255,190,70],s:[255,110,60],d:[36,22,6]}];
+const q=(location.hash||'#grid').slice(1).split(',');
+if(q[0]==='grid'){ // all hundred, small
+ const W=440,H=118,cols=4,from=parseInt(q[1]||'0'),count=parseInt(q[2]||'100');cv.width=cols*W;cv.height=Math.ceil(count/cols)*H;
+ for(let n=0;n<count;n++){const i=from+n;ctx.save();ctx.translate((n%cols)*W,Math.floor(n/cols)*H);ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();const area=draw(i,W,H,1.7+i*0.37,covers[i%covers.length]);
+  ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='bold 17px serif';ctx.textAlign='center';ctx.fillText('SOLO LEVELING',W*(area[0]+area[1])/2,H*(area[2]+area[3])/2+6);ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='10px sans-serif';ctx.textAlign='left';ctx.fillText(i+' '+specOf(i).fam,4,12);ctx.restore();}
+}else{ // a few, big: #big,<first>,<count>,<time>
+ const W=900,H=240,from=parseInt(q[1]),count=parseInt(q[2]||'4'),t=parseFloat(q[3]||'1.5');cv.width=W;cv.height=count*(H+20);
+ for(let n=0;n<count;n++){const i=from+n;ctx.save();ctx.translate(0,n*(H+20));ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();const area=draw(i,W,H,t,covers[(i+n)%covers.length]);ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='bold 32px serif';ctx.textAlign='center';ctx.fillText('SOLO LEVELING',W*(area[0]+area[1])/2,H*(area[2]+area[3])/2+11);ctx.restore();}
+}
+</script></body></html>

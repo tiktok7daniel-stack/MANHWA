@@ -1811,6 +1811,14 @@
     <string name="effect_smoke">دخان</string>
     <string name="effect_daily">تلقائي كل يوم</string>
     <string name="look_finish">لون الإطار</string>
+    <string name="look_energy">بلون المانهوا</string>
+    <string name="look_energy_sub">100 إطار، 10 عائلات في كل واحدة 10، وكل إطار بينوّر بألوان غلاف المانهوا دي.</string>
+    <string name="wn_energy_t">100 إطار بألوان كل مانهوا</string>
+    <string name="wn_energy_b">تيجان أشواك، وأشواك حديد، وشعارات مجنّحة، وقرون، وتعاريج قبلية، وتيجان لهب، ونافذة النظام، وأختام سحرية، وسيوف العاصفة، وتيجان النجوم: 10 من كل واحدة، ولكل إطار حركته، وكلهم بينوّروا بألوان غلاف المانهوا. من شكل العنوان ← بلون المانهوا.</string>
+    <string name="wn_autofinish_t">الإطارات القديمة بلون الغلاف</string>
+    <string name="wn_autofinish_b">كل شكل إطار بقى ليه لون «تلقائي من الغلاف» (أول لون)، وشاشة الاختيار بقت أخف: الإطار والتأثير اللي إنت مختارهم بس هما اللي بيتحركوا.</string>
+    <string name="wn_dailyfx_t">تأثيرين ورا كل غلاف</string>
+    <string name="wn_dailyfx_b">أي مانهوا بتبدأ بالإطار العادي، وورا غلافها تأثيرين خاصين بيها بيتغيروا كل يوم الساعة 6 الصبح، لحد ما تختار إنت.</string>
     <string name="look_font_arabic">خطوط عربية</string>
     <string name="look_arabic_sample">البداية بعد النهاية</string>
     <string name="wn_frames100_t">100 إطار مرسوم</string>

@@ -130,14 +130,18 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.Image, ATMR.strings.wn_frames100_t, ATMR.strings.wn_frames100_b),
-            Feature(MaterialSymbols.Rounded.EditNote, ATMR.strings.wn_arfonts_t, ATMR.strings.wn_arfonts_b),
-            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_mixes_t, ATMR.strings.wn_mixes_b),
+            Feature(MaterialSymbols.Rounded.Image, ATMR.strings.wn_energy_t, ATMR.strings.wn_energy_b),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_autofinish_t, ATMR.strings.wn_autofinish_b),
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_dailyfx_t, ATMR.strings.wn_dailyfx_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 155
+            Feature(MaterialSymbols.Rounded.Image, ATMR.strings.wn_frames100_t, ATMR.strings.wn_frames100_b),
+            Feature(MaterialSymbols.Rounded.EditNote, ATMR.strings.wn_arfonts_t, ATMR.strings.wn_arfonts_b),
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_mixes_t, ATMR.strings.wn_mixes_b),
             // Build 154
             Feature(MaterialSymbols.Rounded.LocalFireDepartment, ATMR.strings.wn_effects_t, ATMR.strings.wn_effects_b),
             Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_titlelook_t, ATMR.strings.wn_titlelook_b),

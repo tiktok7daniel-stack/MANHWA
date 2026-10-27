@@ -82,6 +82,8 @@ data class TitlePlate(
     val right: Float = 0.86f,
     val top: Float = 0.28f,
     val bottom: Float = 0.72f,
+    /** One of the hundred frames in the work's own colours, instead of [drawn]. */
+    val energy: EnergyFrame? = null,
 ) {
     companion object {
         /** The hundred frames: every shape in every finish, shapes kept together. */
@@ -92,7 +94,14 @@ data class TitlePlate(
             }
         }
 
-        val all: List<TitlePlate> = drawnFrames + TitlePlate("NONE", null, false, left = 0.06f, right = 0.94f, top = 0.1f, bottom = 0.9f)
+        /** The hundred frames in the work's own colours (the cover's), ten families of ten. */
+        val energyFrames: List<TitlePlate> = EnergyFrame.all.map { e ->
+            val f = e.family
+            TitlePlate(e.key, null, false, f.left, f.right, f.top, f.bottom, energy = e)
+        }
+
+        /** Every plate; the plain one ("NONE") stays last. */
+        val all: List<TitlePlate> = drawnFrames + energyFrames + TitlePlate("NONE", null, false, left = 0.06f, right = 0.94f, top = 0.1f, bottom = 0.9f)
 
         /** The picture plates of earlier versions, now drawn: a work or song that had one keeps the nearest look. */
         private val legacy = mapOf(
@@ -138,8 +147,11 @@ enum class CoverMotion(val label: StringResource) {
 
 /**
  * MANHWA: a title on its plate, alive. A band of light sweeps across the plate (only over the plate itself, not the
- * air around it), the plate breathes a glow of the accent colour, and the letters, in the work's font, shine with a
- * moving gradient and sit as big as the plate allows.
+ * air around it), the plate breathes a glow of its colour, and the letters, in the work's font, shine with a moving
+ * band of light and sit as big as the plate allows. Frames in the work's own colours take them from its cover.
+ *
+ * Everything that moves is read while drawing, so the title is laid out once, not again on every frame. [still]
+ * holds the plate at one moment (the many small previews of the look picker).
  */
 @Composable
 fun AnimatedPlate(
@@ -150,12 +162,21 @@ fun AnimatedPlate(
     modifier: Modifier = Modifier,
     height: Dp = 96.dp,
     maxFont: Int = 30,
+    still: Boolean = false,
 ) {
-    val motion = rememberInfiniteTransition(label = "plate")
-    val sweep by motion.animateFloat(-0.5f, 1.5f, infiniteRepeatable(tween(3200, easing = LinearEasing)), label = "sweep")
-    val breathe by motion.animateFloat(0.35f, 0.75f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "breathe")
-    val shine by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(4000, easing = LinearEasing)), label = "shine")
-    val clock by motion.animateFloat(0f, 10_000f, infiniteRepeatable(tween(10_000_000, easing = LinearEasing)), label = "clock")
+    val cover = LocalCoverPalette.current
+    val energyColors = remember(plate.energy, cover, accent) { plate.energy?.let { EnergyColors.of(cover, accent, it.metal) } }
+    val autoColors = remember(cover, accent) { FrameColors.of(cover, accent) }
+    val glowColor = when {
+        energyColors != null -> energyColors.p
+        plate.drawn?.palette == FramePalette.AUTO -> autoColors.glow
+        else -> plate.drawn?.palette?.glow ?: accent
+    }
+    val motion = if (still) null else rememberInfiniteTransition(label = "plate")
+    val sweep = motion?.animateFloat(-0.5f, 1.5f, infiniteRepeatable(tween(3200, easing = LinearEasing)), label = "sweep")
+    val breathe = motion?.animateFloat(0.35f, 0.75f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "breathe")
+    val shine = motion?.animateFloat(-0.4f, 1.4f, infiniteRepeatable(tween(4000, easing = LinearEasing)), label = "shine")
+    val clock = motion?.animateFloat(0f, 10_000f, infiniteRepeatable(tween(10_000_000, easing = LinearEasing)), label = "clock")
     BoxWithConstraints(
         modifier
             .fillMaxWidth()
@@ -163,7 +184,7 @@ fun AnimatedPlate(
             .drawBehind {
                 // Light added onto the page behind it, so it can only brighten (it used to darken pale pages)
                 drawOval(
-                    Brush.radialGradient(listOf((plate.drawn?.palette?.glow ?: accent).copy(alpha = 0.3f * breathe), Color.Transparent), radius = size.width * 0.5f),
+                    Brush.radialGradient(listOf(glowColor.copy(alpha = 0.3f * (breathe?.value ?: 0.55f)), Color.Transparent), radius = size.width * 0.5f),
                     topLeft = Offset(-size.width * 0.05f, -size.height * 0.2f),
                     size = androidx.compose.ui.geometry.Size(size.width * 1.1f, size.height * 1.4f),
                     blendMode = BlendMode.Plus,
@@ -171,7 +192,9 @@ fun AnimatedPlate(
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (plate.drawn != null) {
+        val drawn = plate.drawn
+        val energy = plate.energy
+        if (drawn != null || energy != null) {
             Canvas(
                 Modifier
                     .fillMaxSize()
@@ -179,7 +202,8 @@ fun AnimatedPlate(
                     .drawWithContent {
                         drawContent()
                         // The light only lands on the frame: drawn atop what is already there
-                        val x = size.width * sweep
+                        val s = sweep?.value ?: return@drawWithContent
+                        val x = size.width * s
                         drawRect(
                             Brush.linearGradient(
                                 listOf(Color.Transparent, Color.White.copy(alpha = 0.45f), Color.Transparent),
@@ -189,7 +213,10 @@ fun AnimatedPlate(
                             blendMode = BlendMode.SrcAtop,
                         )
                     },
-            ) { drawFrame(plate.drawn, clock) }
+            ) {
+                val t = clock?.value ?: STILL_TIME
+                if (energy != null && energyColors != null) drawEnergyFrame(energy, energyColors, t) else if (drawn != null) drawFrame(drawn, t, autoColors)
+            }
         } else {
             Box(
                 Modifier
@@ -202,10 +229,15 @@ fun AnimatedPlate(
         }
         val w = maxWidth
         val h = maxHeight
-        val ink = if (plate.lightFace) {
-            listOf(Color(0xFF14091F), accent.copy(alpha = 1f).darken(0.55f), Color(0xFF14091F))
-        } else {
-            listOf(Color.White, accent.lighten(0.35f), Color.White)
+        val inkColor = if (energyColors != null) energyColors.p else accent
+        val ink = remember(plate.lightFace, inkColor) {
+            Brush.horizontalGradient(
+                if (plate.lightFace) {
+                    listOf(Color(0xFF14091F), inkColor.darken(0.55f), Color(0xFF14091F))
+                } else {
+                    listOf(Color.White, inkColor.lighten(0.35f), Color.White)
+                },
+            )
         }
         Box(
             Modifier
@@ -219,20 +251,35 @@ fun AnimatedPlate(
                     fontFamily = font,
                     fontWeight = FontWeight.Normal,
                     textAlign = TextAlign.Center,
-                    brush = Brush.linearGradient(
-                        ink,
-                        start = Offset(-400f + 800f * shine, 0f),
-                        end = Offset(400f + 800f * shine, 120f),
-                    ),
-                    shadow = if (plate.lightFace) null else Shadow(accent.copy(alpha = 0.9f), blurRadius = 18f),
+                    brush = ink,
+                    shadow = if (plate.lightFace) null else Shadow(inkColor.copy(alpha = 0.9f), blurRadius = 18f),
                 ),
                 maxLines = 2,
                 autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = maxFont.sp, stepSize = 1.sp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                    .drawWithContent {
+                        drawContent()
+                        // The letters shine: a band of light crosses them, drawn only on the glyphs
+                        val s = shine?.value ?: return@drawWithContent
+                        val x = size.width * s
+                        drawRect(
+                            Brush.linearGradient(
+                                listOf(Color.Transparent, Color.White.copy(alpha = if (plate.lightFace) 0.35f else 0.7f), Color.Transparent),
+                                start = Offset(x - size.height, 0f),
+                                end = Offset(x + size.height, size.height),
+                            ),
+                            blendMode = BlendMode.SrcAtop,
+                        )
+                    },
             )
         }
     }
 }
+
+/** The moment a still plate is shown at: gems lit, light half way round. */
+private const val STILL_TIME = 1.7f
 
 private fun Color.darken(f: Float) = Color(red * (1 - f), green * (1 - f), blue * (1 - f), alpha)
 private fun Color.lighten(f: Float) = Color(red + (1 - red) * f, green + (1 - green) * f, blue + (1 - blue) * f, alpha)
@@ -318,7 +365,7 @@ fun TitleLookDialog(
                 }
                 // The hundred frames: first the shape (in the finish picked), then the finish (in the shape picked)
                 val current = plate.drawn
-                val finish = current?.palette ?: FramePalette.GOLD
+                val finish = current?.palette ?: FramePalette.AUTO
                 val shapeNow = current?.shape
                 item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_plate), accent) }
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -327,8 +374,19 @@ fun TitleLookDialog(
                 }
                 item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_finish), accent) }
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    val choices = FramePalette.entries.mapNotNull { TitlePlate.of(DrawnFrame(shapeNow ?: FrameShape.ROYAL, it).key) }
+                    val finishes = listOf(FramePalette.AUTO) + FramePalette.entries.filter { it != FramePalette.AUTO }
+                    val choices = finishes.mapNotNull { TitlePlate.of(DrawnFrame(shapeNow ?: FrameShape.ROYAL, it).key) }
                     PlateRow(choices, plate, title, font, accent, onPlate)
+                }
+                // MANHWA: the hundred frames in the work's own colours, a row for each family
+                item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_energy), accent) }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(stringResource(ATMR.strings.look_energy_sub), color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                }
+                EnergyFamily.entries.forEach { family ->
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "energy_${family.name}") {
+                        PlateRow(TitlePlate.energyFrames.filter { it.energy?.family == family }, plate, title, font, accent, onPlate)
+                    }
                 }
                 // MANHWA effects: each choice shows itself, live
                 val tint = effectColor.color ?: accent
@@ -448,7 +506,7 @@ private fun PlateRow(
                     .clickable { onPlate(p) }
                     .padding(4.dp),
             ) {
-                AnimatedPlate(title, p, font.family, accent, height = 70.dp, maxFont = 16)
+                AnimatedPlate(title, p, font.family, accent, height = 70.dp, maxFont = 16, still = !on)
             }
         }
     }
@@ -475,7 +533,7 @@ private fun EffectRow(current: String?, tint: Color, accent: Color, onPick: (Str
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.fillMaxWidth().height(104.dp), contentAlignment = Alignment.Center) {
-                    EffectLayers(shown, tint, Modifier.fillMaxSize())
+                    EffectLayers(shown, tint, Modifier.fillMaxSize(), still = !on)
                 }
                 val label = when {
                     key == EffectChoice.DAILY -> stringResource(ATMR.strings.effect_daily)

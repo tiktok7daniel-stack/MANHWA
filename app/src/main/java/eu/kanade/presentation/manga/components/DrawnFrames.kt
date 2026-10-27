@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
+import eu.kanade.presentation.components.CoverPalette
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -26,7 +27,7 @@ import kotlin.random.Random
 /**
  * MANHWA: the title frames, drawn in code as shapes rather than pictures, so they are sharp at any size (as fine on
  * a 4K screen as on a small one) and alive: gems breathe, light runs along the edges, wings beat, flames flicker,
- * stars twinkle and sigils turn. Ten shapes in ten finishes make the hundred frames.
+ * stars twinkle and sigils turn. Ten shapes in ten finishes make the hundred frames, and each shape also comes in the cover's own colours.
  */
 enum class FrameShape(
     /** The part of the frame the letters go in, as fractions of its width and height. */
@@ -65,6 +66,36 @@ enum class FramePalette(
     SUN(listOf(Color(0xFFFFF3D6), Color(0xFFFFB547), Color(0xFFD9631E), Color(0xFF6E2508)), listOf(Color(0xFF2E1406), Color(0xFF140803)), Color(0xFFFF8A00), Color(0xFFFFB13B)),
     SHADOW(listOf(Color(0xFFB4B9CC), Color(0xFF5A5F75), Color(0xFF23263A), Color(0xFF0A0B10)), listOf(Color(0xFF101119), Color(0xFF050508)), Color(0xFF8A5CFF), Color(0xFF7C66FF)),
     PEARL(listOf(Color(0xFFFFFFFF), Color(0xFFF1E6FF), Color(0xFFC9B6E4), Color(0xFF8C79A8)), listOf(Color(0xFFFBF8FF), Color(0xFFE2D8F4)), Color(0xFFA47CFF), Color(0xFFFFFFFF), lightFace = true),
+
+    /** In the work's own colours, read from its cover (these are only what it shows before the cover is read). */
+    AUTO(listOf(Color(0xFFFFF6C8), Color(0xFFFFD36A), Color(0xFFB7832B), Color(0xFF6B4A16)), listOf(Color(0xFF2A1B4A), Color(0xFF120A24)), Color(0xFF9B5CFF), Color(0xFFFFC857)),
+    ;
+
+    val colors = FrameColors(metal, face, gem, glow, lightFace)
+}
+
+/** The colours a frame is drawn in: a finish's, or the cover's for [FramePalette.AUTO]. */
+class FrameColors(
+    val metal: List<Color>,
+    val face: List<Color>,
+    val gem: Color,
+    val glow: Color,
+    val lightFace: Boolean = false,
+) {
+    companion object {
+        /** A finish made from the cover: its strongest colour as the metal and the light, its second as the gems. */
+        fun of(cover: CoverPalette?, accent: Color): FrameColors {
+            val p = cover?.primary ?: accent
+            val s = cover?.secondary ?: lerp(accent, Color.White, 0.35f)
+            val d = cover?.deep ?: lerp(accent, Color.Black, 0.86f)
+            return FrameColors(
+                listOf(lerp(p, Color.White, 0.85f), lerp(p, Color.White, 0.35f), p, lerp(p, Color.Black, 0.6f)),
+                listOf(lerp(d, p, 0.3f), lerp(d, Color.Black, 0.5f)),
+                s,
+                p,
+            )
+        }
+    }
 }
 
 /** One of the hundred: a [shape] in a [palette]. */
@@ -72,9 +103,12 @@ data class DrawnFrame(val shape: FrameShape, val palette: FramePalette) {
     val key: String get() = "F_${shape.name}_${palette.name}"
 }
 
-/** Draws [frame] over the whole of this scope; [t] is the time in seconds, for its motion. */
-fun DrawScope.drawFrame(frame: DrawnFrame, t: Float) {
-    val p = frame.palette
+/**
+ * Draws [frame] over the whole of this scope; [t] is the time in seconds, for its motion. [auto] are the colours of
+ * an [FramePalette.AUTO] frame (the cover's).
+ */
+fun DrawScope.drawFrame(frame: DrawnFrame, t: Float, auto: FrameColors? = null) {
+    val p = if (frame.palette == FramePalette.AUTO && auto != null) auto else frame.palette.colors
     when (frame.shape) {
         FrameShape.ROYAL -> royal(p, t)
         FrameShape.CRYSTAL -> crystal(p, t)
@@ -91,7 +125,7 @@ fun DrawScope.drawFrame(frame: DrawnFrame, t: Float) {
 
 // ------------------------------------------------------------------------------------------------ Parts
 
-private fun metalBrush(p: FramePalette, top: Float, bottom: Float) = Brush.verticalGradient(
+private fun metalBrush(p: FrameColors, top: Float, bottom: Float) = Brush.verticalGradient(
     0f to p.metal[0],
     0.3f to p.metal[1],
     0.55f to p.metal[2],
@@ -128,7 +162,7 @@ private fun pointedBody(l: Float, t: Float, r: Float, b: Float, point: Float) = 
 }
 
 /** The plate itself: its face, a soft sheen, a dark rim for depth, the metal edge and its bright core. */
-private fun DrawScope.body(path: Path, inner: Path?, p: FramePalette, top: Float, bottom: Float, sw: Float) {
+private fun DrawScope.body(path: Path, inner: Path?, p: FrameColors, top: Float, bottom: Float, sw: Float) {
     drawPath(path, Brush.verticalGradient(p.face, top, bottom))
     drawPath(path, Brush.verticalGradient(listOf(Color.White.copy(alpha = if (p.lightFace) 0.5f else 0.12f), Color.Transparent), top, (top + bottom) / 2))
     // The gem colour glowing up from the bottom of the face
@@ -142,7 +176,7 @@ private fun DrawScope.body(path: Path, inner: Path?, p: FramePalette, top: Float
 }
 
 /** A filled ornament in the metal, outlined dark so it stands off the page. */
-private fun DrawScope.ornament(path: Path, p: FramePalette, top: Float, bottom: Float, sw: Float) {
+private fun DrawScope.ornament(path: Path, p: FrameColors, top: Float, bottom: Float, sw: Float) {
     drawPath(path, Color.Black.copy(alpha = 0.5f), style = Stroke(sw * 0.7f, join = StrokeJoin.Round))
     drawPath(path, metalBrush(p, top, bottom))
     drawPath(path, p.metal[0].copy(alpha = 0.5f), style = Stroke(sw * 0.18f, join = StrokeJoin.Round))
@@ -154,7 +188,7 @@ private fun DrawScope.softGlow(center: Offset, radius: Float, color: Color, alph
 }
 
 /** A cut gem that breathes light. */
-private fun DrawScope.gem(center: Offset, r: Float, p: FramePalette, t: Float, phase: Float = 0f) {
+private fun DrawScope.gem(center: Offset, r: Float, p: FrameColors, t: Float, phase: Float = 0f) {
     val pulse = 0.6f + 0.4f * sin(t * 2.6f + phase)
     softGlow(center, r * 3.2f, p.glow, 0.55f * pulse)
     val d = Path().apply {
@@ -209,7 +243,7 @@ private fun DrawScope.edgeRunner(path: Path, color: Color, t: Float, speed: Floa
 
 // ------------------------------------------------------------------------------------------------ Royal
 
-private fun DrawScope.royal(p: FramePalette, t: Float) {
+private fun DrawScope.royal(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.07f
@@ -268,7 +302,7 @@ private data class Quad(val a: Float, val b: Float, val c: Float, val d: Float)
 
 // ------------------------------------------------------------------------------------------------ Crystal
 
-private fun DrawScope.crystal(p: FramePalette, t: Float) {
+private fun DrawScope.crystal(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.12f
@@ -298,7 +332,7 @@ private fun DrawScope.crystal(p: FramePalette, t: Float) {
     gem(Offset(w / 2, bot), bh * 0.09f, p, t)
 }
 
-private fun DrawScope.shard(base: Offset, angle: Float, len: Float, p: FramePalette, t: Float, phase: Float) {
+private fun DrawScope.shard(base: Offset, angle: Float, len: Float, p: FrameColors, t: Float, phase: Float) {
     val dir = Offset(cos(angle), sin(angle))
     val perp = Offset(-dir.y, dir.x)
     val tip = base + dir * len
@@ -327,7 +361,7 @@ private fun DrawScope.shard(base: Offset, angle: Float, len: Float, p: FramePale
 
 // ------------------------------------------------------------------------------------------------ Thorn
 
-private fun DrawScope.thorn(p: FramePalette, t: Float) {
+private fun DrawScope.thorn(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.06f
@@ -366,7 +400,7 @@ private fun DrawScope.thorn(p: FramePalette, t: Float) {
     edgeRunner(roundBody(l, top, r, bot, bh * 0.3f), p.glow, t, 0.08f, sw)
 }
 
-private fun DrawScope.spike(base: Offset, dir: Float, len: Float, lean: Float, width: Float, p: FramePalette, a: Float, b: Float) {
+private fun DrawScope.spike(base: Offset, dir: Float, len: Float, lean: Float, width: Float, p: FrameColors, a: Float, b: Float) {
     val path = Path().apply {
         moveTo(base.x - width / 2, base.y)
         quadraticTo(base.x - width * 0.1f, base.y + dir * len * 0.45f, base.x + lean, base.y + dir * len)
@@ -378,7 +412,7 @@ private fun DrawScope.spike(base: Offset, dir: Float, len: Float, lean: Float, w
 
 // ------------------------------------------------------------------------------------------------ Neon
 
-private fun DrawScope.neon(p: FramePalette, t: Float) {
+private fun DrawScope.neon(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.07f
@@ -434,7 +468,7 @@ private fun DrawScope.neon(p: FramePalette, t: Float) {
 
 // ------------------------------------------------------------------------------------------------ Gothic
 
-private fun DrawScope.gothic(p: FramePalette, t: Float) {
+private fun DrawScope.gothic(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.06f
@@ -489,7 +523,7 @@ private fun DrawScope.gothic(p: FramePalette, t: Float) {
 
 // ------------------------------------------------------------------------------------------------ Rune
 
-private fun DrawScope.rune(p: FramePalette, t: Float) {
+private fun DrawScope.rune(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.1f
@@ -546,7 +580,7 @@ private fun DrawScope.rune(p: FramePalette, t: Float) {
 
 // ------------------------------------------------------------------------------------------------ Wings
 
-private fun DrawScope.wings(p: FramePalette, t: Float) {
+private fun DrawScope.wings(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.2f
@@ -572,7 +606,7 @@ private fun DrawScope.wings(p: FramePalette, t: Float) {
     gem(Offset(w / 2, bot), bh * 0.07f, p, t, 2f)
 }
 
-private fun DrawScope.feather(anchor: Offset, angle: Float, len: Float, p: FramePalette, i: Int) {
+private fun DrawScope.feather(anchor: Offset, angle: Float, len: Float, p: FrameColors, i: Int) {
     val dir = Offset(cos(angle), sin(angle))
     val perp = Offset(-dir.y, dir.x)
     val tip = anchor + dir * len
@@ -591,7 +625,7 @@ private fun DrawScope.feather(anchor: Offset, angle: Float, len: Float, p: Frame
 
 // ------------------------------------------------------------------------------------------------ Flame
 
-private fun DrawScope.flame(p: FramePalette, t: Float) {
+private fun DrawScope.flame(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.06f
@@ -642,7 +676,7 @@ private fun DrawScope.flame(p: FramePalette, t: Float) {
 
 // ------------------------------------------------------------------------------------------------ Celestial
 
-private fun DrawScope.celestial(p: FramePalette, t: Float) {
+private fun DrawScope.celestial(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.1f
@@ -695,7 +729,7 @@ private fun DrawScope.celestial(p: FramePalette, t: Float) {
 
 // ------------------------------------------------------------------------------------------------ Blade
 
-private fun DrawScope.blade(p: FramePalette, t: Float) {
+private fun DrawScope.blade(p: FrameColors, t: Float) {
     val w = size.width
     val h = size.height
     val l = w * 0.16f
