@@ -92,6 +92,7 @@ import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.Keep
+import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.Visibility
@@ -187,6 +188,7 @@ fun AnimeSourcesList(contentPadding: PaddingValues) {
 @Composable
 fun AnimeExtensionsList(contentPadding: PaddingValues, searchQuery: String?) {
     val context = LocalContext.current
+    val navigator = LocalNavigator.currentOrThrow
     val graph = remember { context.appGraph }
     val manager = graph.animeExtensionManager
     val installed by manager.installed.collectAsState()
@@ -216,30 +218,25 @@ fun AnimeExtensionsList(contentPadding: PaddingValues, searchQuery: String?) {
     }
 
     LazyColumn(contentPadding = PaddingValues(top = contentPadding.calculateTopPadding() + 4.dp, bottom = contentPadding.calculateBottomPadding() + 24.dp)) {
+        // The repositories live behind the menu (as the manhwa extension stores do)
         item(key = "repos") {
-            GlowHeader(stringResource(ATMR.strings.anime_repos)) {
+            var menu by remember { mutableStateOf(false) }
+            GlowHeader(stringResource(MR.strings.label_extensions)) {
                 IconButton(onClick = { scope.launch { manager.refreshAvailable(); manager.reload() } }) {
                     Icon(MaterialSymbols.Rounded.Refresh, null, tint = MaterialTheme.colorScheme.primary)
                 }
-            }
-        }
-        item(key = "repobox") {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().glass(RoundedCornerShape(18.dp), alpha = 0.5f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (repos.isEmpty()) Text(stringResource(ATMR.strings.anime_repos_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
-                repos.forEach { repo ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(repo, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        IconButton(onClick = { manager.removeRepo(repo) }) { Icon(MaterialSymbols.Rounded.Delete, null, tint = ManhwaInk.muted) }
+                Box {
+                    IconButton(onClick = { menu = true }) { Icon(MaterialSymbols.Rounded.MoreVert, null) }
+                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(ATMR.strings.anime_repos)) },
+                            onClick = {
+                                menu = false
+                                navigator.push(AnimeReposScreen())
+                            },
+                        )
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ManhwaKit.SearchField(repoText, stringResource(ATMR.strings.anime_repo_hint), onValueChange = { repoText = it }, modifier = Modifier.weight(1f))
-                    Spacer(Modifier.width(8.dp))
-                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.Add, active = true) {
-                        if (manager.addRepo(repoText)) repoText = "" else context.toast(ATMR.strings.anime_repo_bad)
-                    }
-                }
-                if (loading) Text(stringResource(ATMR.strings.anime_loading), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.muted)
             }
         }
         val withUpdate = mine.filter { it.pkg in updates }
@@ -688,7 +685,8 @@ fun AnimeLibraryContent(contentPadding: PaddingValues, navigator: Navigator) {
     val library by store.library.collectAsState()
     val progress by store.progress.collectAsState()
     val favorites = remember(library) { store.favorites() }
-    val history = remember(library, progress) { store.history().take(12) }
+    // The library holds only the anime with a heart; what was watched lives in the history
+    val history = emptyList<Pair<AnimeEntry, EpisodeProgress>>()
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(112.dp),
@@ -718,6 +716,69 @@ fun AnimeLibraryContent(contentPadding: PaddingValues, navigator: Navigator) {
         items(favorites, key = { it.key }) { entry ->
             AnimeCard(entry.title, entry.thumbnailUrl) {
                 navigator.push(AnimeDetailsScreen(entry.sourceId, entry.url, entry.title, entry.thumbnailUrl))
+            }
+        }
+    }
+}
+
+/** The anime watched, newest first, with the episode each was left at (the history's anime side). */
+@Composable
+fun AnimeHistoryContent(contentPadding: PaddingValues, navigator: Navigator) {
+    val context = LocalContext.current
+    val store = remember { context.appGraph.animeStore }
+    val library by store.library.collectAsState()
+    val progress by store.progress.collectAsState()
+    val history = remember(library, progress) { store.history() }
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(112.dp),
+        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = contentPadding.calculateTopPadding() + 8.dp, bottom = contentPadding.calculateBottomPadding() + 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        if (history.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { Hint(stringResource(ATMR.strings.anime_history_empty)) }
+        }
+        items(history, key = { it.first.key }) { (entry, p) ->
+            AnimeCard(entry.title, entry.thumbnailUrl, badge = p.episodeName.take(18)) {
+                navigator.push(AnimeDetailsScreen(entry.sourceId, entry.url, entry.title, entry.thumbnailUrl))
+            }
+        }
+    }
+}
+
+/** The anime extension repositories: add one by its address, or take one away. */
+class AnimeReposScreen : Screen() {
+
+    @Composable
+    override fun Content() {
+        val context = LocalContext.current
+        val navigator = LocalNavigator.currentOrThrow
+        val graph = remember { context.appGraph }
+        val manager = graph.animeExtensionManager
+        val loading by manager.loading.collectAsState()
+        val repos by graph.sourcePreferences.animeRepos.collectPref()
+        var repoText by remember { mutableStateOf("") }
+        GlassBackdrop {
+            Column(Modifier.fillMaxSize()) {
+                ManhwaKit.TopBar(title = stringResource(ATMR.strings.anime_repos), onBack = navigator::pop)
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().glass(RoundedCornerShape(18.dp), alpha = 0.5f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (repos.isEmpty()) Text(stringResource(ATMR.strings.anime_repos_info), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
+                    repos.forEach { repo ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(repo, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            IconButton(onClick = { manager.removeRepo(repo) }) { Icon(MaterialSymbols.Rounded.Delete, null, tint = ManhwaInk.muted) }
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ManhwaKit.SearchField(repoText, stringResource(ATMR.strings.anime_repo_hint), onValueChange = { repoText = it }, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        ManhwaKit.IconOrb(MaterialSymbols.Rounded.Add, active = true) {
+                            if (manager.addRepo(repoText)) repoText = "" else context.toast(ATMR.strings.anime_repo_bad)
+                        }
+                    }
+                    if (loading) Text(stringResource(ATMR.strings.anime_loading), style = MaterialTheme.typography.labelSmall, color = ManhwaInk.muted)
+                }
             }
         }
     }

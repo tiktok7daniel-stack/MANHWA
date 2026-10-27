@@ -50,6 +50,10 @@ fun HistoryScreen(
     onClickResume: (mangaId: Long, chapterId: Long) -> Unit,
     onClickFavorite: (mangaId: Long) -> Unit,
     onDialogChange: (HistoryViewModel.Dialog?) -> Unit,
+    // MANHWA: the history has three sides, manhwa, novels and anime; [other] draws the novels' and the anime's
+    kind: Int = 0,
+    onKind: (Int) -> Unit = {},
+    other: @Composable (kind: Int, padding: androidx.compose.foundation.layout.PaddingValues) -> Unit = { _, _ -> },
 ) {
     GlassBackdrop {
     Scaffold(
@@ -93,8 +97,11 @@ fun HistoryScreen(
             }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-    ) { contentPadding ->
-        state.list.let {
+    ) { outerPadding ->
+      eu.kanade.tachiyomi.novel.MediaSwitch(kind, onKind, outerPadding) { contentPadding ->
+        if (kind != eu.kanade.tachiyomi.novel.KIND_MANGA) {
+            other(kind, contentPadding)
+        } else state.list.let {
             if (it == null) {
                 LoadingScreen(Modifier.padding(contentPadding))
             } else if (it.isEmpty()) {
@@ -118,6 +125,7 @@ fun HistoryScreen(
                 )
             }
         }
+      }
     }
     }
 }

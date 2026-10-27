@@ -44,15 +44,7 @@ object SettingsAppearanceScreen : SearchableSettings {
         val uiPreferences = remember { context.appGraph.uiPreferences }
 
         return listOf(
-            // MANHWA: the app's system first (a whole different app inside the app), then the look of the original
-            Preference.PreferenceGroup(
-                title = stringResource(ATMR.strings.system_title),
-                preferenceItems = listOf(
-                    Preference.PreferenceItem.CustomPreference(title = stringResource(ATMR.strings.system_title)) {
-                        eu.kanade.tachiyomi.ui.nova.AppSystemPicker()
-                    },
-                ),
-            ),
+            // MANHWA: one system and one look only, at the reader's request (the others are no longer offered)
             // MANHWA: the home-screen icon and the opening
             Preference.PreferenceGroup(
                 title = stringResource(ATMR.strings.logo_title),
@@ -78,38 +70,6 @@ object SettingsAppearanceScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_theme),
             preferenceItems = listOf(
-                // MANHWA: the look of the whole app (MANHWA Glass or Obsidian Royal); the colour below works with both
-                Preference.PreferenceItem.CustomPreference(
-                    title = stringResource(ATMR.strings.app_look_title),
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(ATMR.strings.style_sub),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
-                        ManhwaStylePicker(
-                            style = ManhwaStyle.of(styleName),
-                            light = light,
-                            onStyle = { uiPreferences.manhwaStyle.set(it.name) },
-                            onLight = { uiPreferences.manhwaStyleLight.set(it) },
-                            glassName = stringResource(ATMR.strings.style_glass),
-                            obsidianName = stringResource(ATMR.strings.style_obsidian),
-                            darkName = stringResource(ATMR.strings.style_dark),
-                            lightName = stringResource(ATMR.strings.style_light),
-                            newer = listOf(
-                                Triple(ManhwaStyle.AURORA, stringResource(ATMR.strings.style_aurora), stringResource(ATMR.strings.style_aurora_sub)),
-                                Triple(ManhwaStyle.INK, stringResource(ATMR.strings.style_ink), stringResource(ATMR.strings.style_ink_sub)),
-                                Triple(ManhwaStyle.HOLO, stringResource(ATMR.strings.style_holo), stringResource(ATMR.strings.style_holo_sub)),
-                                Triple(ManhwaStyle.SLATE, stringResource(ATMR.strings.style_slate), stringResource(ATMR.strings.style_slate_sub)),
-                                Triple(ManhwaStyle.DOCK, stringResource(ATMR.strings.style_dock), stringResource(ATMR.strings.style_dock_sub)),
-                                Triple(ManhwaStyle.TACTILE, stringResource(ATMR.strings.style_tactile), stringResource(ATMR.strings.style_tactile_sub)),
-                                Triple(ManhwaStyle.HUNTER, stringResource(ATMR.strings.style_hunter), stringResource(ATMR.strings.style_hunter_sub)),
-                            ),
-                        )
-                    }
-                },
                 Preference.PreferenceItem.CustomPreference(
                     title = stringResource(MR.strings.theme_danghwa),
                 ) {

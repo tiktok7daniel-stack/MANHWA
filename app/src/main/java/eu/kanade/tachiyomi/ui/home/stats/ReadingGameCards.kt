@@ -86,6 +86,11 @@ fun hunterColor(rank: ReadingLevels.HunterRank): Color = when (rank) {
     ReadingLevels.HunterRank.A -> Color(0xFFFF8A3D)
     ReadingLevels.HunterRank.S -> Color(0xFFFFD54A)
     ReadingLevels.HunterRank.MONARCH -> Color(0xFF9D7CFF)
+    ReadingLevels.HunterRank.NATIONAL -> Color(0xFFFF4D6D)
+    ReadingLevels.HunterRank.SHADOW_MONARCH -> Color(0xFF6C5CE7)
+    ReadingLevels.HunterRank.RULER -> Color(0xFF00E5FF)
+    ReadingLevels.HunterRank.ABSOLUTE -> Color(0xFFFFFFFF)
+    ReadingLevels.HunterRank.OUTER_GOD -> Color(0xFFFF00C8)
 }
 
 fun hunterTitle(rank: ReadingLevels.HunterRank): String = when (rank) {
@@ -96,6 +101,11 @@ fun hunterTitle(rank: ReadingLevels.HunterRank): String = when (rank) {
     ReadingLevels.HunterRank.A -> "A-Rank Hunter"
     ReadingLevels.HunterRank.S -> "S-Rank Hunter"
     ReadingLevels.HunterRank.MONARCH -> "S-Rank Monarch"
+    ReadingLevels.HunterRank.NATIONAL -> "National-Level Hunter"
+    ReadingLevels.HunterRank.SHADOW_MONARCH -> "Shadow Monarch"
+    ReadingLevels.HunterRank.RULER -> "Ruler"
+    ReadingLevels.HunterRank.ABSOLUTE -> "Absolute Being"
+    ReadingLevels.HunterRank.OUTER_GOD -> "Outer God"
 }
 
 @Composable

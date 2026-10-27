@@ -114,6 +114,12 @@ object ReadingLevels {
         A(1200),
         S(2500),
         MONARCH(5000),
+        // MANHWA: past the Monarch, for readers who never stop
+        NATIONAL(10000),
+        SHADOW_MONARCH(16000),
+        RULER(25000),
+        ABSOLUTE(40000),
+        OUTER_GOD(65000),
         ;
 
         val nextAt: Int? get() = entries.getOrNull(ordinal + 1)?.from

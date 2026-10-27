@@ -42,7 +42,8 @@ fun rememberAppSystem(): AppSystem {
     val context = LocalContext.current
     val pref = remember { context.appGraph.uiPreferences.appSystem }
     val name by pref.collectAsState()
-    return AppSystem.of(name)
+    // MANHWA: only the original system is used now; Nova and Inkverse stay in the code, unused
+    return AppSystem.CLASSIC.also { name }
 }
 
 /** The systems side by side, each with a small picture of its home; a tap changes the whole app at once. */

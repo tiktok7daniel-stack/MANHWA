@@ -93,6 +93,7 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.MenuBook
+import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Search
@@ -237,6 +238,7 @@ fun NovelSourcesList(contentPadding: PaddingValues) {
 @Composable
 fun NovelExtensionsList(contentPadding: PaddingValues, query: String?) {
     val context = LocalContext.current
+    val navigator = LocalNavigator.currentOrThrow
     val scope = rememberCoroutineScope()
     val manager = remember { context.appGraph.novelExtensionManager }
     val installed by manager.installed.collectAsState()
@@ -266,34 +268,33 @@ fun NovelExtensionsList(contentPadding: PaddingValues, query: String?) {
         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = contentPadding.calculateTopPadding() + 8.dp, bottom = contentPadding.calculateBottomPadding() + 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // The repositories live behind the menu (as the manhwa extension stores do)
         item(key = "repos") {
-            Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(20.dp), alpha = 0.35f).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(ATMR.strings.novel_repos), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(stringResource(ATMR.strings.novel_repos_hint), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
-                repos.forEach { repo ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(MaterialSymbols.Rounded.Public, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(repo, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { manager.removeRepo(repo); repos = manager.repos() }) {
-                            Icon(MaterialSymbols.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-                if (NovelExtensionManager.IREADER_REPO !in repos) {
-                    ManhwaKit.NeonButton(stringResource(ATMR.strings.novel_add_ireader), modifier = Modifier.fillMaxWidth(), icon = MaterialSymbols.Rounded.Add) {
-                        manager.addRepo(NovelExtensionManager.IREADER_REPO)
-                        repos = manager.repos()
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ManhwaKit.SearchField(repoText, stringResource(ATMR.strings.novel_repo_hint), onValueChange = { repoText = it }, modifier = Modifier.weight(1f))
-                    Spacer(Modifier.width(8.dp))
-                    ManhwaKit.IconOrb(MaterialSymbols.Rounded.Add, active = true) {
-                        if (manager.addRepo(repoText)) {
-                            repoText = ""
+            var menu by remember { mutableStateOf(false) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { Section(stringResource(ATMR.strings.novel_repos)) }
+                if (repos.isEmpty()) {
+                    Text(
+                        stringResource(ATMR.strings.novel_add_ireader),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).clickable {
+                            manager.addRepo(NovelExtensionManager.IREADER_REPO)
                             repos = manager.repos()
-                        }
+                        }.padding(8.dp),
+                    )
+                }
+                Box {
+                    IconButton(onClick = { menu = true }) { Icon(MaterialSymbols.Rounded.MoreVert, null) }
+                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(ATMR.strings.novel_repos)) },
+                            onClick = {
+                                menu = false
+                                navigator.push(NovelReposScreen())
+                            },
+                        )
                     }
                 }
             }
@@ -830,8 +831,9 @@ fun NovelLibraryContent(contentPadding: PaddingValues, navigator: Navigator) {
     val library by store.library.collectAsState()
     val progress by store.progress.collectAsState()
     val favorites = remember(library) { store.favorites() }
-    val reading = remember(library, progress) { store.history().take(12) }
-    if (favorites.isEmpty() && reading.isEmpty()) {
+    // The library holds only the novels with a heart; what was read lives in the history
+    val reading = emptyList<Pair<NovelEntry, NovelProgress>>()
+    if (favorites.isEmpty()) {
         EmptyNovels(contentPadding, stringResource(ATMR.strings.novel_library_empty))
         return
     }
@@ -903,3 +905,77 @@ fun NovelFavoriteMark(on: Boolean) {
     }
 }
 
+
+/** The novels read, newest first, each opening where it was left (the history's novel side). */
+@Composable
+fun NovelHistoryContent(contentPadding: PaddingValues, navigator: Navigator) {
+    val context = LocalContext.current
+    val store = remember { context.appGraph.novelStore }
+    val library by store.library.collectAsState()
+    val progress by store.progress.collectAsState()
+    val history = remember(library, progress) { store.history() }
+    if (history.isEmpty()) {
+        EmptyNovels(contentPadding, stringResource(ATMR.strings.novel_history_empty))
+        return
+    }
+    LazyColumn(
+        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = contentPadding.calculateTopPadding() + 8.dp, bottom = contentPadding.calculateBottomPadding() + 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(history, key = { it.first.key }) { (novel, p) ->
+            Box(Modifier.fillMaxWidth()) {
+                ContinueCard(novel, p) { navigator.push(NovelReaderScreen(novel.sourceId, novel.url, p.chapterUrl)) }
+            }
+        }
+    }
+}
+
+/** The novel extension repositories: IReader's in one tap, one of your own by its address, or take one away. */
+class NovelReposScreen : Screen() {
+
+    @Composable
+    override fun Content() {
+        val context = LocalContext.current
+        val navigator = LocalNavigator.currentOrThrow
+        val manager = remember { context.appGraph.novelExtensionManager }
+        var repoText by remember { mutableStateOf("") }
+        var repos by remember { mutableStateOf(manager.repos()) }
+        GlassBackdrop {
+            Column(Modifier.fillMaxSize()) {
+                ManhwaKit.TopBar(title = stringResource(ATMR.strings.novel_repos), onBack = navigator::pop)
+                Box(Modifier.padding(horizontal = 14.dp)) {
+                    Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(20.dp), alpha = 0.35f).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(stringResource(ATMR.strings.novel_repos), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(stringResource(ATMR.strings.novel_repos_hint), style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
+                        repos.forEach { repo ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(MaterialSymbols.Rounded.Public, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(repo, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                IconButton(onClick = { manager.removeRepo(repo); repos = manager.repos() }) {
+                                    Icon(MaterialSymbols.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                        if (NovelExtensionManager.IREADER_REPO !in repos) {
+                            ManhwaKit.NeonButton(stringResource(ATMR.strings.novel_add_ireader), modifier = Modifier.fillMaxWidth(), icon = MaterialSymbols.Rounded.Add) {
+                                manager.addRepo(NovelExtensionManager.IREADER_REPO)
+                                repos = manager.repos()
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ManhwaKit.SearchField(repoText, stringResource(ATMR.strings.novel_repo_hint), onValueChange = { repoText = it }, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            ManhwaKit.IconOrb(MaterialSymbols.Rounded.Add, active = true) {
+                                if (manager.addRepo(repoText)) {
+                                    repoText = ""
+                                    repos = manager.repos()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

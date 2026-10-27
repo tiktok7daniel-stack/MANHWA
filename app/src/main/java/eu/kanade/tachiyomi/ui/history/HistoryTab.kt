@@ -8,6 +8,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -64,6 +65,7 @@ data object HistoryTab : Tab {
         val context = LocalContext.current
         val viewModel = metroViewModel<HistoryViewModel>()
         val state by viewModel.state.collectAsStateWithLifecycle()
+        var kind by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(eu.kanade.tachiyomi.novel.KIND_MANGA) }
 
         HistoryScreen(
             state = state,
@@ -73,6 +75,15 @@ data object HistoryTab : Tab {
             onClickResume = viewModel::getNextChapterForManga,
             onDialogChange = viewModel::setDialog,
             onClickFavorite = viewModel::addFavorite,
+            kind = kind,
+            onKind = { kind = it },
+            other = { k, padding ->
+                if (k == eu.kanade.tachiyomi.novel.KIND_NOVEL) {
+                    eu.kanade.tachiyomi.novel.NovelHistoryContent(padding, navigator)
+                } else {
+                    eu.kanade.tachiyomi.anime.AnimeHistoryContent(padding, navigator)
+                }
+            },
         )
 
         val onDismissRequest = { viewModel.setDialog(null) }

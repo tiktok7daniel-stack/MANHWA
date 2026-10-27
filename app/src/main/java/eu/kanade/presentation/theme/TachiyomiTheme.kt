@@ -37,8 +37,9 @@ fun TachiyomiTheme(
         appTheme = appTheme ?: uiPreferences.appTheme.get(),
         isAmoled = amoled ?: uiPreferences.themeDarkAmoled.get(),
         accent = accent,
-        style = ManhwaStyle.of(styleName),
-        light = light,
+        // MANHWA: the original look only (the other looks are no longer offered; the saved choice is kept untouched)
+        style = ManhwaStyle.GLASS,
+        light = false,
         content = content,
     )
 }

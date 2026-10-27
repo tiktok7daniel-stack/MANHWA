@@ -430,16 +430,7 @@ class ReaderActivity : BaseActivity() {
                     .navigationBarsPadding()
                     .padding(end = 14.dp, bottom = if (state.menuVisible) 150.dp else 40.dp),
             )
-            // MANHWA read along: a floating button on the left, out of the way of the orb on the right
-            eu.kanade.translation.speech.ReadAlongButton(
-                on = speakFollow,
-                speaking = speaking,
-                onToggle = { setSpeakFollow(!speakFollow) },
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .navigationBarsPadding()
-                    .padding(start = 14.dp, bottom = if (state.menuVisible) 150.dp else 40.dp),
-            )
+            // MANHWA read along: its floating button was taken away at the reader's request (the switch stays in the HUD)
             // MANHWA quick HUD, the long press chip and the smart focus line
             if (hudOpen) {
                 Box(Modifier.matchParentSize().pointerInput(Unit) { detectTapGestures { hudOpen = false } })

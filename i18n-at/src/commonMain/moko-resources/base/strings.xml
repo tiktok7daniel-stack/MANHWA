@@ -1580,4 +1580,6 @@
     <string name="wn_readalong_b">A floating headphones button in the reader: on, every page you reach has its bubbles read aloud while you read, in every chapter. Drag it out of the way.</string>
     <string name="wn_readarabic_t">Arabic pages read aloud</string>
     <string name="wn_readarabic_b">Pages already in Arabic are read straight from the picture, on the phone, no AI and no internet once the small model is in; translated pages are read in their translation. The voice is the one picked for the novels.</string>
+    <string name="novel_history_empty">No novel read yet.</string>
+    <string name="anime_history_empty">No anime watched yet.</string>
 </resources>
