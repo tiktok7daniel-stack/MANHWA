@@ -1858,4 +1858,24 @@
     <string name="wn_effects_t">Living effects</string>
     <string name="wn_effects_b">Blue fire, glowing eyes, lightning, a star warp, an energy orb, plasma, a magic circle, beams, spirits and embers, behind the cover or over the page, in any colour, pulsing with the song\'s real beat. Tap the title to pick them.</string>
     <string name="tour_titlelook_s4">Below, pick an effect behind the cover and one on the page, their colour, and whether they move with the music.</string>
+    <string name="effect_aurora">Aurora</string>
+    <string name="effect_galaxy">Galaxy</string>
+    <string name="effect_sakura">Sakura</string>
+    <string name="effect_snow">Snow</string>
+    <string name="effect_rain">Rain</string>
+    <string name="effect_bokeh">Bokeh lights</string>
+    <string name="effect_shockwave">Shockwave</string>
+    <string name="effect_blackhole">Black hole</string>
+    <string name="effect_fireflies">Fireflies</string>
+    <string name="effect_smoke">Smoke</string>
+    <string name="effect_daily">Every day</string>
+    <string name="look_finish">Frame finish</string>
+    <string name="look_font_arabic">Arabic fonts</string>
+    <string name="look_arabic_sample">البداية بعد النهاية</string>
+    <string name="wn_frames100_t">A hundred frames, drawn</string>
+    <string name="wn_frames100_b">The picture frames are gone: a hundred new ones drawn in code, ten shapes in ten finishes, sharp at any size and alive: gems breathe, light runs round the edge, wings beat, flames flicker. Pick the shape, then the finish.</string>
+    <string name="wn_arfonts_t">42 Arabic fonts</string>
+    <string name="wn_arfonts_b">Ruqaa, Kufi, Naskh, Nastaliq and more for Arabic titles; an Arabic title gets one by itself.</string>
+    <string name="wn_mixes_t">70 effects and a daily mix</string>
+    <string name="wn_mixes_b">Ten new effects (aurora, galaxy, sakura, snow, rain, bokeh, shockwave, black hole, fireflies, smoke), fifty mixes of two, and \'Every day\': a new mix by itself each day.</string>
 </resources>

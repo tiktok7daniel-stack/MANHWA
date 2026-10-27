@@ -1,13 +1,12 @@
 package eu.kanade.presentation.manga.components
 
-import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,8 +53,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -66,7 +63,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.icerock.moko.resources.StringResource
-import eu.kanade.tachiyomi.R
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
 import tachiyomi.i18n.at.ATMR
@@ -75,12 +71,12 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * MANHWA: a plate a title sits on: its picture, whether its face is light (dark letters on it), and the part of it
- * the letters go in, as fractions of its width and height.
+ * MANHWA: a plate a title sits on: one of the hundred drawn frames (or none), whether its face is light (dark letters
+ * on it), and the part of it the letters go in, as fractions of its width and height.
  */
 data class TitlePlate(
     val key: String,
-    @DrawableRes val res: Int?,
+    val drawn: DrawnFrame?,
     val lightFace: Boolean,
     val left: Float = 0.14f,
     val right: Float = 0.86f,
@@ -88,30 +84,44 @@ data class TitlePlate(
     val bottom: Float = 0.72f,
 ) {
     companion object {
-        val all = listOf(
-            TitlePlate("THORN", R.drawable.music_plate_thorn, true),
-            TitlePlate("VIOLET", R.drawable.music_plate_violet, true),
-            TitlePlate("CRYSTAL", R.drawable.music_plate_crystal, true, left = 0.06f, right = 0.78f),
-            TitlePlate("GOLD", R.drawable.music_plate_gold, false, left = 0.08f, right = 0.92f, top = 0.42f, bottom = 0.86f),
-            TitlePlate("STAR1", R.drawable.music_plate_star1, false, left = 0.08f, right = 0.92f, top = 0.2f, bottom = 0.8f),
-            TitlePlate("STAR2", R.drawable.music_plate_star2, true, left = 0.08f, right = 0.92f, top = 0.2f, bottom = 0.85f),
-            TitlePlate("STAR3", R.drawable.music_plate_star3, true, left = 0.08f, right = 0.92f, top = 0.18f, bottom = 0.82f),
-            TitlePlate("STAR4", R.drawable.music_plate_star4, true, left = 0.08f, right = 0.92f, top = 0.25f, bottom = 0.75f),
-            TitlePlate("SHIELD", R.drawable.music_plate_shield, false, left = 0.36f, right = 0.92f, top = 0.2f, bottom = 0.8f),
-            TitlePlate("ANTLER", R.drawable.music_plate_antler, false, left = 0.16f, right = 0.84f, top = 0.25f, bottom = 0.78f),
-            TitlePlate("STONE", R.drawable.music_plate_stone, false, left = 0.1f, right = 0.9f, top = 0.18f, bottom = 0.82f),
-            TitlePlate("FLAME", R.drawable.music_plate_flame, true, left = 0.12f, right = 0.88f, top = 0.34f, bottom = 0.66f),
-            TitlePlate("ROYAL", R.drawable.music_plate_royal, true, left = 0.15f, right = 0.85f, top = 0.3f, bottom = 0.7f),
-            TitlePlate("STORM", R.drawable.music_plate_storm, false, left = 0.14f, right = 0.86f, top = 0.3f, bottom = 0.7f),
-            TitlePlate("NONE", null, false, left = 0.06f, right = 0.94f, top = 0.1f, bottom = 0.9f),
+        /** The hundred frames: every shape in every finish, shapes kept together. */
+        val drawnFrames: List<TitlePlate> = FrameShape.entries.flatMap { shape ->
+            FramePalette.entries.map { pal ->
+                val f = DrawnFrame(shape, pal)
+                TitlePlate(f.key, f, pal.lightFace, shape.left, shape.right, shape.top, shape.bottom)
+            }
+        }
+
+        val all: List<TitlePlate> = drawnFrames + TitlePlate("NONE", null, false, left = 0.06f, right = 0.94f, top = 0.1f, bottom = 0.9f)
+
+        /** The picture plates of earlier versions, now drawn: a work or song that had one keeps the nearest look. */
+        private val legacy = mapOf(
+            "THORN" to "F_THORN_SHADOW",
+            "VIOLET" to "F_ROYAL_VIOLET",
+            "CRYSTAL" to "F_CRYSTAL_SILVER",
+            "GOLD" to "F_CRYSTAL_GOLD",
+            "STAR1" to "F_CELESTIAL_VIOLET",
+            "STAR2" to "F_CELESTIAL_ICE",
+            "STAR3" to "F_ROYAL_PEARL",
+            "STAR4" to "F_ROYAL_SUN",
+            "SHIELD" to "F_BLADE_SILVER",
+            "ANTLER" to "F_THORN_GOLD",
+            "STONE" to "F_GOTHIC_SHADOW",
+            "FLAME" to "F_FLAME_SUN",
+            "ROYAL" to "F_GOTHIC_GOLD",
+            "STORM" to "F_NEON_ICE",
         )
 
-        fun of(key: String?): TitlePlate? = all.firstOrNull { it.key == key }
+        private val byKey = all.associateBy { it.key }
 
-        /** The plate a work gets until one is picked, different from work to work. */
+        fun of(key: String?): TitlePlate? = key?.let { byKey[legacy[it] ?: it] }
+
+        /** The frame a work gets until one is picked, different from work to work. */
         fun forWork(id: Long): TitlePlate {
-            val withPicture = all.filter { it.res != null }
-            return withPicture[(((id / 7) % withPicture.size + withPicture.size) % withPicture.size).toInt()]
+            val n = drawnFrames.size
+            // Spread over shapes first, so neighbouring works differ in shape, not just colour
+            val i = (((id * 7) % n + n) % n).toInt()
+            return drawnFrames[i]
         }
     }
 }
@@ -149,41 +159,41 @@ fun AnimatedPlate(
     val sweep by motion.animateFloat(-0.5f, 1.5f, infiniteRepeatable(tween(3200, easing = LinearEasing)), label = "sweep")
     val breathe by motion.animateFloat(0.35f, 0.75f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "breathe")
     val shine by motion.animateFloat(0f, 1f, infiniteRepeatable(tween(4000, easing = LinearEasing)), label = "shine")
+    val clock by motion.animateFloat(0f, 10_000f, infiniteRepeatable(tween(10_000_000, easing = LinearEasing)), label = "clock")
     BoxWithConstraints(
         modifier
             .fillMaxWidth()
             .height(height)
             .drawBehind {
+                // Light added onto the page behind it, so it can only brighten (it used to darken pale pages)
                 drawOval(
-                    Brush.radialGradient(listOf(accent.copy(alpha = 0.45f * breathe), Color.Transparent), radius = size.width * 0.55f),
+                    Brush.radialGradient(listOf((plate.drawn?.palette?.glow ?: accent).copy(alpha = 0.3f * breathe), Color.Transparent), radius = size.width * 0.5f),
                     topLeft = Offset(-size.width * 0.05f, -size.height * 0.2f),
                     size = androidx.compose.ui.geometry.Size(size.width * 1.1f, size.height * 1.4f),
+                    blendMode = BlendMode.Plus,
                 )
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (plate.res != null) {
-            Image(
-                painterResource(plate.res),
-                contentDescription = null,
-                contentScale = ContentScale.FillBounds,
-                modifier = Modifier
+        if (plate.drawn != null) {
+            Canvas(
+                Modifier
                     .fillMaxSize()
                     .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                     .drawWithContent {
                         drawContent()
-                        // The light only lands on the plate: drawn atop what is already there
+                        // The light only lands on the frame: drawn atop what is already there
                         val x = size.width * sweep
                         drawRect(
                             Brush.linearGradient(
-                                listOf(Color.Transparent, Color.White.copy(alpha = 0.55f), Color.Transparent),
+                                listOf(Color.Transparent, Color.White.copy(alpha = 0.45f), Color.Transparent),
                                 start = Offset(x - size.width * 0.18f, 0f),
                                 end = Offset(x + size.width * 0.18f, size.height),
                             ),
                             blendMode = BlendMode.SrcAtop,
                         )
                     },
-            )
+            ) { drawFrame(plate.drawn, clock) }
         } else {
             Box(
                 Modifier
@@ -245,12 +255,12 @@ fun TitleLookDialog(
     onMotion: (CoverMotion) -> Unit,
     onPlate: (TitlePlate) -> Unit,
     onFont: (TitleFonts.Entry) -> Unit,
-    coverEffect: WorkEffect,
-    pageEffect: WorkEffect,
+    coverEffect: String?,
+    pageEffect: String?,
     effectColor: EffectColor,
     effectBeat: Boolean,
-    onCoverEffect: (WorkEffect) -> Unit,
-    onPageEffect: (WorkEffect) -> Unit,
+    onCoverEffect: (String) -> Unit,
+    onPageEffect: (String) -> Unit,
     onEffectColor: (EffectColor) -> Unit,
     onEffectBeat: (Boolean) -> Unit,
     onDismiss: () -> Unit,
@@ -285,6 +295,7 @@ fun TitleLookDialog(
                     .padding(horizontal = 18.dp)
                     .graphicsLayer { translationY = sin(float * 2 * PI).toFloat() * 4.dp.toPx() },
             )
+            val arabicSample = stringResource(ATMR.strings.look_arabic_sample)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(14.dp),
@@ -309,23 +320,19 @@ fun TitleLookDialog(
                         }
                     }
                 }
+                // The hundred frames: first the shape (in the finish picked), then the finish (in the shape picked)
+                val current = plate.drawn
+                val finish = current?.palette ?: FramePalette.GOLD
+                val shapeNow = current?.shape
                 item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_plate), accent) }
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(TitlePlate.all, key = { it.key }) { p ->
-                            Box(
-                                Modifier
-                                    .size(width = 150.dp, height = 70.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color.White.copy(alpha = 0.04f))
-                                    .border(if (p == plate) 2.dp else 1.dp, if (p == plate) accent else Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp))
-                                    .clickable { onPlate(p) }
-                                    .padding(4.dp),
-                            ) {
-                                AnimatedPlate(title, p, font.family, accent, height = 62.dp, maxFont = 16)
-                            }
-                        }
-                    }
+                    val choices = FrameShape.entries.mapNotNull { TitlePlate.of(DrawnFrame(it, finish).key) } + listOfNotNull(TitlePlate.of("NONE"))
+                    PlateRow(choices, plate, title, font, accent, onPlate)
+                }
+                item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_finish), accent) }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    val choices = FramePalette.entries.mapNotNull { TitlePlate.of(DrawnFrame(shapeNow ?: FrameShape.ROYAL, it).key) }
+                    PlateRow(choices, plate, title, font, accent, onPlate)
                 }
                 // MANHWA effects: each choice shows itself, live
                 val tint = effectColor.color ?: accent
@@ -383,26 +390,16 @@ fun TitleLookDialog(
                         }
                     }
                 }
-                item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(ATMR.strings.look_font), accent) }
-                items(TitleFonts.all, key = { it.key }) { f ->
-                    val on = f.key == font.key
-                    Column(
-                        Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (on) accent.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
-                            .border(if (on) 2.dp else 1.dp, if (on) accent else Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-                            .clickable { onFont(f) }
-                            .padding(10.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        BasicText(
-                            title,
-                            style = TextStyle(fontFamily = f.family, color = Color.White, textAlign = TextAlign.Center),
-                            maxLines = 2,
-                            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 22.sp),
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                        )
-                        Text(f.label, color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp, maxLines = 1)
+                // Arabic fonts first for an Arabic title, the Latin ones first otherwise
+                val arabicTitle = TitleFonts.isArabic(title)
+                val groups = listOf(
+                    ATMR.strings.look_font_arabic to TitleFonts.arabic,
+                    ATMR.strings.look_font to TitleFonts.all,
+                ).let { if (arabicTitle) it else it.reversed() }
+                groups.forEach { (label, fonts) ->
+                    item(span = { GridItemSpan(maxLineSpan) }) { Section(stringResource(label), accent) }
+                    items(fonts, key = { it.key }) { f ->
+                        FontTile(f, if (f.arabic && !arabicTitle) arabicSample else title, f.key == font.key, accent) { onFont(f) }
                     }
                 }
             }
@@ -410,31 +407,96 @@ fun TitleLookDialog(
     }
 }
 
-/** The effects side by side, each one playing in its tile. */
+/** A font, shown with the title (or an Arabic sample for an Arabic font on a Latin title). */
 @Composable
-private fun EffectRow(current: WorkEffect, tint: Color, accent: Color, onPick: (WorkEffect) -> Unit) {
+private fun FontTile(f: TitleFonts.Entry, sample: String, on: Boolean, accent: Color, onPick: () -> Unit) {
+    Column(
+        Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (on) accent.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
+            .border(if (on) 2.dp else 1.dp, if (on) accent else Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+            .clickable(onClick = onPick)
+            .padding(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        BasicText(
+            sample,
+            style = TextStyle(fontFamily = f.family, color = Color.White, textAlign = TextAlign.Center),
+            maxLines = 2,
+            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 22.sp),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+        )
+        Text(f.label, color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp, maxLines = 1)
+    }
+}
+
+/** Frames side by side, each with the title on it. */
+@Composable
+private fun PlateRow(
+    choices: List<TitlePlate>,
+    current: TitlePlate,
+    title: String,
+    font: TitleFonts.Entry,
+    accent: Color,
+    onPlate: (TitlePlate) -> Unit,
+) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(WorkEffect.entries) { e ->
-            val on = e == current
+        items(choices, key = { it.key }) { p ->
+            val on = p.key == current.key
+            Box(
+                Modifier
+                    .size(width = 170.dp, height = 78.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White.copy(alpha = 0.04f))
+                    .border(if (on) 2.dp else 1.dp, if (on) accent else Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp))
+                    .clickable { onPlate(p) }
+                    .padding(4.dp),
+            ) {
+                AnimatedPlate(title, p, font.family, accent, height = 70.dp, maxFont = 16)
+            }
+        }
+    }
+}
+
+/**
+ * The effects side by side, each one playing in its tile: none, each effect alone, "every day" (a new mix by itself
+ * each day), and the fifty mixes.
+ */
+@Composable
+private fun EffectRow(current: String?, tint: Color, accent: Color, onPick: (String) -> Unit) {
+    val selected = current ?: WorkEffect.NONE.name
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(EffectChoice.keys, key = { it }) { key ->
+            val on = key == selected
+            val shown = remember(key) { EffectChoice.resolve(key, 0L) }
             Column(
                 Modifier
                     .width(104.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color.Black)
                     .border(if (on) 2.dp else 1.dp, if (on) accent else Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                    .clickable { onPick(e) },
+                    .clickable { onPick(key) },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.fillMaxWidth().height(104.dp), contentAlignment = Alignment.Center) {
-                    EffectLayer(e, tint, Modifier.fillMaxSize())
+                    EffectLayers(shown, tint, Modifier.fillMaxSize())
+                }
+                val label = when {
+                    key == EffectChoice.DAILY -> stringResource(ATMR.strings.effect_daily)
+                    key.startsWith("MIX_") -> {
+                        val (a, b) = EffectChoice.mixes[key.removePrefix("MIX_").toInt()]
+                        stringResource(a.label) + " + " + stringResource(b.label)
+                    }
+                    else -> stringResource(WorkEffect.of(key).label)
                 }
                 Text(
-                    stringResource(e.label),
+                    label,
                     color = if (on) accent else Color.White.copy(alpha = 0.8f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 6.dp, end = 6.dp, bottom = 8.dp),
                 )
             }
         }

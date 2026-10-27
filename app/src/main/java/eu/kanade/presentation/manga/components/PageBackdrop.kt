@@ -96,7 +96,7 @@ fun PageBackdrop(
     /** A picture of the reader's own, shown instead of [scene]. */
     custom: java.io.File? = null,
     /** A living effect over the scene, faint, in [effectColor] (the cover's when null), pulsing with [beat]. */
-    effect: WorkEffect = WorkEffect.NONE,
+    effect: List<WorkEffect> = emptyList(),
     effectColor: Color? = null,
     beat: () -> Float = { 0f },
     content: @Composable BoxScope.() -> Unit,
@@ -156,7 +156,7 @@ fun PageBackdrop(
                 )
             }
         }
-        EffectLayer(effect, effectColor ?: accent, Modifier.fillMaxSize(), strength = 0.5f, beat = beat)
+        EffectLayers(effect, effectColor ?: accent, Modifier.fillMaxSize(), strength = 0.5f, beat = beat)
         content()
     }
 }

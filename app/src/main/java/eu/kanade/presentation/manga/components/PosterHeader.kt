@@ -218,7 +218,7 @@ fun PosterHero(
     // MANHWA: the work's title look (frame, font) and how its cover moves, picked by the reader
     val lookStore = remember { eu.kanade.tachiyomi.music.MusicStore.get(context) }
     val look by remember(workId) { lookStore.lookFlow(workId) }.collectAsState(lookStore.work(workId))
-    val titleFont = TitleFonts.of(look.titleFont) ?: TitleFonts.forWork(workId)
+    val titleFont = TitleFonts.of(look.titleFont) ?: TitleFonts.forWork(workId, title)
     val titlePlate = TitlePlate.of(look.titlePlate) ?: TitlePlate.forWork(workId)
     val coverMotion = CoverMotion.of(look.motion)
     val effects = rememberWorkEffects(workId)
@@ -233,12 +233,12 @@ fun PosterHero(
             onMotion = { lookStore.setTitleLook(workId, motion = it.name) },
             onPlate = { lookStore.setTitleLook(workId, plate = it.key) },
             onFont = { lookStore.setTitleLook(workId, font = it.key) },
-            coverEffect = effects.cover,
-            pageEffect = effects.page,
+            coverEffect = effects.coverKey,
+            pageEffect = effects.pageKey,
             effectColor = EffectColor.of(look.effectColor),
             effectBeat = look.effectBeat,
-            onCoverEffect = { lookStore.setEffects(workId, cover = it.name) },
-            onPageEffect = { lookStore.setEffects(workId, page = it.name) },
+            onCoverEffect = { lookStore.setEffects(workId, cover = it) },
+            onPageEffect = { lookStore.setEffects(workId, page = it) },
             onEffectColor = { lookStore.setEffects(workId, color = it.name) },
             onEffectBeat = { lookStore.setEffects(workId, beat = it) },
             onDismiss = { lookOpen = false },
@@ -345,7 +345,7 @@ fun PosterHero(
                 val beatLevel by animateFloatAsState(if (beatOn) 1f else 0f, tween(600), label = "beat")
                 val beat by motion.animateFloat(0f, 1000f, infiniteRepeatable(tween(1_000_000, easing = LinearEasing)), label = "beatClock")
                 // MANHWA: the effect picked for this work, round and behind the cover
-                EffectLayer(
+                EffectLayers(
                     effects.cover,
                     effects.color ?: accent,
                     Modifier.fillMaxSize().graphicsLayer { alpha = back },

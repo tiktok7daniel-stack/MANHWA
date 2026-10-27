@@ -870,19 +870,29 @@ private fun EditSong(song: MusicStore.Track, accent: Color, onDismiss: () -> Uni
                 OutlinedTextField(title, { title = it }, label = { Text(stringResource(ATMR.strings.music_song_title)) }, singleLine = true)
                 OutlinedTextField(artist, { artist = it }, label = { Text(stringResource(ATMR.strings.music_artist)) }, singleLine = true)
                 Text(stringResource(ATMR.strings.music_plate), fontWeight = FontWeight.Bold)
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    eu.kanade.presentation.manga.components.TitlePlate.all.map { it.key to it.res }.forEach { (key, res) ->
+                // MANHWA: the hundred drawn frames, each shown with the song's name on it
+                val plateKey = eu.kanade.presentation.manga.components.TitlePlate.of(live.plate)?.key
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(eu.kanade.presentation.manga.components.TitlePlate.all, key = { it.key }) { plate ->
+                        val on = plate.key == plateKey
                         Box(
                             Modifier
-                                .size(width = 64.dp, height = 40.dp)
+                                .size(width = 132.dp, height = 56.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color.White.copy(alpha = 0.06f))
-                                .border(if (live.plate == key) 2.dp else 1.dp, if (live.plate == key) accent else Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
-                                .clickable { store.edit(song.id) { it.copy(plate = key) } },
+                                .background(Color.Black.copy(alpha = 0.35f))
+                                .border(if (on) 2.dp else 1.dp, if (on) accent else Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                                .clickable { store.edit(song.id) { it.copy(plate = plate.key) } }
+                                .padding(2.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (res != null) Image(painterResource(res), null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(3.dp))
-                            else Text("—", color = Color.White)
+                            eu.kanade.presentation.manga.components.AnimatedPlate(
+                                text = live.title,
+                                plate = plate,
+                                font = androidx.compose.ui.text.font.FontFamily.Serif,
+                                accent = accent,
+                                height = 52.dp,
+                                maxFont = 12,
+                            )
                         }
                     }
                 }

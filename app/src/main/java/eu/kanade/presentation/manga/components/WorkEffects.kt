@@ -9,6 +9,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -53,6 +54,16 @@ enum class WorkEffect(val label: StringResource) {
     BEAMS(ATMR.strings.effect_beams),
     SPIRIT(ATMR.strings.effect_spirit),
     EMBERS(ATMR.strings.effect_embers),
+    AURORA(ATMR.strings.effect_aurora),
+    GALAXY(ATMR.strings.effect_galaxy),
+    SAKURA(ATMR.strings.effect_sakura),
+    SNOW(ATMR.strings.effect_snow),
+    RAIN(ATMR.strings.effect_rain),
+    BOKEH(ATMR.strings.effect_bokeh),
+    SHOCKWAVE(ATMR.strings.effect_shockwave),
+    BLACKHOLE(ATMR.strings.effect_blackhole),
+    FIREFLIES(ATMR.strings.effect_fireflies),
+    SMOKE(ATMR.strings.effect_smoke),
     ;
 
     companion object {
@@ -109,6 +120,16 @@ fun EffectLayer(
             WorkEffect.BEAMS -> beams(t, color, b, strength, seeds)
             WorkEffect.SPIRIT -> spirit(t, color, b, strength, seeds)
             WorkEffect.EMBERS -> embers(t, color, b, strength, seeds)
+            WorkEffect.AURORA -> aurora(t, color, b, strength)
+            WorkEffect.GALAXY -> galaxy(t, color, b, strength, seeds)
+            WorkEffect.SAKURA -> sakura(t, color, b, strength, seeds)
+            WorkEffect.SNOW -> snow(t, color, b, strength, seeds)
+            WorkEffect.RAIN -> rain(t, color, b, strength, seeds)
+            WorkEffect.BOKEH -> bokeh(t, color, b, strength, seeds)
+            WorkEffect.SHOCKWAVE -> shockwave(t, color, b, strength)
+            WorkEffect.BLACKHOLE -> blackHole(t, color, b, strength, seeds)
+            WorkEffect.FIREFLIES -> fireflies(t, color, b, strength, seeds)
+            WorkEffect.SMOKE -> smoke(t, color, b, strength, seeds)
         }
     }
 }
@@ -460,10 +481,272 @@ private fun DrawScope.embers(t: Float, c: Color, b: Float, k: Float, s: FloatArr
     }
 }
 
+// ------------------------------------------------------------------------------------------------ Aurora
+
+private fun DrawScope.aurora(t: Float, c: Color, b: Float, k: Float) {
+    val w = size.width
+    val h = size.height
+    // Curtains of light: tall soft bands that ripple sideways and shift in colour
+    for (band in 0 until 3) {
+        val tone = if (band == 1) white(c, 0.35f) else lerp(c, Color(0xFF2BFF88), 0.25f * band)
+        val steps = 48
+        for (i in 0 until steps) {
+            val f = i / (steps - 1f)
+            val x = w * f
+            val y = h * (0.28f + 0.1f * band) + sin(f * 6f + t * (0.6f + band * 0.2f)) * h * 0.06f + sin(f * 13f - t) * h * 0.02f
+            val tall = h * (0.22f + 0.12f * sin(f * 9f + t * 1.3f + band)) * (1f + 0.3f * b)
+            val a = (0.10f + 0.08f * sin(f * 20f + t * 2f + band)) * k
+            drawLine(
+                Brush.verticalGradient(listOf(Color.Transparent, tone.copy(alpha = a.coerceAtLeast(0f)), tone.copy(alpha = a * 0.3f), Color.Transparent), y - tall, y + tall * 0.4f),
+                Offset(x, y - tall),
+                Offset(x, y + tall * 0.4f),
+                strokeWidth = w / steps * 1.6f,
+                blendMode = BlendMode.Plus,
+            )
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Galaxy
+
+private fun DrawScope.galaxy(t: Float, c: Color, b: Float, k: Float, s: FloatArray) {
+    val center = Offset(size.width / 2, size.height / 2)
+    val reach = min(size.width, size.height) * 0.48f
+    glow(center, reach * 0.9f, c, 0.3f * k)
+    // Two spiral arms of stars, turning slowly
+    for (i in 0 until 260) {
+        val arm = i % 2
+        val d = s[i]
+        val r = reach * d.pow(0.7f)
+        val a = d * 7f + arm * PI.toFloat() + t * 0.25f + (s[i + 260] - 0.5f) * 0.6f
+        val p = center + Offset(cos(a), sin(a) * 0.55f) * r
+        val tone = if (d < 0.25f) white(c, 0.8f) else if (i % 5 == 0) white(c, 0.5f) else c
+        val tw = 0.6f + 0.4f * sin(t * 3f + i)
+        drawCircle(tone.copy(alpha = ((1f - d) * 0.8f * tw * k).coerceIn(0f, 1f)), 0.8f + 1.8f * s[i + 520] * (1f + 0.4f * b), p, blendMode = BlendMode.Plus)
+    }
+    glow(center, reach * 0.18f * (1f + 0.4f * b), Color.White, 0.8f * k)
+}
+
+// ------------------------------------------------------------------------------------------------ Sakura
+
+private fun DrawScope.sakura(t: Float, c: Color, b: Float, k: Float, s: FloatArray) {
+    val w = size.width
+    val h = size.height
+    for (i in 0 until 46) {
+        val life = 6f + 6f * s[i]
+        val age = fract(t / life + s[i + 46])
+        val x = w * fract(s[i + 92] + age * 0.35f) + sin(t * (1f + s[i + 138]) + i) * w * 0.06f
+        val y = h * (-0.05f + age * 1.1f)
+        val r = (5f + 7f * s[i + 184]) * (1f + 0.3f * b)
+        val spin = t * (60f + 80f * s[i + 230]) + i * 40f
+        val flip = abs(cos(t * (1.5f + s[i + 276]) + i))
+        rotate(spin, Offset(x, y)) {
+            val petal = Path().apply {
+                moveTo(x, y - r)
+                quadraticTo(x + r * flip, y - r * 0.2f, x, y + r)
+                quadraticTo(x - r * flip, y - r * 0.2f, x, y - r)
+                close()
+            }
+            drawPath(petal, Brush.verticalGradient(listOf(white(c, 0.75f).copy(alpha = 0.95f * k), c.copy(alpha = 0.85f * k)), y - r, y + r))
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Snow
+
+private fun DrawScope.snow(t: Float, c: Color, b: Float, k: Float, s: FloatArray) {
+    val w = size.width
+    val h = size.height
+    for (i in 0 until 110) {
+        val depth = s[i]
+        val life = 5f + 9f * (1f - depth)
+        val age = fract(t / life + s[i + 110])
+        val x = w * s[i + 220] + sin(t * (0.6f + s[i + 330]) + i) * w * 0.04f * (0.5f + depth)
+        val y = h * (-0.03f + age * 1.06f)
+        val r = 1f + 3.2f * depth
+        glow(Offset(x, y), r * 3f, white(c, 0.7f), (0.35f + 0.3f * depth) * k * (1f + 0.4f * b))
+        drawCircle(Color.White.copy(alpha = (0.6f + 0.4f * depth) * k), r, Offset(x, y))
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Rain
+
+private fun DrawScope.rain(t: Float, c: Color, b: Float, k: Float, s: FloatArray) {
+    val w = size.width
+    val h = size.height
+    val slant = w * 0.04f
+    for (i in 0 until 120) {
+        val speed = 1.2f + s[i]
+        val age = fract(t * speed * 0.8f + s[i + 120])
+        val x = w * s[i + 240] - slant * age
+        val y = h * (-0.1f + age * 1.2f)
+        val len = h * (0.04f + 0.05f * s[i + 360]) * (1f + 0.5f * b)
+        drawLine(
+            Brush.verticalGradient(listOf(Color.Transparent, white(c, 0.5f).copy(alpha = 0.6f * k)), y - len, y),
+            Offset(x + slant * 0.05f, y - len),
+            Offset(x, y),
+            strokeWidth = 1.2f + 0.8f * s[i + 480],
+            cap = StrokeCap.Round,
+            blendMode = BlendMode.Plus,
+        )
+        // A splash ring where it lands
+        if (age > 0.92f) {
+            val g = (age - 0.92f) / 0.08f
+            drawCircle(c.copy(alpha = (1f - g) * 0.4f * k), 3f + g * 10f, Offset(x, h * 0.98f), style = Stroke(1f), blendMode = BlendMode.Plus)
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Bokeh
+
+private fun DrawScope.bokeh(t: Float, c: Color, b: Float, k: Float, s: FloatArray) {
+    val w = size.width
+    val h = size.height
+    for (i in 0 until 26) {
+        val x = w * fract(s[i] + t * 0.01f * (s[i + 26] - 0.5f))
+        val y = h * fract(s[i + 52] - t * 0.015f * (0.3f + s[i + 78]))
+        val r = min(w, h) * (0.04f + 0.09f * s[i + 104]) * (1f + 0.15f * b)
+        val tone = if (i % 3 == 0) white(c, 0.5f) else c
+        val a = (0.12f + 0.12f * sin(t * (0.8f + s[i + 130]) + i)) * k
+        drawCircle(tone.copy(alpha = a.coerceAtLeast(0f)), r, Offset(x, y), blendMode = BlendMode.Plus)
+        drawCircle(tone.copy(alpha = (a * 1.6f).coerceIn(0f, 1f)), r, Offset(x, y), style = Stroke(1.4f), blendMode = BlendMode.Plus)
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Shockwave
+
+private fun DrawScope.shockwave(t: Float, c: Color, b: Float, k: Float) {
+    val center = Offset(size.width / 2, size.height / 2)
+    val far = maxOf(size.width, size.height) * 0.7f
+    // Rings rolling out from the middle, a new one on each beat-like pulse
+    for (i in 0 until 4) {
+        val g = fract(t * 0.45f + i * 0.25f)
+        val r = far * g
+        val a = (1f - g) * k * (0.7f + 0.6f * b)
+        drawCircle(c.copy(alpha = (0.25f * a).coerceIn(0f, 1f)), r, center, style = Stroke(18f * (1f - g) + 2f), blendMode = BlendMode.Plus)
+        drawCircle(white(c, 0.6f).copy(alpha = (0.8f * a).coerceIn(0f, 1f)), r, center, style = Stroke(2.2f), blendMode = BlendMode.Plus)
+    }
+    glow(center, far * 0.2f * (1f + 0.6f * b), white(c, 0.5f), 0.6f * k)
+}
+
+// ------------------------------------------------------------------------------------------------ Black hole
+
+private fun DrawScope.blackHole(t: Float, c: Color, b: Float, k: Float, s: FloatArray) {
+    val center = Offset(size.width / 2, size.height / 2)
+    val r = min(size.width, size.height) * 0.16f * (1f + 0.08f * b)
+    glow(center, r * 4.5f, c, 0.35f * k)
+    // Matter spiralling in
+    for (i in 0 until 150) {
+        val life = 2.5f + 2.5f * s[i]
+        val age = fract(t / life + s[i + 150])
+        val dist = r * (1.1f + 3.2f * (1f - age))
+        val a = s[i + 300] * 2f * PI.toFloat() + age * 5f
+        val p = center + Offset(cos(a), sin(a) * 0.45f) * dist
+        val tone = if (age > 0.7f) white(c, 0.7f) else c
+        drawCircle(tone.copy(alpha = (age * 0.9f * k).coerceIn(0f, 1f)), 1f + 1.6f * s[i + 450], p, blendMode = BlendMode.Plus)
+    }
+    // The bright ring and the dark heart
+    rotate(t * 30f, center) {
+        drawOval(
+            Brush.sweepGradient(listOf(white(c, 0.8f), c, Color.Transparent, c, white(c, 0.8f)), center),
+            topLeft = center - Offset(r * 1.9f, r * 0.55f),
+            size = androidx.compose.ui.geometry.Size(r * 3.8f, r * 1.1f),
+            style = Stroke(r * 0.18f),
+            blendMode = BlendMode.Plus,
+        )
+    }
+    drawCircle(Color.Black, r, center)
+    drawCircle(white(c, 0.6f).copy(alpha = 0.9f * k), r * 1.04f, center, style = Stroke(r * 0.08f), blendMode = BlendMode.Plus)
+}
+
+// ------------------------------------------------------------------------------------------------ Fireflies
+
+private fun DrawScope.fireflies(t: Float, c: Color, b: Float, k: Float, s: FloatArray) {
+    val w = size.width
+    val h = size.height
+    for (i in 0 until 34) {
+        val x = w * (s[i] + 0.08f * sin(t * (0.3f + 0.4f * s[i + 34]) + i * 2f))
+        val y = h * (s[i + 68] + 0.08f * cos(t * (0.25f + 0.4f * s[i + 102]) + i))
+        val blink = (0.5f + 0.5f * sin(t * (1.2f + 2f * s[i + 136]) + i * 3f)).let { it * it }
+        val tone = lerp(c, Color(0xFFFFF59D), 0.35f)
+        glow(Offset(x, y), 14f + 10f * b, tone, blink * 0.7f * k)
+        drawCircle(Color.White.copy(alpha = blink * 0.9f * k), 1.8f, Offset(x, y), blendMode = BlendMode.Plus)
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ Smoke
+
+private fun DrawScope.smoke(t: Float, c: Color, b: Float, k: Float, s: FloatArray) {
+    val w = size.width
+    val h = size.height
+    // Soft puffs rising and spreading, overlapping into drifting smoke
+    for (i in 0 until 40) {
+        val life = 5f + 4f * s[i]
+        val age = fract(t / life + s[i + 40])
+        val x = w * (0.2f + 0.6f * s[i + 80]) + sin(t * 0.7f + i) * w * 0.08f * age
+        val y = h * (1.05f - age * 0.95f)
+        val r = min(w, h) * (0.08f + 0.22f * age) * (1f + 0.2f * b)
+        val a = sin(age * PI.toFloat()) * 0.22f * k
+        glow(Offset(x, y), r, if (i % 4 == 0) white(c, 0.4f) else c, a)
+    }
+}
+
+/**
+ * MANHWA: what can be picked for a spot: one effect, one of the fifty mixes (two effects layered), or "every day"
+ * (a different mix each day, chosen by itself). Stored as a key: the effect's name, `MIX_<n>`, or `DAILY`.
+ */
+object EffectChoice {
+    const val DAILY = "DAILY"
+    private val bases = WorkEffect.entries.filter { it != WorkEffect.NONE }
+
+    /** The fifty mixes: pairs of different effects, the same ones in the same order on every phone. */
+    val mixes: List<Pair<WorkEffect, WorkEffect>> by lazy {
+        val pairs = bases.indices.flatMap { i -> (i + 1 until bases.size).map { j -> bases[i] to bases[j] } }
+        pairs.shuffled(Random(2026)).take(MIXES)
+    }
+
+    const val MIXES = 50
+
+    fun mixKey(i: Int) = "MIX_$i"
+
+    /** Every key a picker offers: none, the effects one by one, every day, then the mixes. */
+    val keys: List<String> by lazy {
+        listOf(WorkEffect.NONE.name) + bases.map { it.name } + DAILY + (0 until MIXES).map(::mixKey)
+    }
+
+    /** The effects [key] stands for today, for the work [workId]. */
+    fun resolve(key: String?, workId: Long, day: Long = java.time.LocalDate.now().toEpochDay()): List<WorkEffect> {
+        if (key == null) return emptyList()
+        if (key == DAILY) {
+            val i = ((day * 31 + workId) % MIXES + MIXES) % MIXES
+            return mixes[i.toInt()].toList()
+        }
+        if (key.startsWith("MIX_")) {
+            return key.removePrefix("MIX_").toIntOrNull()?.let { mixes.getOrNull(it) }?.toList().orEmpty()
+        }
+        return listOf(WorkEffect.of(key)).filter { it != WorkEffect.NONE }
+    }
+}
+
+/** Several effects layered, each a little softer so together they stay clear. */
+@Composable
+fun EffectLayers(
+    effects: List<WorkEffect>,
+    color: Color,
+    modifier: Modifier = Modifier,
+    strength: Float = 1f,
+    beat: () -> Float = { 0f },
+) {
+    val each = if (effects.size > 1) strength * 0.75f else strength
+    effects.forEach { EffectLayer(it, color, modifier, each, beat) }
+}
+
 /** A work's effects as picked: behind the cover, over the page, their colour, and the beat they follow. */
 class WorkEffects(
-    val cover: WorkEffect,
-    val page: WorkEffect,
+    val coverKey: String?,
+    val pageKey: String?,
+    val cover: List<WorkEffect>,
+    val page: List<WorkEffect>,
     val color: Color?,
     /** The song's beat if the effects are set to follow it, else 0. */
     val beat: () -> Float,
@@ -478,9 +761,18 @@ fun rememberWorkEffects(workId: Long): WorkEffects {
     val look by remember(workId) { store.lookFlow(workId) }.collectAsState(store.work(workId))
     val beat = rememberBeat(workId)
     val follow = look.effectBeat
+    // "Every day" moves on by itself when the date changes, also while the page stays open
+    val day by produceState(java.time.LocalDate.now().toEpochDay()) {
+        while (true) {
+            kotlinx.coroutines.delay(60_000)
+            value = java.time.LocalDate.now().toEpochDay()
+        }
+    }
     return WorkEffects(
-        cover = WorkEffect.of(look.coverEffect),
-        page = WorkEffect.of(look.pageEffect),
+        coverKey = look.coverEffect,
+        pageKey = look.pageEffect,
+        cover = remember(look.coverEffect, workId, day) { EffectChoice.resolve(look.coverEffect, workId, day) },
+        page = remember(look.pageEffect, workId, day) { EffectChoice.resolve(look.pageEffect, workId, day) },
         color = EffectColor.of(look.effectColor).color,
         beat = { if (follow) beat.value else 0f },
         rawBeat = { beat.value },

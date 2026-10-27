@@ -1799,4 +1799,24 @@
     <string name="wn_effects_t">تأثيرات حيّة</string>
     <string name="wn_effects_b">نار زرقا، وعيون منوّرة، وبرق، ونجوم طايرة، وكرة طاقة، وبلازما، ودايرة سحرية، وأشعة، وأرواح، وشرار. ورا الغلاف أو على الصفحة، بأي لون، وبتنبض على إيقاع الأغنية الحقيقي. دوس على الاسم واختار.</string>
     <string name="tour_titlelook_s4">تحت، اختار تأثير ورا الغلاف وتأثير على الصفحة، ولونهم، ولو يتحركوا مع الموسيقى.</string>
+    <string name="effect_aurora">شفق</string>
+    <string name="effect_galaxy">مجرّة</string>
+    <string name="effect_sakura">ساكورا</string>
+    <string name="effect_snow">تلج</string>
+    <string name="effect_rain">مطر</string>
+    <string name="effect_bokeh">أضواء بوكيه</string>
+    <string name="effect_shockwave">موجة صدمة</string>
+    <string name="effect_blackhole">ثقب أسود</string>
+    <string name="effect_fireflies">يراعات</string>
+    <string name="effect_smoke">دخان</string>
+    <string name="effect_daily">تلقائي كل يوم</string>
+    <string name="look_finish">لون الإطار</string>
+    <string name="look_font_arabic">خطوط عربية</string>
+    <string name="look_arabic_sample">البداية بعد النهاية</string>
+    <string name="wn_frames100_t">100 إطار مرسوم</string>
+    <string name="wn_frames100_b">إطارات الصور اتشالت، ومكانها 100 إطار جديد مرسوم بالكود: 10 أشكال في 10 ألوان، حادة على أي شاشة وحيّة: الجواهر بتنبض، والنور بيجري على الحافة، والأجنحة بترفرف، والنار بتتحرك. اختار الشكل وبعدين اللون.</string>
+    <string name="wn_arfonts_t">42 خط عربي</string>
+    <string name="wn_arfonts_b">رقعة وكوفي ونسخ ونستعليق وغيرهم للأسماء العربية، والاسم العربي بياخد خط عربي لوحده.</string>
+    <string name="wn_mixes_t">70 تأثير ومكس كل يوم</string>
+    <string name="wn_mixes_b">10 تأثيرات جديدة (شفق، مجرّة، ساكورا، تلج، مطر، بوكيه، موجة صدمة، ثقب أسود، يراعات، دخان)، و50 مكس من تأثيرين، و\'تلقائي كل يوم\': مكس جديد لوحده كل يوم.</string>
 </resources>
