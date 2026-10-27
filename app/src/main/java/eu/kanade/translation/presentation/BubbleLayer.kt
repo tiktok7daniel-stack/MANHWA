@@ -337,7 +337,12 @@ private class Typesetter(
         val cleaned = page.blocks.map { block -> union(lineRects(block)) }
         // MANHWA: lines the AI joined into a neighbour's translation (theirs came back empty) are covered with that
         // neighbour's bubble, so no original line is left showing
-        val kinds = page.blocks.map { BubbleKind.parse(it.kind) ?: BubbleKind.guess(it.text, it.translation) }
+        // MANHWA: letters on one plain colour (a white title on black, a red line on white) are erased and replaced,
+        // even when the AI called them art: only text drawn into a busy drawing keeps its caption under it
+        val kinds = page.blocks.map { block ->
+            val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
+            if (kind == BubbleKind.ART && block.plainBg) BubbleKind.SHOUT else kind
+        }
         val joined = eu.kanade.translation.live.TextKindRules.joinedLines(
             boxes = cleaned.map { floatArrayOf(it.left, it.top, it.right, it.bottom) },
             translated = page.blocks.mapIndexed { i, b ->

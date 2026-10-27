@@ -93,6 +93,10 @@ object PageImageProcessor {
             if (block.lines.isNotEmpty() && block.lines.all { it.bg != 0 }) continue
             block.lines = block.lineBoxes.map { line -> if (line.bg != 0) line else line.copy(bg = background(line, bitmap, s) ?: 0) }
             val colors = block.lines.map { it.bg }.filter { it != 0 }
+            // MANHWA: whether every line sits on one plain colour, of any lightness (a white title on black counts)
+            block.plainBg = colors.isNotEmpty() && colors.size == block.lines.size && block.lineBoxes.all { line ->
+                plainShare(line, bitmap, s) >= PLAIN_SHARE
+            } && colors.all { colorDistance(it, colors.first()) <= LETTER_DISTANCE }
             if (colors.isNotEmpty()) {
                 // The block colour is the one of most of its lines; the text colour reads well on it
                 val main = colors.groupingBy { it }.eachCount().maxBy { it.value }.key
@@ -223,6 +227,8 @@ object PageImageProcessor {
     }
 
     private const val LETTER_DISTANCE = 90
+    /** At least this share of a line's surroundings in its one background colour: the letters sit on a plain colour. */
+    private const val PLAIN_SHARE = 0.55f
     private const val OUTLINE_DISTANCE = 120
     private const val OUTLINE_SHARE = 0.15f
     private const val INK_MIN_PIXELS = 40
@@ -245,6 +251,16 @@ object PageImageProcessor {
         val b = ((line.bottom + padY(line.h) / 2) * s).roundToInt().coerceIn(0, bitmap.height - 1)
         if (r <= l || b <= t) return null
         return dominant(bitmap, l, t, r, b)?.first
+    }
+
+    /** The share of the line's surroundings that is its one background colour (0 when it cannot be read). */
+    private fun plainShare(line: LineBox, bitmap: Bitmap, s: Float): Float {
+        val l = ((line.x - padX(line.h) / 2) * s).roundToInt().coerceIn(0, bitmap.width - 1)
+        val r = ((line.right + padX(line.h) / 2) * s).roundToInt().coerceIn(0, bitmap.width - 1)
+        val t = ((line.y - padY(line.h) / 2) * s).roundToInt().coerceIn(0, bitmap.height - 1)
+        val b = ((line.bottom + padY(line.h) / 2) * s).roundToInt().coerceIn(0, bitmap.height - 1)
+        if (r <= l || b <= t) return 0f
+        return dominant(bitmap, l, t, r, b)?.second ?: 0f
     }
 
     /** Most common colour in a rect (4 bits per channel buckets, averaged), with the share of pixels it has. */

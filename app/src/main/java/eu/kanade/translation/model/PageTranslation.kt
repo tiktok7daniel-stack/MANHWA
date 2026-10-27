@@ -40,6 +40,8 @@ data class TranslationBlock(
     var textColor: Int = 0xFF000000.toInt(),
     // MANHWA: the colour of the original letters' outline (ARGB, 0 = none): the translation gets it too
     var strokeColor: Int = 0,
+    // MANHWA: the letters sit on one plain colour (light or dark): even a title the AI calls art is erased and replaced
+    var plainBg: Boolean = false,
     // MANHWA: how sure the OCR is of this reading (0..1, 1 for translations saved before it was kept)
     var ocrConfidence: Float = 1f,
     // Bubble kind from the AI: speech, shout, thought, narration, system or sfx ("" = unknown)

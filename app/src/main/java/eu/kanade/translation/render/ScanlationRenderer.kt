@@ -301,8 +301,9 @@ object ScanlationRenderer {
                 x < innerL || x >= innerR || y < innerT || y >= innerB
             }
             if (ring.size < 16) return false
-            val (bg, share) = dominant(ring.toIntArray()) ?: return false
-            return share >= ART_BUBBLE_SHARE && luminance(bg) >= ART_BUBBLE_LIGHT
+            val (_, share) = dominant(ring.toIntArray()) ?: return false
+            // MANHWA: any plain colour, light or dark (a white title on black is replaced too, not captioned)
+            return share >= ART_BUBBLE_SHARE || block.plainBg
         }
 
         /**
@@ -1008,7 +1009,6 @@ object ScanlationRenderer {
 
     // MANHWA: big letters count as a shout in a bubble when this much of the ring around them is one light colour
     private const val ART_BUBBLE_SHARE = 0.75f
-    private const val ART_BUBBLE_LIGHT = 200.0
 
     // MANHWA: how far (in line heights) an empty joined line may be from the bubble that took its words
     private const val JOINED_REACH = 1.5f
