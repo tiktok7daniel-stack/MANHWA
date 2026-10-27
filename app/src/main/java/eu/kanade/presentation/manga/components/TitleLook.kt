@@ -116,13 +116,9 @@ data class TitlePlate(
 
         fun of(key: String?): TitlePlate? = key?.let { byKey[legacy[it] ?: it] }
 
-        /** The frame a work gets until one is picked, different from work to work. */
-        fun forWork(id: Long): TitlePlate {
-            val n = drawnFrames.size
-            // Spread over shapes first, so neighbouring works differ in shape, not just colour
-            val i = (((id * 7) % n + n) % n).toInt()
-            return drawnFrames[i]
-        }
+        /** The frame a work gets until the reader picks one: the plain one (the reader dresses each work up). */
+        @Suppress("UNUSED_PARAMETER")
+        fun forWork(id: Long): TitlePlate = all.last()
     }
 }
 

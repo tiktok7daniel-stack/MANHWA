@@ -714,8 +714,14 @@ object EffectChoice {
         listOf(WorkEffect.NONE.name) + bases.map { it.name } + DAILY + (0 until MIXES).map(::mixKey)
     }
 
+    /** The hour (local time) at which "every day" moves on to the next mix. */
+    const val CHANGE_HOUR = 6L
+
+    /** Today's number for "every day": it turns over at [CHANGE_HOUR], not at midnight. */
+    fun today(): Long = java.time.LocalDateTime.now().minusHours(CHANGE_HOUR).toLocalDate().toEpochDay()
+
     /** The effects [key] stands for today, for the work [workId]. */
-    fun resolve(key: String?, workId: Long, day: Long = java.time.LocalDate.now().toEpochDay()): List<WorkEffect> {
+    fun resolve(key: String?, workId: Long, day: Long = today()): List<WorkEffect> {
         if (key == null) return emptyList()
         if (key == DAILY) {
             val i = ((day * 31 + workId) % MIXES + MIXES) % MIXES
@@ -761,17 +767,19 @@ fun rememberWorkEffects(workId: Long): WorkEffects {
     val look by remember(workId) { store.lookFlow(workId) }.collectAsState(store.work(workId))
     val beat = rememberBeat(workId)
     val follow = look.effectBeat
-    // "Every day" moves on by itself when the date changes, also while the page stays open
-    val day by produceState(java.time.LocalDate.now().toEpochDay()) {
+    // "Every day" moves on by itself at the change hour, also while the page stays open
+    val day by produceState(EffectChoice.today()) {
         while (true) {
             kotlinx.coroutines.delay(60_000)
-            value = java.time.LocalDate.now().toEpochDay()
+            value = EffectChoice.today()
         }
     }
+    // Until the reader picks, two effects sit behind every cover by themselves: a mix of its own, new each day
+    val coverKey = look.coverEffect ?: EffectChoice.DAILY
     return WorkEffects(
-        coverKey = look.coverEffect,
+        coverKey = coverKey,
         pageKey = look.pageEffect,
-        cover = remember(look.coverEffect, workId, day) { EffectChoice.resolve(look.coverEffect, workId, day) },
+        cover = remember(coverKey, workId, day) { EffectChoice.resolve(coverKey, workId, day) },
         page = remember(look.pageEffect, workId, day) { EffectChoice.resolve(look.pageEffect, workId, day) },
         color = EffectColor.of(look.effectColor).color,
         beat = { if (follow) beat.value else 0f },
