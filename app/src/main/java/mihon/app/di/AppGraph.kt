@@ -153,6 +153,7 @@ interface AppGraph : ViewModelGraph {
     val javaScriptEngine: JavaScriptEngine
 
     val getFavorites: GetFavorites
+    val getLibraryManga: tachiyomi.domain.manga.interactor.GetLibraryManga
     val getCategories: GetCategories
     val resetViewerFlags: ResetViewerFlags
     val resetCategoryFlags: ResetCategoryFlags

@@ -17,6 +17,9 @@ class LibraryPreferences(
     private val preferenceStore: PreferenceStore,
 ) {
 
+    /** MANHWA: unread chapters show only their number, so their titles never give the story away. */
+    val noSpoilers: Preference<Boolean> = preferenceStore.getBoolean("manhwa_no_spoilers", false)
+
     /** MANHWA: the library as books standing on shelves, over whichever display mode is set. */
     val shelfView: Preference<Boolean> = preferenceStore.getBoolean("manhwa_library_shelf", false)
 

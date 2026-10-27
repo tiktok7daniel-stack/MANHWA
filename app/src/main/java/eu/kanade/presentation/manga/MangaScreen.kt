@@ -36,6 +36,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import tachiyomi.presentation.core.util.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,7 +67,9 @@ import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -477,6 +480,17 @@ private fun MangaScreenSmallImpl(
                     item(key = "manhwa_characters") {
                         eu.kanade.translation.characters.CharacterGallery(state.manga.id, state.manga.title)
                     }
+                    // MANHWA: the story map (key events and who is who), up to the last chapter read
+                    item(key = "manhwa_storymap") {
+                        val mapNavigator = cafe.adriel.voyager.navigator.LocalNavigator.current
+                        eu.kanade.presentation.components.ManhwaKit.NeonButton(
+                            text = stringResource(tachiyomi.i18n.at.ATMR.strings.storymap_open),
+                            icon = mihon.icons.materialsymbols.MaterialSymbols.Rounded.Group,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth(),
+                        ) {
+                            mapNavigator?.push(eu.kanade.translation.companion.StoryMapScreen(state.manga.id, state.manga.title))
+                        }
+                    }
                     // MANHWA: works like this one, from AniList's recommendations
                     item(key = "manhwa_similar") {
                         eu.kanade.translation.characters.SimilarWorksRow(state.manga.id, state.manga.title)
@@ -855,8 +869,13 @@ private fun LazyListScope.sharedChapterItems(
                 MissingChapterCountListItem(count = item.count)
             }
             is ChapterList.Item -> {
+                // MANHWA no-spoiler mode: an unread chapter is only its number
+                val spoilerContext = LocalContext.current
+                val noSpoilers by remember { spoilerContext.appGraph.libraryPreferences.noSpoilers }.collectAsState()
                 MangaChapterListItem(
-                    title = if (manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER) {
+                    title = if (manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER ||
+                        (noSpoilers && !item.chapter.read && item.chapter.chapterNumber >= 0)
+                    ) {
                         stringResource(
                             MR.strings.display_mode_chapter,
                             formatChapterNumber(item.chapter.chapterNumber),

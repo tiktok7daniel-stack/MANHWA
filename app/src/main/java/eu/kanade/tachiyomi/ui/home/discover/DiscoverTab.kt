@@ -135,6 +135,7 @@ import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.EditNote
+import mihon.icons.materialsymbols.rounded.Psychology
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Home
 import mihon.icons.materialsymbols.rounded.LocalLibrary
@@ -247,6 +248,9 @@ data object DiscoverTab : Tab {
                         },
                         MenuEntry(MaterialSymbols.Rounded.Schedule, stringResource(ATMR.strings.schedule_title)) {
                             closeDrawerThen { navigator.push(eu.kanade.tachiyomi.ui.home.schedule.ScheduleScreen()) }
+                        },
+                        MenuEntry(MaterialSymbols.Rounded.Psychology, stringResource(ATMR.strings.mood_title)) {
+                            closeDrawerThen { navigator.push(eu.kanade.tachiyomi.ui.home.mood.MoodScreen()) }
                         },
                         MenuEntry(MaterialSymbols.Rounded.EditNote, stringResource(ATMR.strings.notes_title)) {
                             closeDrawerThen { navigator.push(eu.kanade.tachiyomi.ui.reader.notes.PageNotesScreen()) }

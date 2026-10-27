@@ -248,6 +248,11 @@ private fun ColumnScope.DisplayPage(
             label = { Text(stringResource(tachiyomi.i18n.at.ATMR.strings.library_shelf)) },
         )
     }
+    // MANHWA: unread chapters show only their number
+    CheckboxItem(
+        label = stringResource(tachiyomi.i18n.at.ATMR.strings.no_spoilers),
+        pref = viewModel.libraryPreferences.noSpoilers,
+    )
 
     if (displayMode != LibraryDisplayMode.List) {
         val configuration = LocalConfiguration.current
