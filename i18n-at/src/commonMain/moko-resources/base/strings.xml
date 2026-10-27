@@ -1627,4 +1627,11 @@
     <string name="end_card_next">Next chapter</string>
     <string name="amoled_reading">AMOLED reading (pure black, softer whites)</string>
     <string name="reader_haptics">Haptics on page turn and chapter end</string>
+    <string name="notes_title">My notes</string>
+    <string name="notes_subtitle">Notes you left on pages</string>
+    <string name="notes_empty">No notes yet. Long-press a page in the reader and pick Add a note.</string>
+    <string name="notes_where">%1$s · %2$s · page %3$d</string>
+    <string name="notes_add">Add a note</string>
+    <string name="notes_hint">What do you want to remember about this page?</string>
+    <string name="notes_saved">Note saved</string>
 </resources>

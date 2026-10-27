@@ -134,6 +134,7 @@ import mihon.icons.materialsymbols.automirroredrounded.ArrowForward
 import mihon.icons.materialsymbols.rounded.AutoAwesome
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Download
+import mihon.icons.materialsymbols.rounded.EditNote
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Home
 import mihon.icons.materialsymbols.rounded.LocalLibrary
@@ -241,6 +242,9 @@ data object DiscoverTab : Tab {
                         MenuEntry(MaterialSymbols.Rounded.Download, stringResource(ATMR.strings.home_downloads)) {
                             closeDrawerThen { navigator.push(DownloadQueueScreen) }
                         },
+                        MenuEntry(MaterialSymbols.Rounded.EditNote, stringResource(ATMR.strings.notes_title)) {
+                            closeDrawerThen { navigator.push(eu.kanade.tachiyomi.ui.reader.notes.PageNotesScreen()) }
+                        },
                         MenuEntry(MaterialSymbols.Rounded.Public, stringResource(ATMR.strings.hub_title)) {
                             closeDrawerThen { openHub() }
                         },
@@ -263,10 +267,18 @@ data object DiscoverTab : Tab {
             },
         ) {
             GlassBackdrop {
+                // MANHWA: the pull draws a ring of light, and a short buzz says the refresh started
+                val pullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
+                val pullHaptics = androidx.compose.ui.platform.LocalHapticFeedback.current
                 PullToRefreshBox(
                     isRefreshing = state.refreshing,
-                    onRefresh = viewModel::refresh,
+                    onRefresh = {
+                        pullHaptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                        viewModel.refresh()
+                    },
                     modifier = Modifier.fillMaxSize(),
+                    state = pullState,
+                    indicator = { eu.kanade.presentation.components.GlowRefreshIndicator(pullState, state.refreshing) },
                 ) {
                     LazyColumn(
                         state = listState,

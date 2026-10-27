@@ -144,6 +144,9 @@ internal fun LibraryShelf(
                                             ),
                                     )
                                     val lm = item.libraryManga
+                                    if (lm.hasFreshChapter()) {
+                                        NewChapterGlow(Modifier.align(androidx.compose.ui.Alignment.TopEnd))
+                                    }
                                     if (lm.totalChapters > 0) {
                                         val done = (lm.readCount.toFloat() / lm.totalChapters).coerceIn(0f, 1f)
                                         Box(

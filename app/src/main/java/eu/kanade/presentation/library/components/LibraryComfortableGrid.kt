@@ -48,6 +48,8 @@ internal fun LibraryComfortableGrid(
                     UnreadBadge(count = libraryItem.badges.unreadCount)
                 },
                 coverBadgeEnd = {
+                    // MANHWA: a breathing dot when a chapter came out in the last two days
+                    if (libraryItem.libraryManga.hasFreshChapter()) NewChapterGlow()
                     LanguageBadge(
                         isLocal = libraryItem.badges.isLocal,
                         sourceLanguage = libraryItem.badges.sourceLanguage,

@@ -558,6 +558,7 @@ class ReaderActivity : BaseActivity() {
                     onSetAsCover = viewModel::setAsCover,
                     onShare = viewModel::shareImage,
                     onSave = viewModel::saveImage,
+                    onAddNote = { noteFor.value = (state.dialog as ReaderViewModel.Dialog.PageActions).page },
                     onSkipAlways = {
                         val page = (state.dialog as ReaderViewModel.Dialog.PageActions).page
                         lifecycleScope.launch(Dispatchers.IO) {
@@ -575,7 +576,38 @@ class ReaderActivity : BaseActivity() {
             }
             null -> {}
         }
+
+        // MANHWA: writing a note on a page
+        val notePage by noteFor.collectAsState()
+        notePage?.let { page ->
+            eu.kanade.tachiyomi.ui.reader.notes.PageNoteDialog(
+                onDismiss = { noteFor.value = null },
+                onSave = { text ->
+                    noteFor.value = null
+                    val manga = viewModel.state.value.manga
+                    val chapter = page.chapter.chapter
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        eu.kanade.tachiyomi.ui.reader.notes.PageNotes.add(
+                            this@ReaderActivity,
+                            eu.kanade.tachiyomi.ui.reader.notes.PageNote(
+                                id = System.currentTimeMillis(),
+                                mangaId = chapter.mangaId,
+                                mangaTitle = manga?.title.orEmpty(),
+                                chapterId = chapter.id,
+                                chapterName = chapter.name,
+                                page = page.index,
+                                text = text,
+                            ),
+                        )
+                        withContext(Dispatchers.Main) { toast(tachiyomi.i18n.at.ATMR.strings.notes_saved) }
+                    }
+                },
+            )
+        }
     }
+
+    /** MANHWA: the page a note is being written on. */
+    private val noteFor = MutableStateFlow<ReaderPage?>(null)
 
     /**
      * Called when the activity is destroyed. Cleans up the viewer, configuration and any view.
@@ -1085,7 +1117,19 @@ class ReaderActivity : BaseActivity() {
     fun onPageSelected(page: ReaderPage) {
         viewModel.onPageSelected(page)
         if (speakFollowPref.get()) followPage(page)
+        // MANHWA: a note left on this page shows as it comes up
+        val chapterId = page.chapter.chapter.id
+        if (chapterId != shownNoteChapter || page.index != shownNotePage) {
+            eu.kanade.tachiyomi.ui.reader.notes.PageNotes.on(this, chapterId, page.index).firstOrNull()?.let {
+                shownNoteChapter = chapterId
+                shownNotePage = page.index
+                toast(it.text, android.widget.Toast.LENGTH_LONG)
+            }
+        }
     }
+
+    private var shownNoteChapter = -1L
+    private var shownNotePage = -1
 
     /** MANHWA read along: the switch, kept for every chapter. */
     private val speakFollowPref by lazy { appGraph.translationPreferences.readerSpeakFollow() }

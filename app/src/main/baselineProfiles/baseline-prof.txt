@@ -31533,3 +31533,13 @@ Luy/kohesive/injekt/registry/default/DefaultRegistrar$NOKEY$1;
 HSPLuy/kohesive/injekt/registry/default/DefaultRegistrar$NOKEY$1;-><init>()V
 Luy/kohesive/injekt/registry/default/DefaultRegistrar$threadedValues$1;
 HSPLuy/kohesive/injekt/registry/default/DefaultRegistrar$threadedValues$1;-><init>()V
+HSPLeu/kanade/presentation/manga/components/PosterHeaderKt;->**(**)**
+HSPLeu/kanade/presentation/manga/components/CoverAuraKt;->**(**)**
+HSPLeu/kanade/presentation/components/CoverGlow;->**(**)**
+HSPLeu/kanade/presentation/components/CoverGlowKt;->**(**)**
+HSPLeu/kanade/presentation/components/SharedCoverKt;->**(**)**
+HSPLeu/kanade/presentation/components/ManhwaKit;->**(**)**
+HSPLeu/kanade/presentation/library/components/LibraryShelfKt;->**(**)**
+HSPLeu/kanade/presentation/library/components/CommonMangaItemKt;->**(**)**
+HSPLeu/kanade/tachiyomi/ui/home/**->**(**)**
+HSPLeu/kanade/presentation/reader/ChapterEndCardKt;->**(**)**

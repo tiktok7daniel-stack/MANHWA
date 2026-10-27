@@ -324,7 +324,11 @@ class ReaderViewModel(
             .distinctUntilChanged()
             .filterNotNull()
             .onEach { currentChapter ->
-                if (chapterPageIndex >= 0) {
+                val jump = eu.kanade.tachiyomi.ui.reader.notes.PageNotes.takeJump(currentChapter.chapter.id)
+                if (jump != null) {
+                    // MANHWA: opened from a page note, straight to its page
+                    currentChapter.requestedPage = jump
+                } else if (chapterPageIndex >= 0) {
                     // Restore from SavedState
                     currentChapter.requestedPage = chapterPageIndex
                 } else if (!currentChapter.chapter.read) {

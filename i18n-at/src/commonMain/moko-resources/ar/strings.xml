@@ -1568,4 +1568,11 @@
     <string name="end_card_next">الفصل الجاي</string>
     <string name="amoled_reading">قراءة AMOLED (أسود كامل وأبيض أهدى)</string>
     <string name="reader_haptics">اهتزاز خفيف مع قلب الصفحة وآخر الفصل</string>
+    <string name="notes_title">ملاحظاتي</string>
+    <string name="notes_subtitle">ملاحظات سبتها على الصفحات</string>
+    <string name="notes_empty">مفيش ملاحظات لسه. دوس مطوّل على أي صفحة في القارئ واختار أضف ملاحظة.</string>
+    <string name="notes_where">%1$s · %2$s · صفحة %3$d</string>
+    <string name="notes_add">أضف ملاحظة</string>
+    <string name="notes_hint">عايز تفتكر إيه عن الصفحة دي؟</string>
+    <string name="notes_saved">الملاحظة اتحفظت</string>
 </resources>

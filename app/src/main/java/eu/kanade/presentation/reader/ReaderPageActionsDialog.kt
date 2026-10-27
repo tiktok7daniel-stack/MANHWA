@@ -2,7 +2,6 @@ package eu.kanade.presentation.reader
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.ContentCopy
+import mihon.icons.materialsymbols.rounded.EditNote
 import mihon.icons.materialsymbols.rounded.Photo
 import mihon.icons.materialsymbols.rounded.Save
 import mihon.icons.materialsymbols.rounded.Share
@@ -35,6 +35,7 @@ fun ReaderPageActionsDialog(
     onShare: (Boolean) -> Unit,
     onSave: () -> Unit,
     onSkipAlways: (() -> Unit)? = null,
+    onAddNote: (() -> Unit)? = null,
 ) {
     var showSetCoverDialog by remember { mutableStateOf(false) }
 
@@ -77,17 +78,33 @@ fun ReaderPageActionsDialog(
                 },
             )
         }
-        // MANHWA: a group's credits or ads page, passed over from now on wherever it shows up
-        if (onSkipAlways != null) {
-            ActionButton(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                title = stringResource(ATMR.strings.credit_skip_always),
-                icon = MaterialSymbols.Rounded.SkipNext,
-                onClick = {
-                    onSkipAlways()
-                    onDismissRequest()
-                },
-            )
+        // MANHWA: a note on this page, and a group's credits or ads page passed over from now on
+        Row(
+            modifier = Modifier.padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        ) {
+            if (onAddNote != null) {
+                ActionButton(
+                    modifier = Modifier.weight(1f),
+                    title = stringResource(ATMR.strings.notes_add),
+                    icon = MaterialSymbols.Rounded.EditNote,
+                    onClick = {
+                        onAddNote()
+                        onDismissRequest()
+                    },
+                )
+            }
+            if (onSkipAlways != null) {
+                ActionButton(
+                    modifier = Modifier.weight(1f),
+                    title = stringResource(ATMR.strings.credit_skip_always),
+                    icon = MaterialSymbols.Rounded.SkipNext,
+                    onClick = {
+                        onSkipAlways()
+                        onDismissRequest()
+                    },
+                )
+            }
         }
     }
 
