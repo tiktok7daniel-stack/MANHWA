@@ -28,32 +28,37 @@ import eu.kanade.tachiyomi.R
 import kotlin.random.Random
 
 /** MANHWA: the families of cover colours a scene can go with. */
-enum class SceneFamily { BLUE, PURPLE, TEAL, GREEN, MONO }
+enum class SceneFamily { BLUE, PURPLE, TEAL, GREEN, WARM, MONO }
 
 /**
- * MANHWA: the scenes a work's page and its music player stand on (the reader's own pictures), each in a family of
- * cover colours. Works of the same colour get different scenes of that family, so pages don't all look the same.
+ * MANHWA: a scene a work's page and its music player stand on, in a family of cover colours: the reader's own
+ * pictures built in here, and the free ones fetched by tools/fetch_scenes.py ([GeneratedScenes]). Works of the same
+ * colour get different scenes of their family, so pages don't all look the same.
  */
-enum class BackdropScene(@DrawableRes val res: Int, val family: SceneFamily) {
-    COSMIC(R.drawable.music_bg_cosmic, SceneFamily.BLUE),
-    METEORS(R.drawable.music_bg_meteors, SceneFamily.BLUE),
-    BLUE_GATE(R.drawable.music_bg_bluegate, SceneFamily.BLUE),
-    BLUE_MOON(R.drawable.music_bg_bluemoon, SceneFamily.BLUE),
-    STORM(R.drawable.music_bg_storm, SceneFamily.PURPLE),
-    SAVAGE(R.drawable.music_bg_savage, SceneFamily.PURPLE),
-    VIOLET_MOON(R.drawable.music_bg_violetmoon, SceneFamily.PURPLE),
-    TEAL_MOON(R.drawable.music_bg_tealmoon, SceneFamily.TEAL),
-    TEMPLE(R.drawable.music_bg_temple, SceneFamily.TEAL),
-    ABYSS(R.drawable.music_bg_abyss, SceneFamily.TEAL),
-    PORTAL(R.drawable.music_bg_portal, SceneFamily.TEAL),
-    MIRRORS(R.drawable.music_bg_mirrors, SceneFamily.GREEN),
-    LAB(R.drawable.music_bg_lab, SceneFamily.GREEN),
-    GATE(R.drawable.music_bg_gate, SceneFamily.MONO),
-    ECLIPSE(R.drawable.music_bg_eclipse, SceneFamily.MONO),
-    RING(R.drawable.music_bg_ring, SceneFamily.MONO),
-    ;
+data class BackdropScene(val name: String, @DrawableRes val res: Int, val family: SceneFamily) {
 
     companion object {
+        private val builtIn = listOf(
+            BackdropScene("COSMIC", R.drawable.music_bg_cosmic, SceneFamily.BLUE),
+            BackdropScene("METEORS", R.drawable.music_bg_meteors, SceneFamily.BLUE),
+            BackdropScene("BLUE_GATE", R.drawable.music_bg_bluegate, SceneFamily.BLUE),
+            BackdropScene("BLUE_MOON", R.drawable.music_bg_bluemoon, SceneFamily.BLUE),
+            BackdropScene("STORM", R.drawable.music_bg_storm, SceneFamily.PURPLE),
+            BackdropScene("SAVAGE", R.drawable.music_bg_savage, SceneFamily.PURPLE),
+            BackdropScene("VIOLET_MOON", R.drawable.music_bg_violetmoon, SceneFamily.PURPLE),
+            BackdropScene("TEAL_MOON", R.drawable.music_bg_tealmoon, SceneFamily.TEAL),
+            BackdropScene("TEMPLE", R.drawable.music_bg_temple, SceneFamily.TEAL),
+            BackdropScene("ABYSS", R.drawable.music_bg_abyss, SceneFamily.TEAL),
+            BackdropScene("PORTAL", R.drawable.music_bg_portal, SceneFamily.TEAL),
+            BackdropScene("MIRRORS", R.drawable.music_bg_mirrors, SceneFamily.GREEN),
+            BackdropScene("LAB", R.drawable.music_bg_lab, SceneFamily.GREEN),
+            BackdropScene("GATE", R.drawable.music_bg_gate, SceneFamily.MONO),
+            BackdropScene("ECLIPSE", R.drawable.music_bg_eclipse, SceneFamily.MONO),
+            BackdropScene("RING", R.drawable.music_bg_ring, SceneFamily.MONO),
+        )
+
+        val entries: List<BackdropScene> by lazy { builtIn + GeneratedScenes.all }
+
         fun familyOf(color: Color?): SceneFamily {
             color ?: return SceneFamily.MONO
             val hsv = FloatArray(3)
@@ -64,14 +69,14 @@ enum class BackdropScene(@DrawableRes val res: Int, val family: SceneFamily) {
                 in 250f..335f -> SceneFamily.PURPLE
                 in 160f..200f -> SceneFamily.TEAL
                 in 70f..160f -> SceneFamily.GREEN
-                // Reds, oranges and yellows stand on the dark scenes, washed with their own colour
-                else -> SceneFamily.MONO
+                else -> SceneFamily.WARM
             }
         }
 
         /** The scene of a cover colour; [seed] (the work's id) picks among the scenes of that family. */
         fun forColor(color: Color?, seed: Long = 0L): BackdropScene {
-            val family = entries.filter { it.family == familyOf(color) }
+            // Reds, oranges and yellows without warm scenes of their own stand on the dark ones, washed with their colour
+            val family = entries.filter { it.family == familyOf(color) }.ifEmpty { entries.filter { it.family == SceneFamily.MONO } }
             return family[((seed % family.size + family.size) % family.size).toInt()]
         }
 

@@ -726,6 +726,12 @@ private fun Settings(mangaId: Long, work: MusicStore.WorkMusic, library: MusicSt
     val context = LocalContext.current
     val store = remember { MusicStore.get(context) }
     SectionTitle(stringResource(ATMR.strings.music_scene), accent)
+    // The scenes of the cover's colour come first
+    val coverColor = LocalCoverPalette.current?.primary
+    val scenes = remember(coverColor) {
+        val family = BackdropScene.familyOf(coverColor)
+        BackdropScene.entries.sortedBy { it.family != family }
+    }
     LazyRow(contentPadding = PaddingValues(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             SceneChip(null, work.scene == null, accent) { store.setScene(mangaId, null) }
@@ -737,7 +743,7 @@ private fun Settings(mangaId: Long, work: MusicStore.WorkMusic, library: MusicSt
                 store.deleteScene(value)
             }
         }
-        items(BackdropScene.entries) { scene ->
+        items(scenes, key = { it.name }) { scene ->
             SceneChip(scene, work.scene == scene.name, accent) { store.setScene(mangaId, scene.name) }
         }
         item {
