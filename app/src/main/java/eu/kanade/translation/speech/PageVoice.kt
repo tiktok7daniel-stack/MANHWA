@@ -175,13 +175,23 @@ class PageVoice(context: Context) {
                 return@launch stop()
             }
             val narrator = s.voiceNarrator.takeIf { id -> voices.any { it.id == id } }
+            // MANHWA: a voice per speaker when the page is translated (narrator, a man, a woman), else the narrator
+            val roles = BubbleRoles.readingOrder(page.translation).takeIf { it.size == bubbles.size }
+            val male = s.voiceMale.takeIf { id -> voices.any { it.id == id } } ?: narrator
+            val female = s.voiceFemale.takeIf { id -> voices.any { it.id == id } } ?: narrator
             voice.play(
-                paragraphs = bubbles.map { listOf(Line(it, Role.NARRATOR)) },
+                paragraphs = bubbles.mapIndexed { i, text -> listOf(Line(text, roles?.get(i)?.second ?: Role.NARRATOR)) },
                 from = 0,
                 language = language,
                 rate = s.ttsRate,
                 pitch = s.ttsPitch,
-                voiceFor = { narrator },
+                voiceFor = { role ->
+                    when (role) {
+                        Role.NARRATOR -> narrator
+                        Role.MALE -> male
+                        Role.FEMALE -> female
+                    }
+                },
                 onFinished = { scope.launch { if (_speaking.value) onPageDone?.invoke() } },
             )
         }

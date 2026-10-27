@@ -559,6 +559,7 @@ class ReaderActivity : BaseActivity() {
                     onShare = viewModel::shareImage,
                     onSave = viewModel::saveImage,
                     onAddNote = { noteFor.value = (state.dialog as ReaderViewModel.Dialog.PageActions).page },
+                    onWhoIsThis = { askWhoIsThis((state.dialog as ReaderViewModel.Dialog.PageActions).page) },
                     onSkipAlways = {
                         val page = (state.dialog as ReaderViewModel.Dialog.PageActions).page
                         lifecycleScope.launch(Dispatchers.IO) {
@@ -577,6 +578,17 @@ class ReaderActivity : BaseActivity() {
             null -> {}
         }
 
+        // MANHWA "who is this?"
+        val seen by whoSeen.collectAsState()
+        seen?.let { list ->
+            eu.kanade.translation.companion.WhoIsThisDialog(
+                seen = list,
+                onDismiss = {
+                    whoJob?.cancel()
+                    whoSeen.value = null
+                },
+            )
+        }
         // MANHWA: writing a note on a page
         val notePage by noteFor.collectAsState()
         notePage?.let { page ->
@@ -608,6 +620,41 @@ class ReaderActivity : BaseActivity() {
 
     /** MANHWA: the page a note is being written on. */
     private val noteFor = MutableStateFlow<ReaderPage?>(null)
+
+    /** MANHWA "who is this?": null when closed, an empty list while it looks, the names once found. */
+    private val whoSeen = MutableStateFlow<List<eu.kanade.translation.companion.WhoIsThis.Seen>?>(null)
+    private var whoJob: kotlinx.coroutines.Job? = null
+
+    private fun askWhoIsThis(page: ReaderPage) {
+        val manga = viewModel.state.value.manga ?: return
+        whoSeen.value = emptyList()
+        whoJob?.cancel()
+        whoJob = lifecycleScope.launch(Dispatchers.IO) {
+            val found = runCatching {
+                val bytes = page.stream?.invoke()?.use { it.readBytes() } ?: error("no page")
+                eu.kanade.translation.companion.WhoIsThis.ask(this@ReaderActivity, bytes, manga.id, manga.title)
+            }
+            withContext(Dispatchers.Main) {
+                found.onSuccess { list ->
+                    if (list.isEmpty()) {
+                        whoSeen.value = null
+                        toast(tachiyomi.i18n.at.ATMR.strings.who_none)
+                    } else {
+                        whoSeen.value = list
+                    }
+                }.onFailure {
+                    whoSeen.value = null
+                    toast(
+                        if (it is eu.kanade.translation.search.AiSearchAssistant.NotConfiguredException) {
+                            tachiyomi.i18n.at.ATMR.strings.storymap_need_ai
+                        } else {
+                            tachiyomi.i18n.at.ATMR.strings.who_failed
+                        },
+                    )
+                }
+            }
+        }
+    }
 
     /**
      * Called when the activity is destroyed. Cleans up the viewer, configuration and any view.

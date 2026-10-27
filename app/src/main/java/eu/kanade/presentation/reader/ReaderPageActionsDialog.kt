@@ -18,6 +18,7 @@ import eu.kanade.presentation.components.AdaptiveSheet
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.ContentCopy
 import mihon.icons.materialsymbols.rounded.EditNote
+import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.Photo
 import mihon.icons.materialsymbols.rounded.Save
 import mihon.icons.materialsymbols.rounded.Share
@@ -36,6 +37,7 @@ fun ReaderPageActionsDialog(
     onSave: () -> Unit,
     onSkipAlways: (() -> Unit)? = null,
     onAddNote: (() -> Unit)? = null,
+    onWhoIsThis: (() -> Unit)? = null,
 ) {
     var showSetCoverDialog by remember { mutableStateOf(false) }
 
@@ -90,6 +92,17 @@ fun ReaderPageActionsDialog(
                     icon = MaterialSymbols.Rounded.EditNote,
                     onClick = {
                         onAddNote()
+                        onDismissRequest()
+                    },
+                )
+            }
+            if (onWhoIsThis != null) {
+                ActionButton(
+                    modifier = Modifier.weight(1f),
+                    title = stringResource(ATMR.strings.who_title),
+                    icon = MaterialSymbols.Rounded.Group,
+                    onClick = {
+                        onWhoIsThis()
                         onDismissRequest()
                     },
                 )

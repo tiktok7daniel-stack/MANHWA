@@ -1663,4 +1663,8 @@
     <string name="poster_next_late">الفصل الجاي متأخر %1$d يوم</string>
     <string name="bubble_focus">فقاعة بفقاعة: قرّب على كل فقاعة (وضع الصفحات، الصفحات المترجمة)</string>
     <string name="cinema_mode">وضع السينما: يمشي لوحده فقاعة بفقاعة</string>
+    <string name="who_title">مين ده؟</string>
+    <string name="who_looking">ببص على الصفحة…</string>
+    <string name="who_none">مالقيتش شخصية معروفة في الصفحة دي</string>
+    <string name="who_failed">مقدرتش أقرا الصفحة دلوقتي</string>
 </resources>

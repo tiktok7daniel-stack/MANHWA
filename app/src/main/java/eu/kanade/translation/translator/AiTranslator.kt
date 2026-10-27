@@ -814,6 +814,10 @@ class AiTranslator(
     }
 
     /** Same as [askJson] but the model may search the web first. */
+    /** MANHWA: a JSON answer about a picture (a page), for keys whose model reads images. */
+    suspend fun askJsonWithImage(system: String, prompt: String, jpeg: ByteArray): JsonObject =
+        withRetry { parse(request(system, listOf(Part.Text(prompt), Part.Image(jpeg)))) }
+
     suspend fun askJsonWithWeb(system: String, prompt: String): JsonObject =
         withRetry { parse(request(system, listOf(Part.Text(prompt)), web = true)) }
 

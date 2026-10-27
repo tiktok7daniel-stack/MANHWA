@@ -1722,4 +1722,8 @@
     <string name="poster_next_late">Next chapter is %1$d days late</string>
     <string name="bubble_focus">Bubble by bubble: zoom onto each bubble (paged mode, translated pages)</string>
     <string name="cinema_mode">Cinema: move on by itself, bubble by bubble</string>
+    <string name="who_title">Who is this?</string>
+    <string name="who_looking">Looking at the page…</string>
+    <string name="who_none">No known character found on this page</string>
+    <string name="who_failed">Could not read the page now</string>
 </resources>
