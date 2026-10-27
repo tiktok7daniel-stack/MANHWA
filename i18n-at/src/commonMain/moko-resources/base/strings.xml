@@ -1778,8 +1778,8 @@
     <string name="music_tap_to_play">Tap to play</string>
     <string name="music_this_work">Songs of this manhwa</string>
     <string name="music_library">My songs</string>
-    <string name="music_empty">No songs yet. Tap to add songs from your phone: they play when you open this manhwa, even in its chapters.</string>
-    <string name="music_importing">Adding the songs…</string>
+    <string name="music_empty">No songs yet. Tap to add songs or videos from your phone (a TikTok video becomes a song): they play when you open this manhwa, even in its chapters.</string>
+    <string name="music_importing">Adding the songs (taking the sound out of videos)…</string>
     <string name="music_mode_next">In order</string>
     <string name="music_mode_one">Repeat</string>
     <string name="music_mode_shuffle">Shuffle</string>
@@ -1797,7 +1797,7 @@
     <string name="tour_music_t">Music for every manhwa</string>
     <string name="tour_music_b">Give each manhwa its own songs: they fade in when you open it, go on in its chapters, and fade out when you leave. A glass bar with a turning vinyl shows what plays; the full player turns your songs on a carousel, each in its frame.</string>
     <string name="tour_music_s1">Open a manhwa and tap the headphones button at the bottom.</string>
-    <string name="tour_music_s2">Tap + and pick songs from your phone: they are copied into the app.</string>
+    <string name="tour_music_s2">Tap + and pick songs or videos from your phone: a video (a TikTok clip, say) becomes a song with its own picture.</string>
     <string name="tour_music_s3">Pick In order, Repeat or Shuffle under the play button.</string>
     <string name="tour_music_s4">Tap the pen on a song to give it a picture, a title plate and the chrome frame.</string>
     <string name="tour_scene_t">A scene behind every manhwa</string>

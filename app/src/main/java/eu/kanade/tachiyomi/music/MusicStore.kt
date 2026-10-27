@@ -89,8 +89,20 @@ class MusicStore private constructor(private val context: Context) {
             } ?: "song"
             val ext = name.substringAfterLast('.', "mp3").take(5).lowercase()
             val id = UUID.randomUUID().toString()
-            val target = File(audioDir, "$id.$ext")
+            val isVideo = resolver.getType(uri)?.startsWith("video/") == true || ext in VIDEO_EXTENSIONS
+            var target = File(audioDir, "$id.$ext")
             resolver.openInputStream(uri)?.use { input -> target.outputStream().use { input.copyTo(it) } } ?: return@runCatching null
+            // MANHWA: a video (a TikTok clip, say) becomes a song: its sound is taken out as it is (no re-encoding), a
+            // frame of it becomes the song's picture, and the video itself is not kept
+            var videoFrame: ByteArray? = null
+            if (isVideo) {
+                videoFrame = VideoToAudio.frame(target)
+                val audio = File(audioDir, "$id.m4a")
+                if (VideoToAudio.extract(target, audio)) {
+                    target.delete()
+                    target = audio
+                }
+            }
             var title = name.substringBeforeLast('.')
             var artist = ""
             var duration = 0L
@@ -101,7 +113,7 @@ class MusicStore private constructor(private val context: Context) {
                     extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() }?.let { title = it }
                     extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)?.takeIf { it.isNotBlank() }?.let { artist = it }
                     duration = extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-                    embeddedPicture?.let { bytes ->
+                    (embeddedPicture ?: videoFrame)?.let { bytes ->
                         File(artDir, "$id.img").writeBytes(bytes)
                         cover = "$id.img"
                     }
@@ -194,6 +206,8 @@ class MusicStore private constructor(private val context: Context) {
     }
 
     companion object {
+        private val VIDEO_EXTENSIONS = setOf("mp4", "mov", "m4v", "webm", "3gp", "mkv")
+
         @Volatile
         private var instance: MusicStore? = null
 

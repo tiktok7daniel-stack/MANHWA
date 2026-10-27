@@ -119,6 +119,9 @@ import kotlin.math.sin
 
 private val Ink = Color(0xFF07070A)
 
+/** MANHWA: songs, and videos (a TikTok clip...) whose sound becomes a song. */
+private val SONG_TYPES = arrayOf("audio/*", "video/*")
+
 @Composable
 private fun accentOf(palette: CoverPalette?) = palette?.primary ?: MaterialTheme.colorScheme.primary
 
@@ -378,7 +381,7 @@ private fun MusicPlayerContent(mangaId: Long, title: String, onDismiss: () -> Un
     var editing by remember { mutableStateOf<MusicStore.Track?>(null) }
     var importing by remember { mutableStateOf(false) }
 
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         importing = true
         scope.launch {
@@ -415,12 +418,12 @@ private fun MusicPlayerContent(mangaId: Long, title: String, onDismiss: () -> Un
                     MaterialSymbols.Rounded.Add,
                     null,
                     tint = Color.White,
-                    modifier = Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = 0.35f)).clickable { pick.launch("audio/*") }.padding(9.dp),
+                    modifier = Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = 0.35f)).clickable { pick.launch(SONG_TYPES) }.padding(9.dp),
                 )
             }
 
             if (songs.isEmpty()) {
-                EmptyMusic(accent, importing) { pick.launch("audio/*") }
+                EmptyMusic(accent, importing) { pick.launch(SONG_TYPES) }
             } else {
                 SongCarousel(songs, state, mangaId, accent)
                 val playingHere = state.mangaId == mangaId

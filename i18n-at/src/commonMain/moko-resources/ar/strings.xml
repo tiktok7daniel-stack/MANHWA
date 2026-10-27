@@ -1719,8 +1719,8 @@
     <string name="music_tap_to_play">دوس عشان تشغّل</string>
     <string name="music_this_work">أغاني المانهوا دي</string>
     <string name="music_library">أغانيّ</string>
-    <string name="music_empty">لسه مفيش أغاني. دوس وضيف أغاني من موبايلك: هتشتغل لما تفتح المانهوا دي، وحتى جوه فصولها.</string>
-    <string name="music_importing">بضيف الأغاني…</string>
+    <string name="music_empty">لسه مفيش أغاني. دوس وضيف أغاني أو فيديوهات من موبايلك (فيديو التيك توك بيتحول لأغنية): هتشتغل لما تفتح المانهوا دي، وحتى جوه فصولها.</string>
+    <string name="music_importing">بضيف الأغاني (وباخد الصوت من الفيديوهات)…</string>
     <string name="music_mode_next">بالترتيب</string>
     <string name="music_mode_one">كرّر</string>
     <string name="music_mode_shuffle">عشوائي</string>
@@ -1738,7 +1738,7 @@
     <string name="tour_music_t">أغاني لكل مانهوا</string>
     <string name="tour_music_b">ادي كل مانهوا أغانيها: بتشتغل بالتدريج لما تفتحها، وبتكمّل جوه فصولها، وبتهدى لما تخرج. وفيه شريط زجاجي بأسطوانة بتلف بيوريك إيه اللي شغال، والمشغّل الكامل بيعرض أغانيك في كاروسيل، كل أغنية في بروازها.</string>
     <string name="tour_music_s1">افتح أي مانهوا ودوس زرار السماعة اللي تحت.</string>
-    <string name="tour_music_s2">دوس + واختار أغاني من موبايلك، وهتتنسخ جوه التطبيق.</string>
+    <string name="tour_music_s2">دوس + واختار أغاني أو فيديوهات من موبايلك: الفيديو (زي فيديو تيك توك) بيتحول لأغنية بصورة منه.</string>
     <string name="tour_music_s3">اختار بالترتيب أو كرّر أو عشوائي من تحت زرار التشغيل.</string>
     <string name="tour_music_s4">دوس القلم على أي أغنية عشان تحطلها صورة وبرواز للاسم وبرواز كروم.</string>
     <string name="tour_scene_t">خلفية لكل مانهوا</string>
