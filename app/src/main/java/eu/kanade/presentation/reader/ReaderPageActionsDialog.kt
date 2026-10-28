@@ -42,6 +42,8 @@ fun ReaderPageActionsDialog(
     var showSetCoverDialog by remember { mutableStateOf(false) }
 
     AdaptiveSheet(onDismissRequest = onDismissRequest) {
+        // MANHWA: the two rows one under the other (the sheet stacks its children, so they were drawn over each other)
+        androidx.compose.foundation.layout.Column {
         Row(
             modifier = Modifier.padding(vertical = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
@@ -118,6 +120,7 @@ fun ReaderPageActionsDialog(
                     },
                 )
             }
+        }
         }
     }
 

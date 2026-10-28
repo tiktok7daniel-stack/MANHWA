@@ -1892,4 +1892,6 @@
     <string name="wn_trfonts_b">Thirty more Arabic faces that scanlation teams use (or free look-alikes), with « » … and quotes in every one.</string>
     <string name="wn_bubbleink_t">Text that suits every bubble</string>
     <string name="wn_bubbleink_b">On a coloured bubble the translation takes a deep or pale shade of its colour that reads clearly, and small bubbles use all their room instead of spilling over.</string>
+    <string name="wn_trfix_t">Cleaner translated pages</string>
+    <string name="wn_trfix_b">Lines the scanner misread are read again from their image, a translation that is not Arabic leaves the original as it is, a line cut short is translated again, dark and gradient boxes are cleaned whole, and big titles over the sky are replaced in their own colours.</string>
 </resources>

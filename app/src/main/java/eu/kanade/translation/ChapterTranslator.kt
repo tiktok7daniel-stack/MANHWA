@@ -499,7 +499,9 @@ class ChapterTranslator(
                                         it.blocks.forEachIndexed { i, b ->
                                             // Art text is always read again from its image: stylised letters fool the OCR
                                             val art = b.kind.equals(PageOcr.ART, ignoreCase = true)
-                                            if ((b.ocrConfidence < AiTranslator.UNSURE_OCR || art) && unsureCrops.size < MAX_REREAD) {
+                                            // MANHWA: a line that reads as no English at all ("Nimgng flmlvs") was misread too
+                                            val garbled = eu.kanade.translation.live.OcrSanity.garbled(context, b.text)
+                                            if ((b.ocrConfidence < AiTranslator.UNSURE_OCR || art || garbled) && unsureCrops.size < MAX_REREAD) {
                                                 PageImageProcessor.crop(decoded, b)?.let { jpeg -> unsureCrops += Triple(fileName, i, jpeg) }
                                             }
                                         }

@@ -200,8 +200,19 @@ object ScanlationRenderer {
         private class Placement(val cleaned: Cleaned, val area: RectF, val paint: TextPaint, val fit: Float, val spacing: Float)
 
         /** The translation is the source as it was (letters, same words): nothing was translated. */
-        private fun untranslated(block: TranslationBlock): Boolean =
-            block.text.any { it.isLetter() } && block.translation.trim().equals(block.text.trim(), ignoreCase = true)
+        private fun untranslated(block: TranslationBlock): Boolean {
+            if (block.text.none { it.isLetter() }) return false
+            val tr = block.translation.trim().replace(SPACES, " ")
+            if (tr.equals(block.text.trim().replace(SPACES, " "), ignoreCase = true)) return true
+            // MANHWA: for an Arabic (or other non-Latin) page, a "translation" in Latin letters only was not
+            // translated (a misread line comes back as it went, "Nimgng flmlvs"): the original stays, unspoiled
+            if (!style.latinOnly) {
+                val letters = tr.count { it.isLetter() }
+                val latin = tr.count { it in 'a'..'z' || it in 'A'..'Z' }
+                if (letters >= 3 && latin == letters) return true
+            }
+            return false
+        }
 
         fun draw(page: PageTranslation) {
             // MANHWA: what stays as drawn is never erased by a neighbour's bubble cleaning
@@ -210,7 +221,7 @@ object ScanlationRenderer {
                 val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
                 (untranslated(block) && !eu.kanade.translation.translator.EnglishGuard.joined(block, page.blocks)) ||
                     (kind == BubbleKind.SFX && style.skipSfx) ||
-                    (kind == BubbleKind.ART && !inPlainBubble(block))
+                    (kind == BubbleKind.ART && !inPlainBubble(block, loose = true))
             }.map { block ->
                 RectF(block.lineBoxes.first().let { RectF(it.x * s, it.y * s, it.right * s, it.bottom * s) })
                     .apply { block.lineBoxes.forEach { union(it.x * s, it.y * s, it.right * s, it.bottom * s) } }
@@ -227,7 +238,9 @@ object ScanlationRenderer {
                 if (block.lineBoxes.isEmpty()) return@mapNotNull null
                 // MANHWA: big letters in a plain light bubble are a shout, not text drawn into the art: they are
                 // erased and the translation takes their place
-                if (kind == BubbleKind.ART && inPlainBubble(block)) kind = BubbleKind.SHOUT
+                // MANHWA: so are big titles over a sky or a soft glow ("THE WAR ENDED."): replaced in their own
+                // colours rather than captioned in a band over the drawing
+                if (kind == BubbleKind.ART && inPlainBubble(block, loose = true)) kind = BubbleKind.SHOUT
                 // MANHWA art text: the drawing is never erased, the translation goes in a caption under it
                 if (kind == BubbleKind.ART) return@mapNotNull artCaption(block, kind)
                 // One bad bubble never costs the whole page its translation
@@ -291,7 +304,7 @@ object ScanlationRenderer {
         }
 
         /** Whether the ring around [block]'s letters is one light colour: the inside of a speech bubble. */
-        private fun inPlainBubble(block: TranslationBlock): Boolean {
+        private fun inPlainBubble(block: TranslationBlock, loose: Boolean = false): Boolean {
             val text = RectF(block.lineBoxes.first().let { RectF(it.x * s, it.y * s, it.right * s, it.bottom * s) })
             block.lineBoxes.forEach { text.union(it.x * s, it.y * s, it.right * s, it.bottom * s) }
             val lineH = block.lineBoxes.map { it.h }.average().toFloat() * s
@@ -317,10 +330,10 @@ object ScanlationRenderer {
             if (ring.size < 16) return false
             val (bg, share) = dominant(ring.toIntArray()) ?: return false
             // MANHWA: any plain colour, light, dark or vivid (a white title on black is replaced too, not captioned)
-            if (share >= ART_BUBBLE_SHARE || block.plainBg) return true
+            if (share >= (if (loose) ART_LOOSE_SHARE else ART_BUBBLE_SHARE) || block.plainBg) return true
             // ... and any smooth gradient (a sky, a glow, a coloured fade): the ring follows one colour plane
             val plane = fitPlane(px, w, px.size, inRing, null, bg, Int.MAX_VALUE)
-            return residual(px, w, px.size, inRing, plane) <= SMOOTH_RESIDUAL
+            return residual(px, w, px.size, inRing, plane) <= if (loose) ART_SMOOTH_RESIDUAL else SMOOTH_RESIDUAL
         }
 
         /**
@@ -430,12 +443,16 @@ object ScanlationRenderer {
             if (w < 8 || h < 8) return
             val px = IntArray(w * h)
             bitmap.getPixels(px, 0, w, l, t, w, h)
-            val found = eu.kanade.translation.ocr.BubbleFinder.bubbleOf(
-                px, w, h,
-                (textBox.left - l).roundToInt(), (textBox.top - t).roundToInt(),
-                textBox.width().roundToInt().coerceAtLeast(1), textBox.height().roundToInt().coerceAtLeast(1),
-                lineH.roundToInt().coerceAtLeast(6),
-            ) ?: return
+            val bx = (textBox.left - l).roundToInt()
+            val by = (textBox.top - t).roundToInt()
+            val bw = textBox.width().roundToInt().coerceAtLeast(1)
+            val bh = textBox.height().roundToInt().coerceAtLeast(1)
+            val lh = lineH.roundToInt().coerceAtLeast(6)
+            // MANHWA: a light speech bubble, or else a plain box of any colour (a dark caption box, a coloured or
+            // gradient one), so no word the OCR missed is left in it ("WAR", "THE SINGLE M")
+            val found = eu.kanade.translation.ocr.BubbleFinder.bubbleOf(px, w, h, bx, by, bw, bh, lh)
+                ?: eu.kanade.translation.ocr.BubbleFinder.boxOf(px, w, h, bx, by, bw, bh, lh)
+                ?: return
             val bubble = RectF((found.left + l).toFloat(), (found.top + t).toFloat(), (found.right + l).toFloat(), (found.bottom + t).toFloat())
             // A speech bubble hugs its text; a light area much bigger is the page between panels
             if (bubble.width() > textBox.width() * BUBBLE_MAX_GROWTH + lineH * 4f) return
@@ -1045,7 +1062,14 @@ object ScanlationRenderer {
         drawn(eu.kanade.translation.translator.LatinLeak.strip(block.translation, block.text))
 
     private const val SMOOTH_RESIDUAL = 20f
-    private const val WHOLE_EXTRA = 24f
+
+    // MANHWA: big titles over soft art (a sky, clouds, a glow) are replaced when the ring around them is this
+    // smooth, or this much of one colour
+    private const val ART_SMOOTH_RESIDUAL = 38f
+    private const val ART_LOOSE_SHARE = 0.55f
+    // MANHWA: big letters reach past their OCR box (the bottom of "THAT WAS"): the last pass looks this far
+    private const val WHOLE_EXTRA = 60f
+    private val SPACES = Regex("\\s+")
 
     // MANHWA bubble cleaning: how far around the text a bubble is looked for (in line heights past the text's
     // own size), how much bigger than its text a bubble may be, and the margin kept inside its outline

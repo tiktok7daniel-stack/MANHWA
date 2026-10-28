@@ -18,6 +18,9 @@ object QualityCheck {
 
         /** A glossary name in the source is missing from the translation. */
         NAME_NOT_KEPT,
+
+        /** Far shorter than the source: most of the line was dropped ("How is the shadow fighter ... ?" as "المقاتل؟"). */
+        TOO_SHORT,
     }
 
     /**
@@ -40,6 +43,9 @@ object QualityCheck {
         // MANHWA zero English leak: an English word left in the middle of a non-Latin translation
         if (!targetLatin && leaksEnglish(tr, glossary)) return Problem.UNTRANSLATED
         if (tr.length > src.length * LONG_FACTOR + LONG_SLACK) return Problem.TOO_LONG
+        // MANHWA: a long line that comes back as a word or two lost most of its meaning
+        val trLetters = tr.count { it.isLetter() }
+        if (letters >= SHORT_MIN_LETTERS && trLetters < letters * SHORT_FACTOR) return Problem.TOO_SHORT
         for ((term, translated) in glossary) {
             if (term.length < 2 || translated.isBlank()) continue
             val inSource = Regex("(?<![\\p{L}\\p{N}])" + Regex.escape(term) + "(?![\\p{L}\\p{N}])", RegexOption.IGNORE_CASE).containsMatchIn(src)
@@ -69,4 +75,8 @@ object QualityCheck {
 
     private const val LONG_FACTOR = 3f
     private const val LONG_SLACK = 25
+
+    // MANHWA: Arabic takes about two thirds of the English letters; under a fifth of them, the line was cut
+    private const val SHORT_MIN_LETTERS = 30
+    private const val SHORT_FACTOR = 0.22f
 }

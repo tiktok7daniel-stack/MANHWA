@@ -35,6 +35,7 @@ object OcrHealer {
     private val spacedMix = Regex("([?!])\\s+([?!])")
     private val spaceBefore = Regex("\\s+([?!.,;:])")
     private val spaces = Regex("[ \\t]{2,}")
+    private val stutterOne = Regex("(?<![\\p{L}\\p{N}])[1I|]-[1I|](?![\\p{L}\\p{N}])")
 
     /** A word that starts with letter-like digits and goes on in at least two capitals, not an ordinal or a unit. */
     private val leadingDigits = Regex(
@@ -73,6 +74,8 @@ object OcrHealer {
         out = lonePipe.replace(out, "I")
         if (upper) out = Regex("(?<=\\s|^)l(?=\\s|$)").replace(out, "I")
         if (upper) out = leadingDigits.replace(out) { m -> lettersFor(m.value) }
+        // MANHWA: a stuttered "I-I" read as digits ("1-1 DON'T KNOW", "I-1", "1-I") in a capitals line
+        if (upper) out = stutterOne.replace(out, "I-I")
         out = spacedDots.replace(out, "...")
         out = manyBangs.replace(out, "!!!")
         out = manyQuestions.replace(out, "???")
