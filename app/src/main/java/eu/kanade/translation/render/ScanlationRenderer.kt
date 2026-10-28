@@ -407,7 +407,12 @@ object ScanlationRenderer {
             rects.forEach { bounds.union(it) }
             clamp(bounds)
             val inners = block.lineBoxes.map { line -> RectF(line.x * s, line.y * s, line.right * s, line.bottom * s) }
-            val results = rects.mapIndexed { i, rect -> cleanArea(clamp(RectF(rect)), inners[i]) }
+            // MANHWA: an outlined line has its rim erased with it (the rim is about a tenth of the letters' height)
+            val outlined = block.strokeColor != 0
+            val results = rects.mapIndexed { i, rect ->
+                val rim = if (outlined) (block.lineBoxes[i].h * s * RIM_OF_LINE).roundToInt().coerceIn(2, MAX_RIM) else 0
+                cleanArea(clamp(RectF(rect)), inners[i], halo = rim)
+            }
             // One more pass over the whole bubble (a little taller): letters joined across two lines, glows
             // and a line the OCR did not list are inside it and are cleaned too
             val lineH = block.lineBoxes.map { it.h }.average().toFloat() * s
@@ -415,7 +420,13 @@ object ScanlationRenderer {
             val extra = min(lineH * 0.8f, WHOLE_EXTRA * s)
             // MANHWA: wider on the sides too, so a letter the OCR missed at a line's end is inside it
             val whole = clamp(RectF(bounds.left - extra, bounds.top - extra, bounds.right + extra, bounds.bottom + extra))
-            cleanArea(whole, RectF(textBox.left - extra, textBox.top - extra, textBox.right + extra, textBox.bottom + extra), boxWhenBusy = false, strictKeep = true)
+            cleanArea(
+                whole,
+                RectF(textBox.left - extra, textBox.top - extra, textBox.right + extra, textBox.bottom + extra),
+                boxWhenBusy = false,
+                strictKeep = true,
+                halo = if (outlined) (lineH * RIM_OF_LINE).roundToInt().coerceIn(2, MAX_RIM) else 0,
+            )
             // MANHWA: the whole inside of the speech bubble, so no letter the OCR missed at a line's edge (a lone
             // "I", the bottom of big letters) is left next to the translation; the outline is kept
             if (kind != BubbleKind.SFX) cleanBubble(textBox, lineH)
@@ -473,7 +484,7 @@ object ScanlationRenderer {
          * Over a busy drawing (no plain background) a soft patch of the main colour is used instead.
          * Returns (background, plain).
          */
-        private fun cleanArea(area: RectF, inner: RectF, boxWhenBusy: Boolean = true, strictKeep: Boolean = false): Pair<Int, Boolean>? {
+        private fun cleanArea(area: RectF, inner: RectF, boxWhenBusy: Boolean = true, strictKeep: Boolean = false, halo: Int = 0): Pair<Int, Boolean>? {
             val l = area.left.roundToInt().coerceIn(0, bitmap.width - 1)
             val t = area.top.roundToInt().coerceIn(0, bitmap.height - 1)
             val r = area.right.roundToInt().coerceIn(0, bitmap.width)
@@ -530,6 +541,9 @@ object ScanlationRenderer {
             // Groups of ink: one that reaches the edge is the outline or the drawing and is kept, unless most of
             // it lies on the letters themselves (big titles: their glow and outline reach the edge too)
             val ink = BooleanArray(n) { distance(px[it], modelAt[it]) > INK }
+            // MANHWA: outlined lettering (dark letters in a white rim, on a light page) leaves its rim behind as a
+            // pale ghost of the words: the ink of the letters is grown by the rim's width, inside the text box
+            if (halo > 0) growInk(ink, w, h, halo, innerL, innerT, innerR, innerB)
             val seen = BooleanArray(n)
             val keep = BooleanArray(n)
             val queue = IntArray(n)
@@ -587,6 +601,39 @@ object ScanlationRenderer {
             }
             if (any) bitmap.setPixels(px, 0, w, l, t, w, h)
             return bg to true
+        }
+
+        /** Marks as ink every pixel within [r] of ink, only inside the box ([x0], [y0], [x1], [y1]). */
+        private fun growInk(ink: BooleanArray, w: Int, h: Int, r: Int, x0: Int, y0: Int, x1: Int, y1: Int) {
+            val bx0 = (x0 - r).coerceAtLeast(0)
+            val by0 = (y0 - r).coerceAtLeast(0)
+            val bx1 = (x1 + r).coerceAtMost(w)
+            val by1 = (y1 + r).coerceAtMost(h)
+            if (bx1 - bx0 < 1 || by1 - by0 < 1) return
+            // Two passes (rows, then columns) of a running count: cost does not grow with the radius
+            val rows = BooleanArray(ink.size)
+            for (y in by0 until by1) {
+                var count = 0
+                for (x in bx0 until (bx0 + r).coerceAtMost(bx1)) if (ink[y * w + x]) count++
+                for (x in bx0 until bx1) {
+                    val add = x + r
+                    if (add < bx1 && ink[y * w + add]) count++
+                    val drop = x - r - 1
+                    if (drop >= bx0 && ink[y * w + drop]) count--
+                    if (count > 0) rows[y * w + x] = true
+                }
+            }
+            for (x in bx0 until bx1) {
+                var count = 0
+                for (y in by0 until (by0 + r).coerceAtMost(by1)) if (rows[y * w + x]) count++
+                for (y in by0 until by1) {
+                    val add = y + r
+                    if (add < by1 && rows[add * w + x]) count++
+                    val drop = y - r - 1
+                    if (drop >= by0 && rows[drop * w + x]) count--
+                    if (count > 0) ink[y * w + x] = true
+                }
+            }
         }
 
         private fun fitPlane(px: IntArray, w: Int, n: Int, inRing: BooleanArray, skip: BooleanArray?, bg: Int, maxDistance: Int): PlaneModel.Solved {
@@ -1138,6 +1185,10 @@ object ScanlationRenderer {
     private const val HALO = 8
     private const val MODEL_DISTANCE = 40
     private const val FEATHER = 5f
+
+    // MANHWA: the rim of outlined lettering, as a share of the line height, and at most this many pixels
+    private const val RIM_OF_LINE = 0.12f
+    private const val MAX_RIM = 14
 
     // MANHWA: how many pixels the texture fill blends into the letters' box at its edge
     private const val TEXTURE_FEATHER = 3f
