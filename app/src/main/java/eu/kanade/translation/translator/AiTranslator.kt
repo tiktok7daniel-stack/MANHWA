@@ -175,13 +175,22 @@ class AiTranslator(
      * MANHWA: reads the text of bubbles again from their own images (id to JPEG), for readings the OCR is not sure
      * of. Returns id to the exact source text; an image with no readable text is left out.
      */
-    suspend fun reread(crops: List<kotlin.Pair<String, ByteArray>>): Map<String, String> {
+    suspend fun reread(crops: List<kotlin.Pair<String, ByteArray>>, hints: Map<String, String> = emptyMap()): Map<String, String> {
         val result = mutableMapOf<String, String>()
+        // MANHWA: comic lettering is often decorative: the reader is told what to expect, and gets the scanner's
+        // (maybe wrong) reading as a hint to correct, not to copy
         val system = "You read text in comic panels. Each image is one bubble or caption of a ${fromLang.label} comic, after its id. " +
+            "The lettering is often decorative: brush or ink strokes, horror or dripping letters, glitch or shaking effects, " +
+            "thick outlines, gradients, italic, curved or tilted lines, letters squeezed or stretched, very big titles. " +
+            "Read it the way a human reader would: real words of the language, names as written, a stutter kept (I-I), " +
+            "\"...\" and \"?!\" kept. When a scanner's guess is given, it may be wrong: trust the image. " +
             "Transcribe exactly the ${fromLang.label} text you see in each image, line breaks as spaces. Do not translate or explain. " +
             "If an image has no readable text, give \"\". Reply with ONLY a JSON object {\"<id>\": \"<text>\"}."
         for (chunk in crops.chunked(REREAD_PER_CALL)) {
-            val parts = chunk.flatMap { (id, jpeg) -> listOf(Part.Text("Bubble $id:"), Part.Image(jpeg)) }
+            val parts = chunk.flatMap { (id, jpeg) ->
+                val guess = hints[id]?.takeIf { it.isNotBlank() }?.let { " (scanner's guess: \"${it.take(160)}\")" }.orEmpty()
+                listOf(Part.Text("Bubble $id$guess:"), Part.Image(jpeg))
+            }
             val reply = withRetry { parse(request(system, parts)) }
             chunk.forEach { (id, _) ->
                 (reply[id] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }?.let { result[id] = it }

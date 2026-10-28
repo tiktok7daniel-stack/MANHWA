@@ -30,6 +30,16 @@ class TranslationFixesTest {
     fun `a stuttered I read as digits is mended`() {
         OcrHealer.heal("1-1 DON'T KNOW...") shouldBe "I-I DON'T KNOW..."
         OcrHealer.heal("I-1 DON'T KNOW...") shouldBe "I-I DON'T KNOW..."
+        // A stage number stays a number
+        OcrHealer.heal("STAGE 1-1 CLEARED") shouldBe "STAGE 1-1 CLEARED"
+    }
+
+    @Test
+    fun `look-alike letters are mended when only one real word comes out`() {
+        val words = setOf("form", "sword", "imperial")
+        eu.kanade.translation.live.OcrSanity.repair("IMPERIAL SWORD FOKM", { it in words }) shouldBe "IMPERIAL SWORD FORM"
+        // No swap gives a word: the word stays as read
+        eu.kanade.translation.live.OcrSanity.repair("Nimgng", { it in words }) shouldBe "Nimgng"
     }
 
     /** A dark gradient caption box with a light border, light letters inside, on a busy drawing. */

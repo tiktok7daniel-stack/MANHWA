@@ -518,7 +518,10 @@ object ScanlationRenderer {
                     if (inpainted) {
                         bitmap.setPixels(px, 0, w, l, t, w, h)
                     } else {
-                        rebuildFromEdges(px, w, h)?.let { bitmap.setPixels(it, 0, w, l, t, w, h) }
+                        // MANHWA: the bubble's own texture (clouds, grain, a drawing, any colour) carried over the
+                        // letters from just above and below them, not a flat patch; the edge blend when there is none
+                        (textureFill(px, w, h, innerL, innerT, innerR, innerB) ?: rebuildFromEdges(px, w, h))
+                            ?.let { bitmap.setPixels(it, 0, w, l, t, w, h) }
                     }
                 }
                 return averageOf(if (ring.isEmpty()) px else ring) to false
@@ -617,6 +620,50 @@ object ScanlationRenderer {
          * top and bottom edge in its column and the left and right edge in its row, weighted towards the
          * direction the background runs in (speed lines, rain, gradients carry on through), feathered at the edge.
          */
+        /**
+         * MANHWA: fills the letters' box ([il], [it], [ir], [ib]) with the texture right around it: each pixel is
+         * the mix of the pixel mirrored from the band above the box and the one from the band below (or the sides
+         * when the box has no room above and below), weighted by how near it is to each. Grain, clouds, a gradient
+         * or any colour carry on through the hole; softened over a few pixels at its edge.
+         */
+        private fun textureFill(px: IntArray, w: Int, h: Int, x0: Int, y0: Int, x1: Int, y1: Int): IntArray? {
+            if (x1 - x0 < 2 || y1 - y0 < 2) return null
+            val above = y0
+            val below = h - y1
+            val leftBand = x0
+            val rightBand = w - x1
+            val vertical = above >= 2 || below >= 2
+            if (!vertical && leftBand < 2 && rightBand < 2) return null
+            val out = px.copyOf()
+            val hh = (y1 - y0).toFloat()
+            val ww = (x1 - x0).toFloat()
+            for (y in y0 until y1) for (x in x0 until x1) {
+                val target = if (vertical) {
+                    val dTop = y - y0
+                    val dBottom = y1 - 1 - y
+                    val fromTop = if (above >= 2) px[(y0 - 1 - dTop % above) * w + x] else null
+                    val fromBottom = if (below >= 2) px[(y1 + dBottom % below) * w + x] else null
+                    when {
+                        fromTop != null && fromBottom != null -> mix(fromTop, fromBottom, (dTop + 0.5f) / hh)
+                        else -> fromTop ?: fromBottom!!
+                    }
+                } else {
+                    val dLeft = x - x0
+                    val dRight = x1 - 1 - x
+                    val fromLeft = if (leftBand >= 2) px[y * w + (x0 - 1 - dLeft % leftBand)] else null
+                    val fromRight = if (rightBand >= 2) px[y * w + (x1 + dRight % rightBand)] else null
+                    when {
+                        fromLeft != null && fromRight != null -> mix(fromLeft, fromRight, (dLeft + 0.5f) / ww)
+                        else -> fromLeft ?: fromRight!!
+                    }
+                }
+                val edge = min(min(x - x0, y - y0), min(x1 - 1 - x, y1 - 1 - y)).toFloat()
+                val f = ((edge + 1f) / TEXTURE_FEATHER).coerceIn(0f, 1f)
+                out[y * w + x] = if (f >= 1f) target else mix(px[y * w + x], target, f)
+            }
+            return out
+        }
+
         private fun rebuildFromEdges(px: IntArray, w: Int, h: Int): IntArray? {
             if (w < 8 || h < 8) return null
             val band = 3
@@ -1091,6 +1138,9 @@ object ScanlationRenderer {
     private const val HALO = 8
     private const val MODEL_DISTANCE = 40
     private const val FEATHER = 5f
+
+    // MANHWA: how many pixels the texture fill blends into the letters' box at its edge
+    private const val TEXTURE_FEATHER = 3f
     private const val GROW = 2
     private const val HOLE_GROW = 2
     private const val MIN_TEXT_PX = 6f

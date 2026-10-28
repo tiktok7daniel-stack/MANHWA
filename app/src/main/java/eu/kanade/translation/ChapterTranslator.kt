@@ -498,9 +498,12 @@ class ChapterTranslator(
                                     if (canReread) {
                                         it.blocks.forEachIndexed { i, b ->
                                             // Art text is always read again from its image: stylised letters fool the OCR
-                                            val art = b.kind.equals(PageOcr.ART, ignoreCase = true)
+                                            // MANHWA: and shouts and outlined lettering, the decorative kinds the scanner misreads most
+                                            val art = b.kind.equals(PageOcr.ART, ignoreCase = true) ||
+                                                b.kind.equals(eu.kanade.translation.live.TextKindRules.SHOUT, ignoreCase = true) ||
+                                                b.strokeColor != 0
                                             // MANHWA: a line that reads as no English at all ("Nimgng flmlvs") was misread too
-                                            val garbled = eu.kanade.translation.live.OcrSanity.garbled(context, b.text)
+                                            val garbled = !b.kind.equals(PageOcr.SFX, ignoreCase = true) && eu.kanade.translation.live.OcrSanity.garbled(context, b.text)
                                             if ((b.ocrConfidence < AiTranslator.UNSURE_OCR || art || garbled) && unsureCrops.size < MAX_REREAD) {
                                                 PageImageProcessor.crop(decoded, b)?.let { jpeg -> unsureCrops += Triple(fileName, i, jpeg) }
                                             }
@@ -532,17 +535,27 @@ class ChapterTranslator(
                 }
                 tmpFile.delete()
                 // MANHWA: bubbles the OCR was not sure of are read again from their own image by a key that sees images
+                val rereadDone = HashSet<kotlin.Pair<String, Int>>()
                 if (unsureCrops.isNotEmpty()) {
                     translation.note(Translation.Note.AI)
-                    val fixed = (textTranslator as? TeamTranslator)?.reread(unsureCrops.mapIndexed { i, c -> "$i" to c.third }).orEmpty()
+                    // MANHWA: each bubble goes with the scanner's reading, as a hint the image corrects
+                    val hints = unsureCrops.mapIndexed { i, c -> "$i" to (pages[c.first]?.blocks?.getOrNull(c.second)?.text.orEmpty()) }.toMap()
+                    val fixed = (textTranslator as? TeamTranslator)?.reread(unsureCrops.mapIndexed { i, c -> "$i" to c.third }, hints).orEmpty()
                     fixed.forEach { (id, text) ->
                         val (fileName, index, _) = unsureCrops.getOrNull(id.toIntOrNull() ?: -1) ?: return@forEach
                         pages[fileName]?.blocks?.getOrNull(index)?.let { block ->
                             block.text = text
                             block.ocrConfidence = 1f
+                            rereadDone += fileName to index
                         }
                     }
                     logcat { "Re-read ${fixed.size} of ${unsureCrops.size} unsure bubbles from their image" }
+                }
+                // MANHWA: lines still garbled (no model could read their image) get their look-alike letters mended
+                pages.forEach { (fileName, page) ->
+                    page.blocks.forEachIndexed { i, b ->
+                        if ((fileName to i) !in rereadDone && !b.kind.equals(PageOcr.SFX, ignoreCase = true)) b.text = eu.kanade.translation.live.OcrSanity.repair(context, b.text)
+                    }
                 }
                 readCache.put(translation.chapter.id, ReadPages(pages.copied(), images.toMap()))
                 ChapterCheckpoint.saveRead(context, translation.chapter.id, ChapterCheckpoint.Read(processed.toSet(), pages.copied(), complete = true))

@@ -552,7 +552,7 @@ class TeamTranslator(
      * MANHWA: bubbles the OCR is not sure of, read again from their own image by a key that sees images. Returns id to
      * the corrected source text; empty when no key can read images or the call failed (the OCR reading stays).
      */
-    suspend fun reread(crops: List<kotlin.Pair<String, ByteArray>>): Map<String, String> {
+    suspend fun reread(crops: List<kotlin.Pair<String, ByteArray>>, hints: Map<String, String> = emptyMap()): Map<String, String> {
         if (crops.isEmpty()) return emptyMap()
         return runCatching {
             store.router.ask(
@@ -560,7 +560,7 @@ class TeamTranslator(
                 fromLang,
                 toLang,
                 prefer = { store.analysis.value[it.id]?.vision == true },
-            ) { reader -> reader.reread(crops) }
+            ) { reader -> reader.reread(crops, hints) }
         }.onFailure { if (it is CancellationException) throw it }.getOrDefault(emptyMap())
     }
 

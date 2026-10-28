@@ -617,9 +617,9 @@ class LiveTranslator(
                             // Stylised letters ("A NATTY") and readings the OCR was not sure of are cut out to be
                             // read again from their image, as for whole chapters (a few per page)
                             it.blocks.forEachIndexed { i, b ->
-                                val art = b.kind.equals(PageOcr.ART, ignoreCase = true) || b.kind.equals(TextKindRules.SHOUT, ignoreCase = true)
+                                val art = b.kind.equals(PageOcr.ART, ignoreCase = true) || b.kind.equals(TextKindRules.SHOUT, ignoreCase = true) || b.strokeColor != 0
                                 // MANHWA: a line that reads as no English at all ("Nimgng flmlvs") was misread too
-                                val garbled = eu.kanade.translation.live.OcrSanity.garbled(teamStore.appContext, b.text)
+                                val garbled = !b.kind.equals(PageOcr.SFX, ignoreCase = true) && eu.kanade.translation.live.OcrSanity.garbled(teamStore.appContext, b.text)
                                 if ((b.ocrConfidence < AiTranslator.UNSURE_OCR || art || garbled) && unsureCrops.size < LIVE_REREAD) {
                                     PageImageProcessor.crop(decoded, b)?.let { jpeg -> unsureCrops += i to jpeg }
                                 }
@@ -631,8 +631,10 @@ class LiveTranslator(
                 }
             } ?: return null
             if (result.blocks.isEmpty() && images.isEmpty()) return null
+            val rereadDone = HashSet<Int>()
             if (rereader != null && unsureCrops.isNotEmpty()) {
-                val fixed = runCatching { rereader.reread(unsureCrops.mapIndexed { n, c -> "$n" to c.second }) }
+                val hints = unsureCrops.mapIndexed { n, c -> "$n" to (result.blocks.getOrNull(c.first)?.text.orEmpty()) }.toMap()
+                val fixed = runCatching { rereader.reread(unsureCrops.mapIndexed { n, c -> "$n" to c.second }, hints) }
                     .onFailure { if (it is CancellationException) throw it }
                     .getOrDefault(emptyMap())
                 fixed.forEach { (id, text) ->
@@ -640,9 +642,13 @@ class LiveTranslator(
                     result.blocks.getOrNull(index)?.let { block ->
                         block.text = text
                         block.ocrConfidence = 1f
+                        rereadDone += index
                     }
                 }
             }
+
+            // MANHWA: lines still garbled (no model could read their image) get their look-alike letters mended
+            result.blocks.forEachIndexed { i, b -> if (i !in rereadDone && !b.kind.equals(PageOcr.SFX, ignoreCase = true)) b.text = OcrSanity.repair(teamStore.appContext, b.text) }
 
             // 2. Translate, following the series glossary and adding the new names it finds
             val id = mangaId()
@@ -899,7 +905,7 @@ class LiveTranslator(
     private companion object {
         const val KEY = "page"
         // MANHWA: most lines per page read again from their image by a key that sees images
-        const val LIVE_REREAD = 3
+        const val LIVE_REREAD = 6
         const val LOOKAHEAD = 8
         const val POLL_MS = 600L
         const val CACHE_PAGES = 400

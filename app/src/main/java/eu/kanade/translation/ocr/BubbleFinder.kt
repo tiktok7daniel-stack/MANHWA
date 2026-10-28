@@ -174,6 +174,13 @@ object BubbleFinder {
         val cells = (maxX - minX + 1).toLong() * (maxY - minY + 1)
         // A box is mostly plain; a few flat patches in a drawing are not one
         if (cells <= 0 || filled < cells * BOX_FLAT_SHARE) return null
+        // ... and it goes round the text: plain cells reached on at least three of its four sides
+        var sides = 0
+        if ((tx0..tx1).any { gx -> ty0 > 0 && seen[(ty0 - 1) * gw + gx] }) sides++
+        if ((tx0..tx1).any { gx -> ty1 < gh - 1 && seen[(ty1 + 1) * gw + gx] }) sides++
+        if ((ty0..ty1).any { gy -> tx0 > 0 && seen[gy * gw + tx0 - 1] }) sides++
+        if ((ty0..ty1).any { gy -> tx1 < gw - 1 && seen[gy * gw + tx1 + 1] }) sides++
+        if (sides < 3) return null
         val rect = Rect(
             min(minX * step, bx),
             min(minY * step, by),
@@ -203,6 +210,6 @@ object BubbleFinder {
     // colours are this close (sum over the channels), which follows a gradient but stops at a border or drawing
     private const val FLAT_RANGE = 26
     private const val STEP_DIFF = 30
-    private const val BOX_FLAT_SHARE = 0.45
+    private const val BOX_FLAT_SHARE = 0.65
     private const val SAME_SHARE = 0.6
 }

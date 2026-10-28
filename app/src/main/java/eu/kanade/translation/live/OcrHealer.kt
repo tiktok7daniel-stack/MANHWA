@@ -35,7 +35,8 @@ object OcrHealer {
     private val spacedMix = Regex("([?!])\\s+([?!])")
     private val spaceBefore = Regex("\\s+([?!.,;:])")
     private val spaces = Regex("[ \\t]{2,}")
-    private val stutterOne = Regex("(?<![\\p{L}\\p{N}])[1I|]-[1I|](?![\\p{L}\\p{N}])")
+    // A stutter opens a sentence (or follows another word), never a number after STAGE, ROUND or SCORE
+    private val stutterOne = Regex("(?<![\\p{L}\\p{N}])(?<!(?:STAGE|ROUND|SCORE|LEVEL|FLOOR|ROOM|NO\\.|#) )[1I|]-[1I|](?=\\s+[A-Z]{2,})")
 
     /** A word that starts with letter-like digits and goes on in at least two capitals, not an ordinal or a unit. */
     private val leadingDigits = Regex(
