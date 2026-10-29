@@ -60,43 +60,45 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.BuildConfig
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Headphones
-import mihon.icons.materialsymbols.rounded.LocalFireDepartment
-import mihon.icons.materialsymbols.rounded.EditNote
-import mihon.icons.materialsymbols.rounded.DoneAll
-import mihon.icons.materialsymbols.rounded.LocalLibrary
-import mihon.icons.materialsymbols.rounded.Image
-import mihon.icons.materialsymbols.rounded.MilitaryTech
-import mihon.icons.materialsymbols.rounded.FolderOpen
-import mihon.icons.materialsymbols.rounded.History
-import mihon.icons.materialsymbols.rounded.Keep
-import mihon.icons.materialsymbols.rounded.AutoStories
 import mihon.icons.materialsymbols.rounded.AutoAwesome
+import mihon.icons.materialsymbols.rounded.AutoStories
 import mihon.icons.materialsymbols.rounded.Autorenew
 import mihon.icons.materialsymbols.rounded.Bedtime
-import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.CallMerge
+import mihon.icons.materialsymbols.rounded.CollectionsBookmark
+import mihon.icons.materialsymbols.rounded.DoneAll
 import mihon.icons.materialsymbols.rounded.Download
+import mihon.icons.materialsymbols.rounded.EditNote
+import mihon.icons.materialsymbols.rounded.FolderOpen
 import mihon.icons.materialsymbols.rounded.Group
+import mihon.icons.materialsymbols.rounded.Headphones
+import mihon.icons.materialsymbols.rounded.History
 import mihon.icons.materialsymbols.rounded.Home
-import mihon.icons.materialsymbols.rounded.Search
-import mihon.icons.materialsymbols.rounded.Storage
-import mihon.icons.materialsymbols.rounded.TextFields
-import mihon.icons.materialsymbols.rounded.Speed
-import mihon.icons.materialsymbols.rounded.Schedule
-import mihon.icons.materialsymbols.rounded.Translate
-import mihon.icons.materialsymbols.rounded.Tune
+import mihon.icons.materialsymbols.rounded.Image
+import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.Key
+import mihon.icons.materialsymbols.rounded.LocalFireDepartment
+import mihon.icons.materialsymbols.rounded.LocalLibrary
+import mihon.icons.materialsymbols.rounded.MenuBook
+import mihon.icons.materialsymbols.rounded.MilitaryTech
 import mihon.icons.materialsymbols.rounded.NewReleases
 import mihon.icons.materialsymbols.rounded.Palette
-import mihon.icons.materialsymbols.rounded.Psychology
 import mihon.icons.materialsymbols.rounded.PictureInPictureAlt
+import mihon.icons.materialsymbols.rounded.Psychology
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.RecordVoiceOver
+import mihon.icons.materialsymbols.rounded.Schedule
 import mihon.icons.materialsymbols.rounded.School
+import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.SearchCheck
 import mihon.icons.materialsymbols.rounded.SkipNext
+import mihon.icons.materialsymbols.rounded.Speed
+import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.rounded.SwapCalls
+import mihon.icons.materialsymbols.rounded.TextFields
+import mihon.icons.materialsymbols.rounded.Translate
+import mihon.icons.materialsymbols.rounded.TravelExplore
+import mihon.icons.materialsymbols.rounded.Tune
 import mihon.icons.materialsymbols.rounded.Verified
 import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.rounded.Widgets
@@ -130,12 +132,15 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.Headphones, ATMR.strings.wn_musicswitch_t, ATMR.strings.wn_musicswitch_b),
+            Feature(MaterialSymbols.Rounded.MenuBook, ATMR.strings.wn_bridge_t, ATMR.strings.wn_bridge_b),
+            Feature(MaterialSymbols.Rounded.TravelExplore, ATMR.strings.wn_novelsrc_t, ATMR.strings.wn_novelsrc_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 162
+            Feature(MaterialSymbols.Rounded.Headphones, ATMR.strings.wn_musicswitch_t, ATMR.strings.wn_musicswitch_b),
             // Build 161
             Feature(MaterialSymbols.Rounded.Bedtime, ATMR.strings.wn_battery_t, ATMR.strings.wn_battery_b),
             Feature(MaterialSymbols.Rounded.EditNote, ATMR.strings.wn_trfonts_t, ATMR.strings.wn_trfonts_b),

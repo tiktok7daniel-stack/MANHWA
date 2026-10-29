@@ -1881,4 +1881,8 @@
     <string name="bridge_failed">فصول الرواية ماتقريتش عشان فصل %s. اتأكد من المصدر وجرّب تاني.</string>
     <string name="bridge_unsure">مفيش فصل في الرواية مطابق لفصل %s بشكل واضح، فمش هعرض حاجة بدل ما أخمّن.</string>
     <string name="bridge_manhwa_here">إنت هنا</string>
+    <string name="wn_bridge_t">المانهوا وروايتها</string>
+    <string name="wn_bridge_b">في صفحة أي مانهوا، اقلب بين مانهوا | رواية فوق الفصول. الرواية الأصلية بتتلاقي بأسمائها الحقيقية، والتطبيق بيقولك تكمّلها منين بمقارنة كلام آخر فصل قريته، من غير تخمين.</string>
+    <string name="wn_novelsrc_t">كل مصادر الروايات بضغطة</string>
+    <string name="wn_novelsrc_b">مستودع IReader بيتضاف لوحده. ثبّت كل المصادر الإنجليزي أو العربي مرة واحدة، واعرف مين فيهم شغال فعلاً.</string>
 </resources>

@@ -1940,4 +1940,8 @@
     <string name="bridge_failed">The novel\'s chapters could not be read for chapter %s. Check the source and try again.</string>
     <string name="bridge_unsure">No novel chapter clearly matches chapter %s, so none is shown rather than a guess.</string>
     <string name="bridge_manhwa_here">You are here</string>
+    <string name="wn_bridge_t">The manhwa and its novel</string>
+    <string name="wn_bridge_b">On a manhwa\'s page, switch Manhwa | Novel above the chapters. The novel it is drawn from is found by its real titles, and the app tells you where to continue it, matched from the words of the last chapter you read, never guessed.</string>
+    <string name="wn_novelsrc_t">Every novel source in one tap</string>
+    <string name="wn_novelsrc_b">IReader\'s repository is added by itself. Install all English or Arabic sources at once, and check which ones really work.</string>
 </resources>
