@@ -1838,4 +1838,6 @@
     <string name="music_settings_title">الموسيقى</string>
     <string name="music_enabled">أغاني الأعمال</string>
     <string name="music_enabled_sub">مقفولة: مفيش أغنية بتشتغل في أي حتة، وشريط الموسيقى وزراره بيختفوا من كل الصفحات والفصول. مفتوحة: بيرجعوا.</string>
+    <string name="wn_musicswitch_t">الأغاني تشغيل وقفل</string>
+    <string name="wn_musicswitch_b">الإعدادات ← المظهر ← الموسيقى: مفتاح واحد يقفل أغاني الأعمال في كل حتة، ومعاها الشريط والزرار، ويرجّعها.</string>
 </resources>

@@ -1897,4 +1897,6 @@
     <string name="music_settings_title">Music</string>
     <string name="music_enabled">Works\' songs</string>
     <string name="music_enabled_sub">Off: no song plays anywhere and the music bar and its button are hidden in every page and chapter. On: they come back.</string>
+    <string name="wn_musicswitch_t">Songs on or off</string>
+    <string name="wn_musicswitch_b">Settings, Appearance, Music: one switch turns the works\' songs off everywhere, bar and button too, and back on.</string>
 </resources>

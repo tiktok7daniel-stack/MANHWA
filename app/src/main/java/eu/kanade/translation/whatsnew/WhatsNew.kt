@@ -130,15 +130,17 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.Bedtime, ATMR.strings.wn_battery_t, ATMR.strings.wn_battery_b),
-            Feature(MaterialSymbols.Rounded.EditNote, ATMR.strings.wn_trfonts_t, ATMR.strings.wn_trfonts_b),
-            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_bubbleink_t, ATMR.strings.wn_bubbleink_b),
-            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_trfix_t, ATMR.strings.wn_trfix_b),
+            Feature(MaterialSymbols.Rounded.Headphones, ATMR.strings.wn_musicswitch_t, ATMR.strings.wn_musicswitch_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 161
+            Feature(MaterialSymbols.Rounded.Bedtime, ATMR.strings.wn_battery_t, ATMR.strings.wn_battery_b),
+            Feature(MaterialSymbols.Rounded.EditNote, ATMR.strings.wn_trfonts_t, ATMR.strings.wn_trfonts_b),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_bubbleink_t, ATMR.strings.wn_bubbleink_b),
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_trfix_t, ATMR.strings.wn_trfix_b),
             // Build 157
             Feature(MaterialSymbols.Rounded.Image, ATMR.strings.wn_energy_t, ATMR.strings.wn_energy_b),
             Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_autofinish_t, ATMR.strings.wn_autofinish_b),
