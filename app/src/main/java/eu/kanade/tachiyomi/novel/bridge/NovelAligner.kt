@@ -160,7 +160,13 @@ object NovelAligner {
     private suspend fun ocr(context: Context, manga: Manga, chapter: Chapter, source: Source): String = withContext(Dispatchers.IO) {
         val graph = context.appGraph
         // Downloaded pages first (no network), else the source's pages
-        val local = runCatching { graph.downloadManager.buildPageList(source, manga, chapter) }.getOrNull().orEmpty()
+        val local = try {
+            graph.downloadManager.buildPageList(source, manga, chapter)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyList()
+        }
         val pages: List<Page> = local.ifEmpty { source.getPageList(chapter.toSChapter()) }
         if (pages.isEmpty()) return@withContext ""
         val picked = spreadPages(pages.size)

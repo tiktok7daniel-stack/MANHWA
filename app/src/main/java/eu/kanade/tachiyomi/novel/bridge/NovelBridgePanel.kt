@@ -75,7 +75,8 @@ import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.AutoStories
 import mihon.icons.materialsymbols.rounded.Check
-import mihon.icons.materialsymbols.rounded.DownloadCircle
+import mihon.icons.custommaterialsymbols.CustomMaterialSymbols
+import mihon.icons.custommaterialsymbols.rounded.DownloadCircle
 import mihon.icons.materialsymbols.rounded.Info
 import mihon.icons.materialsymbols.rounded.MenuBook
 import mihon.icons.materialsymbols.rounded.OpenInNew
@@ -201,7 +202,7 @@ class NovelBridgeUi(
     private suspend fun loadChapters(l: NovelBridge.Link) {
         val key = l.novelKey
         NovelSession.chapters[key]?.takeIf { it.isNotEmpty() }?.let {
-            chapters = inReadingOrder(it)
+            chapters = inReadingOrder(it.distinctBy { c -> c.key })
             return
         }
         val source = context.appGraph.novelExtensionManager.source(l.sourceId)
@@ -214,7 +215,7 @@ class NovelBridgeUi(
         try {
             val list = withContext(Dispatchers.IO) {
                 source.getChapterList(MangaInfo(key = l.url, title = l.title, cover = l.cover), emptyList())
-            }.filter { it.key.isNotBlank() }
+            }.filter { it.key.isNotBlank() }.distinctBy { it.key }
             NovelSession.chapters[key] = list
             chapters = inReadingOrder(list)
         } catch (e: CancellationException) {
@@ -451,7 +452,7 @@ private fun FindNovelCard(ui: NovelBridgeUi) {
             }
             ui.sourceCount == 0 -> {
                 Muted(stringResource(ATMR.strings.bridge_no_sources))
-                ManhwaKit.NeonButton(stringResource(ATMR.strings.bridge_install_sources), Modifier.fillMaxWidth(), icon = MaterialSymbols.Rounded.DownloadCircle) {
+                ManhwaKit.NeonButton(stringResource(ATMR.strings.bridge_install_sources), Modifier.fillMaxWidth(), icon = CustomMaterialSymbols.Rounded.DownloadCircle) {
                     ui.installEnglishAndSearch()
                 }
             }
@@ -582,7 +583,9 @@ private fun ContinueNovelCard(ui: NovelBridgeUi, manga: Manga, mangaChapters: Li
             last == null -> Muted(stringResource(ATMR.strings.bridge_read_first))
             ui.chapters.isEmpty() -> Muted(stringResource(ATMR.strings.bridge_waiting_chapters))
             place != null -> {
-                val next = (place.novelIndex + 1).coerceAtMost(ui.chapters.lastIndex)
+                // The list may have changed since the place was found: its url says where it is now
+                val at = ui.chapters.indexOfFirst { it.key == place.novelUrl }.takeIf { it >= 0 } ?: place.novelIndex
+                val next = (at + 1).coerceIn(0, ui.chapters.lastIndex)
                 Muted(stringResource(ATMR.strings.bridge_told_in, formatNumber(last.chapterNumber), place.novelName))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ManhwaKit.NeonButton(
@@ -611,6 +614,10 @@ private fun ContinueNovelCard(ui: NovelBridgeUi, manga: Manga, mangaChapters: Li
                         formatNumber(last.chapterNumber),
                     ),
                 )
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)))
+            }
+            answer == null -> {
+                Muted(stringResource(ATMR.strings.bridge_waiting_chapters))
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)))
             }
             else -> {

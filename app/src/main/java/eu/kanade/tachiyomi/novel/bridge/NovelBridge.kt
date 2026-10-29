@@ -231,7 +231,7 @@ object NovelBridge {
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): List<Candidate> = coroutineScope {
         val graph = context.appGraph
-        eu.kanade.tachiyomi.novel.NovelSourceHealth.load(context)
+        withContext(Dispatchers.IO) { eu.kanade.tachiyomi.novel.NovelSourceHealth.load(context) }
         // Sources known not to search are skipped: they would only run out the clock
         val sources = graph.novelExtensionManager.sources().filter { eu.kanade.tachiyomi.novel.NovelSourceHealth.searchable(it.id) }
         if (sources.isEmpty()) return@coroutineScope emptyList()

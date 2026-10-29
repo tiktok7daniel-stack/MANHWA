@@ -101,7 +101,8 @@ import mihon.icons.materialsymbols.rounded.AutoStories
 import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
-import mihon.icons.materialsymbols.rounded.DownloadCircle
+import mihon.icons.custommaterialsymbols.CustomMaterialSymbols
+import mihon.icons.custommaterialsymbols.rounded.DownloadCircle
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.MenuBook
@@ -419,14 +420,14 @@ private fun SourcesTools(
                             ManhwaKit.NeonButton(
                                 stringResource(ATMR.strings.novel_install_all_en, missingEn),
                                 Modifier.weight(1f),
-                                icon = MaterialSymbols.Rounded.DownloadCircle,
+                                icon = CustomMaterialSymbols.Rounded.DownloadCircle,
                             ) { onInstallAll("en") }
                         }
                         if (missingAr > 0) {
                             ManhwaKit.GhostButton(
                                 stringResource(ATMR.strings.novel_install_all_ar, missingAr),
                                 Modifier.weight(1f),
-                                icon = MaterialSymbols.Rounded.DownloadCircle,
+                                icon = CustomMaterialSymbols.Rounded.DownloadCircle,
                             ) { onInstallAll("ar") }
                         }
                     }

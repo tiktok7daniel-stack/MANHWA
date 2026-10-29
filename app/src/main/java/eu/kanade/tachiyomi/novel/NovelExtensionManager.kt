@@ -192,6 +192,8 @@ class NovelExtensionManager(
             if (!reloadAfter) return@withContext true
             reload()
             _installed.value.any { it.pkg == ext.pkg }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Novel extension ${ext.pkg} not installed" }
             false
