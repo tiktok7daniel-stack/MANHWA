@@ -90,6 +90,11 @@ class NovelExtensionManager(
 
     init {
         scope.launch(Dispatchers.IO) {
+            // IReader's own repository is there from the start, once: a reader who removes it keeps it removed
+            if (!preferences.novelRepoSeeded.get()) {
+                preferences.novelRepos.set(preferences.novelRepos.get() + IREADER_REPO)
+                preferences.novelRepoSeeded.set(true)
+            }
             reload()
             refreshAvailable()
         }
@@ -172,7 +177,7 @@ class NovelExtensionManager(
     // ---- Install ----
 
     /** Downloads [ext] and loads it (a newer version replaces the older one). */
-    suspend fun install(ext: AvailableNovelExt): Boolean = withContext(Dispatchers.IO) {
+    suspend fun install(ext: AvailableNovelExt, reloadAfter: Boolean = true): Boolean = withContext(Dispatchers.IO) {
         val tmp = File(context.cacheDir, "${ext.pkg}.apk")
         try {
             network.client.newCall(GET(ext.apkUrl)).awaitSuccess().use { response ->
@@ -184,6 +189,7 @@ class NovelExtensionManager(
             val target = File(dir, "${ext.pkg}.$EXT")
             target.delete()
             tmp.copyAndSetReadOnlyTo(target, overwrite = true)
+            if (!reloadAfter) return@withContext true
             reload()
             _installed.value.any { it.pkg == ext.pkg }
         } catch (e: Exception) {
@@ -192,6 +198,24 @@ class NovelExtensionManager(
         } finally {
             tmp.delete()
         }
+    }
+
+    /**
+     * Installs every extension the repositories offer in [langs] that is not on the phone yet (18+ ones only when
+     * [nsfw]), one after another. [onProgress] gets how many are done of how many; returns how many installed.
+     */
+    suspend fun installAll(langs: Set<String>, nsfw: Boolean, onProgress: (Int, Int) -> Unit = { _, _ -> }): Int {
+        val have = _installed.value.map { it.pkg }.toSet()
+        val todo = _available.value.filter { it.pkg !in have && it.lang in langs && (nsfw || !it.nsfw) }
+        todo.forEachIndexed { i, ext ->
+            onProgress(i, todo.size)
+            install(ext, reloadAfter = false)
+        }
+        // Loaded once at the end, not after each one
+        reload()
+        onProgress(todo.size, todo.size)
+        val wanted = todo.map { it.pkg }.toSet()
+        return _installed.value.count { it.pkg in wanted }
     }
 
     suspend fun uninstall(pkg: String) {
@@ -270,7 +294,7 @@ class NovelExtensionManager(
     }
 
     companion object {
-        /** IReader's own extensions repository, offered to the reader in one tap (never added on its own). */
+        /** IReader's own extensions repository: added once on first start, and offered in one tap after. */
         const val IREADER_REPO = "https://raw.githubusercontent.com/IReaderorg/IReader-extensions/repov2"
 
         private const val FEATURE = "ireader"

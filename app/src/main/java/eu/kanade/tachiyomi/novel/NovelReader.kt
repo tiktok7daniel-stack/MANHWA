@@ -624,7 +624,7 @@ private fun looksArabic(blocks: List<Block>): Boolean {
 private const val PICTURE = "\u0000img:"
 
 /** The chapter as the source gives it, as text: paragraphs apart by an empty line, pictures marked on a line of their own. */
-private suspend fun fetchChapter(source: ireader.core.source.CatalogSource, chapter: ChapterInfo): String {
+internal suspend fun fetchChapter(source: ireader.core.source.CatalogSource, chapter: ChapterInfo): String {
     val pages: List<Page> = source.getPageList(chapter, emptyList())
     val parts = mutableListOf<String>()
     for (page in pages) {

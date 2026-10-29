@@ -101,6 +101,7 @@ import mihon.icons.materialsymbols.rounded.AutoStories
 import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Download
+import mihon.icons.materialsymbols.rounded.DownloadCircle
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.rounded.MenuBook
@@ -108,6 +109,8 @@ import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.Search
+import mihon.icons.materialsymbols.rounded.SearchCheck
+import mihon.icons.materialsymbols.rounded.TravelExplore
 import mihon.icons.materialsymbols.roundedfilled.Favorite
 import mihon.icons.materialsymbols.roundedfilled.Keep
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
@@ -265,6 +268,30 @@ fun NovelExtensionsList(contentPadding: PaddingValues, query: String?) {
         available.filter { it.pkg !in installedPkgs && (q.isEmpty() || it.name.lowercase().contains(q)) }
     }
     val installFailed = stringResource(ATMR.strings.novel_install_failed)
+    val health by NovelSourceHealth.checks.collectAsState()
+    val checking by NovelSourceHealth.running.collectAsState()
+    var bulk by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var checkProgress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { NovelSourceHealth.load(context) } }
+    val missingEn = remember(available, installedPkgs) { available.count { it.pkg !in installedPkgs && it.lang == "en" && !it.nsfw } }
+    val missingAr = remember(available, installedPkgs) { available.count { it.pkg !in installedPkgs && it.lang == "ar" && !it.nsfw } }
+
+    fun checkSources() {
+        scope.launch {
+            NovelSourceHealth.checkAll(context, manager.sources()) { done, total -> checkProgress = done to total }
+            checkProgress = null
+        }
+    }
+
+    fun installAll(lang: String) {
+        if (bulk != null) return
+        scope.launch {
+            manager.installAll(setOf(lang), nsfw = false) { done, total -> bulk = done to total }
+            bulk = null
+            // What was just installed is checked straight away, so a dead source shows as one
+            checkSources()
+        }
+    }
 
     fun install(ext: AvailableNovelExt) {
         busy += ext.pkg
@@ -279,6 +306,20 @@ fun NovelExtensionsList(contentPadding: PaddingValues, query: String?) {
         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = contentPadding.calculateTopPadding() + 8.dp, bottom = contentPadding.calculateBottomPadding() + 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item(key = "sources-tools") {
+            SourcesTools(
+                missingEn = missingEn,
+                missingAr = missingAr,
+                bulk = bulk,
+                checking = checking,
+                checkProgress = checkProgress,
+                working = installed.count { health[it.source.id]?.status == NovelSourceHealth.Status.WORKING },
+                broken = installed.count { health[it.source.id]?.status == NovelSourceHealth.Status.BROKEN },
+                installedCount = installed.size,
+                onInstallAll = ::installAll,
+                onCheck = ::checkSources,
+            )
+        }
         if (installed.isNotEmpty()) {
             item(key = "installed-title") { Section(stringResource(ATMR.strings.novel_installed)) }
             items(installed, key = { "i-${it.pkg}" }) { ext ->
@@ -287,6 +328,7 @@ fun NovelExtensionsList(contentPadding: PaddingValues, query: String?) {
                     name = ext.name,
                     sub = "${LocaleHelper.getSourceDisplayName(ext.lang, context)} · v${ext.versionName}",
                     nsfw = ext.nsfw,
+                    health = health[ext.source.id]?.status,
                 ) {
                     val update = updates[ext.pkg]
                     when {
@@ -336,8 +378,124 @@ fun NovelExtensionsList(contentPadding: PaddingValues, query: String?) {
     }
 }
 
+/** The top of the extensions list: install every English or Arabic source at once, and check which really work. */
 @Composable
-private fun ExtRow(icon: @Composable () -> Unit, name: String, sub: String, nsfw: Boolean, action: @Composable () -> Unit) {
+private fun SourcesTools(
+    missingEn: Int,
+    missingAr: Int,
+    bulk: Pair<Int, Int>?,
+    checking: Boolean,
+    checkProgress: Pair<Int, Int>?,
+    working: Int,
+    broken: Int,
+    installedCount: Int,
+    onInstallAll: (String) -> Unit,
+    onCheck: () -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth().glass(RoundedCornerShape(22.dp), alpha = 0.34f).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(MaterialSymbols.Rounded.TravelExplore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                stringResource(ATMR.strings.novel_sources_tools),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        when {
+            bulk != null -> ProgressLine(stringResource(ATMR.strings.novel_installing_all, bulk.first, bulk.second), bulk)
+            checking -> ProgressLine(
+                stringResource(ATMR.strings.novel_checking_sources, checkProgress?.first ?: 0, checkProgress?.second ?: installedCount),
+                checkProgress,
+            )
+            else -> {
+                if (missingEn > 0 || missingAr > 0) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (missingEn > 0) {
+                            ManhwaKit.NeonButton(
+                                stringResource(ATMR.strings.novel_install_all_en, missingEn),
+                                Modifier.weight(1f),
+                                icon = MaterialSymbols.Rounded.DownloadCircle,
+                            ) { onInstallAll("en") }
+                        }
+                        if (missingAr > 0) {
+                            ManhwaKit.GhostButton(
+                                stringResource(ATMR.strings.novel_install_all_ar, missingAr),
+                                Modifier.weight(1f),
+                                icon = MaterialSymbols.Rounded.DownloadCircle,
+                            ) { onInstallAll("ar") }
+                        }
+                    }
+                }
+                if (installedCount > 0) {
+                    ManhwaKit.GhostButton(
+                        stringResource(ATMR.strings.novel_check_sources),
+                        Modifier.fillMaxWidth(),
+                        icon = MaterialSymbols.Rounded.SearchCheck,
+                    ) { onCheck() }
+                    if (working + broken > 0) {
+                        Text(
+                            stringResource(ATMR.strings.novel_sources_summary, working, broken),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ManhwaInk.muted,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressLine(label: String, progress: Pair<Int, Int>?) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
+        val fraction = progress?.let { (d, t) -> if (t > 0) d.toFloat() / t else 0f }
+        if (fraction == null) {
+            androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().clip(RoundedCornerShape(50)))
+        } else {
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(50)),
+            )
+        }
+    }
+}
+
+/** A small coloured tag: does this source really work. */
+@Composable
+private fun HealthTag(status: NovelSourceHealth.Status) {
+    val (color, label) = when (status) {
+        NovelSourceHealth.Status.WORKING -> Color(0xFF3DDC84) to stringResource(ATMR.strings.novel_source_working)
+        NovelSourceHealth.Status.NO_SEARCH -> Color(0xFFFFB74D) to stringResource(ATMR.strings.novel_source_no_search)
+        NovelSourceHealth.Status.BROKEN -> MaterialTheme.colorScheme.error to stringResource(ATMR.strings.novel_source_broken)
+    }
+    Text(
+        label,
+        color = color,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(color.copy(alpha = 0.14f))
+            .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(50))
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
+}
+
+@Composable
+private fun ExtRow(
+    icon: @Composable () -> Unit,
+    name: String,
+    sub: String,
+    nsfw: Boolean,
+    health: NovelSourceHealth.Status? = null,
+    action: @Composable () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().glass(RoundedCornerShape(18.dp), alpha = 0.3f).padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -352,7 +510,13 @@ private fun ExtRow(icon: @Composable () -> Unit, name: String, sub: String, nsfw
                     Text("18+", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
                 }
             }
-            Text(sub, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(sub, style = MaterialTheme.typography.bodySmall, color = ManhwaInk.muted, modifier = Modifier.weight(1f, fill = false))
+                if (health != null) {
+                    Spacer(Modifier.width(6.dp))
+                    HealthTag(health)
+                }
+            }
         }
         Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { action() }
     }
@@ -543,7 +707,7 @@ class NovelBrowseScreen(private val sourceId: Long) : Screen() {
 }
 
 /** The source's filters with [query] as the title searched (IReader sources search through their title filter). */
-private fun searchFilters(source: CatalogSource, query: String): List<Filter<*>> {
+internal fun searchFilters(source: CatalogSource, query: String): List<Filter<*>> {
     val filters = source.getFilters()
     val title = filters.firstOrNull { it is Filter.Title } ?: filters.firstOrNull { it is Filter.Text }
     if (title is Filter.Text) title.value = query

@@ -82,6 +82,9 @@ class SourcePreferences(
 
     /** MANHWA novels: the novel extension repositories (IReader's format) the reader added. */
     val novelRepos: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_novel_repos", emptySet())
+
+    /** MANHWA novels: IReader's repository was added once by itself (removing it later keeps it removed). */
+    val novelRepoSeeded: Preference<Boolean> = preferenceStore.getBoolean("manhwa_novel_repo_seeded", false)
     val novelPinnedSources: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_novel_pinned_sources", emptySet())
 
     /** MANHWA: sources whose chapters open in the site's own reader (on top of MangaTek, which does by default). */

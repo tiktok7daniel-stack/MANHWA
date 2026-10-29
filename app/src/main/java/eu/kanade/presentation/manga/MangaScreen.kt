@@ -56,6 +56,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.ChapterTranslationAction
 import eu.kanade.tachiyomi.data.download.DownloadErrorLog
 import eu.kanade.presentation.manga.components.ChapterHeader
+import eu.kanade.tachiyomi.novel.bridge.novelBridgeItems
 import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.MangaActionRow
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
@@ -306,6 +307,10 @@ private fun MangaScreenSmallImpl(
     // MANHWA: this work joined with its continuation on another source
     val fusionUi = eu.kanade.translation.unified.rememberFusionUi(state.manga)
     val fusedBadge = fusionUi.baseBadge()
+    // MANHWA novel bridge: 0 = the manhwa's chapters, 1 = its novel's
+    var shelf by androidx.compose.runtime.saveable.rememberSaveable(state.manga.id) { mutableIntStateOf(0) }
+    val novelBridge = eu.kanade.tachiyomi.novel.bridge.rememberNovelBridge(state.manga)
+    val mangaChapters = remember(state.chapters) { state.chapters.map { it.chapter } }
 
     val (chapters, listItem, isAnySelected) = remember(state) {
         Triple(
@@ -518,6 +523,13 @@ private fun MangaScreenSmallImpl(
                     item(key = "manhwa_fusion") {
                         eu.kanade.translation.unified.FusionBanner(fusionUi, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                     }
+                    // MANHWA novel bridge: the chapter panel shows the manhwa's chapters or its novel's
+                    item(key = "manhwa_shelf_switch") {
+                        eu.kanade.tachiyomi.novel.bridge.ShelfSwitch(shelf, { shelf = it })
+                    }
+                    if (shelf == 1) {
+                        novelBridgeItems(novelBridge, state.manga, mangaChapters)
+                    } else {
                     item(
                         key = MangaScreenItem.CHAPTER_HEADER,
                         contentType = MangaScreenItem.CHAPTER_HEADER,
@@ -546,6 +558,7 @@ private fun MangaScreenSmallImpl(
                         onChapterSwipe = onChapterSwipe,
                         fusedBadge = fusedBadge,
                     )
+                    }
                 }
             }
         }
@@ -639,6 +652,10 @@ fun MangaScreenLargeImpl(
     // MANHWA: this work joined with its continuation on another source
     val fusionUi = eu.kanade.translation.unified.rememberFusionUi(state.manga)
     val fusedBadge = fusionUi.baseBadge()
+    // MANHWA novel bridge: 0 = the manhwa's chapters, 1 = its novel's
+    var shelf by androidx.compose.runtime.saveable.rememberSaveable(state.manga.id) { mutableIntStateOf(0) }
+    val novelBridge = eu.kanade.tachiyomi.novel.bridge.rememberNovelBridge(state.manga)
+    val mangaChapters = remember(state.chapters) { state.chapters.map { it.chapter } }
 
     BackHandler(enabled = isAnySelected) {
         onAllChapterSelected(false)
@@ -787,6 +804,12 @@ fun MangaScreenLargeImpl(
                             item(key = "manhwa_fusion") {
                                 eu.kanade.translation.unified.FusionBanner(fusionUi, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                             }
+                            item(key = "manhwa_shelf_switch") {
+                                eu.kanade.tachiyomi.novel.bridge.ShelfSwitch(shelf, { shelf = it })
+                            }
+                            if (shelf == 1) {
+                                novelBridgeItems(novelBridge, state.manga, mangaChapters)
+                            } else {
                             item(
                                 key = MangaScreenItem.CHAPTER_HEADER,
                                 contentType = MangaScreenItem.CHAPTER_HEADER,
@@ -815,6 +838,7 @@ fun MangaScreenLargeImpl(
                                 onChapterSwipe = onChapterSwipe,
                                 fusedBadge = fusedBadge,
                             )
+                            }
                         }
                     }
                 },
