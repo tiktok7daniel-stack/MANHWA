@@ -56,6 +56,21 @@ object SettingsAppearanceScreen : SearchableSettings {
             ),
             getThemeGroup(uiPreferences = uiPreferences),
             getHomeGroup(uiPreferences = uiPreferences),
+            // MANHWA: the songs on or off for the whole app
+            Preference.PreferenceGroup(
+                title = stringResource(ATMR.strings.music_settings_title),
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = uiPreferences.musicEnabled,
+                        title = stringResource(ATMR.strings.music_enabled),
+                        subtitle = stringResource(ATMR.strings.music_enabled_sub),
+                        onValueChanged = { on ->
+                            if (!on) eu.kanade.tachiyomi.music.MusicPlayer.shutDown()
+                            true
+                        },
+                    ),
+                ),
+            ),
             getDisplayGroup(uiPreferences = uiPreferences),
         )
     }

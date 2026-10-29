@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.app.di.appGraph
 import tachiyomi.core.common.util.system.logcat
 
 /**
@@ -132,6 +133,11 @@ object MusicPlayer {
 
     /** The work [mangaId] is on screen (its page or a chapter): its songs play, unless they already are. */
     fun attach(context: Context, mangaId: Long) {
+        // MANHWA: songs switched off in Settings: nothing plays anywhere
+        if (!enabled(context)) {
+            shutDown()
+            return
+        }
         leaveJob?.cancel()
         val p = ensure(context)
         val s = store ?: return
@@ -155,6 +161,7 @@ object MusicPlayer {
 
     /** The work's songs changed (added, removed): the queue follows, keeping the song playing when it stays. */
     fun refresh(context: Context, mangaId: Long, playIndex: Int? = null) {
+        if (!enabled(context)) return
         ensure(context)
         val s = store ?: return
         val tracks = s.tracksOf(mangaId)
@@ -261,6 +268,24 @@ object MusicPlayer {
                 delay(25)
             }
         }
+    }
+
+    /** Whether the songs are on (Settings, Appearance, Music). */
+    fun enabled(context: Context): Boolean =
+        runCatching { context.applicationContext.appGraph.uiPreferences.musicEnabled.get() }.getOrDefault(true)
+
+    /** The songs were switched off: whatever plays stops at once, with nothing left in the queue. */
+    fun shutDown() {
+        leaveJob?.cancel()
+        fadeJob?.cancel()
+        tickJob?.cancel()
+        player?.let { p ->
+            p.stop()
+            p.clearMediaItems()
+        }
+        _state.value = State()
+        _position.value = 0L
+        pausedByUser = false
     }
 
     private fun fadeOut(stop: Boolean) {

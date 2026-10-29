@@ -1894,4 +1894,7 @@
     <string name="wn_bubbleink_b">On a coloured bubble the translation takes a deep or pale shade of its colour that reads clearly, and small bubbles use all their room instead of spilling over.</string>
     <string name="wn_trfix_t">Cleaner translated pages</string>
     <string name="wn_trfix_b">Lines the scanner misread are read again from their image, a translation that is not Arabic leaves the original as it is, a line cut short is translated again, dark and gradient boxes are cleaned whole, and big titles over the sky are replaced in their own colours.</string>
+    <string name="music_settings_title">Music</string>
+    <string name="music_enabled">Works\' songs</string>
+    <string name="music_enabled_sub">Off: no song plays anywhere and the music bar and its button are hidden in every page and chapter. On: they come back.</string>
 </resources>

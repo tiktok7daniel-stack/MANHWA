@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.music
 
+import mihon.app.di.appGraph
+import tachiyomi.presentation.core.util.collectAsState as collectPref
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -236,6 +238,9 @@ fun WorkMusicEffect(workId: Long) {
 @Composable
 fun MusicMiniBar(mangaId: Long, title: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    // MANHWA: songs switched off in Settings: no bar, no button, nothing of the music shows
+    val musicOn by remember { context.appGraph.uiPreferences.musicEnabled }.collectPref()
+    if (!musicOn) return
     val state by MusicPlayer.state.collectAsState()
     val library by remember { MusicStore.get(context).library }.collectAsState()
     val hasSongs = library.works[mangaId.toString()]?.tracks?.isNotEmpty() == true

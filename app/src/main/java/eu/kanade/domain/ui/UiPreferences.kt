@@ -48,6 +48,9 @@ class UiPreferences(
     val logoStyle: Preference<String> = preferenceStore.getString("manhwa_logo_style", "CLASSIC")
     val introStyle: Preference<String> = preferenceStore.getString("manhwa_intro_style", "AUTO")
     val introEnabled: Preference<Boolean> = preferenceStore.getBoolean("manhwa_intro_enabled", true)
+
+    /** MANHWA: the works' songs, everywhere (the music bar, the player, songs playing in the pages and chapters). */
+    val musicEnabled: Preference<Boolean> = preferenceStore.getBoolean("manhwa_music_enabled", true)
     val introSpeed: Preference<Float> = preferenceStore.getFloat("manhwa_intro_speed", 1f)
 
     /** Obsidian Royal in its light version (silk paper) instead of the dark one. */
