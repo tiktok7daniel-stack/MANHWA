@@ -525,7 +525,11 @@ private fun MangaScreenSmallImpl(
                     }
                     // MANHWA novel bridge: the chapter panel shows the manhwa's chapters or its novel's
                     item(key = "manhwa_shelf_switch") {
-                        eu.kanade.tachiyomi.novel.bridge.ShelfSwitch(shelf, { shelf = it })
+                        // MANHWA: the manhwa and its novel as two covers over the switch; a swipe brings the other forward
+                        androidx.compose.foundation.layout.Column {
+                            eu.kanade.tachiyomi.novel.bridge.DualCovers(state.manga, novelBridge, shelf, { shelf = it })
+                            eu.kanade.tachiyomi.novel.bridge.ShelfSwitch(shelf, { shelf = it })
+                        }
                     }
                     if (shelf == 1) {
                         novelBridgeItems(novelBridge, state.manga, mangaChapters)
@@ -805,7 +809,11 @@ fun MangaScreenLargeImpl(
                                 eu.kanade.translation.unified.FusionBanner(fusionUi, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                             }
                             item(key = "manhwa_shelf_switch") {
-                                eu.kanade.tachiyomi.novel.bridge.ShelfSwitch(shelf, { shelf = it })
+                                // MANHWA: the manhwa and its novel as two covers over the switch; a swipe brings the other forward
+                                androidx.compose.foundation.layout.Column {
+                                    eu.kanade.tachiyomi.novel.bridge.DualCovers(state.manga, novelBridge, shelf, { shelf = it })
+                                    eu.kanade.tachiyomi.novel.bridge.ShelfSwitch(shelf, { shelf = it })
+                                }
                             }
                             if (shelf == 1) {
                                 novelBridgeItems(novelBridge, state.manga, mangaChapters)

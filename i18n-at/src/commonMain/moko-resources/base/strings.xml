@@ -1946,6 +1946,14 @@
     <string name="bridge_manhwa_here">You are here</string>
     <string name="wn_bridge_t">The manhwa and its novel</string>
     <string name="wn_bridge_b">On a manhwa\'s page, switch Manhwa | Novel above the chapters. The novel it is drawn from is found by its real titles, and the app tells you where to continue it, matched from the words of the last chapter you read, never guessed.</string>
+    <string name="wn_dock_t">Double tap: colours, auto-scroll, translation</string>
+    <string name="wn_dock_b">A double tap on the page brings up three buttons of their own: colours on top, auto-scroll under it, translation at the bottom. Colours opens the chapter\'s colours: screen brightness, and the pages\' brightness, contrast, saturation, sharpness and warmth, live.</string>
+    <string name="wn_dualcovers_t">The manhwa and its novel, two covers</string>
+    <string name="wn_dualcovers_b">On a manhwa\'s page its cover and its novel\'s stand side by side; swipe to bring the novel forward and its chapters show below.</string>
+    <string name="wn_anynet_t">Sources on any network</string>
+    <string name="wn_anynet_b">A slow network DNS is overtaken by a secure one, networks that send a site to their own warning page or cut it at the start are routed round, and each Wi-Fi or mobile network remembers what it needed.</string>
+    <string name="wn_secondlook_t">Cleaner pages</string>
+    <string name="wn_secondlook_b">A line that still shows letters after it was cleaned gets a second, wider look, so no tail of a big letter or wide glow stays behind the translation.</string>
     <string name="wn_novelsrc_t">Every novel source in one tap</string>
     <string name="wn_novelsrc_b">IReader\'s repository is added by itself. Install all English or Arabic sources at once, and check which ones really work.</string>
 </resources>

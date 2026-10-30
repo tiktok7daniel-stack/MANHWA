@@ -132,13 +132,18 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.MenuBook, ATMR.strings.wn_bridge_t, ATMR.strings.wn_bridge_b),
-            Feature(MaterialSymbols.Rounded.TravelExplore, ATMR.strings.wn_novelsrc_t, ATMR.strings.wn_novelsrc_b),
+            Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_dock_t, ATMR.strings.wn_dock_b),
+            Feature(MaterialSymbols.Rounded.MenuBook, ATMR.strings.wn_dualcovers_t, ATMR.strings.wn_dualcovers_b),
+            Feature(MaterialSymbols.Rounded.TravelExplore, ATMR.strings.wn_anynet_t, ATMR.strings.wn_anynet_b),
+            Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_secondlook_t, ATMR.strings.wn_secondlook_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 163
+            Feature(MaterialSymbols.Rounded.MenuBook, ATMR.strings.wn_bridge_t, ATMR.strings.wn_bridge_b),
+            Feature(MaterialSymbols.Rounded.TravelExplore, ATMR.strings.wn_novelsrc_t, ATMR.strings.wn_novelsrc_b),
             // Build 162
             Feature(MaterialSymbols.Rounded.Headphones, ATMR.strings.wn_musicswitch_t, ATMR.strings.wn_musicswitch_b),
             // Build 161
