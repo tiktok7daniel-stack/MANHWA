@@ -187,6 +187,9 @@ class ReaderPreferences(
 
     val pageWarmth: Preference<Int> = preferenceStore.getInt("manhwa_page_warmth", 0)
 
+    /** MANHWA: how much the pages are sharpened, 0 to 100 (Android 13 and later; 0 leaves them as they are). */
+    val pageSharpness: Preference<Int> = preferenceStore.getInt("manhwa_page_sharpness", 0)
+
     /** MANHWA: pure black around the pages and softer whites on them, for reading at night on an OLED screen. */
     val amoledReading: Preference<Boolean> = preferenceStore.getBoolean("manhwa_amoled_reading", false)
 

@@ -1539,6 +1539,10 @@
     <string name="page_tune_warmth">الدفء</string>
     <string name="page_tune_auto">حسّن الصفحات الباهتة</string>
     <string name="page_tune_reset">رجّع الأصل</string>
+    <string name="dock_colors">الألوان</string>
+    <string name="tune_title">ألوان الفصل</string>
+    <string name="tune_screen">سطوع الشاشة (0 = زي الموبايل)</string>
+    <string name="tune_sharpness">الحدة</string>
     <string name="credit_skip">تخطي صفحات الجروبات والإعلانات</string>
     <string name="credit_forget">انسَ صفحات الجروبات المتعلّمة</string>
     <string name="credit_skip_always">صفحة جروب: تخطاها دايماً</string>

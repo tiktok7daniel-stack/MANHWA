@@ -376,17 +376,44 @@ class ReaderActivity : BaseActivity() {
                     scrollButton.value = false
                 }
             }
+            // MANHWA: a double tap brings up the quick dock: colours, auto-scroll and translation, each on its own
+            var colorsOpen by remember { mutableStateOf(false) }
             if (showScrollButton && !state.menuVisible) {
-                eu.kanade.translation.live.ScrollButton(
-                    playing = scrolling,
-                    onPlaying = { scrolling = it },
-                    speed = autoScrollSpeed,
-                    onSpeed = readerPreferences.autoScrollSpeed::set,
+                eu.kanade.translation.live.ReaderQuickDock(
+                    translating = autoTranslate,
+                    onTranslate = viewModel.liveTranslation::setEnabled,
+                    colorsOpen = colorsOpen,
+                    onColors = { colorsOpen = !colorsOpen },
                     onTouch = { scrollButtonTouch++ },
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .navigationBarsPadding()
                         .padding(start = 14.dp, bottom = 40.dp),
+                ) {
+                    eu.kanade.translation.live.ScrollButton(
+                        playing = scrolling,
+                        onPlaying = { scrolling = it },
+                        speed = autoScrollSpeed,
+                        onSpeed = readerPreferences.autoScrollSpeed::set,
+                        onTouch = { scrollButtonTouch++ },
+                    )
+                }
+            }
+            if (colorsOpen) {
+                // The dock stays while the colours are being set
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        scrollButtonTouch++
+                        kotlinx.coroutines.delay(SCROLL_BUTTON_HIDE_MS / 2)
+                    }
+                }
+                eu.kanade.translation.live.ColorTunePanel(
+                    prefs = readerPreferences,
+                    onDismiss = { colorsOpen = false },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 24.dp),
                 )
             }
             eu.kanade.translation.live.AutoScrollRunner(
@@ -1519,6 +1546,12 @@ class ReaderActivity : BaseActivity() {
             readerPreferences.amoledReading.changes()
                 .onEach { if (it) readerPreferences.readerTheme.set(1) }
                 .launchIn(lifecycleScope)
+            // MANHWA: sharpness, a shader on the pages (Android 13 and later), only while the tuning is on
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                combine(readerPreferences.pageTune.changes(), readerPreferences.pageSharpness.changes()) { on, sharp -> if (on) sharp else 0 }
+                    .onEach { binding.viewerContainer.setRenderEffect(PageSharpen.effect(it)) }
+                    .launchIn(lifecycleScope)
+            }
             combine(
                 readerPreferences.grayscale.changes(),
                 readerPreferences.invertedColors.changes(),

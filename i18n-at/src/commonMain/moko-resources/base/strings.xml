@@ -1598,6 +1598,10 @@
     <string name="page_tune_warmth">Warmth</string>
     <string name="page_tune_auto">Lift faded pages</string>
     <string name="page_tune_reset">Reset</string>
+    <string name="dock_colors">Colours</string>
+    <string name="tune_title">Chapter colours</string>
+    <string name="tune_screen">Screen brightness (0 follows the phone)</string>
+    <string name="tune_sharpness">Sharpness</string>
     <string name="credit_skip">Skip the groups\' credit and ad pages</string>
     <string name="credit_forget">Forget the learned group pages</string>
     <string name="credit_skip_always">Group page: always skip it</string>
