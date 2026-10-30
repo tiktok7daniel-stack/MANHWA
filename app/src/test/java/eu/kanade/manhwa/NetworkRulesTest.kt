@@ -24,6 +24,22 @@ class NetworkRulesTest {
     }
 
     @Test
+    fun `a public site sent to a private address is a warning page, a home server is not`() {
+        NetworkRules.blockedFor("mangasite.com", ips("10.10.34.35")) shouldBe true
+        NetworkRules.blockedFor("mangasite.com", ips("192.168.0.1")) shouldBe true
+        NetworkRules.blockedFor("mangasite.com", ips("104.18.2.3")) shouldBe false
+        NetworkRules.blockedFor("komga.local", ips("192.168.1.20")) shouldBe false
+        NetworkRules.blockedFor("nas", ips("10.0.0.5")) shouldBe false
+    }
+
+    @Test
+    fun `a connection the network cuts as it starts is tried again`() {
+        NetworkRules.retryable("GET", IOException("Connection reset")) shouldBe true
+        NetworkRules.retryable("GET", IOException("unexpected end of stream on https://x.com/")) shouldBe true
+        NetworkRules.retryable("POST", IOException("Connection reset")) shouldBe false
+    }
+
+    @Test
     fun `real and local addresses are kept`() {
         NetworkRules.blocked(ips("104.18.2.3")) shouldBe false
         NetworkRules.blocked(ips("0.0.0.0", "172.67.1.1")) shouldBe false

@@ -17,14 +17,20 @@ import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import javax.net.ssl.SSLException
 import kotlin.time.Duration.Companion.seconds
 
 /**
  * MANHWA: sites open on any network. The network's own DNS is asked first (fast, and local servers keep working);
- * when it cannot find a site, answers with a dead address (how many networks block a site), or the site cannot be
- * reached through what it answered, the address is asked again over HTTPS from Cloudflare, then Google, and that
- * site keeps using it until the phone changes network.
+ * when it cannot find a site, answers with a dead address or a private one (how many networks block a site, or
+ * send it to their own warning page), is too slow to answer, or the site cannot be reached through what it
+ * answered (refused, reset, or a certificate that is not the site's), the address is asked again over HTTPS from
+ * Cloudflare, then Google. What each network needed is remembered for that network, so going back to a Wi-Fi or
+ * to mobile data finds its sites at once.
  */
 class SmartDns(context: Context) : Dns {
 
@@ -53,15 +59,27 @@ class SmartDns(context: Context) : Dns {
             .build(),
     )
 
+    /** What every network the phone was on needed: the sites it could not reach through its own DNS, and IPv4. */
+    private class NetworkMemory {
+        val viaSecure: MutableSet<String> = ConcurrentHashMap.newKeySet()
+        @Volatile var preferV4 = false
+    }
+
+    private val memories = ConcurrentHashMap<Long, NetworkMemory>()
+
+    @Volatile private var memory = NetworkMemory()
+
     /** Sites this network could not reach through its own DNS. */
-    private val viaSecure = ConcurrentHashMap.newKeySet<String>()
+    private val viaSecure: MutableSet<String> get() = memory.viaSecure
 
     /**
      * MANHWA: this network failed to connect over IPv6 (many mobile networks have a broken IPv6 route while the
-     * home Wi-Fi works): sites are reached over IPv4 until the phone changes network.
+     * home Wi-Fi works): sites are reached over IPv4 on it.
      */
-    @Volatile var preferV4 = false
-        private set
+    val preferV4: Boolean get() = memory.preferV4
+
+    /** The network's own DNS runs here, so a slow one can be overtaken by the secure DNS. */
+    private val systemLookups = Executors.newCachedThreadPool { r -> Thread(r, "smart-dns").apply { isDaemon = true } }
 
     /** Whether [hostname] is reached through the secure DNS on this network (for the problem log). */
     fun usesSecureDns(hostname: String): Boolean = hostname in viaSecure
@@ -74,16 +92,16 @@ class SmartDns(context: Context) : Dns {
             val cm = context.getSystemService(ConnectivityManager::class.java)
             cm.registerDefaultNetworkCallback(
                 object : ConnectivityManager.NetworkCallback() {
-                    override fun onAvailable(network: Network) = changed()
-                    override fun onLost(network: Network) = changed()
+                    override fun onAvailable(network: Network) = changed(network)
+                    override fun onLost(network: Network) = changed(null)
                 },
             )
         }
     }
 
-    private fun changed() {
-        viaSecure.clear()
-        preferV4 = false
+    private fun changed(network: Network?) {
+        // Each network keeps what it learnt; a network never seen starts fresh
+        memory = network?.let { memories.getOrPut(it.networkHandle) { NetworkMemory() } } ?: NetworkMemory()
         runCatching { onNetworkChanged?.invoke() }
     }
 
@@ -92,18 +110,30 @@ class SmartDns(context: Context) : Dns {
 
     private fun rawLookup(hostname: String): List<InetAddress> {
         if (hostname !in viaSecure) {
+            val asked: Future<List<InetAddress>> = systemLookups.submit<List<InetAddress>> {
+                try {
+                    Dns.SYSTEM.lookup(hostname)
+                } catch (e: UnknownHostException) {
+                    emptyList()
+                }
+            }
             val system = try {
-                Dns.SYSTEM.lookup(hostname)
-            } catch (e: UnknownHostException) {
+                asked.get(SYSTEM_BUDGET_MS, TimeUnit.MILLISECONDS)
+            } catch (e: TimeoutException) {
+                // The network's DNS is slow: the secure DNS answers, and the network's still may if that fails
+                val secure = runCatching { secureLookup(hostname, fallBack = false) }.getOrNull()
+                if (secure != null && !NetworkRules.blockedFor(hostname, secure.map { it.address })) return secure
+                runCatching { asked.get(SYSTEM_WAIT_MS, TimeUnit.MILLISECONDS) }.getOrDefault(emptyList())
+            } catch (e: Exception) {
                 emptyList()
             }
-            if (!NetworkRules.blocked(system.map { it.address })) return system
+            if (!NetworkRules.blockedFor(hostname, system.map { it.address })) return system
             viaSecure += hostname
         }
         return secureLookup(hostname)
     }
 
-    private fun secureLookup(hostname: String): List<InetAddress> {
+    private fun secureLookup(hostname: String, fallBack: Boolean = true): List<InetAddress> {
         var last: Exception? = null
         for (dns in secure) {
             try {
@@ -113,6 +143,7 @@ class SmartDns(context: Context) : Dns {
                 last = e
             }
         }
+        if (!fallBack) throw last as? UnknownHostException ?: UnknownHostException(hostname)
         // Nothing better: the network's own answer, as before
         return try {
             Dns.SYSTEM.lookup(hostname)
@@ -120,6 +151,14 @@ class SmartDns(context: Context) : Dns {
             last?.let { e.addSuppressed(it) }
             throw e
         }
+    }
+
+    private companion object {
+        /** How long the network's own DNS has before the secure DNS is asked alongside it. */
+        const val SYSTEM_BUDGET_MS = 2_500L
+
+        /** How much longer the network's DNS is waited for when the secure DNS could not answer either. */
+        const val SYSTEM_WAIT_MS = 6_000L
     }
 
     /** Marks [hostname] as unreachable through this network's DNS; true the first time. */
@@ -139,7 +178,7 @@ class SmartDns(context: Context) : Dns {
                 if (!chain.call().isCanceled() && !preferV4 && NetworkRules.ipv6ConnectFailure(e) &&
                     (request.method == "GET" || request.method == "HEAD")
                 ) {
-                    preferV4 = true
+                    memory.preferV4 = true
                     runCatching { onNetworkChanged?.invoke() }
                     try {
                         return chain.proceed(request)
@@ -172,6 +211,26 @@ object NetworkRules {
     /** An answer that leads nowhere: empty, or only "this" / loopback addresses (a network blocking the site). */
     fun blocked(addresses: List<ByteArray>): Boolean =
         addresses.isEmpty() || addresses.all { dead(it) }
+
+    /**
+     * [blocked], or an answer that sends a public site to a private address (10.x, 172.16-31.x, 192.168.x,
+     * 100.64-127.x): a network showing its own warning page instead. Names of the home network (one word, or
+     * .local, .lan, .home, .internal) may live at private addresses and are left alone.
+     */
+    fun blockedFor(hostname: String, addresses: List<ByteArray>): Boolean {
+        if (blocked(addresses)) return true
+        val local = '.' !in hostname || LOCAL_SUFFIXES.any { hostname.endsWith(it, ignoreCase = true) }
+        return !local && addresses.all { isPrivate(it) }
+    }
+
+    private val LOCAL_SUFFIXES = listOf(".local", ".lan", ".home", ".internal", ".localdomain", ".home.arpa")
+
+    private fun isPrivate(a: ByteArray): Boolean {
+        if (a.size != 4) return false
+        val b0 = a[0].toInt() and 0xFF
+        val b1 = a[1].toInt() and 0xFF
+        return b0 == 10 || (b0 == 172 && b1 in 16..31) || (b0 == 192 && b1 == 168) || (b0 == 100 && b1 in 64..127)
+    }
 
     private fun dead(a: ByteArray): Boolean = when (a.size) {
         4 -> a[0].toInt() == 0 || a[0].toInt() == 127
@@ -219,6 +278,8 @@ object NetworkRules {
         return addresses.filter(isV4).ifEmpty { addresses }
     }
 
+    private val RESET_WORDS = listOf("connection reset", "unexpected end of stream", "broken pipe")
+
     /** Only safe requests, and only when the site was not reached (or the connection was misdirected). */
     fun retryable(method: String, e: IOException): Boolean {
         if (method != "GET" && method != "HEAD") return false
@@ -226,7 +287,8 @@ object NetworkRules {
             is UnknownHostException, is ConnectException, is NoRouteToHostException, is SSLException -> true
             is SocketTimeoutException -> e.message?.contains("connect", ignoreCase = true) == true
             is InterruptedIOException -> false
-            else -> false
+            // A connection cut by the network as it starts (how some networks block a site by its name)
+            else -> e.message?.let { m -> RESET_WORDS.any { m.contains(it, ignoreCase = true) } } == true
         }
     }
 }
