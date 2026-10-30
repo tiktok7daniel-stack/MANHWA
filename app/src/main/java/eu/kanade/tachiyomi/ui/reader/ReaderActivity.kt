@@ -381,17 +381,27 @@ class ReaderActivity : BaseActivity() {
             // MANHWA: a double tap brings up the quick dock: colours, auto-scroll and translation, each on its own
             var colorsOpen by remember { mutableStateOf(false) }
             if (showScrollButton && !state.menuVisible) {
+                val autoColorsOn by readerPreferences.autoColors.collectAsState()
                 eu.kanade.translation.live.ReaderQuickDock(
                     translating = autoTranslate,
-                    onTranslate = viewModel.liveTranslation::setEnabled,
-                    colorsOpen = colorsOpen,
-                    onColors = { colorsOpen = !colorsOpen },
+                    // The translation's own menu, all of it (the dock steps aside for it)
+                    onTranslate = {
+                        scrollButton.value = false
+                        orbOpen = true
+                    },
+                    autoColors = autoColorsOn,
+                    onColors = {
+                        val on = !autoColorsOn
+                        readerPreferences.autoColors.set(on)
+                        if (on) currentReaderPage()?.let { autoColorsFor(it) }
+                        toast(stringResource(if (on) tachiyomi.i18n.at.ATMR.strings.auto_colors_on else tachiyomi.i18n.at.ATMR.strings.auto_colors_off))
+                    },
+                    onColorsHold = { colorsOpen = !colorsOpen },
                     onTouch = { scrollButtonTouch++ },
-                    onOtherFace = { openOtherFace() },
                     modifier = Modifier
-                        .align(Alignment.BottomStart)
+                        .align(Alignment.BottomEnd)
                         .navigationBarsPadding()
-                        .padding(start = 14.dp, bottom = 40.dp),
+                        .padding(end = 14.dp, bottom = 40.dp),
                 ) {
                     eu.kanade.translation.live.ScrollButton(
                         playing = scrolling,
@@ -450,7 +460,7 @@ class ReaderActivity : BaseActivity() {
                 },
             )
             val showOrb by remember { appGraph.translationPreferences.translationReaderButton() }.collectAsState()
-            if ((showOrb || editing) && !otherFaceNow) eu.kanade.translation.live.ReaderActionOrb(
+            if ((showOrb || editing || orbOpen) && !otherFaceNow && !(showScrollButton && !state.menuVisible)) eu.kanade.translation.live.ReaderActionOrb(
                 status = live,
                 expanded = orbOpen,
                 onExpanded = { orbOpen = it },
@@ -1224,6 +1234,7 @@ class ReaderActivity : BaseActivity() {
 
     fun onPageSelected(page: ReaderPage) {
         viewModel.onPageSelected(page)
+        if (readerPreferences.autoColors.get()) autoColorsFor(page)
         // MANHWA fight reader: a page of blasts and sound effects shakes the screen a little
         if (page !== lastFightPage && readerPreferences.fightEffects.get() && FightPages.isFight(page.translation)) {
             lastFightPage = page
@@ -1276,6 +1287,32 @@ class ReaderActivity : BaseActivity() {
 
     /** MANHWA smart focus: when the "you were here" line was last shown. */
     private val focusFlash = MutableStateFlow(0L)
+
+    /** MANHWA automatic colours: the tuning worked out from the page on screen (eased from the one before). */
+    private val autoTune = MutableStateFlow<PageTune?>(null)
+    private var autoColorsJob: kotlinx.coroutines.Job? = null
+
+    /** Reads a small copy of [page] and tunes the colours for it. */
+    private fun autoColorsFor(page: ReaderPage) {
+        val open = page.stream ?: return
+        autoColorsJob?.cancel()
+        autoColorsJob = lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            val tune = runCatching {
+                val bytes = open().use { it.readBytes() }
+                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                var sample = 1
+                while (bounds.outWidth / (sample * 2) >= AUTO_COLORS_WIDTH) sample *= 2
+                val small = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+                    ?: return@runCatching null
+                val px = IntArray(small.width * small.height)
+                small.getPixels(px, 0, small.width, 0, 0, small.width, small.height)
+                small.recycle()
+                AutoColors.tuneFor(px)
+            }.getOrNull() ?: return@launch
+            autoTune.value = AutoColors.ease(autoTune.value, tune)
+        }
+    }
 
     /** MANHWA "the other face": whether the novel side of the chapter is turned in. */
     private val otherFace = MutableStateFlow(false)
@@ -1578,8 +1615,12 @@ class ReaderActivity : BaseActivity() {
             ) { on, brightness, contrast, saturation, warmth ->
                 PageTune(brightness, contrast, saturation, warmth).takeIf { on && !it.isNeutral }
             }
+            // MANHWA automatic colours: the page's own tuning while they are on
+            val chosen = combine(tuned, readerPreferences.autoColors.changes(), autoTune) { manual, auto, fromPage ->
+                if (auto) fromPage?.takeIf { !it.isNeutral } else manual
+            }
             // MANHWA: AMOLED reading softens the whites (a tune of its own when no other is set)
-            val tune = combine(tuned, readerPreferences.amoledReading.changes()) { pageTune, amoled ->
+            val tune = combine(chosen, readerPreferences.amoledReading.changes()) { pageTune, amoled ->
                 when {
                     !amoled -> pageTune
                     pageTune == null -> PageTune.AMOLED
@@ -1591,7 +1632,13 @@ class ReaderActivity : BaseActivity() {
                 .launchIn(lifecycleScope)
             // MANHWA: sharpness, a shader on the pages (Android 13 and later), only while the tuning is on
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                combine(readerPreferences.pageTune.changes(), readerPreferences.pageSharpness.changes()) { on, sharp -> if (on) sharp else 0 }
+                combine(readerPreferences.pageTune.changes(), readerPreferences.pageSharpness.changes(), readerPreferences.autoColors.changes()) { on, sharp, auto ->
+                    when {
+                        auto -> AutoColors.SHARPNESS
+                        on -> sharp
+                        else -> 0
+                    }
+                }
                     .onEach { binding.viewerContainer.setRenderEffect(PageSharpen.effect(it)) }
                     .launchIn(lifecycleScope)
             }
@@ -1688,3 +1735,6 @@ class ReaderActivity : BaseActivity() {
 }
 
 private val CENTER_RANGE = 0.25f..0.75f
+
+/** How wide a copy of the page the automatic colours read: plenty to judge its colours. */
+private const val AUTO_COLORS_WIDTH = 160

@@ -3,6 +3,7 @@ package eu.kanade.translation.live
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,7 +40,6 @@ import eu.kanade.tachiyomi.ui.reader.PageTune
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
-import mihon.icons.materialsymbols.rounded.MenuBook
 import mihon.icons.materialsymbols.rounded.Palette
 import mihon.icons.materialsymbols.rounded.Translate
 import tachiyomi.i18n.at.ATMR
@@ -54,36 +54,35 @@ import kotlin.math.roundToInt
 @Composable
 fun ReaderQuickDock(
     translating: Boolean,
-    onTranslate: (Boolean) -> Unit,
-    colorsOpen: Boolean,
+    onTranslate: () -> Unit,
+    autoColors: Boolean,
     onColors: () -> Unit,
+    onColorsHold: () -> Unit,
     onTouch: () -> Unit,
     modifier: Modifier = Modifier,
-    /** MANHWA "the other face": turns the chapter over to the same scene in the novel (null when it has none). */
-    onOtherFace: (() -> Unit)? = null,
     scrollButton: @Composable () -> Unit,
 ) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.Start) {
-        if (onOtherFace != null) {
-            DockButton(MaterialSymbols.Rounded.MenuBook, ATMR.strings.face_title, false) {
-                onTouch()
-                onOtherFace()
-            }
-        }
-        DockButton(MaterialSymbols.Rounded.Palette, ATMR.strings.dock_colors, colorsOpen) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.End) {
+        // A tap: the colours tune themselves page by page (or stop); a long press: set them by hand
+        DockButton(MaterialSymbols.Rounded.Palette, ATMR.strings.dock_colors, autoColors, onHold = {
+            onTouch()
+            onColorsHold()
+        }) {
             onTouch()
             onColors()
         }
         scrollButton()
+        // The translation button opens the translation's own menu, all of it
         DockButton(MaterialSymbols.Rounded.Translate, ATMR.strings.hud_live, translating) {
             onTouch()
-            onTranslate(!translating)
+            onTranslate()
         }
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun DockButton(icon: ImageVector, label: StringResource, on: Boolean, onClick: () -> Unit) {
+private fun DockButton(icon: ImageVector, label: StringResource, on: Boolean, onHold: (() -> Unit)? = null, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
@@ -97,7 +96,7 @@ private fun DockButton(icon: ImageVector, label: StringResource, on: Boolean, on
                     Modifier.clip(CircleShape).background(ManhwaInk.text.copy(alpha = 0.1f))
                 },
             )
-            .clickable(onClick = onClick),
+            .combinedClickable(onLongClick = onHold, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = stringResource(label), tint = ManhwaInk.text)

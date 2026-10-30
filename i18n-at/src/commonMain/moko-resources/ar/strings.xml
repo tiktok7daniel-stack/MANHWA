@@ -1543,6 +1543,12 @@
     <string name="tune_title">ألوان الفصل</string>
     <string name="tune_screen">سطوع الشاشة (0 = زي الموبايل)</string>
     <string name="tune_sharpness">الحدة</string>
+    <string name="auto_colors_on">الألوان التلقائية شغالة: كل صفحة بتتظبط لوحدها. دوس مطوّل على الزرار عشان تظبطها بإيدك.</string>
+    <string name="auto_colors_off">الألوان التلقائية اتقفلت</string>
+    <string name="wn_autocolors_t">ألوان بتظبط نفسها</string>
+    <string name="wn_autocolors_b">ضغطتين وبعدين زرار الألوان: كل صفحة بتاخد أحسن ألوان ليها (الصفحة الباهتة يرجعلها التباين، والغامقة تنوّر شوية، والألوان الباهتة تزهى، والأبيض والأسود يفضل رمادي). دوس مطوّل على الزرار عشان تظبطها بإيدك.</string>
+    <string name="wn_dockright_t">الزراير السريعة على اليمين</string>
+    <string name="wn_dockright_b">زراير الضغطتين بقت على اليمين، وزرار الترجمة بيفتح قايمة الترجمة كلها.</string>
     <string name="credit_skip">تخطي صفحات الجروبات والإعلانات</string>
     <string name="credit_forget">انسَ صفحات الجروبات المتعلّمة</string>
     <string name="credit_skip_always">صفحة جروب: تخطاها دايماً</string>

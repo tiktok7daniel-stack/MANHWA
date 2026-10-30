@@ -1602,6 +1602,12 @@
     <string name="tune_title">Chapter colours</string>
     <string name="tune_screen">Screen brightness (0 follows the phone)</string>
     <string name="tune_sharpness">Sharpness</string>
+    <string name="auto_colors_on">Automatic colours on: every page is tuned by itself. Hold the button to set them by hand.</string>
+    <string name="auto_colors_off">Automatic colours off</string>
+    <string name="wn_autocolors_t">Colours that tune themselves</string>
+    <string name="wn_autocolors_b">Double tap, then the palette: every page gets its own best colours (washed-out scans get their contrast back, dark pages are lifted, dull colours brightened, black and white pages stay grey). Hold the palette to set them by hand.</string>
+    <string name="wn_dockright_t">The quick buttons on the right</string>
+    <string name="wn_dockright_b">The double tap buttons sit on the right now, and the translation button opens the translation\'s whole menu.</string>
     <string name="credit_skip">Skip the groups\' credit and ad pages</string>
     <string name="credit_forget">Forget the learned group pages</string>
     <string name="credit_skip_always">Group page: always skip it</string>
