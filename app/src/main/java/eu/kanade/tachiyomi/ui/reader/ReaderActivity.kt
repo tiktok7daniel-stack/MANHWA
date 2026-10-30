@@ -103,15 +103,18 @@ import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
@@ -1294,9 +1297,15 @@ class ReaderActivity : BaseActivity() {
 
     /** Reads a small copy of [page] and tunes the colours for it. */
     private fun autoColorsFor(page: ReaderPage) {
-        val open = page.stream ?: return
         autoColorsJob?.cancel()
         autoColorsJob = lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            // An online page is often picked before its image is in: it is tuned once it arrives
+            if (page.stream == null) {
+                kotlinx.coroutines.withTimeoutOrNull(60_000) {
+                    page.statusFlow.first { it == eu.kanade.tachiyomi.source.model.Page.State.Ready || it is eu.kanade.tachiyomi.source.model.Page.State.Error }
+                }
+            }
+            val open = page.stream ?: return@launch
             val tune = runCatching {
                 val bytes = open().use { it.readBytes() }
                 val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -1310,7 +1319,9 @@ class ReaderActivity : BaseActivity() {
                 small.recycle()
                 AutoColors.tuneFor(px)
             }.getOrNull() ?: return@launch
-            autoTune.value = AutoColors.ease(autoTune.value, tune)
+            // A newer page may have been picked while this one was read
+            ensureActive()
+            autoTune.update { AutoColors.ease(it, tune) }
         }
     }
 
