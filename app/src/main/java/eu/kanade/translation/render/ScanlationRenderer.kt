@@ -411,7 +411,18 @@ object ScanlationRenderer {
             val outlined = block.strokeColor != 0
             val results = rects.mapIndexed { i, rect ->
                 val rim = if (outlined) (block.lineBoxes[i].h * s * RIM_OF_LINE).roundToInt().coerceIn(2, MAX_RIM) else 0
-                cleanArea(clamp(RectF(rect)), inners[i], halo = rim)
+                val first = cleanArea(clamp(RectF(rect)), inners[i], halo = rim)
+                // MANHWA second look: on a plain background, letters still left on the line (a big letter whose
+                // tail reached the edge of the area and was taken for the outline, a glow wider than the margin)
+                // are cleaned again over a wider area, where they no longer touch its edge
+                if (first != null && first.second && residueOf(inners[i], first.first) > RESIDUE_SHARE) {
+                    val line = block.lineBoxes[i]
+                    val pad = line.h * SECOND_LOOK_PAD
+                    val wide = clamp(RectF((line.x - pad) * s, (line.y - pad) * s, (line.right + pad) * s, (line.bottom + pad) * s))
+                    cleanArea(wide, inners[i], halo = rim) ?: first
+                } else {
+                    first
+                }
             }
             // One more pass over the whole bubble (a little taller): letters joined across two lines, glows
             // and a line the OCR did not list are inside it and are cleaned too
@@ -601,6 +612,18 @@ object ScanlationRenderer {
             }
             if (any) bitmap.setPixels(px, 0, w, l, t, w, h)
             return bg to true
+        }
+
+        /** The share of [inner] (a cleaned line) still far from its background [bg]: letters left behind. */
+        private fun residueOf(inner: RectF, bg: Int): Float {
+            val l = inner.left.roundToInt().coerceIn(0, bitmap.width - 1)
+            val t = inner.top.roundToInt().coerceIn(0, bitmap.height - 1)
+            val w = inner.right.roundToInt().coerceIn(0, bitmap.width) - l
+            val h = inner.bottom.roundToInt().coerceIn(0, bitmap.height) - t
+            if (w < 2 || h < 2) return 0f
+            val px = IntArray(w * h)
+            bitmap.getPixels(px, 0, w, l, t, w, h)
+            return px.count { distance(it, bg) > INK * 2 }.toFloat() / px.size
         }
 
         /** Marks as ink every pixel within [r] of ink, only inside the box ([x0], [y0], [x1], [y1]). */
@@ -1172,6 +1195,12 @@ object ScanlationRenderer {
     private const val BUBBLE_INSET = 0.04f
     private const val MAX_TEXT_OF_WIDTH = 0.085f
     private const val INK = 28
+
+    /** A cleaned line with more than this share of it still far from the background gets a second, wider look. */
+    private const val RESIDUE_SHARE = 0.02f
+
+    /** The margin of that second look, in line heights (the first one is 0.45). */
+    private const val SECOND_LOOK_PAD = 1.1f
 
     // MANHWA art text caption
     private const val ART_WIDEN = 0.08f
