@@ -132,6 +132,7 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
+            Feature(MaterialSymbols.Rounded.MenuBook, ATMR.strings.wn_face_t, ATMR.strings.wn_face_b),
             Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_dock_t, ATMR.strings.wn_dock_b),
             Feature(MaterialSymbols.Rounded.MenuBook, ATMR.strings.wn_dualcovers_t, ATMR.strings.wn_dualcovers_b),
             Feature(MaterialSymbols.Rounded.TravelExplore, ATMR.strings.wn_anynet_t, ATMR.strings.wn_anynet_b),

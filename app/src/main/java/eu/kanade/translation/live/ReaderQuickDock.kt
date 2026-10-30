@@ -39,6 +39,7 @@ import eu.kanade.tachiyomi.ui.reader.PageTune
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
+import mihon.icons.materialsymbols.rounded.MenuBook
 import mihon.icons.materialsymbols.rounded.Palette
 import mihon.icons.materialsymbols.rounded.Translate
 import tachiyomi.i18n.at.ATMR
@@ -58,9 +59,17 @@ fun ReaderQuickDock(
     onColors: () -> Unit,
     onTouch: () -> Unit,
     modifier: Modifier = Modifier,
+    /** MANHWA "the other face": turns the chapter over to the same scene in the novel (null when it has none). */
+    onOtherFace: (() -> Unit)? = null,
     scrollButton: @Composable () -> Unit,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.Start) {
+        if (onOtherFace != null) {
+            DockButton(MaterialSymbols.Rounded.MenuBook, ATMR.strings.face_title, false) {
+                onTouch()
+                onOtherFace()
+            }
+        }
         DockButton(MaterialSymbols.Rounded.Palette, ATMR.strings.dock_colors, colorsOpen) {
             onTouch()
             onColors()

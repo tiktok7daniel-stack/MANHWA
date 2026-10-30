@@ -376,6 +376,8 @@ class ReaderActivity : BaseActivity() {
                     scrollButton.value = false
                 }
             }
+            // MANHWA "the other face": the same scene in the novel, turned in over the page
+            val otherFaceNow by otherFace.collectAsState()
             // MANHWA: a double tap brings up the quick dock: colours, auto-scroll and translation, each on its own
             var colorsOpen by remember { mutableStateOf(false) }
             if (showScrollButton && !state.menuVisible) {
@@ -385,6 +387,7 @@ class ReaderActivity : BaseActivity() {
                     colorsOpen = colorsOpen,
                     onColors = { colorsOpen = !colorsOpen },
                     onTouch = { scrollButtonTouch++ },
+                    onOtherFace = { openOtherFace() },
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .navigationBarsPadding()
@@ -416,9 +419,18 @@ class ReaderActivity : BaseActivity() {
                         .padding(bottom = 24.dp),
                 )
             }
+            if (otherFaceNow) {
+                val faceManga = viewModel.manga
+                val faceChapter = state.viewerChapters?.currChapter?.chapter
+                if (faceManga != null && faceChapter != null) {
+                    eu.kanade.tachiyomi.novel.bridge.OtherFaceView(faceManga, faceChapter, onClose = ::closeOtherFace)
+                } else {
+                    LaunchedEffect(Unit) { closeOtherFace() }
+                }
+            }
             eu.kanade.translation.live.AutoScrollRunner(
                 playing = scrolling,
-                paused = state.menuVisible || orbOpen || editing,
+                paused = state.menuVisible || orbOpen || editing || otherFaceNow,
                 speed = autoScrollSpeed,
                 webtoon = state.viewer is WebtoonViewer,
                 onScrollBy = { dy -> (viewModel.state.value.viewer as? WebtoonViewer)?.recycler?.scrollBy(0, dy) },
@@ -438,7 +450,7 @@ class ReaderActivity : BaseActivity() {
                 },
             )
             val showOrb by remember { appGraph.translationPreferences.translationReaderButton() }.collectAsState()
-            if (showOrb || editing) eu.kanade.translation.live.ReaderActionOrb(
+            if ((showOrb || editing) && !otherFaceNow) eu.kanade.translation.live.ReaderActionOrb(
                 status = live,
                 expanded = orbOpen,
                 onExpanded = { orbOpen = it },
@@ -1264,6 +1276,37 @@ class ReaderActivity : BaseActivity() {
 
     /** MANHWA smart focus: when the "you were here" line was last shown. */
     private val focusFlash = MutableStateFlow(0L)
+
+    /** MANHWA "the other face": whether the novel side of the chapter is turned in. */
+    private val otherFace = MutableStateFlow(false)
+
+    /** Turns the page away like a card (the novel side then turns in, drawn by [OtherFaceView]). */
+    private fun openOtherFace() {
+        if (otherFace.value) return
+        scrollButton.value = false
+        val view = binding.viewerContainer
+        view.cameraDistance = 14_000f * resources.displayMetrics.density
+        view.animate()
+            .rotationY(90f)
+            .alpha(0.3f)
+            .setDuration(eu.kanade.tachiyomi.novel.bridge.FACE_FLIP_MS.toLong())
+            .start()
+        // The novel side starts turning in as the page turns away
+        otherFace.value = true
+    }
+
+    /** Turns the page back in once the novel side has turned away. */
+    private fun closeOtherFace() {
+        otherFace.value = false
+        val view = binding.viewerContainer
+        view.animate().cancel()
+        view.rotationY = -90f
+        view.animate()
+            .rotationY(0f)
+            .alpha(1f)
+            .setDuration(eu.kanade.tachiyomi.novel.bridge.FACE_FLIP_MS.toLong())
+            .start()
+    }
 
     /** MANHWA: the auto-scroll button on its own, shown and hidden by a double tap on the page. */
     private val scrollButton = MutableStateFlow(false)
