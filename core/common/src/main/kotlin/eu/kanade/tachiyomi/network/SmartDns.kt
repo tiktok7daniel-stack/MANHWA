@@ -122,8 +122,15 @@ class SmartDns(context: Context) : Dns {
             } catch (e: TimeoutException) {
                 // The network's DNS is slow: the secure DNS answers, and the network's still may if that fails
                 val secure = runCatching { secureLookup(hostname, fallBack = false) }.getOrNull()
-                if (secure != null && !NetworkRules.blockedFor(hostname, secure.map { it.address })) return secure
+                if (secure != null && !NetworkRules.blockedFor(hostname, secure.map { it.address })) {
+                    // Kept for this network, so the next look does not wait for the slow DNS again
+                    viaSecure += hostname
+                    return secure
+                }
                 runCatching { asked.get(SYSTEM_WAIT_MS, TimeUnit.MILLISECONDS) }.getOrDefault(emptyList())
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                emptyList()
             } catch (e: Exception) {
                 emptyList()
             }
