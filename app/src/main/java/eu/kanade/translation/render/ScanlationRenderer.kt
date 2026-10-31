@@ -245,13 +245,21 @@ object ScanlationRenderer {
                 // MANHWA art text: the drawing is never erased, the translation goes in a caption under it
                 if (kind == BubbleKind.ART) return@mapNotNull artCaption(block, kind)
                 // One bad bubble never costs the whole page its translation
-                try {
-                    // MANHWA: and then looked at, and cleaned harder when letters are still there
-                    verify(clean(block, kind))
+                val done = try {
+                    clean(block, kind)
                 } catch (e: Throwable) {
                     if (e is kotlin.coroutines.cancellation.CancellationException) throw e
                     logcat(LogPriority.WARN, e) { "Skipped a bubble that could not be cleaned" }
                     null
+                } ?: return@mapNotNull null
+                // MANHWA: then looked at, and cleaned harder when letters are still there; a failed check never
+                // costs the bubble its translation (its letters are already erased)
+                try {
+                    verify(done)
+                } catch (e: Throwable) {
+                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                    logcat(LogPriority.WARN, e) { "Skipped the cleaning check" }
+                    done
                 }
             }
             // MANHWA: lines the AI joined into a neighbour's translation (theirs came back empty) are still erased
@@ -469,14 +477,14 @@ object ScanlationRenderer {
             val w = outer.right.roundToInt().coerceIn(0, bitmap.width) - l
             val h = outer.bottom.roundToInt().coerceIn(0, bitmap.height) - t
             if (w < 6 || h < 6) return null
-            val px = IntArray(w * h)
-            bitmap.getPixels(px, 0, w, l, t, w, h)
             val il = (text.left - l).roundToInt()
             val ir = (text.right - l).roundToInt()
             val it0 = (text.top - t).roundToInt()
             val ib = (text.bottom - t).roundToInt()
-            // MANHWA speed: a sample of about 6 000 pixels is enough to see letters left, whatever the bubble's size
-            val step = max(1, sqrt(px.size / LOOK_SAMPLES.toFloat()).toInt())
+            // MANHWA speed: a sample of about 6 000 pixels is enough to see letters left, whatever the bubble's size;
+            // only the sampled rows are read from the page
+            val step = max(1, sqrt(w * h / LOOK_SAMPLES.toFloat()).toInt())
+            val row = IntArray(w)
             // Other bubbles' letters left as drawn are not background (only the ones that reach this area)
             val kept = keptBoxes.filter { RectF.intersects(it, outer) }.map { RectF(it.left - l, it.top - t, it.right - l, it.bottom - t) }
             val cap = (w / step + 1) * (h / step + 1)
@@ -491,25 +499,29 @@ object ScanlationRenderer {
             var roughN = 0
             var y = 0
             while (y < h) {
+                bitmap.getPixels(row, 0, w, l, t + y, w, 1)
                 var x = 0
                 var prev = -1
                 while (x < w) {
-                    val c = px[y * w + x]
+                    val c = row[x]
                     val v = CleanCheck.luma(c)
-                    if (prev >= 0) {
-                        rough += kotlin.math.abs(v - prev)
-                        roughN++
-                    }
-                    prev = v
-                    if (kept.isEmpty() || kept.none { it.contains(x.toFloat(), y.toFloat()) }) {
-                        if (x in il until ir && y in it0 until ib) {
-                            inside[ni++] = v
-                        } else {
-                            ring[nr++] = v
-                            rs += Color.red(c)
-                            gs += Color.green(c)
-                            bs += Color.blue(c)
+                    val free = kept.isEmpty() || kept.none { it.contains(x.toFloat(), y.toFloat()) }
+                    if (free && x in il until ir && y in it0 until ib) {
+                        inside[ni++] = v
+                        prev = -1
+                    } else if (free) {
+                        ring[nr++] = v
+                        rs += Color.red(c)
+                        gs += Color.green(c)
+                        bs += Color.blue(c)
+                        // Roughness of the background only, not of the letters' place
+                        if (prev >= 0) {
+                            rough += kotlin.math.abs(v - prev)
+                            roughN++
                         }
+                        prev = v
+                    } else {
+                        prev = -1
                     }
                     x += step
                 }

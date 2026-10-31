@@ -95,6 +95,9 @@ object CleanMemory {
     /** At least this many bubbles seen before the memory changes anything. */
     private const val MIN_SEEN = 5
 
+    private const val SAVE_EVERY = 8
+    private var unsaved = 0
+
     @Volatile private var history: MutableMap<CleanCheck.Ground, ArrayDeque<Int>>? = null
 
     private fun load(context: Context): MutableMap<CleanCheck.Ground, ArrayDeque<Int>> {
@@ -119,9 +122,13 @@ object CleanMemory {
             val list = load(context).getOrPut(ground) { ArrayDeque() }
             list.addLast(level.coerceIn(0, 2))
             while (list.size > KEEP) list.removeFirst()
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putString(ground.name, list.joinToString(","))
-                .apply()
+            // Written every few bubbles, not after each one (the last few are kept in memory meanwhile)
+            if (++unsaved >= SAVE_EVERY) {
+                unsaved = 0
+                val edit = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                load(context).forEach { (g, l) -> edit.putString(g.name, l.joinToString(",")) }
+                edit.apply()
+            }
         }
     }
 
