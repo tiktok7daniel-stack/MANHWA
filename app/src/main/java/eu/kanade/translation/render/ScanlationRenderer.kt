@@ -32,6 +32,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * MANHWA scanlation studio: cleans and typesets the translation straight into the page's pixels, before the
@@ -474,24 +475,53 @@ object ScanlationRenderer {
             val ir = (text.right - l).roundToInt()
             val it0 = (text.top - t).roundToInt()
             val ib = (text.bottom - t).roundToInt()
-            val lum = IntArray(px.size) { CleanCheck.luma(px[it]) }
-            val inside = ArrayList<Int>()
-            val ring = ArrayList<Int>()
-            val ringPx = ArrayList<Int>()
-            // Other bubbles' letters left as drawn are not background
-            val kept = keptBoxes.map { RectF(it.left - l, it.top - t, it.right - l, it.bottom - t) }
-            for (i in px.indices) {
-                val x = i % w
-                val y = i / w
-                if (kept.any { it.contains(x.toFloat(), y.toFloat()) }) continue
-                if (x in il until ir && y in it0 until ib) inside += lum[i] else {
-                    ring += lum[i]
-                    ringPx += px[i]
+            // MANHWA speed: a sample of about 6 000 pixels is enough to see letters left, whatever the bubble's size
+            val step = max(1, sqrt(px.size / LOOK_SAMPLES.toFloat()).toInt())
+            // Other bubbles' letters left as drawn are not background (only the ones that reach this area)
+            val kept = keptBoxes.filter { RectF.intersects(it, outer) }.map { RectF(it.left - l, it.top - t, it.right - l, it.bottom - t) }
+            val cap = (w / step + 1) * (h / step + 1)
+            val inside = IntArray(cap)
+            val ring = IntArray(cap)
+            var ni = 0
+            var nr = 0
+            var rs = 0L
+            var gs = 0L
+            var bs = 0L
+            var rough = 0L
+            var roughN = 0
+            var y = 0
+            while (y < h) {
+                var x = 0
+                var prev = -1
+                while (x < w) {
+                    val c = px[y * w + x]
+                    val v = CleanCheck.luma(c)
+                    if (prev >= 0) {
+                        rough += kotlin.math.abs(v - prev)
+                        roughN++
+                    }
+                    prev = v
+                    if (kept.isEmpty() || kept.none { it.contains(x.toFloat(), y.toFloat()) }) {
+                        if (x in il until ir && y in it0 until ib) {
+                            inside[ni++] = v
+                        } else {
+                            ring[nr++] = v
+                            rs += Color.red(c)
+                            gs += Color.green(c)
+                            bs += Color.blue(c)
+                        }
+                    }
+                    x += step
                 }
+                y += step
             }
-            if (inside.isEmpty() || ring.size < 16) return null
-            val ground = CleanCheck.groundOf(ring.toIntArray(), CleanCheck.roughness(lum, w))
-            return Look(inside.toIntArray(), ring.toIntArray(), ground, averageOf(ringPx.toIntArray()))
+            if (ni == 0 || nr < 16) return null
+            // Roughness is measured between samples one step apart: scaled back to neighbouring pixels
+            val roughness = if (roughN == 0) 0f else rough.toFloat() / roughN / step.coerceAtMost(3)
+            val ringLum = ring.copyOf(nr)
+            val ground = CleanCheck.groundOf(ringLum, roughness)
+            val color = Color.rgb((rs / nr).toInt(), (gs / nr).toInt(), (bs / nr).toInt())
+            return Look(inside.copyOf(ni), ringLum, ground, color)
         }
 
         /**
@@ -1117,7 +1147,7 @@ object ScanlationRenderer {
             val w = r.right.roundToInt().coerceIn(0, bitmap.width) - l
             val h = r.bottom.roundToInt().coerceIn(0, bitmap.height) - t
             if (w < 2 || h < 2) return null
-            val step = max(1, max(w, h) / 48)
+            val step = max(1, max(w, h) / 24)
             var rs = 0L
             var gs = 0L
             var bs = 0L
@@ -1391,6 +1421,9 @@ object ScanlationRenderer {
 
     /** On a background that usually needed more cleaning, the share of letters left that is let through. */
     private const val STRICT_SHARE = 0.4f
+
+    /** Pixels looked at when a cleaned bubble is checked. */
+    private const val LOOK_SAMPLES = 6000
 
     /** Contrast the translation's ink must have with what is under it, or it is changed and outlined. */
     private const val READABLE_UNDER = 3f

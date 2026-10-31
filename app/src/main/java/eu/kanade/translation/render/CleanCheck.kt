@@ -30,10 +30,24 @@ object CleanCheck {
      */
     fun residue(inside: IntArray, ring: IntArray): Float {
         if (inside.isEmpty() || ring.size < 16) return 0f
-        val sorted = ring.sortedArray()
-        val lo = sorted[(sorted.size * 0.03f).toInt()] - MARGIN
-        val hi = sorted[((sorted.size - 1) * 0.97f).toInt()] + MARGIN
-        return inside.count { it < lo || it > hi }.toFloat() / inside.size
+        // Percentiles from a histogram: one pass, no sorting
+        val hist = IntArray(256)
+        for (v in ring) hist[v.coerceIn(0, 255)]++
+        val lo = percentile(hist, ring.size, 0.03f) - MARGIN
+        val hi = percentile(hist, ring.size, 0.97f) + MARGIN
+        var left = 0
+        for (v in inside) if (v < lo || v > hi) left++
+        return left.toFloat() / inside.size
+    }
+
+    private fun percentile(hist: IntArray, total: Int, q: Float): Int {
+        val target = (total - 1) * q
+        var seen = 0
+        for (v in hist.indices) {
+            seen += hist[v]
+            if (seen > target) return v
+        }
+        return 255
     }
 
     /**
