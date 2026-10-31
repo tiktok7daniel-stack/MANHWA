@@ -245,7 +245,8 @@ object ScanlationRenderer {
                 if (kind == BubbleKind.ART) return@mapNotNull artCaption(block, kind)
                 // One bad bubble never costs the whole page its translation
                 try {
-                    clean(block, kind)
+                    // MANHWA: and then looked at, and cleaned harder when letters are still there
+                    verify(clean(block, kind))
                 } catch (e: Throwable) {
                     if (e is kotlin.coroutines.cancellation.CancellationException) throw e
                     logcat(LogPriority.WARN, e) { "Skipped a bubble that could not be cleaned" }
@@ -453,6 +454,105 @@ object ScanlationRenderer {
                 ?: results.filterNotNull().firstOrNull()?.first
                 ?: Color.WHITE
             return Cleaned(block, kind, bounds, bg, plain.isNotEmpty())
+        }
+
+        /** The letters' place and the background just around it, as luminance, with the kind of background. */
+        private class Look(val inside: IntArray, val ring: IntArray, val ground: CleanCheck.Ground, val ringColor: Int) {
+            val residue: Float get() = CleanCheck.residue(inside, ring)
+        }
+
+        private fun look(text: RectF, band: Float): Look? {
+            val outer = clamp(RectF(text.left - band, text.top - band, text.right + band, text.bottom + band))
+            val l = outer.left.roundToInt().coerceIn(0, bitmap.width - 1)
+            val t = outer.top.roundToInt().coerceIn(0, bitmap.height - 1)
+            val w = outer.right.roundToInt().coerceIn(0, bitmap.width) - l
+            val h = outer.bottom.roundToInt().coerceIn(0, bitmap.height) - t
+            if (w < 6 || h < 6) return null
+            val px = IntArray(w * h)
+            bitmap.getPixels(px, 0, w, l, t, w, h)
+            val il = (text.left - l).roundToInt()
+            val ir = (text.right - l).roundToInt()
+            val it0 = (text.top - t).roundToInt()
+            val ib = (text.bottom - t).roundToInt()
+            val lum = IntArray(px.size) { CleanCheck.luma(px[it]) }
+            val inside = ArrayList<Int>()
+            val ring = ArrayList<Int>()
+            val ringPx = ArrayList<Int>()
+            // Other bubbles' letters left as drawn are not background
+            val kept = keptBoxes.map { RectF(it.left - l, it.top - t, it.right - l, it.bottom - t) }
+            for (i in px.indices) {
+                val x = i % w
+                val y = i / w
+                if (kept.any { it.contains(x.toFloat(), y.toFloat()) }) continue
+                if (x in il until ir && y in it0 until ib) inside += lum[i] else {
+                    ring += lum[i]
+                    ringPx += px[i]
+                }
+            }
+            if (inside.isEmpty() || ring.size < 16) return null
+            val ground = CleanCheck.groundOf(ring.toIntArray(), CleanCheck.roughness(lum, w))
+            return Look(inside.toIntArray(), ring.toIntArray(), ground, averageOf(ringPx.toIntArray()))
+        }
+
+        /**
+         * MANHWA: a cleaned bubble looked at again. Letters still showing where the text was (outlined lettering
+         * on grain, a glow, a stroke the OCR box left out) are cleaned again over a wider area, and if they still
+         * show, covered with a soft plate of the background's own colour. How hard each kind of background needed
+         * to be cleaned is remembered, so the next bubble on it starts there.
+         */
+        private fun verify(c: Cleaned): Cleaned {
+            val block = c.block
+            if (c.kind == BubbleKind.SFX || block.lineBoxes.isEmpty()) return c
+            val text = RectF(block.lineBoxes.first().let { RectF(it.x * s, it.y * s, it.right * s, it.bottom * s) })
+            block.lineBoxes.forEach { text.union(it.x * s, it.y * s, it.right * s, it.bottom * s) }
+            val lineH = block.lineBoxes.map { it.h }.average().toFloat() * s
+            val band = max(lineH * 0.6f, 4f)
+            val first = look(text, band) ?: return c
+            val ground = first.ground
+            val start = CleanMemory.start(context, ground)
+            var result = c
+            var level = 0
+            var residue = first.residue
+            // On a kind of background that usually needed more, even a few letters left are not let through
+            fun tolerance() = if (level < start) CleanCheck.LEFT * STRICT_SHARE else CleanCheck.LEFT
+            while (level < 2 && residue > tolerance()) {
+                level++
+                result = if (level == 1) cleanHarder(result, text, lineH) else plate(result, text, lineH, first.ringColor)
+                residue = look(text, band)?.residue ?: 0f
+            }
+            // What this bubble really needed is remembered (so the memory also learns when less is enough)
+            CleanMemory.record(context, ground, if (residue > CleanCheck.LEFT) 2 else level)
+            return result
+        }
+
+        /** Cleaned again over a wider area, the hole taking in the letters' outline and glow. */
+        private fun cleanHarder(c: Cleaned, text: RectF, lineH: Float): Cleaned {
+            val grow = (lineH * 0.25f).coerceAtLeast(3f)
+            val inner = RectF(text.left - grow, text.top - grow, text.right + grow, text.bottom + grow)
+            val area = clamp(RectF(inner.left - lineH, inner.top - lineH, inner.right + lineH, inner.bottom + lineH))
+            if (keptBoxes.any { RectF.intersects(it, area) }) return c
+            val hole = (lineH * 0.2f).roundToInt().coerceIn(HOLE_GROW, MAX_RIM * 2)
+            cleanArea(area, clamp(inner), boxWhenBusy = true, strictKeep = false, halo = hole, holeGrow = hole)
+            return c
+        }
+
+        /**
+         * The last resort: a soft plate of the background's colour over where the letters were, its edge melting
+         * into the page, so nothing of the original shows under the translation. The translation's ink is then
+         * chosen for the plate.
+         */
+        private fun plate(c: Cleaned, text: RectF, lineH: Float, color: Int): Cleaned {
+            val pad = max(lineH * 0.35f, 3f)
+            val box = clamp(RectF(text.left - pad, text.top - pad, text.right + pad, text.bottom + pad))
+            if (keptBoxes.any { RectF.intersects(it, box) }) return c
+            val soft = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.style = Paint.Style.FILL
+                this.color = Color.rgb(Color.red(color), Color.green(color), Color.blue(color))
+                alpha = PLATE_ALPHA
+                maskFilter = android.graphics.BlurMaskFilter(pad, android.graphics.BlurMaskFilter.Blur.NORMAL)
+            }
+            canvas.drawRoundRect(box, pad, pad, soft)
+            return Cleaned(c.block, c.kind, c.union, Color.rgb(Color.red(color), Color.green(color), Color.blue(color)), c.plain)
         }
 
         /**
@@ -960,6 +1060,15 @@ object ScanlationRenderer {
                 canvas.drawRoundRect(band, pad, pad, edge)
                 paint.color = ART_TEXT
             }
+            // MANHWA: the ink is checked against what is really under the text once cleaned (a fade, a plate, the
+            // art): when it does not read there, the ink for that colour is taken, and an outline added if needed
+            val under = if (set.cleaned.kind == BubbleKind.ART) null else averageUnder(RectF(x, y, x + layout.width, y + layout.height))
+            var weak = false
+            if (under != null && PageImageProcessor.contrast(paint.color, under) < READABLE_UNDER) {
+                val better = textColorOn(under)
+                if (PageImageProcessor.contrast(better, under) > PageImageProcessor.contrast(paint.color, under)) paint.color = better
+                weak = PageImageProcessor.contrast(paint.color, under) < READABLE_UNDER
+            }
             canvas.save()
             canvas.translate(x, y)
             val plain = set.cleaned.plain
@@ -973,6 +1082,7 @@ object ScanlationRenderer {
                 shout -> size * 0.12f
                 ownStroke != null -> size * 0.09f
                 style.outline -> size * 0.07f
+                weak -> size * 0.1f
                 else -> 0f
             }
             if (stroke > 0f) {
@@ -982,6 +1092,7 @@ object ScanlationRenderer {
                 paint.strokeJoin = Paint.Join.ROUND
                 paint.color = when {
                     ownStroke != null && !shout && PageImageProcessor.contrast(ownStroke, fill) >= 2f -> ownStroke
+                    weak -> outlineFor(fill)
                     plain && !shout -> set.cleaned.bg
                     else -> outlineFor(fill)
                 }
@@ -996,6 +1107,35 @@ object ScanlationRenderer {
             if (style.dramatic && kind == BubbleKind.SYSTEM) {
                 drawHudCorners(RectF(x, y, x + layout.width, y + layout.height), size)
             }
+        }
+
+        /** The mean colour of the page under [box] (every few pixels), or null when it is off the page. */
+        private fun averageUnder(box: RectF): Int? {
+            val r = clamp(RectF(box))
+            val l = r.left.roundToInt().coerceIn(0, bitmap.width - 1)
+            val t = r.top.roundToInt().coerceIn(0, bitmap.height - 1)
+            val w = r.right.roundToInt().coerceIn(0, bitmap.width) - l
+            val h = r.bottom.roundToInt().coerceIn(0, bitmap.height) - t
+            if (w < 2 || h < 2) return null
+            val step = max(1, max(w, h) / 48)
+            var rs = 0L
+            var gs = 0L
+            var bs = 0L
+            var n = 0
+            var y = t
+            while (y < t + h) {
+                var xx = l
+                while (xx < l + w) {
+                    val c = bitmap.getPixel(xx, y)
+                    rs += Color.red(c)
+                    gs += Color.green(c)
+                    bs += Color.blue(c)
+                    n++
+                    xx += step
+                }
+                y += step
+            }
+            return if (n == 0) null else Color.rgb((rs / n).toInt(), (gs / n).toInt(), (bs / n).toInt())
         }
 
         private fun drawHudCorners(text: RectF, size: Float) {
@@ -1245,6 +1385,15 @@ object ScanlationRenderer {
 
     // MANHWA: below this size (page px) a bubble's text is given its whole room and closer lines
     private const val SMALL_TEXT_PX = 11f
+
+    /** How solid the last-resort plate is (0 to 255): enough to hide letters, the grain still breathes. */
+    private const val PLATE_ALPHA = 238
+
+    /** On a background that usually needed more cleaning, the share of letters left that is let through. */
+    private const val STRICT_SHARE = 0.4f
+
+    /** Contrast the translation's ink must have with what is under it, or it is changed and outlined. */
+    private const val READABLE_UNDER = 3f
     private val RTL_SCRIPTS = setOf("ar", "fa", "ur", "he", "iw")
     private val WIDE_SCRIPTS = setOf("ja", "zh", "ko", "th", "hi", "ru", "uk", "el", "bg")
 }
