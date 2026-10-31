@@ -409,17 +409,24 @@ object ScanlationRenderer {
             val inners = block.lineBoxes.map { line -> RectF(line.x * s, line.y * s, line.right * s, line.bottom * s) }
             // MANHWA: an outlined line has its rim erased with it (the rim is about a tenth of the letters' height)
             val outlined = block.strokeColor != 0
-            val results = rects.mapIndexed { i, rect ->
-                val rim = if (outlined) (block.lineBoxes[i].h * s * RIM_OF_LINE).roundToInt().coerceIn(2, MAX_RIM) else 0
-                val first = cleanArea(clamp(RectF(rect)), inners[i], halo = rim)
+            // MANHWA: lines stacked so close that one's margin reaches the next are cleaned as one area: otherwise
+            // the "background" above and below a line is the next line's letters, and they are copied into it
+            val groups = LineGroups.of(rects)
+            val results = groups.map { group ->
+                val rect = RectF(rects[group.first()]).apply { group.forEach { union(rects[it]) } }
+                val inner = RectF(inners[group.first()]).apply { group.forEach { union(inners[it]) } }
+                val lineH = group.maxOf { block.lineBoxes[it].h } * s
+                val rim = if (outlined) (lineH * RIM_OF_LINE).roundToInt().coerceIn(2, MAX_RIM) else 0
+                // Over grain or a drawing the hole takes in the letters' outline, which the OCR box leaves out
+                val hole = (lineH * RIM_OF_LINE).roundToInt().coerceIn(HOLE_GROW, MAX_RIM)
+                val first = cleanArea(clamp(RectF(rect)), inner, halo = rim, holeGrow = hole)
                 // MANHWA second look: on a plain background, letters still left on the line (a big letter whose
                 // tail reached the edge of the area and was taken for the outline, a glow wider than the margin)
                 // are cleaned again over a wider area, where they no longer touch its edge
-                if (first != null && first.second && residueOf(inners[i], first.first) > RESIDUE_SHARE) {
-                    val line = block.lineBoxes[i]
-                    val pad = line.h * SECOND_LOOK_PAD
-                    val wide = clamp(RectF((line.x - pad) * s, (line.y - pad) * s, (line.right + pad) * s, (line.bottom + pad) * s))
-                    cleanArea(wide, inners[i], halo = rim) ?: first
+                if (first != null && first.second && residueOf(inner, first.first) > RESIDUE_SHARE) {
+                    val pad = lineH * SECOND_LOOK_PAD
+                    val wide = clamp(RectF(inner.left - pad, inner.top - pad, inner.right + pad, inner.bottom + pad))
+                    cleanArea(wide, inner, halo = rim, holeGrow = hole) ?: first
                 } else {
                     first
                 }
@@ -495,7 +502,14 @@ object ScanlationRenderer {
          * Over a busy drawing (no plain background) a soft patch of the main colour is used instead.
          * Returns (background, plain).
          */
-        private fun cleanArea(area: RectF, inner: RectF, boxWhenBusy: Boolean = true, strictKeep: Boolean = false, halo: Int = 0): Pair<Int, Boolean>? {
+        private fun cleanArea(
+            area: RectF,
+            inner: RectF,
+            boxWhenBusy: Boolean = true,
+            strictKeep: Boolean = false,
+            halo: Int = 0,
+            holeGrow: Int = HOLE_GROW,
+        ): Pair<Int, Boolean>? {
             val l = area.left.roundToInt().coerceIn(0, bitmap.width - 1)
             val t = area.top.roundToInt().coerceIn(0, bitmap.height - 1)
             val r = area.right.roundToInt().coerceIn(0, bitmap.width)
@@ -534,7 +548,7 @@ object ScanlationRenderer {
                     val hole = BooleanArray(n) { i ->
                         val x = i % w
                         val y = i / w
-                        x >= innerL - HOLE_GROW && x < innerR + HOLE_GROW && y >= innerT - HOLE_GROW && y < innerB + HOLE_GROW
+                        x >= innerL - holeGrow && x < innerR + holeGrow && y >= innerT - holeGrow && y < innerB + holeGrow
                     }
                     val inpainted = style.deepClean && ExemplarInpainter.fill(px, w, h, hole, stop)
                     if (inpainted) {
@@ -542,7 +556,11 @@ object ScanlationRenderer {
                     } else {
                         // MANHWA: the bubble's own texture (clouds, grain, a drawing, any colour) carried over the
                         // letters from just above and below them, not a flat patch; the edge blend when there is none
-                        (textureFill(px, w, h, innerL, innerT, innerR, innerB) ?: rebuildFromEdges(px, w, h))
+                        val gl = (innerL - holeGrow).coerceAtLeast(0)
+                        val gt = (innerT - holeGrow).coerceAtLeast(0)
+                        val gr = (innerR + holeGrow).coerceAtMost(w)
+                        val gb = (innerB + holeGrow).coerceAtMost(h)
+                        (textureFill(px, w, h, gl, gt, gr, gb) ?: rebuildFromEdges(px, w, h))
                             ?.let { bitmap.setPixels(it, 0, w, l, t, w, h) }
                     }
                 }

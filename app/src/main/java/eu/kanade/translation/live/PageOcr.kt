@@ -354,7 +354,11 @@ object PageOcr {
                 for (j in i + 1 until list.size) {
                     // Two different bubbles (when both are known) are never one, however close
                     if (shouldJoin(list[i], list[j], pageWidth) &&
-                        (bubbleOf == null || eu.kanade.translation.ocr.BubbleFinder.same(bubble(list[i]), bubble(list[j])) != false)
+                        (
+                            bubbleOf == null ||
+                                eu.kanade.translation.ocr.BubbleFinder.same(bubble(list[i]), bubble(list[j])) != false ||
+                                continuesInto(list[i], list[j])
+                            )
                     ) {
                         val joined = join(list[i], list[j])
                         if (bubbleOf != null) bubbles[joined] = bubble(list[i]) ?: bubble(list[j])
@@ -388,6 +392,18 @@ object PageOcr {
         val overlapX = min(a.x + a.width, b.x + b.width) - max(a.x, b.x)
         val centred = abs((a.x + a.width / 2) - (b.x + b.width / 2)) < max(a.width, b.width) * 0.25f
         return overlapX > min(a.width, b.width) * 0.4f || centred
+    }
+
+    /**
+     * MANHWA: the lower block is the rest of the upper one's sentence ("...OF THE NOBLEMAN'S" / "MASTER ROOM."):
+     * right under it, and the upper one does not end its sentence. Joined even when the bubble finder sees two
+     * areas (a caption on grain or a drawing has no bubble to tell by), so the sentence is translated whole.
+     */
+    private fun continuesInto(a: TranslationBlock, b: TranslationBlock): Boolean {
+        val (upper, lower) = if (a.y <= b.y) a to b else b to a
+        val gap = lower.y - (upper.y + upper.height)
+        if (gap > min(upper.lineHeight(), lower.lineHeight()) * CONTINUE_GAP) return false
+        return SentenceFlow.continues(upper.text, lower.text)
     }
 
     private fun join(a: TranslationBlock, b: TranslationBlock): TranslationBlock {
@@ -533,6 +549,7 @@ object PageOcr {
     private const val MAX_WIDTH = 0.95f
     private const val MAX_HEIGHT = 0.6f
     private const val MAX_LINES = 12
+    private const val CONTINUE_GAP = 0.6f
     private const val NMS_IOU = 0.15f
 
     const val SFX = "sfx"

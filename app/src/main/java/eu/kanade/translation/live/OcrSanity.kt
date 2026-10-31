@@ -79,11 +79,68 @@ object OcrSanity {
         return unknown >= 2 && unknown * 2 >= words.size
     }
 
-    /** [garbled] with the bundled English words; false when they cannot be read (nothing is re-read then). */
+    /** [garbled] with the bundled English words, or [strayDigits]; read again from the image either way. */
     fun garbled(context: Context, text: String): Boolean {
+        if (strayDigits(text)) return true
         val f = filter(context) ?: return false
         return garbled(text, f::has)
     }
+
+    private val token = Regex("[^\\s]+")
+    private val latinWord = Regex("^[A-Za-z][A-Za-z'’-]*[.,!?]*$")
+    private val numberLike = Regex("^[#(]?\\d+([.,:/x-]\\d+)*(%|st|nd|rd|th|s|m|km|kg|cm|k|am|pm)?[).,!?]*$", RegexOption.IGNORE_CASE)
+
+    /**
+     * MANHWA: digits where letters were drawn ("THAT A BOY WHO APPEARED 1 68 A SERVANT", "T0 THE R00M"): in a line
+     * of English words, a token that mixes digits and letters, or a bare number standing between two words with
+     * no word around it that numbers count ("CHAPTER", "AGE", "YEARS"...). Decorative lettering makes the scanner
+     * read I as 1, O as 0, B as 8 and G as 6.
+     */
+    fun strayDigits(text: String): Boolean {
+        val tokens = token.findAll(text).map { it.value }.toList()
+        val words = tokens.count { latinWord.matches(it) && it.count(Char::isLetter) >= 2 }
+        if (words < 3) return false
+        var i = 0
+        while (i < tokens.size) {
+            val t = tokens[i]
+            if (t.none(Char::isDigit)) {
+                i++
+                continue
+            }
+            // Letters and digits in one word: "R00M", "T0", "8OY" (but "10TH", "3RD", "2ND" are real)
+            if (t.any(Char::isLetter) && !numberLike.matches(t)) return true
+            // A run of bare numbers ("1 68") read as one
+            var end = i
+            while (end + 1 < tokens.size && numberLike.matches(tokens[end + 1])) end++
+            val before = tokens.getOrNull(i - 1)?.lowercase()?.trimEnd('.', ',', '!', '?', ':')
+            val after = tokens.getOrNull(end + 1)?.lowercase()?.trimEnd('.', ',', '!', '?', ':')
+            val beforeWord = before != null && latinWord.matches(before) && !tokens[i - 1].endsWith(".")
+            val afterWord = after != null && latinWord.matches(after)
+            // A real number names what it counts after it, or is labelled before it
+            // ... or carries its own ending ("10TH", "5KM", "30%")
+            val marked = (i..end).any { k -> tokens[k].any { c -> c.isLetter() || c == '%' } }
+            val real = marked || (after != null && after in units) || (before != null && before in labels)
+            val short = (i..end).all { tokens[it].count(Char::isDigit) <= 3 }
+            if (beforeWord && afterWord && !real && short) return true
+            i = end + 1
+        }
+        return false
+    }
+
+    /** What a number counts, said right after it. */
+    private val units = setOf(
+        "year", "years", "day", "days", "hour", "hours", "minute", "minutes", "second", "seconds", "month",
+        "months", "week", "weeks", "time", "times", "people", "men", "women", "of", "points", "gold", "coins",
+        "won", "dollars", "silver", "meters", "metres", "km", "kg", "percent", "floors", "levels", "steps",
+        "soldiers", "kids", "children", "more", "or", "and", "to", "out", "in", "o'clock", "am", "pm",
+    )
+
+    /** What a number is the label of, said right before it. */
+    private val labels = setOf(
+        "chapter", "episode", "page", "floor", "level", "lv", "lvl", "rank", "age", "aged", "stage", "round",
+        "class", "grade", "room", "no", "number", "vol", "volume", "season", "part", "day", "year", "unit", "squad",
+        "team", "gate", "area", "zone", "block", "sector", "top",
+    )
 
     /** Letters the scanner mixes up on decorative lettering (each way): what one may really be. */
     private val swaps = listOf(
