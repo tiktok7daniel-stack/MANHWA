@@ -1121,6 +1121,16 @@ object ScanlationRenderer {
                     }
                 }
             }
+            // MANHWA: placed text is checked before it is drawn: where its letters would reach the bubble's outline
+            // (or the drawing past it), it is set a little smaller, a few times at most
+            if (set.cleaned.plain && set.cleaned.kind != BubbleKind.ART && !set.cleaned.block.edited) {
+                var tries = 0
+                while (tries < PLACE_TRIES && crossesOutline(inkBox(layout, area), set.cleaned.bg)) {
+                    paint.textSize = paint.textSize * 0.9f
+                    layout = layout(text, paint, maxW, set.spacing)
+                    tries++
+                }
+            }
             val x = area.centerX() - layout.width / 2f
             val y = area.centerY() - layout.height / 2f
             if (set.cleaned.kind == BubbleKind.ART) {
@@ -1184,6 +1194,34 @@ object ScanlationRenderer {
             if (style.dramatic && kind == BubbleKind.SYSTEM) {
                 drawHudCorners(RectF(x, y, x + layout.width, y + layout.height), size)
             }
+        }
+
+        /** Where [layout]'s letters will be once centred in [area]: as wide as its widest line. */
+        private fun inkBox(layout: StaticLayout, area: RectF): RectF {
+            var widest = 0f
+            for (i in 0 until layout.lineCount) widest = max(widest, layout.getLineWidth(i))
+            val top = area.centerY() - layout.height / 2f
+            return RectF(area.centerX() - widest / 2f, top, area.centerX() + widest / 2f, top + layout.height)
+        }
+
+        /** Whether the edge of [box] meets something that is not the bubble's colour [bg] (its outline, the art). */
+        private fun crossesOutline(box: RectF, bg: Int): Boolean {
+            if (box.width() < 4f || box.height() < 4f) return false
+            var hits = 0
+            for (k in 0..PLACE_PROBES) {
+                val f = k / PLACE_PROBES.toFloat()
+                val px = box.left + box.width() * f
+                val py = box.top + box.height() * f
+                for ((x, y) in listOf(px to box.top, px to box.bottom, box.left to py, box.right to py)) {
+                    if (x < 0f || y < 0f || x >= bitmap.width || y >= bitmap.height) {
+                        hits++
+                    } else if (distance(bitmap.getPixel(x.toInt(), y.toInt()), bg) > SHARE_DISTANCE) {
+                        hits++
+                    }
+                    if (hits >= 2) return true
+                }
+            }
+            return false
         }
 
         /** The mean colour of the page under [box] (every few pixels), or null when it is off the page. */
@@ -1411,6 +1449,10 @@ object ScanlationRenderer {
 
     /** How far in from a corner a round bubble is looked for. */
     private const val CORNER_PROBE = 0.08f
+
+    /** Times placed text is set smaller to keep off the outline, and points looked at on each side. */
+    private const val PLACE_TRIES = 4
+    private const val PLACE_PROBES = 16
 
     /** The translation as it is drawn: the Arabic stretching mark (tatweel) never stretches a word in a bubble. */
     internal fun drawn(text: String): String = eu.kanade.translation.translator.TextSanitizer.dropTatweel(text)
