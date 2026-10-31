@@ -30,9 +30,28 @@ object TextSanitizer {
         if (to !in CJK_TARGETS) text = text.replace(cjk, " ")
         // MANHWA: a model's tatweel ("لهـــاروتو") stretches a word across the bubble
         text = dropTatweel(text)
+        // MANHWA: a bracket opened and not closed (or the other way round) shows as a stray ")" in the bubble
+        text = balanceBrackets(text)
         val cleaned = text.replace(spaces, " ").trim()
         // Never turn a translation into nothing: the original model output stays then
         return cleaned.ifBlank { translation.trim() }
+    }
+
+    /**
+     * Brackets that do not pair up ("هيوك...)", "(هاه") are removed, each kind on its own; paired ones stay.
+     */
+    fun balanceBrackets(text: String): String {
+        var out = text
+        for ((open, close) in listOf('(' to ')', '[' to ']', '【' to '】', '«' to '»')) {
+            var depth = 0
+            var bad = false
+            for (c in out) {
+                if (c == open) depth++
+                if (c == close && --depth < 0) bad = true
+            }
+            if (bad || depth != 0) out = out.filter { it != open && it != close }
+        }
+        return out
     }
 
     /** Removes the Arabic stretching mark (tatweel, U+0640) between letters. */

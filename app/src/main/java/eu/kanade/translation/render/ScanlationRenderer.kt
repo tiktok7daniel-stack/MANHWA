@@ -275,7 +275,17 @@ object ScanlationRenderer {
                 // A bubble grown to its outline keeps a wider margin on the sides, so the letters never touch
                 // the spikes of a shout or the curve of a round bubble
                 val grown = c.plain && room.width() > c.union.width() * GROWN_FACTOR
-                edited(c.block, if (grown) shrink(room, GROWN_INSET_X, GROWN_INSET_Y) else shrink(room, 0.04f))
+                // MANHWA: a round bubble's corners are outside it: the text keeps to the box inside the oval, so
+                // no letter crosses the outline ("(هتاف اشمئزاز)" spilling out of a small oval)
+                val round = c.plain && isRound(room, c.bg)
+                edited(
+                    c.block,
+                    when {
+                        round -> shrink(room, ROUND_INSET, ROUND_INSET)
+                        grown -> shrink(room, GROWN_INSET_X, GROWN_INSET_Y)
+                        else -> shrink(room, 0.04f)
+                    },
+                )
             }
             // Two texts never share space: overlapping areas are split at the middle of their overlap
             separate(areas)
@@ -287,7 +297,10 @@ object ScanlationRenderer {
                 // MANHWA: a small bubble whose words come out too small (or do not fit at all) uses the whole of
                 // its room inside the outline and closer lines before giving up, instead of spilling over it
                 if (first.fit >= SMALL_TEXT_PX * s || c.block.edited) return@mapIndexed first
-                val roomy = clamp(RectF(rooms[i]))
+                val roomy = clamp(RectF(rooms[i])).let { r ->
+                    // Even the whole room keeps inside a round bubble's curve
+                    if (c.plain && isRound(r, c.bg)) shrink(r, ROUND_INSET * 0.8f, ROUND_INSET * 0.8f) else r
+                }
                 // ... as long as that room does not reach into another bubble's text
                 if (areas.withIndex().any { (j, other) -> j != i && RectF.intersects(other, roomy) }) return@mapIndexed first
                 val tight = (spacing * 0.88f).coerceAtLeast(0.8f)
@@ -311,6 +324,28 @@ object ScanlationRenderer {
                     logcat(LogPriority.WARN, e) { "Skipped a bubble that could not be typeset" }
                 }
             }
+        }
+
+        /**
+         * MANHWA: whether [room] (a bubble's inside, grown to its outline) is round: near its corners the page is
+         * no longer the bubble's colour [bg] (the curve passed inside them).
+         */
+        private fun isRound(room: RectF, bg: Int): Boolean {
+            if (room.width() < 8f || room.height() < 8f) return false
+            val dx = room.width() * CORNER_PROBE
+            val dy = room.height() * CORNER_PROBE
+            val probes = listOf(
+                room.left + dx to room.top + dy,
+                room.right - dx to room.top + dy,
+                room.left + dx to room.bottom - dy,
+                room.right - dx to room.bottom - dy,
+            )
+            val outside = probes.count { (x, y) ->
+                val px = x.roundToInt().coerceIn(0, bitmap.width - 1)
+                val py = y.roundToInt().coerceIn(0, bitmap.height - 1)
+                distance(bitmap.getPixel(px, py), bg) > SHARE_DISTANCE
+            }
+            return outside >= 2
         }
 
         /** Whether the ring around [block]'s letters is one light colour: the inside of a speech bubble. */
@@ -1370,6 +1405,12 @@ object ScanlationRenderer {
     private const val GROWN_FACTOR = 1.15f
     private const val GROWN_INSET_X = 0.09f
     private const val GROWN_INSET_Y = 0.06f
+
+    /** Each side given up inside a round bubble: the box that fits an oval leaves about 15% on every side. */
+    private const val ROUND_INSET = 0.15f
+
+    /** How far in from a corner a round bubble is looked for. */
+    private const val CORNER_PROBE = 0.08f
 
     /** The translation as it is drawn: the Arabic stretching mark (tatweel) never stretches a word in a bubble. */
     internal fun drawn(text: String): String = eu.kanade.translation.translator.TextSanitizer.dropTatweel(text)

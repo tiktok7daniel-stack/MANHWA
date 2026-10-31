@@ -908,6 +908,11 @@ class AiTranslator(
             appendLine("   Agree verbs, adjectives and pronouns with the gender of the speaker and of the one spoken to (from the glossary notes")
             appendLine("   and the scene); when the gender of \"you\" would be ambiguous, add the vowel mark: أنتَ / أنتِ، لكَ / لكِ، عليكَ / عليكِ.")
             appendLine("   Agree counted nouns with their numbers (دقيقة واحدة، دقيقتان، 5 دقائق، 11 دقيقة) and keep names in Arabic letters.")
+            // MANHWA: from the reader's screenshots ("(هتاف اشمئزاز)", "هيوك...)")
+            appendLine("   A gasp, sigh, sob, scoff or other voiced sound in a bubble (HUFF, HYUK, TSK, UGH, HMPH, (SIGH)) becomes the Arabic")
+            appendLine("   sound itself, short: هاه... / آه... / أف! / تسك / همف / هئ...; never a description of it (not \"(هتاف اشمئزاز)\",")
+            appendLine("   not \"(تنهيدة)\") and never the Korean or English letters spelled out (not هيوك، not أوغ).")
+            appendLine("   Keep brackets only when the source line has them, and always close what you open.")
         }
         // MANHWA style guide: every kind of bubble has its own voice, like a professional scanlation team
         appendLine("8. Style by kind:")
