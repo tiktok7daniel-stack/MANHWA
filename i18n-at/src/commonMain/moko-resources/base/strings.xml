@@ -1977,4 +1977,8 @@
     <string name="wn_secondlook_b">A line that still shows letters after it was cleaned gets a second, wider look, so no tail of a big letter or wide glow stays behind the translation.</string>
     <string name="wn_novelsrc_t">Every novel source in one tap</string>
     <string name="wn_novelsrc_b">IReader\'s repository is added by itself. Install all English or Arabic sources at once, and check which ones really work.</string>
+    <string name="wn_selfclean_t">Cleaning that checks itself</string>
+    <string name="wn_selfclean_b">After each bubble is cleaned, the app looks for letters left behind and cleans harder only where some remain. It remembers how hard each kind of background needs, with no slowdown on clean bubbles.</string>
+    <string name="wn_grain_t">Outlined captions on dark art</string>
+    <string name="wn_grain_b">White outlined text on grainy dark pages is cleaned without ghost letters, a sentence split over two blocks is translated whole, and digits misread for letters are read again.</string>
 </resources>
