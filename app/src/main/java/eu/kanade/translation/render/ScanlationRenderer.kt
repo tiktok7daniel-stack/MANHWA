@@ -1146,13 +1146,20 @@ object ScanlationRenderer {
                     tries++
                 }
             }
-            // MANHWA: kashida justification, every line but the last drawn out to the widest one
-            if (set.boxed && layout.lineCount > 1 && !set.cleaned.block.edited) {
+            // MANHWA: kashida, as Arabic scanlation teams letter: in a box every line but the last is drawn out to
+            // the widest one; in a round bubble only a line much shorter than the others gets a light stretch
+            val kashidaOn = !style.latinOnly && set.cleaned.plain && set.cleaned.kind != BubbleKind.ART && set.cleaned.kind != BubbleKind.SFX
+            if (kashidaOn && layout.lineCount > 1 && !set.cleaned.block.edited) {
                 var widest = 0f
                 for (i in 0 until layout.lineCount) widest = max(widest, layout.getLineWidth(i))
                 val lines = (0 until layout.lineCount).map { i -> text.substring(layout.getLineStart(i), layout.getLineEnd(i)).trim() }
                 val stretched = lines.mapIndexed { i, line ->
-                    if (i == lines.lastIndex) line else Kashida.justify(line, widest * KASHIDA_FILL) { paint.measureText(it) }
+                    when {
+                        set.boxed && i < lines.lastIndex -> Kashida.justify(line, widest * KASHIDA_FILL) { paint.measureText(it) }
+                        !set.boxed && layout.getLineWidth(i) < widest * KASHIDA_SHORT ->
+                            Kashida.justify(line, widest * KASHIDA_SOFT) { paint.measureText(it) }
+                        else -> line
+                    }
                 }
                 if (stretched != lines) {
                     val again = layout(stretched.joinToString("\n"), paint, layout.width, set.spacing)
@@ -1485,6 +1492,10 @@ object ScanlationRenderer {
 
     /** How much of the widest line the others are stretched to (a hair less, so none wraps). */
     private const val KASHIDA_FILL = 0.97f
+
+    /** In a round bubble: a line under this share of the widest is stretched, to this share. */
+    private const val KASHIDA_SHORT = 0.6f
+    private const val KASHIDA_SOFT = 0.8f
 
     /** The translation as it is drawn: the Arabic stretching mark (tatweel) never stretches a word in a bubble. */
     internal fun drawn(text: String): String = eu.kanade.translation.translator.TextSanitizer.dropTatweel(text)
