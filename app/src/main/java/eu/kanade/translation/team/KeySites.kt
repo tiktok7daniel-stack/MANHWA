@@ -268,7 +268,7 @@ object KeySites {
             pattern.find(id)?.let { m -> Triple(m.groupValues[1].toFloatOrNull() ?: return@let null, m.groupValues[2].isNotEmpty(), id) }
         }
         val pick = found.filter { !it.second }.maxByOrNull { it.first } ?: found.maxByOrNull { it.first }
-        return pick?.third ?: models.firstOrNull { it == "gemini-$tier-latest" }
+        return pick?.third?.removePrefix("models/") ?: models.firstOrNull { it == "gemini-$tier-latest" }
     }
 
     /** "model:free", "model-free", "free/model": a model the site names as free. */

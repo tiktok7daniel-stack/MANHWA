@@ -140,7 +140,9 @@ class AiRouter internal constructor(
         if (error is AiTranslator.ApiException && error.code == 429 &&
             store.members.value.any { it.id == memberId && it.providerEnum == AiTranslator.Provider.GEMINI }
         ) {
-            proRest[memberId] = System.currentTimeMillis() + PRO_REST_MS
+            // A daily quota is out for a long while; a per-minute limit only for minutes
+            val daily = (error.message ?: "").contains(Regex("quota|per day|daily|RESOURCE_EXHAUSTED", RegexOption.IGNORE_CASE))
+            proRest[memberId] = System.currentTimeMillis() + if (daily) PRO_REST_MS else PRO_REST_SHORT_MS
         }
         synchronized(lock) {
             val current = adaptive[memberId] ?: startingCapacity(memberId)
@@ -380,6 +382,7 @@ class AiRouter internal constructor(
 
         /** How long a Google key out of Pro quota stays on Flash. */
         private const val PRO_REST_MS = 60 * 60 * 1000L
+        private const val PRO_REST_SHORT_MS = 10 * 60 * 1000L
         private const val STRONG = 70
         private const val AVERAGE = 40
     }

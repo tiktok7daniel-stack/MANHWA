@@ -108,7 +108,9 @@ class GoogleTranslator(
         if (part.isEmpty()) return emptyList<TranslationBlock>() to null
         val sent = part.map { send(it.text) }
         // MANHWA: the language is told, not guessed: Google takes short lines in capitals for another language
-        val sl = OfflineRules.sourceOf(part.joinToString(" ") { it.text }, fromLang.code).let { if (it == "zh") "auto" else it }
+        // ... when every bubble sent together is in the same one (else Google guesses)
+        val langs = part.map { OfflineRules.sourceOf(it.text, fromLang.code) }.distinct()
+        val sl = langs.singleOrNull()?.takeIf { it != "zh" } ?: "auto"
         if (part.size > 1) {
             val joined = try {
                 translateText(sent.joinToString("\n"), prepared = true, sl = sl)
