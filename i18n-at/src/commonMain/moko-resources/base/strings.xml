@@ -1981,4 +1981,8 @@
     <string name="wn_selfclean_b">After each bubble is cleaned, the app looks for letters left behind and cleans harder only where some remain. It remembers how hard each kind of background needs, with no slowdown on clean bubbles.</string>
     <string name="wn_grain_t">Outlined captions on dark art</string>
     <string name="wn_grain_b">White outlined text on grainy dark pages is cleaned without ghost letters, a sentence split over two blocks is translated whole, and digits misread for letters are read again.</string>
+    <string name="wn_lostlines_t">No line of a bubble lost</string>
+    <string name="wn_lostlines_b">When the AI drops part of a bubble or leaves a line in English, the whole bubble is put back together and translated again, so every word is there.</string>
+    <string name="wn_roundfit_t">Text that stays inside</string>
+    <string name="wn_roundfit_b">Round bubbles keep their text inside the oval, text is checked against the outline before it is drawn, sounds are written as Arabic sounds, and a lone bracket is dropped.</string>
 </resources>
