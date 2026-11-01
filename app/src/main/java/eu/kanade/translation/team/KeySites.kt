@@ -257,6 +257,20 @@ object KeySites {
         return usable.minWithOrNull(compareBy<String>({ rank(it) }, { it.length }))
     }
 
+    /**
+     * MANHWA: the newest Gemini of [tier] ("pro" or "flash") in [models] (a key's live list), by version number
+     * ("gemini-3-pro" before "gemini-2.5-pro"), or the "gemini-<tier>-latest" alias; null when it has none.
+     * Previews and experiments count only when no stable one is there.
+     */
+    fun newestGemini(models: List<String>, tier: String): String? {
+        val pattern = Regex("^(?:models/)?gemini-(\\d+(?:\\.\\d+)?)-$tier(-preview[\\w.-]*|-exp[\\w.-]*)?$")
+        val found = models.mapNotNull { id ->
+            pattern.find(id)?.let { m -> Triple(m.groupValues[1].toFloatOrNull() ?: return@let null, m.groupValues[2].isNotEmpty(), id) }
+        }
+        val pick = found.filter { !it.second }.maxByOrNull { it.first } ?: found.maxByOrNull { it.first }
+        return pick?.third ?: models.firstOrNull { it == "gemini-$tier-latest" }
+    }
+
     /** "model:free", "model-free", "free/model": a model the site names as free. */
     fun isFree(id: String): Boolean = FREE.containsMatchIn(id)
 

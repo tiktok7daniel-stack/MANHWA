@@ -124,6 +124,12 @@ class TranslationPreferences(
     /** Characters sent to each fast engine this month ("month|ENGINE=count;..."). */
     fun translationFastUsage() = preferenceStore.getString("manhwa_translation_fast_usage", "")
 
+    /**
+     * MANHWA: Google keys translate chapters (and read decorative lettering again) with the newest Gemini Pro the
+     * key has, the strongest; reading live stays on the newest Flash, the fastest.
+     */
+    fun translationGeminiStrongest() = preferenceStore.getBoolean("manhwa_gemini_strongest", true)
+
     /** When a chapter is read, its lines missing from the translation library are saved there. */
     fun translationSaveOnRead() = preferenceStore.getBoolean("manhwa_translation_save_on_read", true)
 

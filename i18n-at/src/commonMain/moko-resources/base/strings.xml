@@ -1985,4 +1985,6 @@
     <string name="wn_lostlines_b">When the AI drops part of a bubble or leaves a line in English, the whole bubble is put back together and translated again, so every word is there.</string>
     <string name="wn_roundfit_t">Text that stays inside</string>
     <string name="wn_roundfit_b">Round bubbles keep their text inside the oval, text is checked against the outline before it is drawn, sounds are written as Arabic sounds, and a lone bracket is dropped.</string>
+    <string name="pref_gemini_strongest">Strongest Google model</string>
+    <string name="info_gemini_strongest">Google keys translate chapters and read decorative lettering with the newest Gemini Pro the key has. Reading live stays on the fast Flash. When a free key runs out of Pro, it goes back to Flash for an hour on its own.</string>
 </resources>

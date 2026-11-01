@@ -39,7 +39,12 @@ class AiRouter internal constructor(
     private val record: Preference<String>,
     // MANHWA home server: the calls the laptop may run at once, as set on its screen
     private val homeCalls: () -> Int = { LocalServerRules.MAX_CALLS },
+    // MANHWA: Google keys translate chapters with their strongest Gemini (Pro)
+    private val geminiStrongest: () -> Boolean = { true },
 ) {
+
+    /** MANHWA: Google keys whose Pro quota ran out, back on Flash until then (keyed by member id). */
+    private val proRest = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     enum class Lane(val rank: Int) {
         LIVE(0),
@@ -130,6 +135,13 @@ class AiRouter internal constructor(
      * answers halve the key's calls; other errors (a bad request) say nothing about its room and change nothing.
      */
     fun report(memberId: String, error: Throwable?) {
+        // MANHWA: a Google key out of Pro quota (free keys have little of it) goes back to Flash for an hour,
+        // so chapters keep being translated instead of waiting on a resting key
+        if (error is AiTranslator.ApiException && error.code == 429 &&
+            store.members.value.any { it.id == memberId && it.providerEnum == AiTranslator.Provider.GEMINI }
+        ) {
+            proRest[memberId] = System.currentTimeMillis() + PRO_REST_MS
+        }
         synchronized(lock) {
             val current = adaptive[memberId] ?: startingCapacity(memberId)
             val next = when {
@@ -192,10 +204,20 @@ class AiRouter internal constructor(
         // A light or strong model is used only while the key really has it (a dead one falls back to the automatic one)
         val live = store.keyHealth[member.id].models
         fun usable(model: String) = model.isNotBlank() && model !in member.deadModels && (live.isEmpty() || model in live)
+        // MANHWA: on a Google key, the newest Gemini Pro it really has (not a fixed name that ages), unless its Pro
+        // quota just ran out; live reading keeps the fast Flash
+        val gemini = member.providerEnum == eu.kanade.translation.translator.AiTranslator.Provider.GEMINI && !ownSite
+        val proResting = (proRest[member.id] ?: 0L) > System.currentTimeMillis()
+        val strong = when {
+            gemini && proResting -> null
+            gemini -> KeySites.newestGemini(live, "pro")?.takeIf(::usable) ?: member.providerEnum.strongModel.takeIf(::usable)
+            else -> member.providerEnum.strongModel.takeIf(::usable)
+        }
         return when (lane) {
             Lane.CHAT, Lane.BACKGROUND -> if (ownSite) auto else member.providerEnum.lightModel.takeIf(::usable) ?: auto
-            Lane.REVIEW -> if (ownSite) auto else member.providerEnum.strongModel.takeIf(::usable) ?: auto
-            Lane.LIVE, Lane.CHAPTER -> auto
+            Lane.REVIEW -> if (ownSite) auto else strong ?: auto
+            Lane.CHAPTER -> if (gemini && geminiStrongest()) strong ?: auto else auto
+            Lane.LIVE -> auto
         }
     }
 
@@ -355,6 +377,9 @@ class AiRouter internal constructor(
 
         /** The most calls one key may run at once, however well it does. */
         const val MAX_CAPACITY = 6
+
+        /** How long a Google key out of Pro quota stays on Flash. */
+        private const val PRO_REST_MS = 60 * 60 * 1000L
         private const val STRONG = 70
         private const val AVERAGE = 40
     }

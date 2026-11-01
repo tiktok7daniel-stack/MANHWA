@@ -161,7 +161,14 @@ class TeamStore(private val context: Context, private val prefs: TranslationPref
     val health: StateFlow<Map<String, Health>> = _health.asStateFlow()
 
     /** MANHWA: every AI call of the app goes through it (priorities, reserve, model per task, failover). */
-    val router: AiRouter by lazy { AiRouter(this, prefs.translationTeamLanes()) { prefs.translationHomeCalls().get() } }
+    val router: AiRouter by lazy {
+        AiRouter(
+            this,
+            prefs.translationTeamLanes(),
+            homeCalls = { prefs.translationHomeCalls().get() },
+            geminiStrongest = { prefs.translationGeminiStrongest().get() },
+        )
+    }
 
     /** The language translations go to, as set by the reader. */
     fun targetLanguage(): TextTranslatorLanguage = TextTranslatorLanguage.fromPref(prefs.translateToLanguage())

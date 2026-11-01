@@ -143,6 +143,7 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
         val freeSpace by prefs.translationFreeSpaceOnRead().collectPreference()
         val deleteDownload by prefs.translationDeleteDownloadOnRead().collectPreference()
         val consensus by prefs.translationConsensus().collectPreference()
+        val geminiStrongest by prefs.translationGeminiStrongest().collectPreference()
         val translateOnly by prefs.translationTranslateOnly().collectPreference()
         val nightly by prefs.translationNightly().collectPreference()
         val dialect by prefs.translationStyleDialect().collectPreference()
@@ -503,6 +504,14 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
                                     info = stringResource(ATMR.strings.info_consensus),
                                     checked = consensus,
                                     onChange = { prefs.translationConsensus().set(it) },
+                                )
+                                HubDivider()
+                                HubSwitchRow(
+                                    icon = MaterialSymbols.Rounded.Psychology,
+                                    title = stringResource(ATMR.strings.pref_gemini_strongest),
+                                    info = stringResource(ATMR.strings.info_gemini_strongest),
+                                    checked = geminiStrongest,
+                                    onChange = { prefs.translationGeminiStrongest().set(it) },
                                 )
                                 HubDivider()
                                 HubSwitchRow(
