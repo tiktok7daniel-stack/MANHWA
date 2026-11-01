@@ -1125,9 +1125,13 @@ object ScanlationRenderer {
             // (or the drawing past it), it is set a little smaller, a few times at most
             if (set.cleaned.plain && set.cleaned.kind != BubbleKind.ART && !set.cleaned.block.edited) {
                 var tries = 0
-                while (tries < PLACE_TRIES && crossesOutline(inkBox(layout, area), set.cleaned.bg)) {
+                // The balanced width found above is kept; never smaller than the smallest readable size
+                val balanced = layout.width.coerceAtLeast(8)
+                while (tries < PLACE_TRIES && paint.textSize * 0.9f >= MIN_TEXT_PX * s &&
+                    crossesOutline(inkBox(layout, area), set.cleaned.bg)
+                ) {
                     paint.textSize = paint.textSize * 0.9f
-                    layout = layout(text, paint, maxW, set.spacing)
+                    layout = layout(text, paint, balanced, set.spacing)
                     tries++
                 }
             }

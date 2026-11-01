@@ -89,7 +89,9 @@ object LostLines {
             val gapY = max(b[1] - a[3], a[1] - b[3])
             val overlapX = min(a[2], b[2]) - max(a[0], b[0])
             val narrower = min(a[2] - a[0], b[2] - b[0]).coerceAtLeast(1f)
-            if (gapY <= lineH && overlapX > narrower * 0.3f) parent[root(j)] = root(i)
+            // Same letter size too: a caption and a bubble next to it are not one
+            val sameSize = max(lineHeights[i], lineHeights[j]) <= lineH * 1.45f
+            if (gapY <= lineH && overlapX > narrower * 0.3f && sameSize) parent[root(j)] = root(i)
         }
         return boxes.indices.groupBy { root(it) }.values.map { it.sorted() }.sortedBy { it.first() }
     }
