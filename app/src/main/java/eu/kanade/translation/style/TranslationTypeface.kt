@@ -100,10 +100,10 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
             }
         } else {
             when (kind) {
-                BubbleKind.SPEECH -> CAIRO.family(kind)
+                // MANHWA: like Arabic scanlation teams, speech and captions in a bold kufi
+                BubbleKind.SPEECH, BubbleKind.NARRATION -> REEM_KUFI.family(kind)
                 BubbleKind.SHOUT, BubbleKind.SFX -> LALEZAR.family(kind)
                 BubbleKind.THOUGHT -> TAJAWAL.family(kind)
-                BubbleKind.NARRATION -> NOTO_NASKH.family(kind)
                 BubbleKind.SYSTEM, BubbleKind.ART -> CHANGA.family(kind)
             }
         }
@@ -134,10 +134,10 @@ enum class TranslationTypeface(val label: String, val arabic: Boolean) {
             if (kind == BubbleKind.SHOUT || kind == BubbleKind.SFX) MANGA_MASTER.androidFont(kind) else ANIME_ACE.androidFont(kind)
         } else {
             when (kind) {
-                BubbleKind.SPEECH -> CAIRO.androidFont(kind)
+                // MANHWA: like Arabic scanlation teams, speech and captions in a bold kufi
+                BubbleKind.SPEECH, BubbleKind.NARRATION -> R.font.ar_reem_kufi to 700
                 BubbleKind.SHOUT, BubbleKind.SFX -> LALEZAR.androidFont(kind)
                 BubbleKind.THOUGHT -> TAJAWAL.androidFont(kind)
-                BubbleKind.NARRATION -> NOTO_NASKH.androidFont(kind)
                 BubbleKind.SYSTEM, BubbleKind.ART -> CHANGA.androidFont(kind)
             }
         }

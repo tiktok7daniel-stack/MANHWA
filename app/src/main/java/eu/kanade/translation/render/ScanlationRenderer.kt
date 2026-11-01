@@ -198,7 +198,15 @@ object ScanlationRenderer {
         /** A bubble after cleaning: where its lines were, the colour behind them, and whether it is plain. */
         private class Cleaned(val block: TranslationBlock, val kind: BubbleKind, val union: RectF, val bg: Int, val plain: Boolean)
 
-        private class Placement(val cleaned: Cleaned, val area: RectF, val paint: TextPaint, val fit: Float, val spacing: Float)
+        private class Placement(
+            val cleaned: Cleaned,
+            val area: RectF,
+            val paint: TextPaint,
+            val fit: Float,
+            val spacing: Float,
+            /** Lettered in a box with straight sides (not an oval): its lines are stretched with kashida. */
+            val boxed: Boolean = false,
+        )
 
         /** The translation is the source as it was (letters, same words): nothing was translated. */
         private fun untranslated(block: TranslationBlock): Boolean {
@@ -293,7 +301,10 @@ object ScanlationRenderer {
             val sets = cleaned.mapIndexed { i, c ->
                 val paint = paintFor(c)
                 val text = shown(c.block)
-                val first = Placement(c, areas[i], paint, fit(text, paint, areas[i], spacing), spacing)
+                // MANHWA: a box (a caption, a square speech box) is lettered justified, like Arabic scanlation teams do
+                val boxed = !style.latinOnly && c.plain && c.kind != BubbleKind.SFX && c.kind != BubbleKind.ART &&
+                    rooms[i].width() > c.union.width() * GROWN_FACTOR && !isRound(rooms[i], c.bg)
+                val first = Placement(c, areas[i], paint, fit(text, paint, areas[i], spacing), spacing, boxed)
                 // MANHWA: a small bubble whose words come out too small (or do not fit at all) uses the whole of
                 // its room inside the outline and closer lines before giving up, instead of spilling over it
                 if (first.fit >= SMALL_TEXT_PX * s || c.block.edited) return@mapIndexed first
@@ -305,7 +316,7 @@ object ScanlationRenderer {
                 if (areas.withIndex().any { (j, other) -> j != i && RectF.intersects(other, roomy) }) return@mapIndexed first
                 val tight = (spacing * 0.88f).coerceAtLeast(0.8f)
                 val second = fit(text, paint, roomy, tight)
-                if (second > first.fit) Placement(c, roomy, paint, second, tight) else first
+                if (second > first.fit) Placement(c, roomy, paint, second, tight, boxed) else first
             }
             // 3. Sizes evened out across the page, then drawn
             val fits = sets.map { it.fit }.filter { it > 0f }.sorted()
@@ -1135,6 +1146,20 @@ object ScanlationRenderer {
                     tries++
                 }
             }
+            // MANHWA: kashida justification, every line but the last drawn out to the widest one
+            if (set.boxed && layout.lineCount > 1 && !set.cleaned.block.edited) {
+                var widest = 0f
+                for (i in 0 until layout.lineCount) widest = max(widest, layout.getLineWidth(i))
+                val lines = (0 until layout.lineCount).map { i -> text.substring(layout.getLineStart(i), layout.getLineEnd(i)).trim() }
+                val stretched = lines.mapIndexed { i, line ->
+                    if (i == lines.lastIndex) line else Kashida.justify(line, widest * KASHIDA_FILL) { paint.measureText(it) }
+                }
+                if (stretched != lines) {
+                    val again = layout(stretched.joinToString("\n"), paint, layout.width, set.spacing)
+                    // Only when it keeps the same lines (a font without kashida would wrap them otherwise)
+                    if (again.lineCount == layout.lineCount) layout = again
+                }
+            }
             val x = area.centerX() - layout.width / 2f
             val y = area.centerY() - layout.height / 2f
             if (set.cleaned.kind == BubbleKind.ART) {
@@ -1457,6 +1482,9 @@ object ScanlationRenderer {
     /** Times placed text is set smaller to keep off the outline, and points looked at on each side. */
     private const val PLACE_TRIES = 4
     private const val PLACE_PROBES = 16
+
+    /** How much of the widest line the others are stretched to (a hair less, so none wraps). */
+    private const val KASHIDA_FILL = 0.97f
 
     /** The translation as it is drawn: the Arabic stretching mark (tatweel) never stretches a word in a bubble. */
     internal fun drawn(text: String): String = eu.kanade.translation.translator.TextSanitizer.dropTatweel(text)
