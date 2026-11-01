@@ -756,9 +756,12 @@ class LiveTranslator(
                 // more; the new answer stays only when it passes where the first did not
                 val checkGlossary = id?.let(glossaryStore::asMap).orEmpty()
                 val latin = to.code !in ChapterTranslator.NON_LATIN_TARGETS
-                val bad = work.blocks.filter {
-                    it.translation.isNotBlank() && !it.kind.equals(PageOcr.SFX, ignoreCase = true) &&
-                        eu.kanade.translation.team.QualityCheck.check(it.text, it.translation, checkGlossary, latin) != null
+                // MANHWA: a bubble whose lines the AI said it "joined" but dropped is put back together, asked again whole
+                val regrouped = eu.kanade.translation.translator.LostLines.mergeLost(work, latin)
+                val bad = regrouped + work.blocks.filter { b ->
+                    regrouped.none { it === b } &&
+                        b.translation.isNotBlank() && !b.kind.equals(PageOcr.SFX, ignoreCase = true) &&
+                        eu.kanade.translation.team.QualityCheck.check(b.text, b.translation, checkGlossary, latin) != null
                 }
                 if (bad.isNotEmpty() && engine.aiPart != null) {
                     val before = bad.associateWith { it.translation }

@@ -1029,10 +1029,14 @@ class ChapterTranslator(
      */
     private suspend fun recheck(pages: MutableMap<String, PageTranslation>, glossary: Map<String, String>, translation: Translation) {
         val latin = translation.toLang.code !in NON_LATIN_TARGETS
+        // MANHWA: a bubble whose lines the AI said it "joined" but dropped is put back together and asked again whole
+        val regrouped: MutableSet<TranslationBlock> = Collections.newSetFromMap(IdentityHashMap())
+        pages.values.forEach { page -> regrouped += eu.kanade.translation.translator.LostLines.mergeLost(page, latin) }
         val flagged = pages.mapNotNull { (name, page) ->
             // Sound effects are left as drawn on purpose: never "fixed" here
             val bad = page.blocks.filterNot { it.kind.equals(PageOcr.SFX, ignoreCase = true) }.filter {
-                QualityCheck.check(it.text, it.translation, glossary, latin) != null ||
+                it in regrouped ||
+                    QualityCheck.check(it.text, it.translation, glossary, latin) != null ||
                     // Far more than fits its (real, detected) bubble: asked again, with the size it has
                     (it.hasBubble && it.translation.length > bubbleCharBudget(it) * OVERFLOW_FACTOR)
             }

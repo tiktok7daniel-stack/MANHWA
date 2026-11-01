@@ -894,6 +894,9 @@ class AiTranslator(
             )
         }
         appendLine("3. OCR text can be noisy or split mid-sentence: use the neighbouring bubbles to recover the intended meaning and silently fix obvious OCR mistakes.")
+        // MANHWA: from the reader's screenshots ("PHYSICAL-TYPE, RISK LEVEL: INCOMPREHENSIBLE." drawn as "المستوى:.")
+        appendLine("   Every word of the source is translated: no part of a sentence is dropped to make it shorter, and a line with words never")
+        appendLine("   comes back empty or in English. When one sentence is spread over several ids, its whole meaning must be in them.")
         appendLine("4. Keep names of people, places, sects and techniques consistent across the chapter and with the glossary.")
         if (skipSfx) {
             appendLine("5. Sound effects drawn as art (onomatopoeia: bangs, booms, whooshes, heartbeats) are NOT translated: give them \"\" and the kind sfx.")
