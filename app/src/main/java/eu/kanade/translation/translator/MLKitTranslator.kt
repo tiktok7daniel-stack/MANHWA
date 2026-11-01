@@ -41,6 +41,13 @@ class MLKitTranslator(
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) {
         pages.values.flatMap { it.blocks }.forEach { block ->
             if (block.text.isBlank()) return@forEach
+            // MANHWA: a bubble that is only a voiced sound is written in Arabic directly
+            if (toLang == TextTranslatorLanguage.ARABIC) {
+                PlainMt.sound(block.text)?.let {
+                    block.translation = it
+                    return@forEach
+                }
+            }
             val source = OfflineRules.sourceOf(block.text, fromLang.code)
             val translator = translatorFor(source)
             if (translator == null) {
@@ -51,7 +58,7 @@ class MLKitTranslator(
                 runCatching { Tasks.await(translator.downloadModelIfNeeded(conditions), 3, TimeUnit.MINUTES) }
                     .onFailure { downloaded.remove(source); throw it }
             }
-            val sent = OfflineRules.prepare(FastTranslatorRules.protectTerms(GoogleRules.cleanSource(block.text), glossary), source)
+            val sent = OfflineRules.prepare(FastTranslatorRules.protectTerms(PlainMt.preEdit(GoogleRules.cleanSource(block.text)), glossary), source)
             val answer = Tasks.await(translator.translate(sent), 30, TimeUnit.SECONDS).orEmpty().trim()
             block.translation = if (answer.isBlank()) "" else finish(answer, block.text)
         }

@@ -94,11 +94,24 @@ class GoogleTranslator(
     }
 
     /** Translates [part] in one request (each bubble on its own line), else bubble by bubble; what was missed and why. */
-    private suspend fun translatePart(part: List<TranslationBlock>): Pair<List<TranslationBlock>, Throwable?> {
+    private suspend fun translatePart(whole: List<TranslationBlock>): Pair<List<TranslationBlock>, Throwable?> {
+        // MANHWA: a bubble that is only a voiced sound is written in Arabic here, without asking Google
+        val part = if (toLang == TextTranslatorLanguage.ARABIC) {
+            whole.filter { block ->
+                val arabic = PlainMt.sound(block.text) ?: return@filter true
+                block.translation = arabic
+                false
+            }
+        } else {
+            whole
+        }
+        if (part.isEmpty()) return emptyList<TranslationBlock>() to null
         val sent = part.map { send(it.text) }
+        // MANHWA: the language is told, not guessed: Google takes short lines in capitals for another language
+        val sl = OfflineRules.sourceOf(part.joinToString(" ") { it.text }, fromLang.code).let { if (it == "zh") "auto" else it }
         if (part.size > 1) {
             val joined = try {
-                translateText(sent.joinToString("\n"), prepared = true)
+                translateText(sent.joinToString("\n"), prepared = true, sl = sl)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -116,7 +129,7 @@ class GoogleTranslator(
         val missed = mutableListOf<TranslationBlock>()
         part.forEachIndexed { i, block ->
             try {
-                block.translation = finish(translateText(sent[i], prepared = true), block.text)
+                block.translation = finish(translateText(sent[i], prepared = true, sl = sl), block.text)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -129,7 +142,7 @@ class GoogleTranslator(
 
     /** The bubble as it is sent: the OCR's broken lines joined, the work's names put in, capitals in sentence case. */
     private fun send(text: String): String =
-        GoogleRules.prepare(FastTranslatorRules.protectTerms(GoogleRules.cleanSource(text), glossary))
+        GoogleRules.prepare(FastTranslatorRules.protectTerms(PlainMt.preEdit(GoogleRules.cleanSource(text)), glossary))
 
     private fun finish(translation: String, source: String): String {
         if (translation.isBlank()) return source
@@ -142,7 +155,7 @@ class GoogleTranslator(
      * fails (no network for a moment, a busy answer) is asked again a few times, waiting longer each time and as
      * long as Google says to wait; still nothing throws, rather than give the text back untranslated.
      */
-    suspend fun translateText(text: String, prepared: Boolean = false, ignoreRest: Boolean = false): String {
+    suspend fun translateText(text: String, prepared: Boolean = false, ignoreRest: Boolean = false, sl: String = "auto"): String {
         if (text.isBlank()) return text
         // Google said "too many requests" a moment ago: it is left alone until its pause ends
         if (!ignoreRest && GoogleStatus.resting()) throw GoogleRules.Busy(429, null)
@@ -151,7 +164,7 @@ class GoogleTranslator(
         repeat(GoogleRules.ATTEMPTS) { attempt ->
             if (attempt > 0) delay(GoogleRules.waitMillis(attempt, last))
             try {
-                val answer = request(toLang.code, sent)
+                val answer = request(toLang.code, sent, sl)
                 GoogleStatus.answered()
                 return answer
             } catch (e: CancellationException) {
@@ -172,8 +185,8 @@ class GoogleTranslator(
         throw last ?: IOException("Google Translate did not answer")
     }
 
-    private suspend fun request(lang: String, text: String): String {
-        val response = okHttpClient.newCall(Request.Builder().url(getTranslateUrl(lang, text)).build()).await()
+    private suspend fun request(lang: String, text: String, sl: String): String {
+        val response = okHttpClient.newCall(Request.Builder().url(getTranslateUrl(lang, text, sl)).build()).await()
         response.use {
             if (!it.isSuccessful) {
                 throw GoogleRules.Busy(it.code, it.header("Retry-After")?.trim()?.toLongOrNull())
@@ -183,10 +196,10 @@ class GoogleTranslator(
     }
 
     /** The same address and token as before the last update (the one that worked). */
-    private fun getTranslateUrl(lang: String, text: String): String {
+    private fun getTranslateUrl(lang: String, text: String, sl: String): String {
         val token = calculateToken(text)
         val encoded = URLEncoder.encode(text, "utf-8")
-        return "https://translate.google.com/translate_a/single?client=gtx&sl=auto&tl=$lang&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&otf=1&ssel=0&tsel=0&kc=1&tk=$token&q=$encoded"
+        return "https://translate.google.com/translate_a/single?client=gtx&sl=$sl&tl=$lang&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&otf=1&ssel=0&tsel=0&kc=1&tk=$token&q=$encoded"
     }
 
     private fun calculateToken(str: String): String {

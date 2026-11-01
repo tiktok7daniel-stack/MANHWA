@@ -176,6 +176,15 @@ object OcrSanity {
         }
     }
 
+    /**
+     * [repair] for a garbled line, with the English words when something already loaded them (the OCR check does,
+     * before any translation); the line as it is otherwise. Needs no context, for the translators.
+     */
+    fun repairIfLoaded(text: String): String {
+        val f = filter ?: return text
+        return if (garbled(text, f::has)) repair(text, f::has) else text
+    }
+
     /** [repair] with the bundled English words, only for a line that reads as garbled. */
     fun repair(context: Context, text: String): String {
         val f = filter(context) ?: return text

@@ -55,7 +55,17 @@ class FastTranslator(
     private var mlkit: MLKitTranslator? = null
 
     override suspend fun translate(pages: MutableMap<String, PageTranslation>) = withContext(Dispatchers.IO) {
-        val blocks = pages.values.flatMap { it.blocks }.filter { it.text.isNotBlank() && it.translation.isBlank() }
+        val all = pages.values.flatMap { it.blocks }.filter { it.text.isNotBlank() && it.translation.isBlank() }
+        // MANHWA: a bubble that is only a voiced sound is written in Arabic here, on no engine's quota
+        val blocks = if (toLang == TextTranslatorLanguage.ARABIC) {
+            all.filter { block ->
+                val arabic = PlainMt.sound(block.text) ?: return@filter true
+                block.translation = arabic
+                false
+            }
+        } else {
+            all
+        }
         if (blocks.isEmpty()) return@withContext
         var left: List<TranslationBlock> = blocks
         val keys = FastTranslatorRules.Keys(
@@ -91,7 +101,9 @@ class FastTranslator(
                 translator.translate(page)
             }
             FastTranslatorRules.Engine.GOOGLE -> blocks.forEach { block ->
-                block.translation = google.translateText(protect(block.text)).trim()
+                // The language is told, not guessed (short lines in capitals fool Google's guess)
+                val sl = OfflineRules.sourceOf(block.text, fromLang.code).let { if (it == "zh") "auto" else it }
+                block.translation = google.translateText(protect(block.text), sl = sl).trim()
             }
             else -> {
                 val batch = FastTranslatorRules.batchSize(engine)
@@ -112,7 +124,7 @@ class FastTranslator(
         return blocks.filter { it.translation.isBlank() }
     }
 
-    private fun protect(text: String): String = FastTranslatorRules.protectTerms(text.replace('\n', ' '), glossary)
+    private fun protect(text: String): String = FastTranslatorRules.protectTerms(PlainMt.preEdit(text.replace('\n', ' ')), glossary)
 
     private fun finish(translation: String, source: String): String {
         val clean = TextSanitizer.clean(translation, source, toLang)
