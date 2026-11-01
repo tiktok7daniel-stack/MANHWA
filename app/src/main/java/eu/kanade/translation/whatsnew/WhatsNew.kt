@@ -132,13 +132,16 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_lostlines_t, ATMR.strings.wn_lostlines_b),
-            Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_roundfit_t, ATMR.strings.wn_roundfit_b),
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_plainmt_t, ATMR.strings.wn_plainmt_b),
+            Feature(MaterialSymbols.Rounded.Psychology, ATMR.strings.wn_geminipro_t, ATMR.strings.wn_geminipro_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 167
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_lostlines_t, ATMR.strings.wn_lostlines_b),
+            Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_roundfit_t, ATMR.strings.wn_roundfit_b),
             // Build 166
             Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_selfclean_t, ATMR.strings.wn_selfclean_b),
             Feature(MaterialSymbols.Rounded.Palette, ATMR.strings.wn_grain_t, ATMR.strings.wn_grain_b),

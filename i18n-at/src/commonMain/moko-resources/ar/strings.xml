@@ -1928,4 +1928,8 @@
     <string name="wn_roundfit_b">الفقاعات المدوّرة كلامها بيفضل جوه البيضاوي، والكلام بيتفحص على خط الفقاعة قبل ما يترسم، والأصوات بتتكتب بالعربي، والقوس اللي لوحده بيتشال.</string>
     <string name="pref_gemini_strongest">أقوى موديل من جوجل</string>
     <string name="info_gemini_strongest">مفاتيح جوجل بتترجم الفصول وبتقرا الكلام المزخرف بأحدث Gemini Pro موجود على المفتاح. القراية المباشرة بتفضل على Flash السريع. ولو المفتاح المجاني خلص حصة Pro، بيرجع لـ Flash لوحده لمدة ساعة.</string>
+    <string name="wn_plainmt_t">ترجمة عادية أقوى</string>
+    <string name="wn_plainmt_b">جوجل وDeepL والأوفلاين: الأصوات (HUH، UGH، TSK) بتتكتب عربي من غير ما تتبعت، وجوجل بقت بتعرف لغة الأصل بدل ما تخمّن، والكلام اللي اتقرا غلط بيتصلّح قبل ما يتبعت.</string>
+    <string name="wn_geminipro_t">أقوى ذكاء اصطناعي من جوجل</string>
+    <string name="wn_geminipro_b">مفاتيح جوجل بتترجم الفصول بأحدث Gemini Pro موجود على المفتاح، والقراية المباشرة على Flash السريع. ولو المفتاح المجاني خلص حصة Pro بيرجع لـ Flash ساعة لوحده.</string>
 </resources>

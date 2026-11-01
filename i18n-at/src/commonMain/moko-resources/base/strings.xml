@@ -1987,4 +1987,8 @@
     <string name="wn_roundfit_b">Round bubbles keep their text inside the oval, text is checked against the outline before it is drawn, sounds are written as Arabic sounds, and a lone bracket is dropped.</string>
     <string name="pref_gemini_strongest">Strongest Google model</string>
     <string name="info_gemini_strongest">Google keys translate chapters and read decorative lettering with the newest Gemini Pro the key has. Reading live stays on the fast Flash. When a free key runs out of Pro, it goes back to Flash for an hour on its own.</string>
+    <string name="wn_plainmt_t">Stronger plain translation</string>
+    <string name="wn_plainmt_b">Google, DeepL and offline translation: voiced sounds (HUH, UGH, TSK) are written in Arabic without being sent, Google is told the source language instead of guessing, and misread words are mended before sending.</string>
+    <string name="wn_geminipro_t">The strongest Google AI</string>
+    <string name="wn_geminipro_b">Google keys translate chapters with the newest Gemini Pro the key has; live reading stays on the fast Flash. A free key out of Pro goes back to Flash for an hour on its own.</string>
 </resources>
