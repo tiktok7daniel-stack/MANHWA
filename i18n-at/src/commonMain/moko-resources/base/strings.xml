@@ -1991,4 +1991,8 @@
     <string name="wn_plainmt_b">Google, DeepL and offline translation: voiced sounds (HUH, UGH, TSK) are written in Arabic without being sent, Google is told the source language instead of guessing, and misread words are mended before sending.</string>
     <string name="wn_geminipro_t">The strongest Google AI</string>
     <string name="wn_geminipro_b">Google keys translate chapters with the newest Gemini Pro the key has; live reading stays on the fast Flash. A free key out of Pro goes back to Flash for an hour on its own.</string>
+    <string name="wn_kashida_t">Lettered like a scanlation team</string>
+    <string name="wn_kashida_b">Boxes are justified with kashida, a short line in a round bubble gets a light stretch, speech is in a bold kufi and captions in a tall, thin display face.</string>
+    <string name="wn_thermal_t">A cooler phone</string>
+    <string name="wn_thermal_b">When the phone warms up, background translation rests between pages and translating ahead stops; when it is hot, background work waits to cool and decoration rests. The page you are reading never waits.</string>
 </resources>

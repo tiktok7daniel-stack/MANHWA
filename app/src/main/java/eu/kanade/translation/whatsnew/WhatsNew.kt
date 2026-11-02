@@ -96,6 +96,7 @@ import mihon.icons.materialsymbols.rounded.Speed
 import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.rounded.SwapCalls
 import mihon.icons.materialsymbols.rounded.TextFields
+import mihon.icons.materialsymbols.rounded.Thermostat
 import mihon.icons.materialsymbols.rounded.Translate
 import mihon.icons.materialsymbols.rounded.TravelExplore
 import mihon.icons.materialsymbols.rounded.Tune
@@ -132,13 +133,16 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_plainmt_t, ATMR.strings.wn_plainmt_b),
-            Feature(MaterialSymbols.Rounded.Psychology, ATMR.strings.wn_geminipro_t, ATMR.strings.wn_geminipro_b),
+            Feature(MaterialSymbols.Rounded.EditNote, ATMR.strings.wn_kashida_t, ATMR.strings.wn_kashida_b),
+            Feature(MaterialSymbols.Rounded.Thermostat, ATMR.strings.wn_thermal_t, ATMR.strings.wn_thermal_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 168
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_plainmt_t, ATMR.strings.wn_plainmt_b),
+            Feature(MaterialSymbols.Rounded.Psychology, ATMR.strings.wn_geminipro_t, ATMR.strings.wn_geminipro_b),
             // Build 167
             Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_lostlines_t, ATMR.strings.wn_lostlines_b),
             Feature(MaterialSymbols.Rounded.Tune, ATMR.strings.wn_roundfit_t, ATMR.strings.wn_roundfit_b),
