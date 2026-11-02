@@ -103,9 +103,12 @@ object DecorMotion {
         val power = context.getSystemService(PowerManager::class.java)
         val saving = power?.isPowerSaveMode == true
         val thermal = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) power?.currentThermalStatus ?: 0 else 0
+        // MANHWA: the rest of the app slows its own background work by the same reading
+        eu.kanade.translation.ThermalGuard.status = thermal
         _level.value = when {
-            thermal >= PowerManager.THERMAL_STATUS_SEVERE -> Level.OFF
-            saving || batteryLow || thermal >= PowerManager.THERMAL_STATUS_MODERATE -> Level.LITE
+            // Decoration is the first thing to stop: off once the phone is moderately hot, slower when warm
+            thermal >= PowerManager.THERMAL_STATUS_MODERATE -> Level.OFF
+            saving || batteryLow || thermal >= PowerManager.THERMAL_STATUS_LIGHT -> Level.LITE
             else -> Level.FULL
         }
     }

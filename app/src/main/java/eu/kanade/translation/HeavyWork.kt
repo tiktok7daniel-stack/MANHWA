@@ -41,6 +41,8 @@ object HeavyWork {
 
     /** Image work for chapters translated in the background; waits while the reader is busy. */
     suspend fun <T> background(block: suspend () -> T): T {
+        // MANHWA: a warm phone rests between background pages, a hot one waits to cool down
+        ThermalGuard.coolDown()
         while (true) {
             while (readerWaiting.get() > 0 || SystemClock.elapsedRealtime() < readerQuietAt) delay(WAIT_MS)
             mutex.lock()

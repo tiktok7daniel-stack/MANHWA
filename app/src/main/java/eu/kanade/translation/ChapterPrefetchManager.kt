@@ -61,7 +61,8 @@ object ChapterPrefetchManager {
     }
 
     fun shouldPrefetch(context: Context, store: TeamStore, prefs: TranslationPreferences): Boolean =
-        allowed(
+        // MANHWA: nothing is translated ahead on a warm phone
+        !ThermalGuard.warm && allowed(
             manual = prefs.translationPretranslateNext().get(),
             auto = prefs.translationAutoPrefetch().get(),
             workingKeys = workingKeys(store),

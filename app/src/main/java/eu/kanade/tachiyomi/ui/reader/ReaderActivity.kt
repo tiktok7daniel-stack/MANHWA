@@ -1297,6 +1297,8 @@ class ReaderActivity : BaseActivity() {
 
     /** Reads a small copy of [page] and tunes the colours for it. */
     private fun autoColorsFor(page: ReaderPage) {
+        // MANHWA: a hot phone keeps the last tune instead of reading every page again
+        if (eu.kanade.translation.ThermalGuard.hot) return
         autoColorsJob?.cancel()
         autoColorsJob = lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Default) {
             // An online page is often picked before its image is in: it is tuned once it arrives
