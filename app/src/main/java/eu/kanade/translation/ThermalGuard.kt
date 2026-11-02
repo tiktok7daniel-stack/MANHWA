@@ -28,14 +28,20 @@ object ThermalGuard {
 
     /** Called before each page of background work: a rest when warm, a wait while hot. */
     suspend fun coolDown() {
-        var waited = 0L
-        // Hot: background work stops until the phone is only warm (at most a few minutes, then it goes on slowly)
-        while (hot && waited < MAX_WAIT_MS) {
+        // Hot: background work stops until the phone is only warm, a few minutes in all for one hot spell (not
+        // for every page), then it goes on slowly
+        while (hot) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (hotSince == 0L) hotSince = now
+            if (now - hotSince >= MAX_WAIT_MS) break
             delay(CHECK_MS)
-            waited += CHECK_MS
         }
+        if (!hot) hotSince = 0L
         pauseFor(status).takeIf { it > 0 }?.let { delay(it) }
     }
+
+    /** When the phone became hot (0 while it is not): the wait is shared by all pages of one hot spell. */
+    @Volatile private var hotSince = 0L
 
     private const val LIGHT = 1
     private const val MODERATE = 2
