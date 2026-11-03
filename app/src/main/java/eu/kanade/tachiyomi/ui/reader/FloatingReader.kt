@@ -94,7 +94,12 @@ object FloatingReader {
             y = (metrics.heightPixels * 0.3f).roundToInt()
         }
 
-        val root = FrameLayout(app).apply {
+        val root = PinchFrame(app) { factor ->
+            // Two fingers anywhere: the whole window grows or shrinks, keeping its shape
+            params.width = (params.width * factor).roundToInt().coerceIn((160 * dp).roundToInt(), metrics.widthPixels)
+            params.height = (params.height * factor).roundToInt().coerceIn((200 * dp).roundToInt(), metrics.heightPixels)
+            window?.let { runCatching { wm.updateViewLayout(it, params) } }
+        }.apply {
             background = GradientDrawable().apply {
                 cornerRadius = 18 * dp
                 setColor(0xF0121216.toInt())
@@ -159,7 +164,7 @@ object FloatingReader {
         }
         root.addView(
             grip,
-            FrameLayout.LayoutParams((34 * dp).roundToInt(), (34 * dp).roundToInt(), Gravity.BOTTOM or Gravity.END),
+            FrameLayout.LayoutParams((44 * dp).roundToInt(), (44 * dp).roundToInt(), Gravity.BOTTOM or Gravity.END),
         )
 
         var downX = 0f
@@ -229,6 +234,39 @@ object FloatingReader {
         val intent = Intent(context, ReaderActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         runCatching { context.startActivity(intent) }
+    }
+
+    /**
+     * The window's frame: one finger goes to the pages (scrolling) and the bars; two fingers resize the window
+     * ([scaleBy] gets each step's factor), and the pages under them are told to let go.
+     */
+    private class PinchFrame(context: Context, private val scaleBy: (Float) -> Unit) : FrameLayout(context) {
+        private var pinching = false
+        private val detector = android.view.ScaleGestureDetector(
+            context,
+            object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+                    scaleBy(detector.scaleFactor.coerceIn(0.8f, 1.25f))
+                    return true
+                }
+            },
+        )
+
+        override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+            detector.onTouchEvent(ev)
+            if (ev.pointerCount >= 2 && !pinching) {
+                pinching = true
+                // The pages stop scrolling while the window is being resized
+                val cancel = MotionEvent.obtain(ev).apply { action = MotionEvent.ACTION_CANCEL }
+                super.dispatchTouchEvent(cancel)
+                cancel.recycle()
+            }
+            if (pinching) {
+                if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) pinching = false
+                return true
+            }
+            return super.dispatchTouchEvent(ev)
+        }
     }
 
     private class PagesAdapter(

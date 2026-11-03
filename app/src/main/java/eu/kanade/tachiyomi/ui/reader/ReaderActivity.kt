@@ -809,7 +809,7 @@ class ReaderActivity : BaseActivity() {
             .apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     // The floating reader takes over when it is allowed
-                    setAutoEnterEnabled(readerPreferences.pictureInPicture.get() && !FloatingReader.allowed(this@ReaderActivity))
+                    setAutoEnterEnabled(false)
                     setSeamlessResizeEnabled(true)
                 }
             }
@@ -846,10 +846,9 @@ class ReaderActivity : BaseActivity() {
     fun enterPip() {
         // MANHWA: the app's own floating window first (scrolls, moves, resizes); Android's small window otherwise
         if (openFloating()) return
-        // The permission is asked for once; without it Android's small window is used, as before
-        val prefs = getSharedPreferences("manhwa_floating", MODE_PRIVATE)
-        if (!FloatingReader.allowed(this) && !prefs.getBoolean("asked", false)) {
-            prefs.edit().putBoolean("asked", true).apply()
+        // MANHWA: the floating reader is the small window (Android's own lets nobody scroll in it): without its
+        // permission, the page that gives it opens
+        if (!FloatingReader.allowed(this)) {
             toast(tachiyomi.i18n.at.ATMR.strings.floating_need_permission)
             FloatingReader.askPermission(this)
             return
@@ -880,15 +879,10 @@ class ReaderActivity : BaseActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // Before Android 12 the small window is opened here, when the reader is left with the home gesture
-        // MANHWA: with the floating reader allowed, it opens instead of Android's small window (not when the reader
-        // itself opened another screen: sharing, settings)
+        // MANHWA: going home with the small window on opens the floating reader (not when the reader itself opened
+        // another screen: sharing, settings)
         if (leavingByApp) return
-        if (readerPreferences.pictureInPicture.get() && FloatingReader.allowed(this)) {
-            openFloating()
-            return
-        }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && readerPreferences.pictureInPicture.get()) enterPip()
+        if (readerPreferences.pictureInPicture.get() && FloatingReader.allowed(this)) openFloating()
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
