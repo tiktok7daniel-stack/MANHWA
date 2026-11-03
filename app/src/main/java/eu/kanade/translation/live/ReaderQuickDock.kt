@@ -41,6 +41,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Palette
+import mihon.icons.materialsymbols.rounded.PictureInPictureAlt
 import mihon.icons.materialsymbols.rounded.Translate
 import tachiyomi.i18n.at.ATMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -60,9 +61,17 @@ fun ReaderQuickDock(
     onColorsHold: () -> Unit,
     onTouch: () -> Unit,
     modifier: Modifier = Modifier,
+    /** MANHWA: the floating reader (the chapter in a small window over other apps). */
+    onFloat: (() -> Unit)? = null,
     scrollButton: @Composable () -> Unit,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.End) {
+        if (onFloat != null) {
+            DockButton(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.hud_pip, false) {
+                onTouch()
+                onFloat()
+            }
+        }
         // A tap: the colours tune themselves page by page (or stop); a long press: set them by hand
         DockButton(MaterialSymbols.Rounded.Palette, ATMR.strings.dock_colors, autoColors, onHold = {
             onTouch()

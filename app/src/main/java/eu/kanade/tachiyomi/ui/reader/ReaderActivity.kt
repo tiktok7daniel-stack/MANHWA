@@ -396,6 +396,8 @@ class ReaderActivity : BaseActivity() {
                 val autoColorsOn by readerPreferences.autoColors.collectAsState()
                 eu.kanade.translation.live.ReaderQuickDock(
                     translating = autoTranslate,
+                    // MANHWA: the floating reader, one tap away
+                    onFloat = ::enterPip,
                     // The translation's own menu, all of it (the dock steps aside for it)
                     onTranslate = {
                         scrollButton.value = false
@@ -521,7 +523,8 @@ class ReaderActivity : BaseActivity() {
                 speaking = speaking,
                 onSpeak = { toggleSpeaking() },
                 onStudy = { showStudy = true },
-                onPip = if (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) ::enterPip else null,
+                // MANHWA: the floating reader needs no picture-in-picture support from the phone
+                onPip = ::enterPip,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
