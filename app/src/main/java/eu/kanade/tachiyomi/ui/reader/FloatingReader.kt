@@ -302,10 +302,13 @@ object FloatingReader {
             var sample = 1
             val wanted = max(targetWidth, 320)
             while (bounds.outWidth / (sample * 2) >= wanted) sample *= 2
+            // A very tall strip is kept under what a view may draw
+            while (bounds.outWidth.toLong() / sample * (bounds.outHeight / sample) * 4 > MAX_BITMAP_BYTES) sample *= 2
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
         }
     }
 
     private const val CACHE_BYTES = 48 * 1024 * 1024
     private const val LOAD_TIMEOUT_MS = 60_000L
+    private const val MAX_BITMAP_BYTES = 40_000_000L
 }

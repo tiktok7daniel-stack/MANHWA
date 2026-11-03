@@ -742,6 +742,8 @@ class ReaderActivity : BaseActivity() {
     override fun onDestroy() {
         super.onDestroy()
         if (pipReceiverOn) runCatching { unregisterReceiver(pipReceiver) }.also { pipReceiverOn = false }
+        // MANHWA: the floating reader shows this reader's pages: it goes with it (not on a rotation)
+        if (isFinishing) FloatingReader.close()
         if (speakerLazy.isInitialized()) speaker.shutdown()
         // MANHWA: the home-screen widget shows the chapter just read
         eu.kanade.translation.widget.ManhwaContinueWidget.refresh(applicationContext)
@@ -785,6 +787,7 @@ class ReaderActivity : BaseActivity() {
      */
     override fun onResume() {
         super.onResume()
+        leavingByApp = false
         // MANHWA: back in the full reader, the floating one closes
         FloatingReader.close()
         viewModel.restartReadTimer()
@@ -843,13 +846,24 @@ class ReaderActivity : BaseActivity() {
     fun enterPip() {
         // MANHWA: the app's own floating window first (scrolls, moves, resizes); Android's small window otherwise
         if (openFloating()) return
-        if (!FloatingReader.allowed(this)) {
+        // The permission is asked for once; without it Android's small window is used, as before
+        val prefs = getSharedPreferences("manhwa_floating", MODE_PRIVATE)
+        if (!FloatingReader.allowed(this) && !prefs.getBoolean("asked", false)) {
+            prefs.edit().putBoolean("asked", true).apply()
             toast(tachiyomi.i18n.at.ATMR.strings.floating_need_permission)
             FloatingReader.askPermission(this)
             return
         }
         if (!packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) return
         runCatching { enterPictureInPictureMode(pipParams()) }
+    }
+
+    /** MANHWA: the reader itself is opening another screen, so leaving is not the reader going home. */
+    private var leavingByApp = false
+
+    override fun startActivity(intent: Intent?, options: Bundle?) {
+        leavingByApp = true
+        super.startActivity(intent, options)
     }
 
     /** Shows this chapter in the floating reader and steps back to the app before; false when it cannot. */
@@ -867,7 +881,9 @@ class ReaderActivity : BaseActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         // Before Android 12 the small window is opened here, when the reader is left with the home gesture
-        // MANHWA: with the floating reader allowed, it opens instead of Android's small window
+        // MANHWA: with the floating reader allowed, it opens instead of Android's small window (not when the reader
+        // itself opened another screen: sharing, settings)
+        if (leavingByApp) return
         if (readerPreferences.pictureInPicture.get() && FloatingReader.allowed(this)) {
             openFloating()
             return
