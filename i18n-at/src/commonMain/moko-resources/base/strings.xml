@@ -1995,4 +1995,6 @@
     <string name="wn_kashida_b">Boxes are justified with kashida, a short line in a round bubble gets a light stretch, speech is in a bold kufi and captions in a tall, thin display face.</string>
     <string name="wn_thermal_t">A cooler phone</string>
     <string name="wn_thermal_b">When the phone warms up, background translation rests between pages and translating ahead stops; when it is hot, background work waits to cool and decoration rests. The page you are reading never waits.</string>
+    <string name="wn_pipscroll_t">Scroll in the small window</string>
+    <string name="wn_pipscroll_b">Android lets nobody scroll inside the small floating reader, so it now has up and down buttons: tap the window, then the arrows. A long strip moves most of a window, pages one page. Pinch the window to make it bigger.</string>
 </resources>

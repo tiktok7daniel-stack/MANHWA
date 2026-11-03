@@ -133,6 +133,15 @@ class ReaderActivity : BaseActivity() {
     private val graph: AppGraph by lazy { metroGraph() }
 
     companion object {
+        /** MANHWA: the small window's up and down buttons. */
+        private const val PIP_ACTION = "eu.kanade.manhwa.PIP_SCROLL"
+        private const val PIP_DIR = "dir"
+        private const val PIP_UP = -1
+        private const val PIP_DOWN = 1
+
+        /** How much of the small window one press scrolls a long strip. */
+        private const val PIP_SCROLL = 0.8f
+
         /** How long the auto-scroll button stays after it was shown or last touched. */
         private const val SCROLL_BUTTON_HIDE_MS = 2_000L
 
@@ -732,6 +741,7 @@ class ReaderActivity : BaseActivity() {
      */
     override fun onDestroy() {
         super.onDestroy()
+        if (pipReceiverOn) runCatching { unregisterReceiver(pipReceiver) }.also { pipReceiverOn = false }
         if (speakerLazy.isInitialized()) speaker.shutdown()
         // MANHWA: the home-screen widget shows the chapter just read
         eu.kanade.translation.widget.ManhwaContinueWidget.refresh(applicationContext)
@@ -789,6 +799,8 @@ class ReaderActivity : BaseActivity() {
         val (w, h) = eu.kanade.tachiyomi.ui.reader.PipRules.ratio(width, height)
         return android.app.PictureInPictureParams.Builder()
             .setAspectRatio(android.util.Rational(w, h))
+            // MANHWA: Android lets nobody scroll inside the small window: up and down buttons do it instead
+            .setActions(listOf(pipAction(PIP_UP, R.drawable.ic_pip_up, "▲"), pipAction(PIP_DOWN, R.drawable.ic_pip_down, "▼")))
             .apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     setAutoEnterEnabled(readerPreferences.pictureInPicture.get())
@@ -797,6 +809,32 @@ class ReaderActivity : BaseActivity() {
             }
             .build()
     }
+
+    private fun pipAction(dir: Int, icon: Int, title: String): android.app.RemoteAction {
+        val intent = Intent(PIP_ACTION).setPackage(packageName).putExtra(PIP_DIR, dir)
+        val pending = android.app.PendingIntent.getBroadcast(
+            this,
+            dir + 2,
+            intent,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        return android.app.RemoteAction(android.graphics.drawable.Icon.createWithResource(this, icon), title, title, pending)
+    }
+
+    /** MANHWA: the small window's buttons: a long strip goes most of a window up or down, pages one page. */
+    private val pipReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: Intent) {
+            val down = intent.getIntExtra(PIP_DIR, PIP_DOWN) == PIP_DOWN
+            when (val viewer = viewModel.state.value.viewer) {
+                is WebtoonViewer -> viewer.recycler.let { list ->
+                    list.smoothScrollBy(0, ((if (down) 1 else -1) * list.height * PIP_SCROLL).toInt())
+                }
+                is PagerViewer -> if (down) viewer.moveToNext() else viewer.moveToPrevious()
+                else -> Unit
+            }
+        }
+    }
+    private var pipReceiverOn = false
 
     /** Opens the reader in its small window now (from the reader's menu). */
     fun enterPip() {
@@ -814,6 +852,18 @@ class ReaderActivity : BaseActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         // In the small window only the page shows: no menu, no bars
         if (isInPictureInPictureMode) setMenuVisibility(false)
+        if (isInPictureInPictureMode && !pipReceiverOn) {
+            androidx.core.content.ContextCompat.registerReceiver(
+                this,
+                pipReceiver,
+                android.content.IntentFilter(PIP_ACTION),
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+            pipReceiverOn = true
+        } else if (!isInPictureInPictureMode && pipReceiverOn) {
+            runCatching { unregisterReceiver(pipReceiver) }
+            pipReceiverOn = false
+        }
     }
 
     /**
