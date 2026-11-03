@@ -133,6 +133,7 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
+            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_floating_t, ATMR.strings.wn_floating_b),
             Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_pipscroll_t, ATMR.strings.wn_pipscroll_b),
         )
 

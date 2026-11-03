@@ -1998,4 +1998,6 @@
     <string name="wn_pipscroll_t">Scroll in the small window</string>
     <string name="wn_pipscroll_b">Android lets nobody scroll inside the small floating reader, so it now has up and down buttons: tap the window, then the arrows. A long strip moves most of a window, pages one page. Pinch the window to make it bigger.</string>
     <string name="floating_need_permission">Allow \"Display over other apps\" for the floating reader, then tap again.</string>
+    <string name="wn_floating_t">A floating reader of its own</string>
+    <string name="wn_floating_b">The small-window button now opens the app\'s own floating reader over any app: scroll it with your finger, move it by its top bar, resize it from its corner, and keep typing in the app under it. The first time, allow \"Display over other apps\".</string>
 </resources>
