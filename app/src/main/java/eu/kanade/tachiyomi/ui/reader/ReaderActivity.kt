@@ -785,6 +785,8 @@ class ReaderActivity : BaseActivity() {
      */
     override fun onResume() {
         super.onResume()
+        // MANHWA: back in the full reader, the floating one closes
+        FloatingReader.close()
         viewModel.restartReadTimer()
         setMenuVisibility(viewModel.state.value.menuVisible)
         viewModel.state.value.manga?.id?.let { eu.kanade.tachiyomi.music.MusicPlayer.attach(this, it) }
@@ -803,7 +805,8 @@ class ReaderActivity : BaseActivity() {
             .setActions(listOf(pipAction(PIP_UP, R.drawable.ic_pip_up, "▲"), pipAction(PIP_DOWN, R.drawable.ic_pip_down, "▼")))
             .apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    setAutoEnterEnabled(readerPreferences.pictureInPicture.get())
+                    // The floating reader takes over when it is allowed
+                    setAutoEnterEnabled(readerPreferences.pictureInPicture.get() && !FloatingReader.allowed(this@ReaderActivity))
                     setSeamlessResizeEnabled(true)
                 }
             }
@@ -838,13 +841,37 @@ class ReaderActivity : BaseActivity() {
 
     /** Opens the reader in its small window now (from the reader's menu). */
     fun enterPip() {
+        // MANHWA: the app's own floating window first (scrolls, moves, resizes); Android's small window otherwise
+        if (openFloating()) return
+        if (!FloatingReader.allowed(this)) {
+            toast(tachiyomi.i18n.at.ATMR.strings.floating_need_permission)
+            FloatingReader.askPermission(this)
+            return
+        }
         if (!packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) return
         runCatching { enterPictureInPictureMode(pipParams()) }
+    }
+
+    /** Shows this chapter in the floating reader and steps back to the app before; false when it cannot. */
+    private fun openFloating(): Boolean {
+        if (!FloatingReader.allowed(this)) return false
+        val state = viewModel.state.value
+        val pages = state.viewerChapters?.currChapter?.pages ?: return false
+        FloatingReader.show(this, pages, (state.currentPage - 1).coerceAtLeast(0))
+        if (!FloatingReader.showing) return false
+        // The reader stays open behind it (its pages keep loading), the app before comes back
+        moveTaskToBack(true)
+        return true
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         // Before Android 12 the small window is opened here, when the reader is left with the home gesture
+        // MANHWA: with the floating reader allowed, it opens instead of Android's small window
+        if (readerPreferences.pictureInPicture.get() && FloatingReader.allowed(this)) {
+            openFloating()
+            return
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && readerPreferences.pictureInPicture.get()) enterPip()
     }
 
