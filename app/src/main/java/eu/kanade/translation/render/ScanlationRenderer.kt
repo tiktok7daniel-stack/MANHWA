@@ -733,12 +733,16 @@ object ScanlationRenderer {
                 // A busy drawing behind the text (speed lines, art): MANHWA real cleaning first, the letters' hole
                 // filled with real pieces of the drawing around it; the edge blend when that cannot be done
                 if (boxWhenBusy) {
-                    val hole = BooleanArray(n) { i ->
+                    // MANHWA: the letters themselves when their colours stand out from the drawing: only they are
+                    // painted over, from real pieces of the drawing around (the art between the letters stays);
+                    // the whole box only with deep cleaning on
+                    val letters = if (eu.kanade.translation.ThermalGuard.hot) null else LetterMask.build(px, w, h, innerL, innerT, innerR, innerB, holeGrow)
+                    val hole = letters ?: BooleanArray(n) { i ->
                         val x = i % w
                         val y = i / w
                         x >= innerL - holeGrow && x < innerR + holeGrow && y >= innerT - holeGrow && y < innerB + holeGrow
                     }
-                    val inpainted = style.deepClean && ExemplarInpainter.fill(px, w, h, hole, stop)
+                    val inpainted = (style.deepClean || letters != null) && ExemplarInpainter.fill(px, w, h, hole, stop)
                     if (inpainted) {
                         bitmap.setPixels(px, 0, w, l, t, w, h)
                     } else {
