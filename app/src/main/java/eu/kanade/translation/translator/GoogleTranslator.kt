@@ -98,7 +98,7 @@ class GoogleTranslator(
         // MANHWA: a bubble that is only a voiced sound is written in Arabic here, without asking Google
         val part = if (toLang == TextTranslatorLanguage.ARABIC) {
             whole.filter { block ->
-                val arabic = PlainMt.sound(block.text) ?: return@filter true
+                val arabic = PlainMt.direct(block.text) ?: return@filter true
                 block.translation = arabic
                 false
             }

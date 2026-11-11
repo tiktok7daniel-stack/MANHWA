@@ -59,7 +59,7 @@ class FastTranslator(
         // MANHWA: a bubble that is only a voiced sound is written in Arabic here, on no engine's quota
         val blocks = if (toLang == TextTranslatorLanguage.ARABIC) {
             all.filter { block ->
-                val arabic = PlainMt.sound(block.text) ?: return@filter true
+                val arabic = PlainMt.direct(block.text) ?: return@filter true
                 block.translation = arabic
                 false
             }

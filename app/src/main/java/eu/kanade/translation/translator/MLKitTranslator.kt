@@ -43,7 +43,7 @@ class MLKitTranslator(
             if (block.text.isBlank()) return@forEach
             // MANHWA: a bubble that is only a voiced sound is written in Arabic directly
             if (toLang == TextTranslatorLanguage.ARABIC) {
-                PlainMt.sound(block.text)?.let {
+                PlainMt.direct(block.text)?.let {
                     block.translation = it
                     return@forEach
                 }
