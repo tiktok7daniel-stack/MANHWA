@@ -916,6 +916,12 @@ class AiTranslator(
             appendLine("   sound itself, short: هاه... / آه... / أف! / تسك / همف / هئ...; never a description of it (not \"(هتاف اشمئزاز)\",")
             appendLine("   not \"(تنهيدة)\") and never the Korean or English letters spelled out (not هيوك، not أوغ).")
             appendLine("   Keep brackets only when the source line has them, and always close what you open.")
+            // MANHWA: how Arabic scanlation teams write, against the literal machine style seen in the reader's pages
+            appendLine("   Write it the way an Arabic scanlation team would, not word for word. For example:")
+            appendLine("   \"Cooperation must be unfamiliar to you\" -> \"لا بد أن التعاون أمر غريب عليك\" (not \"يكون مفهوما غير مألوف بالنسبة لك\");")
+            appendLine("   \"Since you've all operated alone until now.\" -> \"فقد اعتدتم العمل بمفردكم حتى الآن.\";")
+            appendLine("   \"That's you three?\" -> \"أهؤلاء أنتم الثلاثة؟\" (not \"هذا أنتم الثلاثة؟\").")
+            appendLine("   A name is written in Arabic letters as it sounds, the same every time, and never translated as a word.")
         }
         // MANHWA style guide: every kind of bubble has its own voice, like a professional scanlation team
         appendLine("8. Style by kind:")
