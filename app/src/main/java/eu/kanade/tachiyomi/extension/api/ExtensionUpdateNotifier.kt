@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notify
 import tachiyomi.core.common.i18n.pluralStringResource
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
@@ -43,7 +44,31 @@ class ExtensionUpdateNotifier(
         }
     }
 
+    /** MANHWA: sources the stores have that they did not have before, by name; a tap opens the extensions. */
+    fun promptNewSources(names: List<String>) {
+        context.notify(
+            ID_NEW_SOURCES,
+            Notifications.CHANNEL_EXTENSIONS_UPDATE,
+        ) {
+            setContentTitle(context.stringResource(tachiyomi.i18n.at.ATMR.strings.ext_new_sources, names.size))
+            if (!securityPreferences.hideNotificationContent.get()) {
+                val extNames = names.take(MAX_NAMES).joinToString(", ")
+                setContentText(extNames)
+                setStyle(NotificationCompat.BigTextStyle().bigText(extNames))
+            }
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_filled_extension)
+            setContentIntent(NotificationReceiver.openExtensionsPendingActivity(context))
+            setAutoCancel(true)
+        }
+    }
+
     fun dismiss() {
         context.cancelNotification(Notifications.ID_UPDATES_TO_EXTS)
+    }
+
+    private companion object {
+        /** Its own notification, apart from the one for updates. */
+        const val ID_NEW_SOURCES = -0x4D4E5753
+        const val MAX_NAMES = 20
     }
 }

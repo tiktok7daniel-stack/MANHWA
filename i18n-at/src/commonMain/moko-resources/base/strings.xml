@@ -2003,4 +2003,5 @@
     <string name="perf_title">Performance</string>
     <string name="perf_switch">Performance mode</string>
     <string name="perf_switch_sub">A cooler, faster phone: decoration stands still, background translation rests and nothing is translated ahead, automatic colours pause. Reading and translating the page you are on stay the same.</string>
+    <string name="ext_new_sources">%d new sources available</string>
 </resources>

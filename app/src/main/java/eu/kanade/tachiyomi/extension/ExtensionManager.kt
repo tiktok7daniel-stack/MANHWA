@@ -213,6 +213,16 @@ class ExtensionManager(
 
         initialized.await()
         setAvailableExtensions(extensions)
+        // MANHWA: sources the stores added since the last check are announced (not the first time, when all are new)
+        runCatching {
+            val known = preferences.knownAvailableExtensions.get()
+            val now = extensions.map { it.pkgName }.toSet()
+            if (known.isNotEmpty()) {
+                val fresh = extensions.filter { it.pkgName !in known }.map { it.name }
+                if (fresh.isNotEmpty()) extensionUpdateNotifier.promptNewSources(fresh)
+            }
+            if (now.isNotEmpty()) preferences.knownAvailableExtensions.set(known + now)
+        }
 
         val updatable = (loadedExtensionMapFlow.value.values + notLoadedExtensionMapFlow.value.values)
             .filter { it.hasUpdate }

@@ -49,6 +49,9 @@ class SourcePreferences(
     /** MANHWA: when the stores were last checked for extension updates in the background. */
     val lastExtensionCheck: Preference<Long> = preferenceStore.getLong("manhwa_last_extension_check", 0L)
 
+    /** MANHWA: the extensions the stores offered at the last check (empty before the first), to tell new ones. */
+    val knownAvailableExtensions: Preference<Set<String>> = preferenceStore.getStringSet("manhwa_known_available_exts", emptySet())
+
     /** MANHWA: how the source hub sorts sources: 0 fame, 1 speed, 2 A to Z. */
     val hubSort: Preference<Int> = preferenceStore.getInt("manhwa_hub_sort", 0)
 
