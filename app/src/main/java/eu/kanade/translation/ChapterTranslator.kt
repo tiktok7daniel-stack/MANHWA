@@ -1162,7 +1162,9 @@ class ChapterTranslator(
         error is StepFailure -> error.note
         error is AiTranslator.ApiException && (error.code == 401 || error.code == 403) -> Translation.Note.KEY_INVALID
         error is AiTranslator.ApiException && error.code == 429 -> Translation.Note.KEY_LIMIT
-        error is java.net.UnknownHostException || error is java.net.ConnectException -> Translation.Note.NO_INTERNET
+        // The cause too: a cancellable call wraps what the network threw
+        generateSequence(error) { it.cause }.take(6).any { it is java.net.UnknownHostException || it is java.net.ConnectException } ->
+            Translation.Note.NO_INTERNET
         error is java.io.IOException -> Translation.Note.RETRY
         else -> Translation.Note.OTHER
     }

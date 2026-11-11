@@ -1379,8 +1379,8 @@ class AiTranslator(
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.MINUTES)
             .writeTimeout(60, TimeUnit.SECONDS)
-            // MANHWA: no call lives longer than this, whatever the server does
-            .callTimeout(3, TimeUnit.MINUTES)
+            // MANHWA: no call lives longer than this, whatever the server does (a long vision batch still fits)
+            .callTimeout(6, TimeUnit.MINUTES)
             .retryOnConnectionFailure(true)
             .build()
         const val TERMS_KEY = "_terms"
