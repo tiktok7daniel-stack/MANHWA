@@ -69,6 +69,7 @@ import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.DoneAll
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.EditNote
+import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.FolderOpen
 import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.Headphones
@@ -133,13 +134,19 @@ object WhatsNew {
      */
     val latest: List<Feature>
         get() = listOf(
-            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_floating_t, ATMR.strings.wn_floating_b),
-            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_pipscroll_t, ATMR.strings.wn_pipscroll_b),
+            Feature(MaterialSymbols.Rounded.Speed, ATMR.strings.wn_preset_t, ATMR.strings.wn_preset_b),
+            Feature(MaterialSymbols.Rounded.Translate, ATMR.strings.wn_phrases_t, ATMR.strings.wn_phrases_b),
+            Feature(MaterialSymbols.Rounded.AutoAwesome, ATMR.strings.wn_lettermask_t, ATMR.strings.wn_lettermask_b),
+            Feature(MaterialSymbols.Rounded.Thermostat, ATMR.strings.wn_perf_t, ATMR.strings.wn_perf_b),
+            Feature(MaterialSymbols.Rounded.Explore, ATMR.strings.wn_newsrc_t, ATMR.strings.wn_newsrc_b),
         )
 
     /** Everything from earlier updates, newest first (shown in Settings, "What's new", below [latest]). */
     val earlier: List<Feature>
         get() = listOf(
+            // Build 172
+            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_floating_t, ATMR.strings.wn_floating_b),
+            Feature(MaterialSymbols.Rounded.PictureInPictureAlt, ATMR.strings.wn_pipscroll_t, ATMR.strings.wn_pipscroll_b),
             // Build 169
             Feature(MaterialSymbols.Rounded.EditNote, ATMR.strings.wn_kashida_t, ATMR.strings.wn_kashida_b),
             Feature(MaterialSymbols.Rounded.Thermostat, ATMR.strings.wn_thermal_t, ATMR.strings.wn_thermal_b),

@@ -227,6 +227,42 @@ class TranslationHubScreen(private val page: HubPage = HubPage.ROOT) : Screen() 
                                     stats = stats,
                                 )
                             }
+                            // MANHWA: one choice instead of many switches; the switches below still work one by one
+                            item {
+                                HubSection(stringResource(ATMR.strings.preset_title), MaterialSymbols.Rounded.Speed) {
+                                    val preset = when {
+                                        fastMode -> 0
+                                        geminiStrongest && consensus && deepClean -> 2
+                                        else -> 1
+                                    }
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        listOf(ATMR.strings.preset_fast, ATMR.strings.preset_balanced, ATMR.strings.preset_best)
+                                            .forEachIndexed { i, label ->
+                                                ManhwaKit.Chip(stringResource(label), preset == i) {
+                                                    prefs.translationFastMode().set(i == 0)
+                                                    prefs.translationGeminiStrongest().set(i == 2)
+                                                    prefs.translationConsensus().set(i == 2)
+                                                    prefs.translationDeepClean().set(i >= 1)
+                                                }
+                                            }
+                                    }
+                                    Text(
+                                        stringResource(
+                                            when (preset) {
+                                                0 -> ATMR.strings.preset_fast_info
+                                                2 -> ATMR.strings.preset_best_info
+                                                else -> ATMR.strings.preset_balanced_info
+                                            },
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 10.dp),
+                                    )
+                                }
+                            }
                             item {
                                 HubSection(stringResource(ATMR.strings.th_section_languages), MaterialSymbols.Rounded.Language) {
                                     HubChoiceRow(
