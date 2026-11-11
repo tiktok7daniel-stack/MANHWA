@@ -51,6 +51,12 @@ class UiPreferences(
 
     /** MANHWA: the works' songs, everywhere (the music bar, the player, songs playing in the pages and chapters). */
     val musicEnabled: Preference<Boolean> = preferenceStore.getBoolean("manhwa_music_enabled", true)
+
+    /**
+     * MANHWA performance mode: a cooler, faster phone. The decoration stands still, nothing optional is worked on
+     * in the background, and the reader skips the extras (automatic colours); reading and translating stay as they are.
+     */
+    val performanceMode: Preference<Boolean> = preferenceStore.getBoolean("manhwa_performance_mode", false)
     val introSpeed: Preference<Float> = preferenceStore.getFloat("manhwa_intro_speed", 1f)
 
     /** Obsidian Royal in its light version (silk paper) instead of the dark one. */

@@ -289,7 +289,7 @@ class TeamTranslator(
         val order = members.filter { it.id in active }
             .sortedWith(compareBy<TeamStore.Member> { health[it.id]?.resting == true }.thenByDescending { store.strength(it.id) })
 
-        class Outcome(val result: Map<String, PageTranslation>?, val translator: AiTranslator)
+        class Outcome(val result: Map<String, PageTranslation>?, val translator: AiTranslator?)
 
         val outcomes = Channel<Outcome>(Channel.UNLIMITED)
         val jobs = mutableListOf<Job>()
@@ -302,11 +302,14 @@ class TeamTranslator(
             jobs += launch {
                 val vision = store.analysis.value[member.id]?.vision ?: true
                 store.router.acquire(member.id, lane)
-                val translator = store.translatorFor(member, fromLang, toLang, lane).also(::shareSettings)
+                // MANHWA: made inside the try, so a key that cannot even be set up still gives its permit back
+                var translator: AiTranslator? = null
                 // Every racer works on its own copy; the winner's copy is put on the page
                 val copy = pages.mapValuesTo(mutableMapOf()) { (_, page) -> page.copy(blocks = page.blocks.map { it.copy() }.toMutableList()) }
                 val outcome = try {
-                    withTimeout(BATCH_TIMEOUT_MS) { translator.translate(copy, if (vision) images else emptyMap()) }
+                    val t = store.translatorFor(member, fromLang, toLang, lane).also(::shareSettings)
+                    translator = t
+                    withTimeout(BATCH_TIMEOUT_MS) { t.translate(copy, if (vision) images else emptyMap()) }
                     store.reportOk(member.id)
                     store.router.report(member.id, null)
                     Outcome(copy, translator)
@@ -317,7 +320,7 @@ class TeamTranslator(
                     store.router.report(member.id, e)
                     Outcome(null, translator)
                 } finally {
-                    translator.close()
+                    translator?.close()
                     store.router.release(member.id, lane)
                     store.router.count(lane)
                 }
@@ -353,8 +356,8 @@ class TeamTranslator(
         if (won?.result != null) {
             // In place: the caller keeps its own page objects
             won.result.forEach { (name, page) -> pages[name]?.blocks = page.blocks }
-            won.translator.discoveredTerms.forEach { (source, translation) -> lead.discoveredTerms.putIfAbsent(source, translation) }
-            won.translator.discoveredDetails.forEach { (source, info) -> lead.discoveredDetails.putIfAbsent(source, info) }
+            won.translator?.discoveredTerms?.forEach { (source, translation) -> lead.discoveredTerms.putIfAbsent(source, translation) }
+            won.translator?.discoveredDetails?.forEach { (source, info) -> lead.discoveredDetails.putIfAbsent(source, info) }
             remember(pages.values)
         } else {
             fellBack = true

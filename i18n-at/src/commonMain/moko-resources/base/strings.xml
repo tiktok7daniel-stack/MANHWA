@@ -2000,4 +2000,7 @@
     <string name="floating_need_permission">Allow \"Display over other apps\" for the floating reader, then tap again.</string>
     <string name="wn_floating_t">A floating reader of its own</string>
     <string name="wn_floating_b">The small-window button now opens the app\'s own floating reader over any app: scroll it with your finger, move it by its top bar, resize it from its corner, and keep typing in the app under it. The first time, allow \"Display over other apps\".</string>
+    <string name="perf_title">Performance</string>
+    <string name="perf_switch">Performance mode</string>
+    <string name="perf_switch_sub">A cooler, faster phone: decoration stands still, background translation rests and nothing is translated ahead, automatic colours pause. Reading and translating the page you are on stay the same.</string>
 </resources>

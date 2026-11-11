@@ -71,6 +71,11 @@ object DecorMotion {
         if (started) return
         started = true
         val app = context.applicationContext
+        appContext = app
+        performance = runCatching {
+            app.getSharedPreferences(app.packageName + "_preferences", Context.MODE_PRIVATE).getBoolean("manhwa_performance_mode", false)
+        }.getOrDefault(false)
+        eu.kanade.translation.ThermalGuard.performance = performance
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) = refresh(app, intent)
         }
@@ -93,6 +98,15 @@ object DecorMotion {
 
     @Volatile private var batteryLow = false
 
+    /** MANHWA performance mode: the decoration stands still whatever the phone's state. */
+    @Volatile var performance = false
+        set(value) {
+            field = value
+            appContext?.let { refresh(it, null) }
+        }
+
+    private var appContext: Context? = null
+
     private fun refresh(context: Context, battery: Intent?) {
         if (battery != null && battery.action == Intent.ACTION_BATTERY_CHANGED) {
             val level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
@@ -106,6 +120,7 @@ object DecorMotion {
         // MANHWA: the rest of the app slows its own background work by the same reading
         eu.kanade.translation.ThermalGuard.status = thermal
         _level.value = when {
+            performance -> Level.OFF
             // Decoration is the first thing to stop: off once the phone is moderately hot, slower when warm
             thermal >= PowerManager.THERMAL_STATUS_MODERATE -> Level.OFF
             saving || batteryLow || thermal >= PowerManager.THERMAL_STATUS_LIGHT -> Level.LITE

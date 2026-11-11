@@ -18,6 +18,9 @@ object ExemplarInpainter {
     /** Holes larger than this (pixels) are not inpainted here (too slow for the reader). */
     const val MAX_HOLE = 16_000
 
+    /** Most time one hole may take (1.2 s). */
+    private const val MAX_NANOS = 1_200_000_000L
+
     private const val HALF = 3
     private const val STEP = 2
 
@@ -51,9 +54,11 @@ object ExemplarInpainter {
         val remaining = IntArray(holeCount)
         var remainingCount = 0
         for (i in 0 until n) if (hole[i]) remaining[remainingCount++] = i
+        // MANHWA: never holds the reader up for long: past this the caller's quicker fill is used
+        val deadline = System.nanoTime() + MAX_NANOS
         while (left > 0 && guard-- > 0) {
-            // Given up (the page left the screen): the caller falls back to its plain cleaning
-            if (stop()) return false
+            // Given up (the page left the screen, or it takes too long): the caller falls back to its plain cleaning
+            if (stop() || System.nanoTime() > deadline) return false
             // The fill front: unknown pixels with a known neighbour; the most confident with the strongest
             // structure around it goes first
             var best = -1

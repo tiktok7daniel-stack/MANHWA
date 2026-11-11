@@ -27,6 +27,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import logcat.LogPriority
+import eu.kanade.tachiyomi.network.await
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -804,7 +805,7 @@ class AiTranslator(
             else -> "$baseUrl/models" to mapOf("Authorization" to "Bearer $apiKey")
         }
         val request = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.get().build()
-        client.newCall(request).execute().use { response ->
+        client.newCall(request).await().use { response ->
             val text = response.body.string()
             if (!response.isSuccessful) throw ApiException(response.code, text.take(500))
             val root = json.parseToJsonElement(text).jsonObject
@@ -1148,7 +1149,7 @@ class AiTranslator(
             .apply { headers.forEach { (k, v) -> header(k, v) } }
             .post(body.toString().toRequestBody(JSON_MEDIA))
             .build()
-        client.newCall(request).execute().use { response ->
+        client.newCall(request).await().use { response ->
             val text = response.body.string()
             onResponse?.invoke(response.code, response.headers, if (response.isSuccessful) "" else text.take(500))
             if (!response.isSuccessful) throw ApiException(response.code, text.take(500), response.header("retry-after"))
@@ -1378,6 +1379,8 @@ class AiTranslator(
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.MINUTES)
             .writeTimeout(60, TimeUnit.SECONDS)
+            // MANHWA: no call lives longer than this, whatever the server does
+            .callTimeout(3, TimeUnit.MINUTES)
             .retryOnConnectionFailure(true)
             .build()
         const val TERMS_KEY = "_terms"

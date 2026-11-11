@@ -485,8 +485,9 @@ class ChapterTranslator(
                             pageTranslation = try {
                             HeavyWork.background<PageTranslation?> {
                             streamFn().use { tmpFile.openOutputStream().use { out -> it.copyTo(out) } }
+                            // MANHWA: a page that cannot be decoded is a failed read (tried again), never "translated"
                             val decoded = PageImageProcessor.decode { context.contentResolver.openInputStream(tmpFile.uri)!! }
-                                ?: return@background null
+                                ?: throw java.io.IOException("Page could not be decoded")
                             try {
                                 // OCR in strips on the decoded page, then the colour behind every line
                                 PageOcr.recognize(recognizer, decoded.bitmap, paddle, ocrMode).rescaled(1f / decoded.scale).also {

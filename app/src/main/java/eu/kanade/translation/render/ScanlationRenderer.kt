@@ -230,7 +230,7 @@ object ScanlationRenderer {
                 val kind = BubbleKind.parse(block.kind) ?: BubbleKind.guess(block.text, block.translation)
                 (untranslated(block) && !eu.kanade.translation.translator.EnglishGuard.joined(block, page.blocks)) ||
                     (kind == BubbleKind.SFX && style.skipSfx) ||
-                    (kind == BubbleKind.ART && !inPlainBubble(block, loose = true))
+                    (kind == BubbleKind.ART && !safePlain(block))
             }.map { block ->
                 RectF(block.lineBoxes.first().let { RectF(it.x * s, it.y * s, it.right * s, it.bottom * s) })
                     .apply { block.lineBoxes.forEach { union(it.x * s, it.y * s, it.right * s, it.bottom * s) } }
@@ -249,7 +249,7 @@ object ScanlationRenderer {
                 // erased and the translation takes their place
                 // MANHWA: so are big titles over a sky or a soft glow ("THE WAR ENDED."): replaced in their own
                 // colours rather than captioned in a band over the drawing
-                if (kind == BubbleKind.ART && inPlainBubble(block, loose = true)) kind = BubbleKind.SHOUT
+                if (kind == BubbleKind.ART && safePlain(block)) kind = BubbleKind.SHOUT
                 // MANHWA art text: the drawing is never erased, the translation goes in a caption under it
                 if (kind == BubbleKind.ART) return@mapNotNull artCaption(block, kind)
                 // One bad bubble never costs the whole page its translation
@@ -357,6 +357,15 @@ object ScanlationRenderer {
                 distance(bitmap.getPixel(px, py), bg) > SHARE_DISTANCE
             }
             return outside >= 2
+        }
+
+        /** MANHWA: [inPlainBubble], where a malformed box (NaN from a vision model) counts as not plain. */
+        private fun safePlain(block: TranslationBlock): Boolean = try {
+            inPlainBubble(block, loose = true)
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
         }
 
         /** Whether the ring around [block]'s letters is one light colour: the inside of a speech bubble. */

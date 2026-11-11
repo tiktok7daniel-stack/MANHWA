@@ -228,7 +228,9 @@ object PageOcr {
         val inverted = runCatching { invertedGray(strip) }.getOrNull() ?: return base
         val extra = try {
             readAt(recognizer, inverted, scale)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // MANHWA: out of memory on the second reading keeps the first one
+            if (e is kotlinx.coroutines.CancellationException) throw e
             emptyList()
         } finally {
             inverted.recycle()

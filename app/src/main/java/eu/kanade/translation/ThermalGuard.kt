@@ -13,8 +13,11 @@ object ThermalGuard {
     /** Android's thermal status (0 none, 1 light, 2 moderate, 3 severe and up). */
     @Volatile var status: Int = 0
 
+    /** MANHWA performance mode (the reader's switch): treated as a warm phone all the time. */
+    @Volatile var performance: Boolean = false
+
     /** Warm: work in the background slows down, nothing optional starts. */
-    val warm: Boolean get() = status >= LIGHT
+    val warm: Boolean get() = performance || status >= LIGHT
 
     /** Hot: work in the background waits until the phone cools down. */
     val hot: Boolean get() = status >= MODERATE

@@ -600,7 +600,8 @@ class LiveTranslator(
             // MANHWA: sound effects stay as drawn, neither translated nor erased
             val skipSfx = preferences.translationSkipSfx().get()
             val result: PageTranslation = HeavyWork.reader<PageTranslation?> {
-                val decoded = PageImageProcessor.decode { ByteArrayInputStream(bytes) } ?: return@reader null
+                // MANHWA: a page that cannot be decoded fails (Retry can clear it), it is not taken for art only
+                val decoded = PageImageProcessor.decode { ByteArrayInputStream(bytes) } ?: throw java.io.IOException("Page could not be decoded")
                 try {
                     // OCR ran on the downscaled bitmap (in strips for tall pages); boxes go back to the real page size
                     // MANHWA dual OCR: PaddleOCR reads with ML Kit when its models are on the phone

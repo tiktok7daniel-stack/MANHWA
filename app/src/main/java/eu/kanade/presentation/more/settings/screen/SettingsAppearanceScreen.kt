@@ -71,6 +71,22 @@ object SettingsAppearanceScreen : SearchableSettings {
                     ),
                 ),
             ),
+            // MANHWA: a cooler, faster phone in one switch
+            Preference.PreferenceGroup(
+                title = stringResource(ATMR.strings.perf_title),
+                preferenceItems = listOf(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = uiPreferences.performanceMode,
+                        title = stringResource(ATMR.strings.perf_switch),
+                        subtitle = stringResource(ATMR.strings.perf_switch_sub),
+                        onValueChanged = { on ->
+                            eu.kanade.presentation.components.DecorMotion.performance = on
+                            eu.kanade.translation.ThermalGuard.performance = on
+                            true
+                        },
+                    ),
+                ),
+            ),
             getDisplayGroup(uiPreferences = uiPreferences),
         )
     }
